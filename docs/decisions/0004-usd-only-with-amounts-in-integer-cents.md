@@ -1,6 +1,6 @@
 # 0004 — All prices are USD, and every amount is an integer number of cents
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** —
+**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0046](./0046-display-only-prices-use-the-venues-own-currency.md) (in part)
 
 ## Context
 

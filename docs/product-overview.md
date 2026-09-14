@@ -273,7 +273,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 - Default roles: `super_admin`, `admin`, `venue_owner`, `user`.
 - Route guards declare the permission they need (`place:delete`), not the role.
 - PII (national ID) encrypted at rest, decrypted only when an admin actually views it, auto-redacted after 180 days, never logged.
-- Data deletion: an authenticated tourist can delete their account and purchase history.
+- Data deletion: an authenticated tourist can delete their account. Their personal data is erased; their purchase records are kept in anonymised form because tax and dispute handling require them ([ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)).
 
 ---
 
@@ -340,8 +340,8 @@ Four layers of defence, so the tourist never sees a blank screen:
 1. Tourist opens a Venue and sees *"Tasting set — $6 — save 20%"*.
 2. Buys in-app. Platform runs the checkout, keeps a 15% commission, and the remaining 85% is destined for the venue's connected payout account.
 3. A Stripe webhook — **not** the success screen — is what actually issues the voucher.
-4. Tourist gets a QR voucher in "My purchases", valid offline.
-5. Venue staff scan it in the Owner Portal to redeem. Redemption is idempotent — one voucher cannot be burned twice.
+4. Tourist gets a QR voucher in "My purchases", valid offline **on the device that bought it, on mobile or web**. It is a bearer voucher: whoever shows it first redeems it.
+5. Venue staff scan it on a redeem-only staff login — never the owner's account ([ADR 0047](./decisions/0047-venue-staff-are-memberships-not-roles.md)). Redemption is idempotent — one voucher cannot be burned twice.
 6. Owner sees the sale, the commission and the upcoming payout in their portal.
 
 ---
@@ -434,7 +434,7 @@ The platform aggregates venues and runs checkout on their behalf, so the **platf
 ### 8.6 Non-negotiable payment rules
 
 1. **Never** put a Stripe secret key in the mobile app, the web app, or any client code. Every Stripe call goes through our backend.
-2. **Never** pass `payment_method_types`. Omit it and let Stripe pick payment methods dynamically from Dashboard settings — hardcoding `['card']` locks out everything else.
+2. **Never** pass `payment_method_types`. Omit it and let Stripe pick payment methods dynamically from Dashboard settings — hardcoding `['card']` locks out everything else. Voucher checkout is limited to **instant** methods through a Stripe payment method configuration, never through `payment_method_types`, because a voucher must work the moment it is bought.
 3. **Verify every webhook signature** before processing. Treat the signing secret like a secret key.
 4. **Fulfil from webhooks, not from the success page.** A tourist can pay and immediately lose connectivity; a success-page-driven voucher silently never gets issued. Also handle `checkout.session.async_payment_succeeded` / `_failed`, and only fulfil when the session's `payment_status` is not `unpaid`.
 5. **Idempotency everywhere:** store the Stripe event ID and ignore replays. Stripe retries.

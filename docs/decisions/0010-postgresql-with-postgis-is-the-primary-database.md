@@ -1,6 +1,6 @@
 # 0010 — PostgreSQL with PostGIS is the primary database
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** —
+**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0054](./0054-services-use-prisma-directly-without-a-repository-layer.md) (in part)
 
 ## Context
 

@@ -1,6 +1,6 @@
 # 0016 — Every service is controller → service → repository, enforced by lint
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** —
+**Status:** Superseded · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0054](./0054-services-use-prisma-directly-without-a-repository-layer.md)
 
 ## Context
 
