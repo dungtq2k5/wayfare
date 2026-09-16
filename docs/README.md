@@ -53,7 +53,7 @@ Every ADR carries the **cost** of its decision, not only the upside. An ADR with
 | [0011](./decisions/0011-one-postgres-server-per-service.md) | Each service gets its own Postgres server, with a paired test database |
 | [0012](./decisions/0012-one-prisma-schema-per-service.md) | Each service owns its own `schema.prisma`, migrations and client |
 | [0013](./decisions/0013-no-cross-service-foreign-keys.md) | Cross-service references carry no foreign key; validate at write time |
-| [0014](./decisions/0014-prisma-7-and-driver-adapters.md) | Prisma 7, with driver adapters and the new client generator |
+| [0014](./decisions/0014-prisma-7-and-driver-adapters.md) | Prisma 7, with driver adapters and the new client generator — *partly superseded by 0058* |
 
 ### Services and communication
 
@@ -137,6 +137,7 @@ Every ADR carries the **cost** of its decision, not only the upside. An ADR with
 | [0055](./decisions/0055-every-identifier-is-a-uuidv7.md) | Every identifier is a UUIDv7 |
 | [0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md) | SWC builds the backend services; the gateway builds with tsc |
 | [0057](./decisions/0057-uri-versioning-with-nest-and-a-configured-global-prefix.md) | The gateway uses a configured global prefix and Nest's URI versioning |
+| [0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md) | Nest services and shared packages are CommonJS — partly supersedes 0014 |
 
 ---
 

@@ -195,10 +195,13 @@ This is the correct microservice trade, but it is a real loss and it must be bud
 
 - The **Rust query engine is gone** (a new query compiler runs in TypeScript), so there is no engine binary to ship in your Docker image.
 - **Driver adapters are now required.** For Postgres that means `@prisma/adapter-pg` over `pg`, passed to the client constructor.
-- The generator is **`prisma-client`**, not `prisma-client-js`, and it requires an explicit **`output`** path — the client is generated into your source tree rather than into `node_modules`.
-- The output is **ESM-first**.
+- The generator is **`prisma-client`**, not `prisma-client-js`, and it requires an explicit **`output`** path. Ours is **`../generated/prisma`** — `services/<svc>/generated/prisma`, outside `src/`, gitignored — which is why the SWC `entryFile` is `src/main` ([ADR 0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md)).
+- The output is ESM-first by default; **we set `moduleFormat = "cjs"`** ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)).
+- **The connection URL is not in `schema.prisma`.** It lives in **`prisma.config.ts`** (`datasource: { url }`), which the CLI reads for migrations. The runtime client gets its URL through the adapter: `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })`.
+- **Prisma no longer loads `.env` itself.** `prisma.config.ts` imports `dotenv/config`.
+- **`migrate dev` and `db push` no longer run `prisma generate` or the seed.** Both are explicit steps (`pnpm db:generate`, `prisma db seed`) in every script and in CI.
 
-⚠️ I am confident about that direction but not about every field name in the generator block. **Verify it against the current Prisma docs when you scaffold the first service**, and once one service's `schema.prisma` is known-good, copy it as the template for the rest.
+⚠️ Confirmed against the current Prisma 7 upgrade guide: the items above. **Still to confirm when the first service is scaffolded:** the exact generator field set, and `prisma migrate diff`'s flags for drift checking. Once identity's `schema.prisma` and `prisma.config.ts` are known-good, they are recorded here as the template for every other service.
 
 What has *not* changed, and matters most to us: `Unsupported()` column types and `$queryRaw` / `$executeRaw` still work exactly as before, which is how all PostGIS access happens.
 
@@ -498,8 +501,8 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 
 - **Distributed tracing:** **OpenTelemetry** (`@opentelemetry/sdk-node` + auto-instrumentations).
   - *Why:* a single "play narration in Japanese" request crosses gateway → catalog → narration → GCS, plus a JetStream hop. Without trace propagation, a latency problem is unattributable.
-  - ⚠️ Gotcha: HTTP and gRPC context propagate automatically; **NATS does not.** Inject and extract the trace context in the message headers yourself, or every async hop starts a new, disconnected trace.
-- **Traces locally:** **Jaeger** in Docker Compose (one container, a UI at `:16686`).
+  - ⚠️ Gotcha: HTTP and gRPC context propagate automatically; **NATS does not** — and an event leaves through the outbox on a *later* poll, outside the request's context. So the W3C `traceparent` is **stored on the outbox row at insert time** (`outbox_events.trace_parent`), copied into the NATS headers by the relay, and extracted by the consumer. Without that, the trace stops at the write.
+- **Traces locally:** **Jaeger v2** in Docker Compose (OTLP on 4317/4318, UI at `:16686`). Jaeger v1's `all-in-one` image is end-of-life.
 - **Structured logging:** **pino** — JSON logs with a correlation/trace ID on every line. Never log tokens, PII, Stripe keys or full webhook bodies.
 - **Metrics:** Prometheus-format `/metrics` via `@willsoto/nestjs-prometheus`, scraped into **Grafana**. Dashboard the four things that matter: nearby-query p95, TTS queue depth, Stripe webhook failures, geofence trigger rate.
 - **Error tracking:** **Sentry** across all three clients and all services, with source maps uploaded from CI. A crash on a tester's phone is otherwise unreproducible.
@@ -645,7 +648,10 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `TTS_PROVIDER`, `TRANSLATION_PROVIDER` | narration | selects the provider implementation |
 | `GOOGLE_TTS_CREDENTIALS` / `AZURE_SPEECH_KEY` | narration | paid fallback provider |
 | `MAP_PACK_DATA_DIR` | catalog | base directory for the path-traversal guard |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally (OTLP) |
+| `OTEL_TRACES_SAMPLER` | all services | `parentbased_always_on` locally and in staging. Set in the environment, never in code, so switching to a ratio later needs no deploy |
+| `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
+| `OPS_PORT`, `METRICS_PORT` | every service | The HTTP port for `/health*` and `/version`, and the separate internal `/metrics` port |
 | `SENTRY_DSN` | all apps + services | separate DSN per surface |
 | `EXPO_PUBLIC_API_URL` | mobile | ⚠️ `EXPO_PUBLIC_*` is **baked into the bundle** — public values only |
 | `VITE_API_URL`, `VITE_STRIPE_PUBLISHABLE_KEY` | web, console | ⚠️ same: `VITE_*` ships to the browser |

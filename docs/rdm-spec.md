@@ -263,13 +263,17 @@ Present in `identity`, `catalog`, `narration`, `billing`, `analytics` and `ai` �
 | **id** | UUID | PK | Also the JetStream `Nats-Msg-Id`, which is what makes a relay re-publish a deduplicated no-op. |
 | **subject** | VARCHAR(128) | NOT NULL | The JetStream subject, from the registry in `packages/contracts`. |
 | **payload** | JSONB | NOT NULL | Validated against the subject's zod schema **before** insert. A payload that fails validation fails the business transaction, which is the correct blast radius. |
-| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events for one aggregate are published in `id` order. |
+| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events for one aggregate are published in `id` order. For an audit event with no resource, the actor's id. |
+| **trace_parent** | VARCHAR(55) | Nullable | The W3C `traceparent` of the request that wrote the row, captured at insert. The relay copies it into the NATS headers so the consumer's span joins the originating trace — the publish happens on a later poll, outside that request's context. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | NULL means not yet published. |
 | **attempts** | INT | NOT NULL, 0 | Relay publish attempts. |
 | **last_error** | TEXT | Nullable | — |
 
 - **Index:** partial `(id) WHERE published_at IS NULL` — the relay's only query.
+- **`id` is also the event's `eventId`.** `outbox.add` generates it with `newId()`, injects it into the payload before validating, and uses it as the row id and the `Nats-Msg-Id`. No event factory generates its own id.
+- The relay claims rows with `SELECT … WHERE published_at IS NULL ORDER BY id LIMIT $n FOR UPDATE SKIP LOCKED`, so replicas never publish the same batch.
+- **A published-but-unmarked row is republished**, and outside JetStream's 2-minute duplicate window that is a real second delivery. That is by design — consumers absorb it — and must not be "fixed".
 - Published rows are pruned after `OUTBOX_RETENTION_DAYS` (7).
 
 ### 2.11 Shared table shape: `processed_events`
@@ -539,7 +543,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **actor_user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | — |
 | **actor_device_id** | UUID | Nullable | Not a foreign key: devices are pruned, audit rows are not. |
 | **action** | VARCHAR(64) | NOT NULL, Indexed | `SCREAMING_SNAKE` past tense, from `AUDIT_ACTIONS`. |
-| **resource_type** | VARCHAR(32) | NOT NULL | `USER \| ROLE \| OWNER_REGISTRATION \| PLACE \| SUBMISSION \| TOUR \| PRONUNCIATION \| SYNTHESIS_JOB \| PLAN \| BILLING_ACCOUNT \| VOUCHER_OFFER \| ORDER \| VOUCHER \| MAP_PACK \| LOCALIZATION \| STAFF_MEMBERSHIP \| ACCOUNT_RECOVERY` |
+| **resource_type** | VARCHAR(32) | NOT NULL | `USER \| DEVICE \| ROLE \| OWNER_REGISTRATION \| PLACE \| SUBMISSION \| TOUR \| PRONUNCIATION \| SYNTHESIS_JOB \| PLAN \| BILLING_ACCOUNT \| VOUCHER_OFFER \| ORDER \| VOUCHER \| MAP_PACK \| LOCALIZATION \| STAFF_MEMBERSHIP \| ACCOUNT_RECOVERY` |
 | **resource_id** | UUID | Nullable | — |
 | **metadata** | JSONB | NOT NULL, `'{}'` | `{ before?, after?, reason? }`, built from a **per-action allowlist** of fields. Never a whole row: an allowlist cannot accidentally copy `password_hash` or a ciphertext into a table every admin can read. **No allowlist ever includes an email address, name or phone number**, which is why erasure needs no audit rewrite. |
 | **ip** | VARCHAR(45) | Nullable | — |

@@ -147,9 +147,11 @@ A new version is never used for an additive change. Within v1: fields are added,
 
 *Backed by:* `identity.DeviceService` · I-2, I-12.
 
+*Audit action:* `DEVICE_REGISTERED` (resource `DEVICE`, actor `DEVICE`). High volume by nature — every install writes one — and kept anyway: it is the anchor for any later question about a device's history.
+
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
-| POST | `/devices` | Register an install. Body `{ platform, appVersion, osVersion?, contentLocale, privacyPolicyVersion }`. Creates I-2 and a `PRIVACY_POLICY` acceptance (I-12). Returns `{ deviceId, deviceSecret, accessToken, expiresIn }` — **`deviceSecret` is returned exactly once**; losing it means registering a new device. `426` below the minimum app version. | PUBLIC |
+| POST | `/devices` ✎ | Register an install. Body `{ platform, appVersion, osVersion?, contentLocale, privacyPolicyVersion }`. Creates I-2 and a `PRIVACY_POLICY` acceptance (I-12). Returns `{ deviceId, deviceSecret, accessToken, expiresIn }` — **`deviceSecret` is returned exactly once**; losing it means registering a new device. `426` below the minimum app version. | PUBLIC |
 | POST | `/devices/token` | Exchange `{ deviceId, deviceSecret }` for a fresh device access token (15 min). Looks the secret up by SHA-256. A revoked device answers `401 DEVICE_REVOKED`, and the client registers anew. | PUBLIC |
 | PATCH | `/devices/me` | Update `{ appVersion?, osVersion?, contentLocale?, pushToken? }`. A `pushToken` already held by another device row moves to this one. | DEVICE |
 | DELETE | `/devices/me` | Forget this install: revoke the device, publish `identity.device.forgotten` (catalog drops its favourites). The account, if any, is untouched. | DEVICE |
@@ -701,7 +703,10 @@ socket.io namespace `/ws` on the gateway, with `@socket.io/redis-adapter` ([ADR 
 
 ## 10. JetStream events
 
-Every subject is declared with its zod payload schema in `packages/contracts/src/events/` — **that file is the registry; a subject not declared there does not exist.** Every publish goes through the transactional outbox (rdm-spec §1.11, [ADR 0039](./decisions/0039-events-leave-through-a-transactional-outbox.md)); every consumer is idempotent (rdm-spec §2.11). Stream per publishing service — `IDENTITY`, `CATALOG`, `NARRATION`, `BILLING`, `AUDIT`, `NOTIFICATION` — with `max_age` 7 days, a 2-minute duplicate window keyed on `Nats-Msg-Id`, and a dead-letter stream per consumer after 10 deliveries.
+Every subject is declared with its zod payload schema in `packages/contracts/src/events/` — **that file is the registry; a subject not declared there does not exist.** Every publish goes through the transactional outbox (rdm-spec §1.11, [ADR 0039](./decisions/0039-events-leave-through-a-transactional-outbox.md)); every consumer is idempotent (rdm-spec §2.11). Stream per publishing service — `IDENTITY`, `CATALOG`, `NARRATION`, `BILLING`, `AUDIT`, `NOTIFICATION` — with `max_age` 7 days and a 2-minute duplicate window keyed on `Nats-Msg-Id`.
+
+- **Stream configs are defined once**, in `JETSTREAM_STREAMS` in `packages/contracts`. Publishers and consumers both call `ensureStreams()`, which **creates a missing stream and verifies an existing one, never updates it** — JetStream refuses a stream whose name exists with a different config, so two services declaring it differently fail at boot rather than silently.
+- **Dead letters** go to one `DLQ` stream on subjects `dlq.<service>.<consumer>`. Consumers use `max_deliver: 10`. A handler throwing `PoisonMessage` copies the message to its DLQ subject and `term`s it; a transient failure on the **final** permitted delivery is treated the same way, so nothing is dropped silently when retries run out.
 
 Subject form: `<publisher>.<aggregate>.<past-tense-verb>`.
 
@@ -826,10 +831,12 @@ Rules for every row: a **2 s deadline** unless stated; **batch RPCs map results 
 
 ## 13. Operational endpoints
 
+**Every service serves these**, not only the gateway: backend services are hybrid Nest apps — a gRPC microservice plus a small HTTP listener on `OPS_PORT` for `/health`, `/health/ready` and `/version`, and `/metrics` on `METRICS_PORT`. Backend services additionally implement `grpc.health.v1.Health`. On the gateway these routes are unprefixed and `@Version(VERSION_NEUTRAL)`.
+
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
 | GET | `/health` | Liveness: the process is up. Nothing else. | PUBLIC |
-| GET | `/health/ready` | Readiness: **this service's own** database, Redis, NATS and GCS. **Never a gRPC peer** — one service down must not pull every other service out of rotation. | PUBLIC |
+| GET | `/health/ready` | Readiness: **this service's own** dependencies among database, Redis, NATS and GCS — the gateway checks only Redis. **Never a gRPC peer** — one service down must not pull every other service out of rotation. | PUBLIC |
 | GET | `/version` | `{ service, version, gitSha, builtAt }`. | PUBLIC |
 | GET | `/metrics` | Prometheus scrape, on a **separate internal port** — unreachable from the internet as a property of the process, not of a proxy config. | INTERNAL |
 | GET | `/docs` · `/docs-json` | Swagger UI and the OpenAPI document that Orval consumes. Disabled in production by validated configuration. | PUBLIC (non-prod) |
