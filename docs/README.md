@@ -188,7 +188,7 @@ Not internal specs. Each is the **contract** a client codes against, and each na
 
 ## Working documents
 
-Numbered `NN-*.md` files at the root of this folder are **working documents**. Each exists so one feature can be carried from prose into code, and is **deleted once that transfer is done**.
+Numbered `NN-*.md` files at the root of this folder are **working documents**. Each exists so one feature can be carried from prose into code, and **can be deleted once that transfer is done anytime**.
 
 They are therefore not part of the permanent documentation and **nothing durable may link to them** — not this page, not `decisions/`, not `reference/`, not a docblock. Anything in one that outlives the transfer belongs in an ADR (why) or in `reference/` (what is true now); anything that does not is disposable by design.
 

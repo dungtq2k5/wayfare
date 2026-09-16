@@ -22,7 +22,7 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
 ## 1. Core ecosystem & workspace management
 
 - **Language:** **TypeScript** — `strict: true` everywhere, no exceptions, no `any` in merged code. 📌 [ADR 0008](./decisions/0008-typescript-strict-everywhere.md).
-- **Runtime:** **Node.js 22 LTS**. Pinned via `.nvmrc` and matched in every Dockerfile and CI job. Version drift between laptop, container and CI is a classic late surprise.
+- **Runtime:** **Node.js 24 LTS** — pinned at **24.14.0** in `.nvmrc`, `engines`, every Dockerfile and every CI job. Version drift between laptop, container and CI is a classic late surprise.
 - **Package manager:** **pnpm** (with workspaces).
   - *Why:* strict `node_modules` layout catches phantom dependencies — a package that works on your machine because a sibling hoisted it, then breaks in CI. Also far faster and smaller on disk than npm, which matters with three React apps in one repo.
 - **Monorepo tooling:** **Turborepo**
