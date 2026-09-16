@@ -263,7 +263,7 @@ Present in `identity`, `catalog`, `narration`, `billing`, `analytics` and `ai` �
 | **id** | UUID | PK | Also the JetStream `Nats-Msg-Id`, which is what makes a relay re-publish a deduplicated no-op. |
 | **subject** | VARCHAR(128) | NOT NULL | The JetStream subject, from the registry in `packages/contracts`. |
 | **payload** | JSONB | NOT NULL | Validated against the subject's zod schema **before** insert. A payload that fails validation fails the business transaction, which is the correct blast radius. |
-| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events for one aggregate are published in `id` order. For an audit event with no resource, the actor's id. |
+| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events are published **in `id` order within one relay cycle, and best-effort across replicas** — two relays claiming with `SKIP LOCKED` can publish later rows first. Consumers therefore guard by version rather than arrival order (api-endpoints-plan §10). For an audit event with no resource, the actor's id. |
 | **trace_parent** | VARCHAR(55) | Nullable | The W3C `traceparent` of the request that wrote the row, captured at insert. The relay copies it into the NATS headers so the consumer's span joins the originating trace — the publish happens on a later poll, outside that request's context. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | NULL means not yet published. |

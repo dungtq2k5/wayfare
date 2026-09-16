@@ -502,7 +502,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 - **Distributed tracing:** **OpenTelemetry** (`@opentelemetry/sdk-node` + auto-instrumentations).
   - *Why:* a single "play narration in Japanese" request crosses gateway → catalog → narration → GCS, plus a JetStream hop. Without trace propagation, a latency problem is unattributable.
   - ⚠️ Gotcha: HTTP and gRPC context propagate automatically; **NATS does not** — and an event leaves through the outbox on a *later* poll, outside the request's context. So the W3C `traceparent` is **stored on the outbox row at insert time** (`outbox_events.trace_parent`), copied into the NATS headers by the relay, and extracted by the consumer. Without that, the trace stops at the write.
-- **Traces locally:** **Jaeger v2** in Docker Compose (OTLP on 4317/4318, UI at `:16686`). Jaeger v1's `all-in-one` image is end-of-life.
+- **Traces locally:** **Jaeger v2** in Docker Compose (OTLP on 4317/4318, UI at `:16686`). Jaeger v1's `all-in-one` image is reportedly end-of-life — to be confirmed when the stack is scaffolded.
 - **Structured logging:** **pino** — JSON logs with a correlation/trace ID on every line. Never log tokens, PII, Stripe keys or full webhook bodies.
 - **Metrics:** Prometheus-format `/metrics` via `@willsoto/nestjs-prometheus`, scraped into **Grafana**. Dashboard the four things that matter: nearby-query p95, TTS queue depth, Stripe webhook failures, geofence trigger rate.
 - **Error tracking:** **Sentry** across all three clients and all services, with source maps uploaded from CI. A crash on a tester's phone is otherwise unreproducible.
@@ -626,6 +626,14 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `NATS_URL` | all services | JetStream event bus |
 | `JWT_PRIVATE_KEY` | identity | Ed25519 signing key — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). ⚠️ refuse to boot without it outside dev |
 | `GLOBAL_PREFIX` | gateway | `api`. Combined with Nest URI versioning to give `/api/v1/…`; never hard-coded elsewhere |
+| `PORT` | gateway | Public HTTP port |
+| `CORS_ORIGINS` | gateway | Comma-separated allowlist; never `*` with credentials |
+| `SWAGGER_ENABLED` | gateway | Mounts `/docs` and `/docs-json`; **false in production** |
+| `GRPC_URL` | every backend service | The service's own gRPC bind address |
+| `<PEER>_GRPC_URL` | every gRPC caller | A peer's address, e.g. `IDENTITY_GRPC_URL` on the gateway |
+| `OTEL_SERVICE_NAME` | every service | The service name on every span |
+| `DATABASE_URL_SHADOW` | each service | `wayfare_<service>_shadow`, used only by `db:drift` |
+| `PRISMA_DB` | Prisma CLI only | `working` (default) or `test` — picks the URL in `prisma.config.ts`; unknown values throw. The shadow database is never a target; its URL is `shadowDatabaseUrl` in the same file |
 | `JWT_PUBLIC_KEY` | gateway (and any verifier) | Verification only. Refresh tokens and device secrets are opaque and hashed, so they need no key |
 | `PII_ENCRYPTION_KEY` | identity | 32 bytes, AES-256-GCM, versioned for rotation |
 | `GCS_BUCKET_MEDIA`, `GCS_BUCKET_AUDIO`, `GCS_BUCKET_TILES` | catalog, narration | separate buckets; tiles and audio have different cache policies |
@@ -651,7 +659,9 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally (OTLP) |
 | `OTEL_TRACES_SAMPLER` | all services | `parentbased_always_on` locally and in staging. Set in the environment, never in code, so switching to a ratio later needs no deploy |
 | `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
-| `OPS_PORT`, `METRICS_PORT` | every service | The HTTP port for `/health*` and `/version`, and the separate internal `/metrics` port |
+| `OPS_PORT` | backend services | The HTTP port for `/health*` and `/version`. The gateway has none — its ops routes are on `PORT` |
+| `METRICS_PORT` | every service | The separate internal `/metrics` port |
+| `NODE_ENV` | every service | `development`, `test` or `production`; drives `isProduction` (production silence, Swagger off) |
 | `SENTRY_DSN` | all apps + services | separate DSN per surface |
 | `EXPO_PUBLIC_API_URL` | mobile | ⚠️ `EXPO_PUBLIC_*` is **baked into the bundle** — public values only |
 | `VITE_API_URL`, `VITE_STRIPE_PUBLISHABLE_KEY` | web, console | ⚠️ same: `VITE_*` ships to the browser |

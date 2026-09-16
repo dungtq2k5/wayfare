@@ -421,7 +421,7 @@ await this.db.transaction(async (tx) => {
 ```
 
 - `outbox.add` validates the payload against the subject's zod schema **before** inserting. A bad payload fails the business write — the right blast radius.
-- The relay (one per service, started in `main.ts`) publishes with `Nats-Msg-Id = outbox id`. Nothing else in a service publishes to JetStream.
+- The relay (started in `main.ts`) publishes with `Nats-Msg-Id = outbox id`. **Nothing else in a service publishes to JetStream, with one exception:** the consumer runner copies a dead letter to its `dlq.<service>.<consumer>` subject (api-endpoints-plan §10). That copy is not a domain event and never goes through the outbox.
 - **MUST NOT** `await` a publish in a request path, and **MUST NOT** publish after a commit "because it is simpler". A crash between commit and publish loses the event forever, and the loss is silent: a Place that never activates, an owner who never learns they were approved.
 - Subjects and payloads are declared in `packages/contracts/src/events/` (api-endpoints-plan §10). **A subject not declared there does not exist**, and a payload is never a `Record<string, unknown>`.
 
@@ -484,7 +484,7 @@ model PlaceLocalization {
   lang              String   @db.VarChar(16)
   audioStatus       String   @map("audio_status") @db.VarChar(16)   /// AudioStatus in @wayfare/contracts
   sourceContentHash String   @map("source_content_hash") @db.Char(64)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)   // the default is for raw inserts
 
   place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
 

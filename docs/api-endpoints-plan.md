@@ -84,6 +84,7 @@ Every request sends **`X-Wayfare-Client: console | web | mobile`**. The gateway 
 | `426` | client build below `MIN_SUPPORTED_APP_VERSION` |
 | `429` | rate limit or quota; `Retry-After` always set |
 | `503` | a required dependency is down; `Retry-After` set |
+| `504` | a required dependency did not answer within its deadline |
 
 ### 0.5 Pagination
 
@@ -706,7 +707,7 @@ socket.io namespace `/ws` on the gateway, with `@socket.io/redis-adapter` ([ADR 
 Every subject is declared with its zod payload schema in `packages/contracts/src/events/` — **that file is the registry; a subject not declared there does not exist.** Every publish goes through the transactional outbox (rdm-spec §1.11, [ADR 0039](./decisions/0039-events-leave-through-a-transactional-outbox.md)); every consumer is idempotent (rdm-spec §2.11). Stream per publishing service — `IDENTITY`, `CATALOG`, `NARRATION`, `BILLING`, `AUDIT`, `NOTIFICATION` — with `max_age` 7 days and a 2-minute duplicate window keyed on `Nats-Msg-Id`.
 
 - **Stream configs are defined once**, in `JETSTREAM_STREAMS` in `packages/contracts`. Publishers and consumers both call `ensureStreams()`, which **creates a missing stream and verifies an existing one, never updates it** — JetStream refuses a stream whose name exists with a different config, so two services declaring it differently fail at boot rather than silently.
-- **Dead letters** go to one `DLQ` stream on subjects `dlq.<service>.<consumer>`. Consumers use `max_deliver: 10`. A handler throwing `PoisonMessage` copies the message to its DLQ subject and `term`s it; a transient failure on the **final** permitted delivery is treated the same way, so nothing is dropped silently when retries run out.
+- **Dead letters** go to one `DLQ` stream on subjects `dlq.<service>.<consumer>`. The `DLQ` stream keeps messages **30 days** — longer than the 7-day event streams, because a dead letter exists to be inspected and a long weekend should not erase it. Consumers use `max_deliver: 10`, and durable names are **`<service>-<subject with dots as dashes>`** (e.g. `identity-audit-record`), which is also the `<consumer>` in the DLQ subject. Renaming a durable replays its stream, so names are chosen once. A handler throwing `PoisonMessage` copies the message to its DLQ subject and `term`s it; a transient failure on the **final** permitted delivery is treated the same way, so nothing is dropped silently when retries run out.
 
 Subject form: `<publisher>.<aggregate>.<past-tense-verb>`.
 
