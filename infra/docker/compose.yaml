@@ -1,0 +1,185 @@
+# Local stack (ADR 0011, architecture §3). Services run on the host in development; the `apps`
+# profile builds and runs them in containers. `tools` holds nats-box.
+x-postgres-env: &postgres-env
+  POSTGRES_USER: wayfare
+  POSTGRES_PASSWORD: wayfare
+
+# Over TCP on purpose: during first-boot init the image runs a temporary server on the Unix
+# socket only, which a socket check reports ready just before it shuts down.
+x-postgres-health: &postgres-health
+  test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U wayfare -d $${POSTGRES_DB}']
+  interval: 5s
+  timeout: 3s
+  retries: 20
+
+services:
+  identity-db:
+    image: postgres:17
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_identity
+    ports: ['5433:5432']
+    volumes:
+      - identity-db:/var/lib/postgresql/data
+      - ./postgres-init/identity.sh:/docker-entrypoint-initdb.d/20-identity.sh:ro
+    healthcheck: *postgres-health
+
+  # PostGIS — the one database with a different image; not used by any service yet.
+  catalog-db:
+    image: postgis/postgis:17-3.5
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_catalog
+    ports: ['5434:5432']
+    volumes:
+      - catalog-db:/var/lib/postgresql/data
+      - ./postgres-init/catalog.sh:/docker-entrypoint-initdb.d/20-catalog.sh:ro
+    healthcheck: *postgres-health
+
+  narration-db:
+    image: postgres:17
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_narration
+    ports: ['5435:5432']
+    volumes:
+      - narration-db:/var/lib/postgresql/data
+      - ./postgres-init/narration.sh:/docker-entrypoint-initdb.d/20-narration.sh:ro
+    healthcheck: *postgres-health
+
+  # noeviction: a queue must never be silently evicted (ADR 0021).
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--maxmemory-policy', 'noeviction']
+    ports: ['6379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # nats:2 is FROM scratch and cannot run a healthcheck; the alpine variant has wget.
+  nats:
+    image: nats:2-alpine
+    command: ['-js', '-sd', '/data', '--http_port', '8222']
+    ports: ['4222:4222', '8222:8222']
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8222/healthz?js-enabled-only=true']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # The integration suites' own broker, like the paired _test databases (ADR 0011, ADR 0034):
+  # test events must never reach a running service's durable consumers. Ephemeral storage.
+  nats-test:
+    image: nats:2-alpine
+    command: ['-js', '-sd', '/tmp/jetstream', '--http_port', '8222']
+    ports: ['4223:4222']
+    tmpfs: ['/tmp/jetstream']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8222/healthz?js-enabled-only=true']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports: ['1025:1025', '8025:8025']
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Not used by any service yet.
+  fake-gcs:
+    image: fsouza/fake-gcs-server:1.56
+    command: ['-scheme', 'http', '-port', '4443', '-external-url', 'http://localhost:4443']
+    ports: ['4443:4443']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4443/storage/v1/b']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  jaeger:
+    image: jaegertracing/jaeger:2.21.0
+    ports: ['4317:4317', '4318:4318', '16686:16686']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:13133/status']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nats-box:
+    image: natsio/nats-box:0.19.7
+    profiles: [tools]
+    environment:
+      NATS_URL: nats://nats:4222
+    depends_on:
+      nats: { condition: service_healthy }
+
+  identity:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: identity
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://wayfare:wayfare@identity-db:5432/wayfare_identity?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:50051
+      OPS_PORT: '3101'
+      METRICS_PORT: '9101'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: identity
+    ports: ['3101:3101']
+    depends_on:
+      identity-db: { condition: service_healthy }
+      nats: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3101/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  gateway:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: gateway
+    environment:
+      NODE_ENV: development
+      PORT: '3000'
+      GLOBAL_PREFIX: api
+      CORS_ORIGINS: http://localhost:5173,http://localhost:5174
+      TRUST_PROXY_HOPS: '0'
+      SWAGGER_ENABLED: 'true'
+      IDENTITY_GRPC_URL: identity:50051
+      REDIS_URL: redis://redis:6379
+      METRICS_PORT: '9100'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: gateway
+    ports: ['3000:3000']
+    depends_on:
+      redis: { condition: service_healthy }
+      identity: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  identity-db:
+  catalog-db:
+  narration-db:
+  nats-data:

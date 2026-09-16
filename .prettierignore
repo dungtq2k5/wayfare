@@ -1,0 +1,9 @@
+docs/
+dist/
+coverage/
+pnpm-lock.yaml
+**/generated/
+.turbo/
+**/prisma/migrations/
+.kilo/
+cspell.json

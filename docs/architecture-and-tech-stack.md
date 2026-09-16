@@ -29,6 +29,7 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
   - *Why:* orchestrates the task graph and caches outputs (Prisma client generation, `tsc` builds, test runs) so unchanged packages are never rebuilt. In CI, `turbo run build --filter=...[origin/main]` builds only what the PR actually touched.
 - **Containerization:** **Docker & Docker Compose**
   - *Why:* one `docker compose up` boots every service's Postgres, plus NATS, Redis and the GCS emulator. Environment parity is not a nice-to-have on a distributed team — it is the difference between "works on my machine" and a working demo.
+- **Pinned majors:** NestJS **11**, Prisma **7**, TypeScript **5.9**, ESLint **9**, Vitest **4** (verified: Nest 11.2.5, Prisma 7.10.0, TypeScript 5.9.3). A newer major (Nest 12, Prisma 8, TypeScript 7) is an upgrade decision, never a side effect of `pnpm add`.
 - **Build tool (backend):** **SWC** via the Nest CLI builder, with `typeCheck: true`, for every service **except the gateway**, which builds with `tsc`. 📌 [ADR 0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md). Vitest uses `unplugin-swc` so tests get the decorator metadata Nest's DI needs.
   - ⚠️ Gotcha: under SWC, type-only imports must be written `import type`, or they can turn into runtime `require`s and a circular-import crash at boot.
 - **Build tool (web):** **Vite 7.x** with `vite-plugin-pwa`
@@ -201,7 +202,43 @@ This is the correct microservice trade, but it is a real loss and it must be bud
 - **Prisma no longer loads `.env` itself.** `prisma.config.ts` imports `dotenv/config`.
 - **`migrate dev` and `db push` no longer run `prisma generate` or the seed.** Both are explicit steps (`pnpm db:generate`, `prisma db seed`) in every script and in CI.
 
-⚠️ Confirmed against the current Prisma 7 upgrade guide: the items above. **Still to confirm when the first service is scaffolded:** the exact generator field set, and `prisma migrate diff`'s flags for drift checking. Once identity's `schema.prisma` and `prisma.config.ts` are known-good, they are recorded here as the template for every other service.
+**Verified in `identity` on Prisma 7.10.0 — the template for every other service:**
+
+```ts
+// services/<svc>/prisma.config.ts
+import 'dotenv/config';
+import { defineConfig, env } from 'prisma/config';
+
+const TARGETS = { working: 'DATABASE_URL', test: 'DATABASE_URL_TEST' } as const;
+const db = process.env.PRISMA_DB ?? 'working';
+if (!Object.hasOwn(TARGETS, db)) throw new Error(`Unknown PRISMA_DB "${db}"`);
+
+export default defineConfig({
+  schema: 'prisma/schema.prisma',
+  migrations: { path: 'prisma/migrations' },
+  datasource: {
+    url: env(TARGETS[db as keyof typeof TARGETS]),
+    shadowDatabaseUrl: env('DATABASE_URL_SHADOW'),
+  },
+});
+```
+
+```prisma
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+```
+
+- `prisma db execute --file …` and `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code` both work as written; the shadow URL comes from the config.
+- ⚠️ **`env()` throws when the config is loaded** if a variable is unset — including for commands that never connect, such as `prisma generate`. Every environment that runs Prisma, CI included, has the service's `.env` in place first.
+- ⚠️ **Turborepo's strict env mode hides variables from tasks.** `turbo.json` lists `DATABASE_URL*` and `PRISMA_DB` in `globalPassThroughEnv`, or every Prisma task sees them unset.
+- ⚠️ **The SWC builder compiles only `src/` unless told otherwise.** The generated client lives in `generated/`, so each service's Nest CLI config sets the builder's **`filenames: ["src", "generated"]`**; without it `dist` has no Prisma client and the service crashes at startup.
 
 What has *not* changed, and matters most to us: `Unsupported()` column types and `$queryRaw` / `$executeRaw` still work exactly as before, which is how all PostGIS access happens.
 
@@ -502,7 +539,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 - **Distributed tracing:** **OpenTelemetry** (`@opentelemetry/sdk-node` + auto-instrumentations).
   - *Why:* a single "play narration in Japanese" request crosses gateway → catalog → narration → GCS, plus a JetStream hop. Without trace propagation, a latency problem is unattributable.
   - ⚠️ Gotcha: HTTP and gRPC context propagate automatically; **NATS does not** — and an event leaves through the outbox on a *later* poll, outside the request's context. So the W3C `traceparent` is **stored on the outbox row at insert time** (`outbox_events.trace_parent`), copied into the NATS headers by the relay, and extracted by the consumer. Without that, the trace stops at the write.
-- **Traces locally:** **Jaeger v2** in Docker Compose (OTLP on 4317/4318, UI at `:16686`). Jaeger v1's `all-in-one` image is reportedly end-of-life — to be confirmed when the stack is scaffolded.
+- **Traces locally:** **Jaeger v2** (verified with 2.21.0) in Docker Compose — OTLP on 4317/4318, UI at `:16686`, query API under `/api/v3/…`. Jaeger v1's `all-in-one` image is reportedly end-of-life — to be confirmed when the stack is scaffolded.
 - **Structured logging:** **pino** — JSON logs with a correlation/trace ID on every line. Never log tokens, PII, Stripe keys or full webhook bodies.
 - **Metrics:** Prometheus-format `/metrics` via `@willsoto/nestjs-prometheus`, scraped into **Grafana**. Dashboard the four things that matter: nearby-query p95, TTS queue depth, Stripe webhook failures, geofence trigger rate.
 - **Error tracking:** **Sentry** across all three clients and all services, with source maps uploaded from CI. A crash on a tester's phone is otherwise unreproducible.
@@ -632,6 +669,9 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `GRPC_URL` | every backend service | The service's own gRPC bind address |
 | `<PEER>_GRPC_URL` | every gRPC caller | A peer's address, e.g. `IDENTITY_GRPC_URL` on the gateway |
 | `OTEL_SERVICE_NAME` | every service | The service name on every span |
+| `LOG_LEVEL` | every service | pino level; `info` by default |
+| `APP_VERSION`, `GIT_SHA`, `BUILT_AT` | every service | Served by `/version`; set at image build time |
+| `NATS_URL_TEST` | each NATS-using service | The **separate** test broker (`nats-test`, port 4223). Integration tests never publish to the development broker, or their events land in the running services' databases |
 | `DATABASE_URL_SHADOW` | each service | `wayfare_<service>_shadow`, used only by `db:drift` |
 | `PRISMA_DB` | Prisma CLI only | `working` (default) or `test` — picks the URL in `prisma.config.ts`; unknown values throw. The shadow database is never a target; its URL is `shadowDatabaseUrl` in the same file |
 | `JWT_PUBLIC_KEY` | gateway (and any verifier) | Verification only. Refresh tokens and device secrets are opaque and hashed, so they need no key |

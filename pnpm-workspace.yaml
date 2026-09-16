@@ -1,0 +1,20 @@
+packages:
+  - packages/*
+  - services/*
+
+# pnpm 10 blocks dependency build scripts by default.
+# strictDepBuilds turns an unlisted build script into an install failure instead of a warning.
+strictDepBuilds: true
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
+  - prisma
+  - '@prisma/engines'
+  - '@prisma/client'
+  # Installs the buf binary used by proto:generate / proto:lint.
+  - '@bufbuild/buf'
+ignoredBuiltDependencies:
+  # Only prints a version check; the runtime needs nothing it builds.
+  - protobufjs
+  # Install-time telemetry pulled in by swagger-ui-dist; never wanted.
+  - '@scarf/scarf'

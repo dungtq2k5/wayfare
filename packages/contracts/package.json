@@ -1,0 +1,63 @@
+{
+  "name": "@wayfare/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Values shared by services and clients: ids, error codes, audit values, the event registry and the gRPC contracts.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./grpc": {
+      "types": "./dist/grpc.d.ts",
+      "default": "./dist/grpc.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "proto"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -w -p tsconfig.build.json --preserveWatchOutput",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "proto:generate": "buf generate",
+    "proto:lint": "buf lint",
+    "proto:breaking": "buf breaking --against '../../.git#branch=main,subdir=packages/contracts'"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.10.0",
+    "uuid": "^14.0.2",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@grpc/grpc-js": "^1.14.0",
+    "@nestjs/microservices": "^11.0.0",
+    "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@grpc/grpc-js": {
+      "optional": true
+    },
+    "@nestjs/microservices": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.73.0",
+    "@grpc/grpc-js": "^1.14.4",
+    "@nestjs/common": "11.2.5",
+    "@nestjs/core": "11.2.5",
+    "@nestjs/microservices": "11.2.5",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "ts-proto": "^2.12.4"
+  }
+}

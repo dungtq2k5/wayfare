@@ -335,9 +335,11 @@ app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
 - **MUST NOT** write `api` or `v1` into a `@Controller()` path, a client base URL constant or a test URL. Controllers declare resource paths only (`@Controller('places')`); tests build URLs from the same config.
 - **A breaking change versions the affected route, not the API.** Add a second handler with `@Version('2')`; the `v1` handler stays until the minimum supported app version retires it. A non-breaking change (a new optional field, a new route) is never a new version.
-- Provider webhooks and operational routes carry `@Version(VERSION_NEUTRAL)` or are excluded from the prefix — **a URL registered with a provider or printed on a sticker never changes**.
+- Provider webhooks and operational routes are version-neutral — **`@Controller({ path, version: VERSION_NEUTRAL })`**; Nest 11's `@Version()` decorates methods only — or are excluded from the prefix — **a URL registered with a provider or printed on a sticker never changes**.
 
 ### 5.7 OpenAPI is a build input
+
+The generated document is passed through nestjs-zod's **`cleanupOpenApiDoc`** before it is served, so zod-derived schemas render correctly for Swagger UI and Orval.
 
 Every route **MUST** declare its response schema and every error code it can return (`@ApiErrors('PLACE_LIMIT_REACHED', …)`). Orval generates the clients from this spec; an undeclared response is an untyped client, and an undeclared error code is a client that shows "Something went wrong" for a condition it could have explained.
 
@@ -350,7 +352,7 @@ Every route **MUST** declare its response schema and every error code it can ret
 `.proto` files live in `packages/contracts/proto/wayfare/<service>/`. Change the proto → `pnpm proto:generate` → fix both ends. **Never hand-edit generated code.**
 
 - `package wayfare.<service>;` and the directory mirrors it. `buf lint` enforces this.
-- The package is unversioned; `buf breaking` against `main` runs in CI and is the only thing between a proto edit and a wire-incompatible deploy. A breaking change is allowed only with every caller changed in the same PR.
+- The package is unversioned, so `buf lint`'s `PACKAGE_VERSION_SUFFIX` rule is disabled; `buf breaking` against `main` runs in CI and is the only thing between a proto edit and a wire-incompatible deploy. A breaking change is allowed only with every caller changed in the same PR.
 - **Enum members are prefixed with the enum name** (`PLACE_STATUS_ACTIVE`) and the zero member is `…_UNSPECIFIED`. Protobuf enum values share one namespace per package.
 
 ### 6.2 Calling a peer
@@ -359,7 +361,8 @@ Every service→service call goes through `BaseGrpcClient.call()` from `packages
 
 - applies the **deadline** (default 2 s; override per call, never remove),
 - attaches the request context as metadata and the OpenTelemetry trace context,
-- maps a deadline to `DEADLINE_EXCEEDED` and a connection failure to `UNAVAILABLE`.
+- maps a connection failure to `UNAVAILABLE`, and a deadline to `DEADLINE_EXCEEDED` **only if the connection was ever established**. A deadline on a channel that never connected — a stopped container does not refuse, it just stays silent — is reported as `UNAVAILABLE` (`503`), because the peer is down, not slow.
+- Services and the gateway import generated gRPC code from **`@wayfare/contracts/grpc`**. Resolving `.proto` paths needs `node:path`, so `PROTO_ROOT` and the loader options live in `packages/nest-common`, not in contracts.
 
 **MUST NOT** call a generated stub directly with a hand-built `Metadata` object.
 
@@ -757,7 +760,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 - **Every backend service except the gateway** uses the shared Nest CLI preset from `packages/config` with the **SWC builder and `typeCheck: true`**. **MUST NOT** turn `typeCheck` off to speed a build up — SWC strips types without checking them, so the build would succeed on code that does not compile.
 - **The gateway** builds with `tsc`.
-- **Everything is CommonJS** ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)). `tsconfig` sets `isolatedModules`, `experimentalDecorators` and `emitDecoratorMetadata`, and does **not** set `verbatimModuleSyntax`, which rejects import syntax under CommonJS output.
+- **Everything is CommonJS** ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)). `tsconfig` sets `isolatedModules`, `experimentalDecorators` and `emitDecoratorMetadata`, and does **not** set `verbatimModuleSyntax`, which rejects import syntax under CommonJS output (TypeScript 5.9 reports it as TS1287 / TS1295).
 - **Type-only imports MUST use `import type`** — enforced by `@typescript-eslint/consistent-type-imports`. SWC resolves imports more literally than `tsc`; an unmarked type import can become a runtime `require` and surface as a circular-dependency crash at boot.
 - **Except a class injected through a constructor.** Under `emitDecoratorMetadata`, `import type` on an injected class turns its metadata into `Object` and Nest resolves `undefined`. The lint rule is configured with `parserOptions.emitDecoratorMetadata` and `experimentalDecorators` so its autofix leaves those imports alone — never switch that off.
 - **Shared packages are compiled** (`dist`, CJS plus `.d.ts`); services never import a sibling package's `src`. Tests alias package names to source.
@@ -870,6 +873,7 @@ Keep it proportional: a one-line constant gets one line.
 
 ### 17.2 Rules
 
+- **Test projects are declared in the root `vitest.config.mts`** (`test.projects`) — Vitest 4 has no `vitest.workspace.ts`. Integration and contract tests use the separate test broker (`NATS_URL_TEST`) as well as the `_test` database.
 - **Vitest transforms with SWC** (`unplugin-swc`, with decorator metadata on) in every Nest package. Vitest's default transform emits no decorator metadata, so Nest's dependency injection resolves `undefined` and the failure looks like a broken provider rather than a test setup problem.
 
 - **Test names state the invariant**, present tense, no "should": `it('supersedes the previous pending update for the same place')`. One word in CAPS for what makes the case worth its own test: `it('refuses a CONCURRENT second redemption')`.

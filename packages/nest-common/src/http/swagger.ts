@@ -1,0 +1,64 @@
+import type { INestApplication } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NextFunction, Request, Response } from 'express';
+import helmet from 'helmet';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
+
+/** Where Swagger UI and the OpenAPI JSON Orval reads are mounted (api-endpoints-plan §13). */
+export const SWAGGER_PATH = 'docs';
+
+/**
+ * The CSP Swagger UI needs: its bundle injects an inline initializer script and inline styles,
+ * and renders its logo and schema previews from data: URIs.
+ */
+export const SWAGGER_UI_CSP_DIRECTIVES = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'", "'unsafe-inline'"],
+  styleSrc: ["'self'", "'unsafe-inline'"],
+  imgSrc: ["'self'", 'data:'],
+  connectSrc: ["'self'"],
+  fontSrc: ["'self'", 'data:'],
+  objectSrc: ["'none'"],
+  frameAncestors: ["'none'"],
+};
+
+/**
+ * One helmet middleware choosing the policy by path: the strict default everywhere, the
+ * Swagger UI policy under `/docs` only. A second helmet cannot loosen a header a first one set.
+ */
+export function securityHeaders(): (req: Request, res: Response, next: NextFunction) => void {
+  const strict = helmet();
+  const docs = helmet({ contentSecurityPolicy: { directives: SWAGGER_UI_CSP_DIRECTIVES } });
+  const docsPrefix = `/${SWAGGER_PATH}`;
+  return (req, res, next) => {
+    const isDocs =
+      req.path === docsPrefix ||
+      req.path.startsWith(`${docsPrefix}/`) ||
+      req.path.startsWith(`${docsPrefix}-json`);
+    (isDocs ? docs : strict)(req, res, next);
+  };
+}
+
+/** Options for `setupSwagger`. */
+export interface SwaggerOptions {
+  readonly title: string;
+  readonly version: string;
+}
+
+/** Mounts Swagger UI at `/docs` and the OpenAPI document at `/docs-json`. Call only when `SWAGGER_ENABLED`. */
+export function setupSwagger(app: INestApplication, options: SwaggerOptions): void {
+  const config = new DocumentBuilder()
+    .setTitle(options.title)
+    .setVersion(options.version)
+    .addBearerAuth()
+    .addCookieAuth('wf_at')
+    .addGlobalParameters({
+      name: 'X-Wayfare-Client',
+      in: 'header',
+      required: true,
+      schema: { type: 'string', enum: ['console', 'web', 'mobile'] },
+    })
+    .build();
+  const document = cleanupOpenApiDoc(SwaggerModule.createDocument(app, config));
+  SwaggerModule.setup(SWAGGER_PATH, app, document, { jsonDocumentUrl: `${SWAGGER_PATH}-json` });
+}

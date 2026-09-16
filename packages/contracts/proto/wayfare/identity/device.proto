@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+// Device registration — api-endpoints-plan §1.1, rdm-spec I-2.
+package wayfare.identity;
+
+// The install's platform. Stored as its domain value (IOS | ANDROID | WEB).
+enum Platform {
+  PLATFORM_UNSPECIFIED = 0;
+  PLATFORM_IOS = 1;
+  PLATFORM_ANDROID = 2;
+  PLATFORM_WEB = 3;
+}
+
+// Registers and manages anonymous installs (ADR 0003).
+service DeviceService {
+  // Creates a device and returns its secret exactly once.
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+}
+
+message RegisterDeviceRequest {
+  Platform platform = 1;
+  string app_version = 2;
+  optional string os_version = 3;
+  string content_locale = 4;
+  // The PRIVACY_POLICY acceptance version (rdm-spec I-12).
+  string privacy_policy_version = 5;
+}
+
+message RegisterDeviceResponse {
+  string device_id = 1;
+  // Returned exactly once; only its SHA-256 is stored.
+  string device_secret = 2;
+}

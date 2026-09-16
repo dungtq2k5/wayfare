@@ -1,0 +1,14 @@
+/**
+ * `.proto` files per gRPC package, relative to the contracts package's `proto/` directory.
+ * nest-common resolves the directory at runtime; this file stays free of Node APIs.
+ */
+export const PROTO_FILES = {
+  identity: ['wayfare/identity/device.proto'],
+  health: ['grpc/health/v1/health.proto'],
+} as const;
+
+/** The gRPC package names the services serve. */
+export const GRPC_PACKAGES = {
+  identity: 'wayfare.identity',
+  health: 'grpc.health.v1',
+} as const;

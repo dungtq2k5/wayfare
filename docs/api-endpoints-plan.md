@@ -70,6 +70,7 @@ Every request sends **`X-Wayfare-Client: console | web | mobile`**. The gateway 
 
 - **`code` is the contract; `message` is not.** Codes are `SCREAMING_SNAKE`, listed in `ERROR_CODES` in `packages/contracts`, and **clients render user-facing text from the code through their i18n bundle** — so an error reads in the tourist's language, and rewording a server message never breaks a client. `message` is English, for developers and logs, and is generic in production.
 - `details` is typed per code. `requestId` is the OpenTelemetry trace id, which is what support asks for.
+- **Generic codes** used by every route: `VALIDATION_FAILED` (400), `MALFORMED_REQUEST` (400, the body is not valid JSON), `CLIENT_HEADER_REQUIRED` (400), `ROUTE_NOT_FOUND` (404), `UPSTREAM_UNAVAILABLE` (503), `UPSTREAM_TIMEOUT` (504), `INTERNAL` (500).
 - Validation failures are `400 VALIDATION_FAILED` with `details.issues: [{ path, code }]` — `path` a JSON pointer, `code` a zod issue code, never a sentence.
 
 | HTTP | Used for |
@@ -832,7 +833,7 @@ Rules for every row: a **2 s deadline** unless stated; **batch RPCs map results 
 
 ## 13. Operational endpoints
 
-**Every service serves these**, not only the gateway: backend services are hybrid Nest apps — a gRPC microservice plus a small HTTP listener on `OPS_PORT` for `/health`, `/health/ready` and `/version`, and `/metrics` on `METRICS_PORT`. Backend services additionally implement `grpc.health.v1.Health`. On the gateway these routes are unprefixed and `@Version(VERSION_NEUTRAL)`.
+**Every service serves these**, not only the gateway: backend services are hybrid Nest apps — a gRPC microservice plus a small HTTP listener on `OPS_PORT` for `/health`, `/health/ready` and `/version`, and `/metrics` on `METRICS_PORT`. Backend services additionally implement `grpc.health.v1.Health`. On the gateway these routes are unprefixed and version-neutral (`@Controller({ version: VERSION_NEUTRAL })`). **Ops responses are not wrapped in the `{ data }` envelope** on any service — probes read the status, and a health body should look the same everywhere.
 
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |

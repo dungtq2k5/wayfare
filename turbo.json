@@ -1,0 +1,41 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": ["packages/config/tsconfig.base.json"],
+  "globalPassThroughEnv": ["DATABASE_URL", "DATABASE_URL_TEST", "DATABASE_URL_SHADOW", "PRISMA_DB"],
+  "tasks": {
+    "db:generate": {
+      "inputs": ["prisma/schema.prisma", "prisma.config.ts"],
+      "outputs": ["generated/prisma/**"]
+    },
+    "build": {
+      "dependsOn": ["^build", "db:generate"],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build", "db:generate"]
+    },
+    "lint": {
+      "dependsOn": ["^build", "db:generate"]
+    },
+    "dev": {
+      "dependsOn": ["^build", "db:generate"],
+      "cache": false,
+      "persistent": true
+    },
+    "db:setup": {
+      "dependsOn": ["db:generate"],
+      "cache": false
+    },
+    "db:objects": {
+      "cache": false
+    },
+    "db:verify": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "db:drift": {
+      "cache": false
+    }
+  }
+}

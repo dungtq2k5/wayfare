@@ -1,0 +1,51 @@
+{
+  "name": "@wayfare/identity",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Accounts, devices, sessions, roles and audit (architecture \u00a72).",
+  "main": "dist/src/main.js",
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "db:generate": "prisma generate",
+    "db:migrate:dev": "prisma migrate dev --skip-generate",
+    "db:setup": "prisma migrate deploy && pnpm db:objects && PRISMA_DB=test prisma migrate deploy && PRISMA_DB=test pnpm db:objects",
+    "db:objects": "prisma db execute --file prisma/sql/schema-objects.sql",
+    "db:verify": "wayfare-db-verify",
+    "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
+    "replay:last-audit": "node scripts/replay-last-audit.mts"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1",
+    "@nestjs/common": "11.2.5",
+    "@nestjs/core": "11.2.5",
+    "@nestjs/microservices": "11.2.5",
+    "@nestjs/platform-express": "11.2.5",
+    "@nestjs/swagger": "11.4.7",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@wayfare/contracts": "workspace:*",
+    "@wayfare/nest-common": "workspace:*",
+    "dotenv": "^17.4.2",
+    "nestjs-zod": "^5.5.0",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@nats-io/jetstream": "^3.4.0",
+    "@nats-io/transport-node": "^3.4.0",
+    "@nestjs/cli": "11.0.24",
+    "@nestjs/testing": "11.2.5",
+    "@swc/cli": "^0.8.1",
+    "@types/node": "^24.13.5",
+    "@types/pg": "^8.15.0",
+    "@wayfare/config": "workspace:*",
+    "prisma": "7.10.0"
+  }
+}

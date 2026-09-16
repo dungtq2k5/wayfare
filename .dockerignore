@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+**/generated/prisma
+**/.env
+.git
+.github
+docs
+.kilo
+cspell.json

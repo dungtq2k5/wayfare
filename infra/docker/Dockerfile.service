@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1.7
+# One image recipe for every Nest service: `docker build --build-arg SERVICE=identity …`.
+# The runtime image holds only the built service and its production dependencies — no Prisma CLI,
+# no migrations: those run from CI (or a one-off job built from the `build` stage).
+
+ARG NODE_VERSION=24.14.0
+
+FROM node:${NODE_VERSION}-alpine AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /repo
+
+# Only the service and the workspace packages it depends on.
+FROM base AS prune
+ARG SERVICE
+COPY . .
+RUN pnpm dlx turbo@2.10.13 prune @wayfare/${SERVICE} --docker
+
+FROM base AS build
+ARG SERVICE
+COPY --from=prune /repo/out/json/ .
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile
+COPY --from=prune /repo/out/full/ .
+# `prisma generate` loads prisma.config.ts, which requires the URLs to be set; nothing connects here.
+RUN DATABASE_URL=postgresql://build@localhost/build \
+    DATABASE_URL_SHADOW=postgresql://build@localhost/build \
+    pnpm turbo run build --filter=@wayfare/${SERVICE}
+RUN pnpm --filter=@wayfare/${SERVICE} deploy --prod --legacy /out
+
+FROM node:${NODE_VERSION}-alpine AS runtime
+ARG APP_VERSION=0.0.0-dev
+ARG GIT_SHA=unknown
+ARG BUILT_AT=unknown
+ENV NODE_ENV=production \
+    APP_VERSION=${APP_VERSION} \
+    GIT_SHA=${GIT_SHA} \
+    BUILT_AT=${BUILT_AT}
+WORKDIR /app
+COPY --from=build --chown=node:node /out .
+USER node
+CMD ["node", "."]

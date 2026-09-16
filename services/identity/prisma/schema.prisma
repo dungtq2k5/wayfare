@@ -1,0 +1,74 @@
+// identity — rdm-spec §3.1.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma" // outside src/ — ADR 0056's entryFile depends on it
+  moduleFormat = "cjs" // ADR 0058; never rely on inference
+}
+
+datasource db {
+  provider = "postgresql" // no url here — it lives in prisma.config.ts
+}
+
+/// An install — rdm-spec I-2. Every non-nullable column exists; the nullable claim, push and revocation columns are added later.
+model Device {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  /// SHA-256 hex of the device secret, looked up by value.
+  secretHash    String   @unique @map("secret_hash") @db.Char(64)
+  /// Platform in `@wayfare/contracts`
+  platform      String   @db.VarChar(16)
+  appVersion    String   @map("app_version") @db.VarChar(32)
+  osVersion     String?  @map("os_version") @db.VarChar(32)
+  contentLocale String   @map("content_locale") @db.VarChar(16)
+  lastSeenAt    DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("devices")
+}
+
+/// Transactional outbox — rdm-spec §2.10, ADR 0039.
+model OutboxEvent {
+  /// Also the event's eventId and the JetStream Nats-Msg-Id.
+  id          String    @id @default(uuid(7)) @db.Uuid
+  subject     String    @db.VarChar(128)
+  payload     Json      @db.JsonB
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  /// W3C traceparent of the request that wrote the row.
+  traceParent String?   @map("trace_parent") @db.VarChar(55)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error") @db.Text
+
+  @@map("outbox_events")
+}
+
+/// Append-only audit record — rdm-spec I-11. No updated_at: rows are never edited.
+model AuditLog {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  /// The producer's outbox id; unique, which makes the consumer idempotent.
+  eventId       String   @unique @map("event_id") @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  service       String   @db.VarChar(32)
+  /// AuditActorType in `@wayfare/contracts`
+  actorType     String   @map("actor_type") @db.VarChar(16)
+  /// Foreign key to users added once the users table exists (rdm-spec I-11).
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  /// Not a foreign key: devices are pruned, audit rows are not.
+  actorDeviceId String?  @map("actor_device_id") @db.Uuid
+  /// AuditAction in `@wayfare/contracts`
+  action        String   @db.VarChar(64)
+  /// AuditResourceType in `@wayfare/contracts`
+  resourceType  String   @map("resource_type") @db.VarChar(32)
+  resourceId    String?  @map("resource_id") @db.Uuid
+  metadata      Json     @default("{}") @db.JsonB
+  ip            String?  @db.VarChar(45)
+  userAgent     String?  @map("user_agent") @db.VarChar(512)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([resourceType, resourceId, occurredAt(sort: Desc)])
+  @@index([actorUserId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@map("audit_logs")
+}

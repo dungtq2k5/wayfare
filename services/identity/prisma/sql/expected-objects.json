@@ -1,0 +1,3 @@
+{
+  "indexes": ["outbox_events_unpublished_idx"]
+}

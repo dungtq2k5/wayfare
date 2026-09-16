@@ -1,2 +1,9 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+.env
+services/*/generated/
 docs/archive/
 cspell.json

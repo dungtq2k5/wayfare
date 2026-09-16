@@ -1,0 +1,79 @@
+name: pr
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # pnpm's exact version comes from `packageManager` in package.json.
+      - run: corepack enable
+
+      - name: Locate the pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # strictDepBuilds: an unlisted dependency build script fails here.
+      - run: pnpm install --frozen-lockfile
+
+      # The .env.example files are complete and hold no secrets.
+      - name: Use the example environment
+        run: for s in services/*; do cp "$s/.env.example" "$s/.env"; done
+
+      # Before typecheck on purpose: a stale committed client makes every later error a lie.
+      - name: Generated gRPC code is committed and current
+        run: pnpm proto:generate && git diff --exit-code -- packages/contracts/src/generated
+
+      - run: pnpm proto:lint
+
+      # The Prisma client is gitignored, so it is generated before anything reads its types.
+      - run: pnpm db:generate
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm build
+      - run: pnpm test
+
+      - name: Boot the stack
+        run: docker compose up -d --wait
+
+      - name: Migrate, apply schema objects, verify, check drift
+        run: pnpm db:setup && pnpm db:verify && pnpm db:drift
+
+      - run: pnpm test:integration
+
+      - name: Images build and boot
+        run: docker compose --profile apps up -d --build --wait
+
+      - name: Smoke-test the running images
+        run: |
+          curl -fsS localhost:3000/health/ready
+          curl -fsS localhost:3101/health/ready
+          curl -fsS -X POST localhost:3000/api/v1/devices \
+            -H 'content-type: application/json' -H 'x-wayfare-client: mobile' \
+            -d '{"platform":"ANDROID","appVersion":"0.1.0","contentLocale":"en","privacyPolicyVersion":"2026-09-01"}'
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose --profile apps logs --no-color --tail=200
