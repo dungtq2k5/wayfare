@@ -1,16 +1,15 @@
+import { zLogLevel, zNodeEnv, zPort } from '@wayfare/nest-common';
 import { z } from 'zod';
 
 /** identity's environment, parsed once at boot (conventions §13). */
 export const envSchema = z.object({
-  // ASK Should we globalize `['development', 'test', 'production']` with `const NODE_ENVS = ['development', 'test', 'production'] as const; type NodeEnv = typeof NODE_ENVS[number];`?
-  NODE_ENV: z.enum(['development', 'test', 'production']),
-  // ASK The same question like `NODE_ENV` for `LOG_LEVEL`.
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  NODE_ENV: zNodeEnv,
+  LOG_LEVEL: zLogLevel,
   DATABASE_URL: z.url(),
   NATS_URL: z.url(),
   GRPC_URL: z.string().min(1),
-  OPS_PORT: z.coerce.number().int().min(1).max(65535),
-  METRICS_PORT: z.coerce.number().int().min(1).max(65535),
+  OPS_PORT: zPort,
+  METRICS_PORT: zPort,
   // Build identity for /version, stamped into the image; defaults keep local runs working.
   APP_VERSION: z.string().default('0.0.0-dev'),
   GIT_SHA: z.string().default('unknown'),

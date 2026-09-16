@@ -1,6 +1,7 @@
 import { Metadata, status } from '@grpc/grpc-js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
+import { compareStrings } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
 import type { RequestContext } from '@wayfare/nest-common';
 import request from 'supertest';
@@ -249,7 +250,12 @@ describe('edge behaviour', () => {
   it('publishes the OpenAPI document with the route and its error codes, and no probes', async () => {
     const res = await request(app.getHttpServer()).get('/docs-json');
     const operation = res.body.paths['/api/v1/devices'].post;
-    expect(Object.keys(operation.responses).sort()).toEqual(['201', '400', '503', '504']);
+    expect(Object.keys(operation.responses).toSorted(compareStrings)).toEqual([
+      '201',
+      '400',
+      '503',
+      '504',
+    ]);
     expect(res.body.paths['/health']).toBeUndefined();
   });
 

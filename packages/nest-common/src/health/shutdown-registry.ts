@@ -17,8 +17,7 @@ export class ShutdownRegistry implements OnApplicationShutdown {
   }
 
   async onApplicationShutdown(): Promise<void> {
-    // FIXME Move this array "reverse" operation to a separate statement or replace it with "toReversed".
-    for (const closer of this.closers.reverse()) {
+    for (const closer of this.closers.toReversed()) {
       try {
         await closer();
       } catch (error) {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isUuidV7, newId, zUuidV7 } from './ids';
+import { compareStrings } from './sorting';
 
 describe('newId', () => {
   it('generates a UUIDv7', () => {
@@ -8,7 +9,7 @@ describe('newId', () => {
 
   it('generates ids in creation order', () => {
     const ids = Array.from({ length: 50 }, () => newId());
-    expect([...ids].sort()).toEqual(ids);
+    expect(ids.toSorted(compareStrings)).toEqual(ids);
   });
 });
 

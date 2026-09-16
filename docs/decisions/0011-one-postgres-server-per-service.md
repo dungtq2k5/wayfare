@@ -10,7 +10,7 @@ Service boundaries can be enforced at three strengths: a shared database (conven
 
 **One Postgres container per service** in Compose. Inside each, two databases: the working database and an automatically provisioned test database.
 
-```
+```text
 identity   → wayfare_identity   + wayfare_identity_test
 catalog    → wayfare_catalog    + wayfare_catalog_test    (PostGIS)
 narration  → wayfare_narration  + wayfare_narration_test
@@ -19,7 +19,7 @@ billing    → wayfare_billing    + wayfare_billing_test
 
 Connection strings follow one shape, so the test URL is **derivable** rather than separately configured:
 
-```
+```text
 DATABASE_URL      = postgresql://user:pass@catalog-db:5432/wayfare_catalog?schema=public
 DATABASE_URL_TEST = postgresql://user:pass@catalog-db:5432/wayfare_catalog_test?schema=public
 ```

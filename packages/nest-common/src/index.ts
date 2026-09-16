@@ -1,3 +1,4 @@
+export * from './config/env-fields';
 export * from './context/request-context';
 export * from './crypto/tokens';
 export * from './errors/grpc-service-error';
@@ -6,6 +7,7 @@ export * from './errors/rpc-error';
 export * from './grpc/base-grpc.client';
 export * from './grpc/caller-context';
 export * from './grpc/grpc-health.controller';
+export * from './grpc/proto-enum';
 export * from './grpc/proto';
 export * from './health/ops.module';
 export * from './health/readiness';

@@ -48,15 +48,15 @@ services/catalog/src/modules/places/
 ├── places.consumer.ts            PRESENTATION — JetStream consumers: validate payload, delegate once
 ├── places.service.ts             BUSINESS + DATA — use cases, transactions, Prisma queries; returns proto
 ├── place.mapper.ts               Prisma select/include shapes + row → proto, field by field
-├── expired-boost.sweep.ts        a scheduled job: a plain method, called by the scheduler
+├── boost-expire.job.ts           a scheduled job: a plain method, called by the scheduler
 └── domain/
-    └── place-lifecycle.ts        pure rules: the status machine, the activation gate
+    └── place-lifecycle.ts        pure rules: the status machine, the activation gate — no Nest, no Prisma
 ```
 
 - A **gRPC controller** is `@Controller()` with the generated `@PlaceServiceControllerMethods()` decorator and `implements PlaceServiceController`, so a method missing from the proto — or a signature that drifted from it — is a compile error. Each method unpacks the caller with `unpackCallerContext(metadata)` and returns `this.placesService.x(request, context)`. **No Prisma, no mapping, no branching.** A consumer does the same for an event payload.
 - A **service MUST** be the only file that runs Prisma queries for its module, injecting `PrismaService`. It takes the **proto request** and the `CallerContext`, and **returns the proto response**, built with the mapper. It throws `RpcException` through `rpcError()` (§6.4) and **MUST NOT** import HTTP exceptions.
 - A **mapper** owns the Prisma `select`/`include` shapes its conversions need (`PLACE_SUMMARY_SELECT`), the matching row types (`type PlaceSummaryRow = Prisma.PlaceGetPayload<…>`), and the row → proto functions. It imports Prisma **types only**, lists every output field **explicitly** — never `const { secret, ...rest } = row`, a deny-list that ships every sensitive column added later — and converts `null` to `undefined` for proto. A mapper **MUST NOT** query or call another service; anything it needs (a signed URL, a resolved name) is fetched by the service and passed in.
-- **A rule with no I/O is a pure function in `domain/`**, unit-tested without Nest: the Place lifecycle, the activation gate, entitlement arithmetic, content hashing, fee rounding.
+- **A rule with no I/O is a pure function in `domain/`** — functions, types and constants only, importing nothing from `@nestjs/*` or the Prisma client — unit-tested without Nest: the Place lifecycle, the activation gate, entitlement arithmetic, content hashing, fee rounding.
 - **A service that needs another module's data calls that module's service**, never its Prisma model directly — so each model still has one owner in code.
 - Enforced by `eslint` `no-restricted-imports`: the runtime Prisma client only in `*.service.ts`, `prisma.service.ts` and `prisma/seed/**`; mappers may `import type` from it; controllers and consumers may not import it at all.
 
@@ -201,6 +201,8 @@ export const MAX_TRIGGER_RADIUS_M = 100;
 ```
 
 - **A field typed `string` where a union exists is a bug.** Narrow at the boundary by parsing (zod), never by casting at the point of use — a cast moves the failure, a parse removes it.
+- **Every sort of machine strings passes `compareStrings`** from `@wayfare/contracts` — `ids.toSorted(compareStrings)`. It compares UTF-16 code units, the same order as `<`, Postgres `COLLATE "C"` and `ORDER BY id`, and the same on every host and runtime. Two strings compare equal only when they are identical. A bare `sort()` is a lint error (`@typescript-eslint/require-array-sort-compare`, with `ignoreStringArrays: false`); numbers pass their own `(a, b) => a - b`. **MUST NOT** sort machine strings with `localeCompare`: its order depends on the ICU version, and it treats some distinct strings as equal. A list shown to a person is the opposite case — sorted with an `Intl.Collator` for their content language, from `packages/i18n`.
+- **Server-only shared values live in `packages/nest-common`, not here** — `NODE_ENVS` / `NodeEnv`, `LOG_LEVELS` / `LogLevel`, and the env-schema fields built on them (§13). No client reads them.
 
 ---
 
@@ -277,6 +279,8 @@ A limit can be bound by a **platform ceiling** (a constant in `packages/contract
 ### 5.1 Response and error shapes
 
 As defined in api-endpoints-plan §0.4. A global interceptor wraps success as `{ data, meta? }`; a global filter builds `{ error: { code, message, details?, requestId } }`.
+
+- **`@SkipEnvelope()`** (nest-common) exempts a controller or handler from the envelope. It is for **ops routes only** — `/health`, `/health/ready`, `/version` — which are unwrapped on every service (api-endpoints-plan §13). An API route **MUST NOT** use it: clients branch on the envelope's shape.
 
 - Handlers **MUST** return raw data, or `{ data, meta }` via the `Paged` helper. Returning `{ data }` yourself double-wraps.
 - Every thrown error **MUST** carry an `ErrorCode` from `packages/contracts`. A new code is added there, with its `details` schema, and to the client i18n bundle in the same PR.
@@ -381,8 +385,9 @@ return res.users;
 
 - `google.protobuf.Timestamp` ⇄ `Date` only through `toProtoTimestamp` / `fromProtoTimestamp`.
 - Protobuf has no `null`. An absent optional field arrives as `undefined` and **MUST** be converted to `null` in the mapper, field by field, so response shapes stay stable.
-- An `…_UNSPECIFIED` enum value arriving in a request **MUST** be rejected as `INVALID_ARGUMENT`, never defaulted to a real member.
-- An `UNRECOGNIZED` value (a newer peer sent a member this build does not know) is treated as unspecified and logged, never crashes.
+- **A proto enum crosses the wire only through its bridge.** Each domain enum carried in a `.proto` file has one `protoEnumBridge` instance in `@wayfare/contracts/grpc`, named `<camelDomainEnum>Proto` (`platformProto`). The bridge pairs each domain **value** with the proto member `<ENUM_NAME>_<VALUE>` (`'IOS'` ⇄ `PLATFORM_IOS`, §15), requires every domain member's key to equal its value, and throws when the module loads if either side has a member the other lacks. So a new value added on one side only fails every test that imports it, and the service will not boot. **MUST NOT** hand-write a proto↔domain table; an enum whose sides are not 1:1 by name gets a hand-written mapper whose docblock says why.
+- An `…_UNSPECIFIED` enum value arriving in a request **MUST** be rejected as `INVALID_ARGUMENT`, never defaulted to a real member. For a required field, the mapper calls `requireProtoEnum(bridge, value, '/field')` from `@wayfare/nest-common`, which throws `VALIDATION_FAILED` with that path.
+- An `UNRECOGNIZED` value (a newer peer sent a member this build does not know — it may arrive as `-1` or as its raw number) is treated as unspecified and logged, never crashes. `bridge.fromProto` returns `null` for both. A response field the gateway reads handles that `null`; it is not a client error.
 - Money crosses the wire as `{ amount_minor: int64, currency: string }` — the `Money` message — never a bare integer field.
 
 ### 6.4 Errors across the boundary
@@ -750,9 +755,10 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 ## 13. Configuration
 
 - Every environment variable is declared in the service's `config/env.schema.ts` as a zod schema and parsed **once at boot**. A missing or malformed value stops the process before it listens.
+- Fields every service shares are built from `@wayfare/nest-common`: `zNodeEnv` (required), `zLogLevel` (`info` by default) and `zPort`. **MUST NOT** re-type the `NODE_ENV` or `LOG_LEVEL` value lists.
 - Read configuration through the typed `AppConfig` provider, injected. **MUST NOT** read `process.env` outside `env.schema.ts` and `main.ts`.
 - Limits and tunables that are product decisions (product-overview §9) are constants in `packages/contracts` with an environment override **only** where operations genuinely need one. A tunable that exists only as an environment variable is invisible to code review.
-- Every service ships `.env.example` listing every variable with no values. A new variable is added to the schema, the example and architecture-and-tech-stack §14 in the same PR.
+- Every service ships `.env.example` listing every variable, with no secret values. A new variable is added to the schema, the example and architecture-and-tech-stack §14 in the same PR — `env-contract.spec.ts` (§17.4) fails otherwise. A variable read outside the schema (by `prisma.config.ts`, the test setup or the OTel SDK) is listed in that spec's exemptions, together with the file that reads it.
 - The gateway's `GLOBAL_PREFIX` is configuration, validated at boot; nothing else reads it (§5.6).
 - Secrets are never defaulted. `JWT_PRIVATE_KEY` with a development fallback is a production key waiting to be the fallback.
 
@@ -802,7 +808,7 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 | Thing | Convention | Example |
 | :---- | :---- | :---- |
 | File | `kebab-case.<role>.ts` | `place-lifecycle.ts`, `owner.guard.ts` |
-| Service module files | `<module>-grpc.controller.ts`, `<module>.service.ts`, `<module>.consumer.ts`, `<entity>.mapper.ts` — no repository | `places-grpc.controller.ts` |
+| Service module files | `<module>-grpc.controller.ts`, `<module>.service.ts`, `<module>.consumer.ts`, `<entity>.mapper.ts`, `domain/<rule>.ts` — no repository | `places-grpc.controller.ts` |
 | Gateway module files | `<module>.controller.ts`, `<module>.service.ts`, `<entity>.mapper.ts` | `places.controller.ts` |
 | Gateway peer client | `<peer>-service-grpc.client.ts` | `catalog-service-grpc.client.ts` |
 | Request / response DTO files | `dto/<entity>.dto.ts` / `dto/<entity>-response.dto.ts` | `dto/place-response.dto.ts` |
@@ -814,8 +820,10 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 | Service error | `rpcError(status, ErrorCode, details?)` (§6.4) | `rpcError(status.NOT_FOUND, 'PLACE_NOT_FOUND')` |
 | gRPC controller | `<module>-grpc.controller.ts`, `implements <Name>ServiceController` | `places-grpc.controller.ts` |
 | Select / include shape | `<ENTITY>_<VIEW>_SELECT` / `_INCLUDE` in the mapper, with a `<Entity><View>Row` type | `PLACE_SUMMARY_SELECT`, `PlaceSummaryRow` |
-| Mapper, outbound | `to<TargetType>` — the destination's type name verbatim | `toPlaceDetailResponseDto`, `toPlaceMessage` |
-| Mapper, inbound | `from<SourceType>` — the source's type name verbatim | `fromProtoPlaceStatus` |
+| Mapper, outbound | `to<TargetType>` — the destination's type name verbatim, with an explicit return type | `toPlaceDetailResponseDto`, `toGetPlaceResponse` |
+| Mapper, inbound | `from<SourceType>` — the source's type name verbatim, prefixed `Proto` when it is a generated gRPC type | `fromProtoPlaceStatus` |
+| Proto enum bridge | `<camelDomainEnum>Proto`, in `@wayfare/contracts/grpc` | `platformProto` |
+| Guard spec | `<rule>.spec.ts` in `packages/config/guards/` | `mapper-naming.spec.ts` |
 | Error code | `SCREAMING_SNAKE`, states the condition | `SUBMISSION_CONFLICT` |
 | Audit action | `SCREAMING_SNAKE`, past tense | `OWNER_REGISTRATION_APPROVED` |
 | Notification type | `SCREAMING_SNAKE`, what happened | `SUBSCRIPTION_PAYMENT_FAILED` |
@@ -833,7 +841,9 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 
 **Units go in the name.** `radiusM`, `durationMs`, `priceMinor`, `commissionBps`. A bare `radius` or `timeout` is a unit bug waiting for someone who assumes kilometres or seconds.
 
-**Mappers name the foreign side.** `toUser` does not say whether it produces a domain object, a response or a proto message; `toUserSummaryResponse` does.
+**Mappers name the foreign side.** `toUser` does not say whether it produces a domain object, a response or a proto message; `toUserSummaryResponse` does. A mapper file exports only `to…` / `from…` functions, `…_SELECT` / `…_INCLUDE` shapes and their `…Row` types — it is not a utilities file.
+
+**These rules are checked, not just stated.** DTO class names, mapper names and the role of every file under `services/*/src/modules/` are enforced by the guard specs in §17.4.
 
 ---
 
@@ -884,7 +894,7 @@ Keep it proportional: a one-line constant gets one line.
 - **Every partial unique index and `CHECK` has an integration test proving it refuses** — insert the violating row and assert the error. An index missing from `schema-objects.sql` otherwise ships green.
 - **Every consumer has a test delivering the same event twice** and asserting a single effect, and a test delivering an older version after a newer one.
 - **Every scheduled job has a test that runs it for an explicit window and reads the result**, and one asserting `job_runs` was written.
-- **A source-scan test** (reading a file's text, e.g. "this method never calls `place.create`") is allowed **only** for a property with no runtime expression. It **MUST** guard itself: fail loudly if the scanned method is not found, and assert the scanned body is non-trivial — a renamed method otherwise makes every assertion pass over an empty string.
+- **A source-scan test** (reading a file's text, e.g. "this method never calls `place.create`") is allowed **only** for a property with no runtime expression — repo-wide rules go in a guard spec (§17.4). It **MUST** guard itself: fail loudly if the scanned method is not found, and assert the scanned body is non-trivial — a renamed method otherwise makes every assertion pass over an empty string.
 - Integration suites reset with `TRUNCATE … RESTART IDENTITY CASCADE` in `beforeEach` over every table except the seeded catalogue tables, which are re-seeded by the shared fixture. Suites touching one database run serially.
 
 ### 17.3 The geofence harness
@@ -894,6 +904,34 @@ The single most important test suite in the repository.
 - Fixtures are recorded or synthesised traces: `[{ t, lat, lng, accuracyM }]` plus the Places in play.
 - Required cases, each its own fixture: jitter across a boundary (fires once); two overlapping radii (priority wins); a Venue overlapping an Editorial Place (Editorial wins; commercial cap respected); a boosted Venue beside an unboosted one (**boost has no effect**); sitting inside a radius for ten minutes (cooldown holds); two Venues within ten minutes (the second is suppressed); a GPS gap then re-acquisition (reconcile recovers); a Place whose `autoNarrationEnabled` is false (never auto-fires).
 - Coverage of `packages/core/geofence` ≥ 90 %, and every branch of the priority resolution covered.
+
+### 17.4 Guard specs
+
+A **guard spec** turns a repo-wide written rule into a failing test. Guards live in `packages/config/guards/` and run as the Vitest project `unit:guards`, inside `pnpm test` and again as a named CI step.
+
+Every guard has four tests:
+
+1. **The rule** — scan the corpus, collect `file: problem` strings, and expect the list to be empty.
+2. **The pattern fires** — planted violations of every kind are reported. A scanner that matches nothing is indistinguishable from a clean repo.
+3. **Conforming shapes pass** — the correct forms, including the awkward ones, are not reported. A guard that rejects the fix argues for a change nobody can make.
+4. **The corpus is real** — non-empty, above a floor, and containing one named real file.
+
+Rules for writing one:
+
+- **The corpus comes from `git ls-files --cached --others --exclude-standard`**, never a directory walk. That way ignored files (the archive, `generated/`, `dist/`) are never scanned and a new unstaged file always is.
+- **Parse TypeScript with the compiler API**, not a regex, for anything prettier can split across lines (a signature, a return type).
+- **An exemption is a map from path to reason**, and the guard checks that each exemption is still needed.
+- **Scan from the code toward the rule**, not from a list of known names. A list can only confirm the names already written down.
+- **When you add one, first break the rule in a real file and watch the guard go red.**
+
+| Guard | Rule it enforces |
+| :---- | :---- |
+| `adr-structure.spec.ts` | Every ADR matches `docs/decisions/TEMPLATE.md`: file name, title number, status line, sections, mutual `Supersedes` / `Superseded by`, and a row in `docs/README.md` |
+| `archive-references.spec.ts` | Nothing tracked cites the git-ignored archive, by path, by relative link, or as "doc NN" |
+| `dto-naming.spec.ts` | §15 DTO names: `…ResponseDto` only in `*-response.dto.ts`, built with `createZodDto`, inside `dto/` |
+| `mapper-naming.spec.ts` | §15 mapper names, checked against the real target and source types |
+| `module-files.spec.ts` | Every file under `services/*/src/modules/` has a known role for its kind of service, with the matching class name; `domain/` files stay free of Nest and Prisma; no `*.repository.ts` ([ADR 0054](./decisions/0054-services-use-prisma-directly-without-a-repository-layer.md)) |
+| `env-contract.spec.ts` | §13: the env schema, `.env.example` and architecture §14 list the same variables |
 
 ---
 
@@ -905,6 +943,7 @@ The single most important test suite in the repository.
 pnpm typecheck      # a type error makes every later result noise
 pnpm lint           # includes the layering and core-purity boundaries
 pnpm format:check
+pnpm lint:md        # if a .md changed
 pnpm proto:lint && pnpm proto:breaking     # if a .proto changed
 pnpm db:verify                             # if a schema or schema-objects.sql changed
 pnpm test           # unit

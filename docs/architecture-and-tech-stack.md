@@ -41,7 +41,7 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
 
 📌 [ADR 0009](./decisions/0009-the-repository-layout.md) — agree on this before the first commit, because moving files later breaks everyone's open branches.
 
-```
+```text
 wayfare/
 ├─ apps/
 │  ├─ mobile/            # Expo / React Native — tourist app (primary surface)
@@ -67,7 +67,7 @@ wayfare/
 │  ├─ nest-common/       # shared Nest guards, interceptors, gRPC client base, outbox relay
 │  ├─ ui/                # shared React components (web + console)
 │  ├─ i18n/              # locale resources, language registry, formatting helpers
-│  └─ config/            # eslint / tsconfig / tailwind presets
+│  └─ config/            # eslint / tsconfig / tailwind presets, the markdown lint rule, repo-wide guard specs
 ├─ infra/
 │  ├─ docker/            # Dockerfiles, compose files
 │  └─ tiles/             # PMTiles build scripts for offline map packs
@@ -153,13 +153,13 @@ Rules that make this real rather than cosmetic:
 
 ### 3.1 Database topology — one Postgres server per service
 
-📌 [ADR 0011](./decisions/0011-one-postgres-server-per-service.md). Each service gets its **own Postgres container** in Compose, and inside that server two databases: the working database and an automatically provisioned test database.
+📌 [ADR 0011](./decisions/0011-one-postgres-server-per-service.md). Each service gets its **own Postgres container** in Compose, and inside that server three databases: the working database, an automatically provisioned test database, and a shadow database that only `db:drift` uses.
 
-```
-services/identity   → postgres container  → wayfare_identity   + wayfare_identity_test
-services/catalog    → postgres container  → wayfare_catalog    + wayfare_catalog_test   (PostGIS)
-services/narration  → postgres container  → wayfare_narration  + wayfare_narration_test
-services/billing    → postgres container  → wayfare_billing    + wayfare_billing_test
+```text
+services/identity   → postgres container  → wayfare_identity   + wayfare_identity_test   + wayfare_identity_shadow
+services/catalog    → postgres container  → wayfare_catalog    + wayfare_catalog_test    + wayfare_catalog_shadow   (PostGIS)
+services/narration  → postgres container  → wayfare_narration  + wayfare_narration_test  + wayfare_narration_shadow
+services/billing    → postgres container  → wayfare_billing    + wayfare_billing_test    + wayfare_billing_shadow
 ```
 
 Connection strings follow one predictable shape, so the test URL is derivable rather than separately configured:
@@ -169,7 +169,7 @@ DATABASE_URL      = postgresql://user:pass@catalog-db:5432/wayfare_catalog?schem
 DATABASE_URL_TEST = postgresql://user:pass@catalog-db:5432/wayfare_catalog_test?schema=public
 ```
 
-Both databases are created by the container's init script on first boot, so a fresh clone plus `docker compose up` yields a working *and* a testable stack with no manual setup.
+All three databases are created by the container's init script on first boot, so a fresh clone plus `docker compose up` yields a working *and* a testable stack with no manual setup.
 
 - *Why a server per service rather than one shared server:* it is genuine database-per-service isolation. A service cannot reach another's data even by accident, migrations are fully independent, and one service's lock contention or heavy analytical query cannot affect another's latency.
 - **The cost, stated plainly:** more containers and more RAM on a development laptop (budget ~150–250 MB each). If that becomes painful, the fallback is one server with a database per service — the connection-string shape above does not change, only the host. Do not fall back to a *schema* per service, because that weakens the isolation this decision exists to buy.
@@ -338,7 +338,7 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 ⚠️ None of Workbox, IndexedDB or `idb` exists in React Native. Mobile needs a parallel stack:
 
 | Concern | Web | Mobile |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | Asset cache | Workbox + Cache API | `expo-file-system` + an HTTP cache policy |
 | Structured local data | IndexedDB (`idb`) | **`expo-sqlite`** |
 | Offline pack files | Cache API | `expo-file-system` (document directory) |
@@ -384,7 +384,7 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 ### 5.1 Which API for which flow
 
 | Flow | API | Notes |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **R1 — Owner subscription** | **Billing** + `checkout.sessions.create({ mode: 'subscription' })` | One **Product per plan** (Free/Growth/Pro), monthly + annual **Prices** per product. |
 | Owner self-service management | **Customer Portal** ([ADR 0032](./decisions/0032-stripe-hosted-checkout-and-customer-portal.md)) | Upgrades, downgrades, cancellation, invoices, card updates. Do **not** build this UI. |
 | **R2 — Discovery boost** | Billing add-on price, or one-off Checkout Session | — |
@@ -468,7 +468,7 @@ The `billing` service owns a single `POST /webhooks/stripe` endpoint.
 Four layers, per `product-overview.md` §F5. The technology differs per platform; the *contract* does not.
 
 | Layer | Web | Mobile |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | 1. Asset cache | Workbox strategies, per-language sharded cache names, LRU | `expo-file-system` + HTTP cache policy |
 | 2. Structured data | IndexedDB via `idb` | `expo-sqlite` |
 | 3. Explicit packs | Cache API, separate from runtime caches | `expo-file-system` document directory |
@@ -552,7 +552,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 Not optional, and not something to bolt on at the end. The geofence engine in particular **cannot** be tested by walking around; it has to be tested with synthetic GPS traces.
 
 | Level | Tool | Database | What it covers |
-| --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- |
 | Unit | **Vitest** | none | `packages/core`: geofence engine, fallback chains, entitlement maths, distance helpers. Fast, no I/O. |
 | Unit (services) | **Vitest** | none (`PrismaService` mocked) | Business rules and orchestration. |
 | Integration | **Vitest** | the service's **`_test` database** | Services against real Postgres/PostGIS. PostGIS behaviour cannot be mocked. |
@@ -602,11 +602,12 @@ Set this up while there is nothing to break, not once there is everything to bre
 
 1. `pnpm install --frozen-lockfile` (cached)
 2. `turbo run lint typecheck test --filter=...[origin/main]` — only affected packages
-3. Integration tests against Postgres service containers, one per service, using the `_test` databases
-4. `turbo run build` — including Docker builds for changed services
-5. Playwright E2E against a Compose-booted stack
-6. Verify the Orval client is current (regenerate; fail if the diff is non-empty)
-7. Verify no pending Prisma migration drift, per service
+3. `pnpm lint:md` and the repo-wide guard specs (`vitest --project unit:guards`: ADR structure, archive references, DTO / mapper / module-file naming, the env contract) — always, since they read the whole tree
+4. Integration tests against Postgres service containers, one per service, using the `_test` databases
+5. `turbo run build` — including Docker builds for changed services
+6. Playwright E2E against a Compose-booted stack
+7. Verify the Orval client is current (regenerate; fail if the diff is non-empty)
+8. Verify no pending Prisma migration drift, per service
 
 **`main.yml` — on merge to `main`**
 
@@ -656,7 +657,7 @@ Fly.io or Render remain perfectly reasonable alternatives if Cloud Run's cold st
 Validate all of these with zod at service startup and fail fast on anything missing. Keep a committed `.env.example` with every key and no value.
 
 | Variable | Used by | Notes |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | `DATABASE_URL` | each service | Its **own** Postgres. `postgresql://…/wayfare_<service>?schema=public` |
 | `DATABASE_URL_TEST` | each service | Same server, `wayfare_<service>_test`. Derivable from the above |
 | `REDIS_URL` | all services | throttler, cache, BullMQ, WebSocket adapter |
@@ -697,6 +698,7 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `GOOGLE_TTS_CREDENTIALS` / `AZURE_SPEECH_KEY` | narration | paid fallback provider |
 | `MAP_PACK_DATA_DIR` | catalog | base directory for the path-traversal guard |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally (OTLP) |
+| `OTEL_SDK_DISABLED` | all services | `true` turns tracing off; the test config sets it. Read by the OTel bootstrap in `nest-common`, not by the env schema |
 | `OTEL_TRACES_SAMPLER` | all services | `parentbased_always_on` locally and in staging. Set in the environment, never in code, so switching to a ratio later needs no deploy |
 | `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
 | `OPS_PORT` | backend services | The HTTP port for `/health*` and `/version`. The gateway has none — its ops routes are on `PORT` |

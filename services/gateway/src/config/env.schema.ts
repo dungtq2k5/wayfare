@@ -1,3 +1,4 @@
+import { zLogLevel, zNodeEnv, zPort } from '@wayfare/nest-common';
 import { z } from 'zod';
 
 /** "true" / "false" only — never `Boolean(value)`, which reads "false" as true (conventions §5.2). */
@@ -6,9 +7,9 @@ const zBooleanString = z.enum(['true', 'false']).transform((value) => value === 
 /** gateway's environment, parsed once at boot (conventions §13, architecture §14). */
 export const envSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']),
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
-    PORT: z.coerce.number().int().min(1).max(65535),
+    NODE_ENV: zNodeEnv,
+    LOG_LEVEL: zLogLevel,
+    PORT: zPort,
     GLOBAL_PREFIX: z.string().regex(/^[a-z][a-z0-9-]*$/),
     CORS_ORIGINS: z
       .string()
@@ -27,7 +28,7 @@ export const envSchema = z
     SWAGGER_ENABLED: zBooleanString,
     IDENTITY_GRPC_URL: z.string().min(1),
     REDIS_URL: z.url(),
-    METRICS_PORT: z.coerce.number().int().min(1).max(65535),
+    METRICS_PORT: zPort,
     APP_VERSION: z.string().default('0.0.0-dev'),
     GIT_SHA: z.string().default('unknown'),
     BUILT_AT: z.string().default('unknown'),

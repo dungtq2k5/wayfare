@@ -1,7 +1,7 @@
 import { JetStreamApiCodes, JetStreamApiError, StorageType } from '@nats-io/jetstream';
 import type { JetStreamManager, StreamConfig, StreamInfo } from '@nats-io/jetstream';
 import { nanos } from '@nats-io/transport-node';
-import { JETSTREAM_STREAMS } from '@wayfare/contracts';
+import { compareStrings, JETSTREAM_STREAMS } from '@wayfare/contracts';
 import type { StreamDefinition, StreamName } from '@wayfare/contracts';
 
 /** Thrown at boot when a stream exists with a configuration other than its single definition. */
@@ -62,8 +62,8 @@ export async function ensureStreams(
 /** Human-readable differences between a definition and a live stream config. */
 export function diffStream(definition: StreamDefinition, actual: StreamConfig): string[] {
   const differences: string[] = [];
-  const wantSubjects = [...definition.subjects].sort().join(',');
-  const haveSubjects = [...(actual.subjects ?? [])].sort().join(',');
+  const wantSubjects = definition.subjects.toSorted(compareStrings).join(',');
+  const haveSubjects = (actual.subjects ?? []).toSorted(compareStrings).join(',');
   if (wantSubjects !== haveSubjects) differences.push(`subjects ${haveSubjects} ≠ ${wantSubjects}`);
   if (actual.max_age !== nanos(definition.maxAgeMs))
     differences.push(`max_age ${actual.max_age} ≠ ${nanos(definition.maxAgeMs)}`);

@@ -8,4 +8,6 @@ export * from './events/event-definition';
 export * from './events/registry';
 export * from './events/streams';
 export * from './ids';
+export * from './proto-enum-bridge';
 export * from './proto-files';
+export * from './sorting';

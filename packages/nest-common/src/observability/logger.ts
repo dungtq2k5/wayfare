@@ -5,6 +5,7 @@ import { LoggerModule } from 'nestjs-pino';
 /** The pino-backed Nest logger; `app.useLogger(app.get(PinoLogger))`. */
 export { Logger as PinoLogger } from 'nestjs-pino';
 import type { Request } from 'express';
+import type { LogLevel } from '../config/env-fields';
 import { requestIdOfActiveTrace } from './trace';
 
 /**
@@ -30,7 +31,7 @@ export const LOG_REDACT_PATHS = [
 
 /** Options for `createLoggerModule`. */
 export interface LoggerOptions {
-  readonly level: string;
+  readonly level: LogLevel;
 }
 
 /** pino through nestjs-pino: JSON, trace ids on every line (via the OTel pino instrumentation). */

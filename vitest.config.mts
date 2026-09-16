@@ -48,6 +48,9 @@ export default defineConfig({
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
       unit('gateway', './services/gateway', ['src/**/*.spec.ts', 'test/e2e/**/*.spec.ts']),
+      unit('config', './packages/config', ['markdownlint/**/*.spec.ts']),
+      // Repo-wide rules as tests (conventions §17.4); also a named step in pr.yml.
+      unit('guards', './packages/config', ['guards/**/*.spec.ts']),
       {
         plugins: [swcPlugin()],
         resolve: { alias },

@@ -1,4 +1,4 @@
-import { newId } from '@wayfare/contracts';
+import { compareStrings, newId } from '@wayfare/contracts';
 import { OUTBOX_BATCH_SIZE, OutboxRelay } from '@wayfare/nest-common';
 import type { EventPublisher } from '@wayfare/nest-common';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -45,7 +45,7 @@ describe('outbox relay claim (raw SQL)', () => {
 
     const all = [...a.ids, ...b.ids];
     expect(new Set(all).size).toBe(all.length); // no row published twice
-    expect([...all].sort()).toEqual([...ids].sort()); // every row published
+    expect(all.toSorted(compareStrings)).toEqual(ids.toSorted(compareStrings)); // every row published
     expect(a.ids.length).toBeGreaterThan(0);
     expect(b.ids.length).toBeGreaterThan(0); // SKIP LOCKED actually split the work
     expect(await prisma.outboxEvent.count({ where: { publishedAt: null } })).toBe(0);

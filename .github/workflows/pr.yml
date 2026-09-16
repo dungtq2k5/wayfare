@@ -52,6 +52,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
+      - run: pnpm lint:md
+      # Guard specs also run inside `pnpm test`; this step names them so a failure reads as a rule, not a unit test.
+      - run: pnpm vitest run --project unit:guards
       - run: pnpm build
       - run: pnpm test
 

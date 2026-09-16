@@ -25,7 +25,7 @@ Two things are always true of this folder. **Each document answers one question*
 
 ## `decisions/` — why, permanently
 
-**Append-only.** A decision is never edited once accepted; superseding one means writing a new ADR that decides the new thing, with `Supersedes` / `Superseded by` filled in on both. Numbers never move, which is what makes them safe to cite from a docblock or a code comment.
+**Append-only.** A decision is never edited once accepted; superseding one means writing a new ADR that decides the new thing, with `Supersedes` / `Superseded by` filled in on both. Numbers never move, which is what makes them safe to cite from a docblock or a code comment. The one other edit allowed is a lint fix to a **table delimiter row** or a **code-fence language** — nothing else, since anything a reader sees is a new ADR. `packages/config/guards/adr-structure.spec.ts` checks every ADR's first three lines, its sections, that `Supersedes` and `Superseded by` agree in both directions, and that the ADR has a row in the index below.
 
 Each title is an **assertion**, not a topic — "Cache keys are tenant-first", never "Caching" — so the index below reads as the actual set of rules this codebase operates under. Start from [TEMPLATE.md](./decisions/TEMPLATE.md) when adding one.
 
@@ -194,6 +194,16 @@ Numbered `NN-*.md` files at the root of this folder are **working documents**. E
 They are therefore not part of the permanent documentation and **nothing durable may link to them** — not this page, not `decisions/`, not `reference/`, not a docblock. Anything in one that outlives the transfer belongs in an ADR (why) or in `reference/` (what is true now); anything that does not is disposable by design.
 
 The same rule covers `archive/`: it is git-ignored scratch, and nothing durable may link into it.
+
+---
+
+## Writing docs
+
+- **`pnpm lint:md` must pass.** The rules live in `.markdownlint-cli2.jsonc` at the repo root. Lines are not wrapped by hand (line length is not checked), tables are padded with one space and never aligned, and `<br>` is the only HTML allowed.
+- **Every table delimiter cell is `:----`.** A custom rule enforces it, and `pnpm lint:md --fix` rewrites a row that is wrong.
+- **Every code fence names a language.** Use `text` for diagrams, trees and state machines.
+- **Every doc opens with a `#` heading.**
+- **Nothing tracked may cite the archive**, by path, by relative link, or as "doc NN". `packages/config/guards/archive-references.spec.ts` fails CI on all three forms.
 
 ---
 

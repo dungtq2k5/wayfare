@@ -59,6 +59,9 @@ export function wayfareConfig({ tsconfigRootDir }) {
         },
       },
       rules: {
+        // A bare sort() compares UTF-16 code units after converting to string — wrong for numbers and
+        // host-independent only by accident for strings. Machine strings pass compareStrings (conventions §3.3).
+        '@typescript-eslint/require-array-sort-compare': ['error', { ignoreStringArrays: false }],
         '@typescript-eslint/consistent-type-imports': [
           'error',
           { prefer: 'type-imports', fixStyle: 'separate-type-imports' },

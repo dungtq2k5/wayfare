@@ -55,7 +55,7 @@ This document describes the product as it is intended to be. Where a choice was 
 A foreign tourist walking around Ho Chi Minh City hits four walls at once:
 
 | Wall | Concrete symptom | How Wayfare answers it |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **Language** | Signs, menus and stories are in Vietnamese only. Staff may not speak English. | Content is authored once in Vietnamese and served in the tourist's language as text **and** audio. |
 | **Context** | They walk past a 200-year-old pagoda or a famous 40-year-old noodle stall and have no idea. | Geofenced auto-narration fires when they are physically near it. |
 | **Connectivity** | Roaming is expensive, local eSIM coverage is patchy, and data dies exactly when they are lost. | Offline packs: map + content + images + audio downloaded over hotel Wi-Fi. |
@@ -68,7 +68,7 @@ And the **owner** of a small local place has a symmetrical problem: real tourist
 ## 3. Actors
 
 | # | Actor | Auth | Primary surface | What they care about |
-| --- | --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- | :---- |
 | **A1** | **Tourist** (end user) | **Anonymous by default.** Optional account, required only to purchase or sync across devices. | Mobile app (primary), Web PWA (secondary) | Hearing the right story at the right moment, in their language, without burning battery or data. |
 | **A2** | **Venue Owner** (paying customer) | Account + email verification + **manual identity verification by an admin** | Web console → Owner Portal | Getting listed, looking good, being found, selling vouchers, getting paid, seeing their own stats. |
 | **A3** | **Content Moderator / Admin** | Account + role + permissions | Web console → Admin Console | Approving owners and submissions, keeping data clean, running TTS jobs, watching the platform. |
@@ -117,7 +117,7 @@ These two *could* be separate apps. Keep them as one app with route-level RBAC �
 Use these words in code, tickets and commit messages. Consistency here is worth more than it sounds.
 
 | Term | Meaning |
-| --- | --- |
+| :---- | :---- |
 | **Place** | A physical location with content: restaurant, stall, temple, viewpoint, market, bus stop. Our central entity. (An earlier prototype called this a **POI**; we use **Place** in product language and `Place` in code.) |
 | **Editorial Place** | A Place with no commercial owner — a temple, a viewpoint, a public landmark. Authored by staff. Always narrates. |
 | **Venue** | A Place that is commercially owned and claimed by an Owner. Only Venues generate revenue, and Venue narration is gated on subscription (§8.3). |
@@ -178,7 +178,7 @@ Priority: **P0** = the core product, must exist. **P1** = complete product. **P2
 - **4-tier audio fallback** — the tourist always hears *something*:
 
   | Tier | Source | Latency | When |
-  | --- | --- | --- | --- |
+  | :---- | :---- | :---- | :---- |
   | 1 | Pre-generated audio file, cached on device | ~0 ms | Normal case; audio already exists for this `(place, lang)`. |
   | 1.5 | On-demand translate + TTS on the server, result stored | 2–5 s | This `(place, lang)` has no audio yet. |
   | 2 | Server TTS streamed live | 3–8 s | Storage write failed / cold path. |
@@ -353,7 +353,7 @@ All money moves through **Stripe**, and **all prices are in USD, always** ([ADR 
 ### 8.1 Revenue streams
 
 | # | Stream | Who pays | Who receives | Stripe product |
-| --- | --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- | :---- |
 | **R1** | **Owner subscription** — the core business | Venue Owner | Platform (100%) | **Stripe Billing** + Checkout (`mode: 'subscription'`) + Customer Portal |
 | **R2** | **Discovery boost** — paid ranking on visual surfaces | Venue Owner | Platform (100%) | Billing add-on price, or a one-off Checkout Session |
 | **R3** | **Voucher commission** | Tourist | Venue (85%) + Platform (15%) | **Stripe Connect**, destination charges, `application_fee_amount` |
@@ -364,7 +364,7 @@ R1 is the business. R3 is the growth story. Build R1 first and completely; R3 is
 ### 8.2 Owner plans
 
 | | **Free** | **Growth** | **Pro** |
-| --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- |
 | Price | $0 | $9/mo · $90/yr | $29/mo · $290/yr |
 | Places | 1 | 10 | 50 |
 | **Auto-narration (GPS-triggered)** | **✗ — on tap only** | **✔** | **✔** |
@@ -389,7 +389,7 @@ This is the most important product rule in the document, and it is easy to get w
 So the single `audioPriority` field from the original design splits into three, with different owners and different rules:
 
 | Field | Set by | Purchasable | Affects |
-| --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- |
 | `narrationPriority` | Admin, editorially | **Never** | Which story wins when several Places are in range |
 | `discoveryBoost` | Entitlements (R2) | **Yes** | Nearby-list order, marker prominence, recommendations — all labelled *Sponsored* |
 | `triggerRadius` | Admin, capped | **Never** | Geofence size |
@@ -409,7 +409,7 @@ Two guards that make this hold in practice:
 
 Stripe is the source of truth for *subscription state*; our `billing` service is the source of truth for *what that means*.
 
-```
+```text
 Stripe webhook  →  billing service  →  entitlement record  →  every other service reads it
 ```
 
@@ -449,7 +449,7 @@ The platform aggregates venues and runs checkout on their behalf, so the **platf
 These are **product** decisions, not implementation details. They must be configurable, and every one of them has a reason. These values are inherited from an earlier prototype of the same idea, where they were tuned against real walking tests — so treat them as informed starting points, not guesses, and re-tune them with evidence.
 
 | Constant | Value | Why |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | GPS update throttle | 5 s | Below this, battery and re-sorting cost outweigh accuracy gains while walking. |
 | Geofence debounce | 3 s | Urban GPS jitters ±20 m. Firing on the first sample narrates the wrong place. |
 | Default trigger radius | 30 m | Roughly "you can see the shopfront". Admin-overridable per place, hard-capped. |
@@ -476,7 +476,7 @@ These are **product** decisions, not implementation details. They must be config
 
 ## 10. Non-functional requirements
 
-**Performance**
+### Performance
 
 - Cold start to interactive map: **< 3 s** on a mid-range Android with a warm cache.
 - Narration start latency: **< 200 ms** tier 1, **< 5 s** tier 1.5.
@@ -487,14 +487,14 @@ These are **product** decisions, not implementation details. They must be config
 
 **Offline** — every P0 tourist feature must work in airplane mode once a pack is installed. Offline is the default assumption, not a fallback.
 
-**Privacy**
+### Privacy
 
 - Tourists are anonymous by default; analytics require explicit opt-in and are stored against a rotating anonymous device ID, never a person.
 - Movement traces are grid-snapped before storage and are never reconstructable into an individual's route.
 - Runtime "how many devices are active" observability is a **separate lane** that never mixes with consented analytics data.
 - PII encrypted at rest; auto-redacted after 180 days; never written to logs or traces.
 
-**Security**
+### Security
 
 - OWASP Top 10 as a checklist, not a vibe. httpOnly + `SameSite` cookies on web, secure storage on mobile.
 - Permission-based authorization on every mutating route.
@@ -515,7 +515,7 @@ These are **product** decisions, not implementation details. They must be config
 Product capability → owning service. Full technical detail lives in [`architecture-and-tech-stack.md`](./architecture-and-tech-stack.md).
 
 | Service | Owns | Consumed by |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **gateway** | The only public HTTP surface. Auth verification, rate limiting, request shaping, OpenAPI spec. | all clients |
 | **identity** | Accounts, devices, sessions, tokens, roles, permissions, PII encryption, owner verification state. | every service |
 | **catalog** | Places, menus, tours, media metadata, submissions, moderation workflow, dataset versioning + delta sync, PostGIS nearby/geofence queries, map pack manifests. | gateway, narration, analytics |
@@ -588,7 +588,7 @@ Hotel/flight booking · table reservations · food delivery · ride hailing · u
 ## 13. Success metrics
 
 | Dimension | Metric | Target |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **Core loop** | Narrations auto-triggered per active session | ≥ 4 |
 | | Listen-through rate (finished / started) | ≥ 60% |
 | | False trigger rate (narration for a place the tourist never visited) | < 5% |
@@ -608,7 +608,7 @@ Hotel/flight booking · table reservations · food delivery · ride hailing · u
 ## 14. Risks
 
 | Risk | Impact | Mitigation |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **OS geofence region limits.** iOS allows ~20 monitored regions, Android ~100. A city has hundreds of Places. | Core feature silently stops working past 20 places. | Do not use OS geofencing as the primary mechanism. Run our **own** engine over a background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves. **Spike this first.** |
 | **Background location on iOS.** Requires "Always" authorization, background modes, a persuasive App Store justification, and does not work in Expo Go at all. | Cannot demo the core feature; possible App Store rejection. | Move to an Expo **development build** immediately. Write the permission rationale copy early. Have a screen-on fallback path for the demo. |
 | **Battery drain.** Continuous GPS is the fastest way to get uninstalled. | Product is unusable in the real world. | Throttling, distance filters, reduced accuracy when stationary, and a measured battery test. |
