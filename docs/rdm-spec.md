@@ -16,7 +16,7 @@ This document is written to change as little as possible. Where a column's meani
 - **`FK ➔ x.id`** is a real Postgres foreign key, inside one database.
 - **`ref ➔ service.table.id`** is a *logical* reference to another service's row. It is a plain UUID column with **no constraint**, validated at write time over gRPC ([ADR 0013](./decisions/0013-no-cross-service-foreign-keys.md)).
 - **`UNIQUE`** states the business rule. Where the rule is "unique among live rows" it is a **partial unique index**, which Prisma cannot declare; it lives in the service's committed SQL file (§2.9, [ADR 0045](./decisions/0045-schema-objects-prisma-cannot-express-live-in-committed-sql.md)) and is named in the table's notes.
-- **Enumerated values** are listed as `A | B | C`. They are `VARCHAR` columns, never Prisma enums ([ADR 0037](./decisions/0037-enumerated-columns-are-strings-not-prisma-enums.md)); the list here is the documentation of record, and the TypeScript source of record is `packages/contracts`. **A value added in code and not here is drift** — the most common kind, and the least visible.
+- **Enumerated values** are listed as `A | B | C` — one code span, or one per value with notes between them — or, for a closed set a constraint enforces, as `CHECK (col IN ('A','B'))` / `CHECK (col = 'A')`. The value list may follow a short lead-in phrase in the cell. `rdm-enum-sync.spec.ts` reads all of these, so a list written another way is invisible to it. They are `VARCHAR` columns, never Prisma enums ([ADR 0037](./decisions/0037-enumerated-columns-are-strings-not-prisma-enums.md)); the list here is the documentation of record, and the TypeScript source of record is `packages/contracts`. **A value added in code and not here is drift** — the most common kind, and the least visible.
 - Physical names are `snake_case` (tables plural). Prisma model fields are `camelCase`, mapped with `@map` / `@@map`. This document uses physical names throughout.
 
 ---
@@ -263,7 +263,7 @@ Present in `identity`, `catalog`, `narration`, `billing`, `analytics` and `ai` �
 | **id** | UUID | PK | Also the JetStream `Nats-Msg-Id`, which is what makes a relay re-publish a deduplicated no-op. |
 | **subject** | VARCHAR(128) | NOT NULL | The JetStream subject, from the registry in `packages/contracts`. |
 | **payload** | JSONB | NOT NULL | Validated against the subject's zod schema **before** insert. A payload that fails validation fails the business transaction, which is the correct blast radius. |
-| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events are published **in `id` order within one relay cycle, and best-effort across replicas** — two relays claiming with `SKIP LOCKED` can publish later rows first. Consumers therefore guard by version rather than arrival order (api-endpoints-plan §10). For an audit event with no resource, the actor's id. |
+| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events are published **in `id` order within one relay cycle, and best-effort across replicas** — two relays claiming with `SKIP LOCKED` can publish later rows first. Consumers therefore guard by version rather than arrival order (api-endpoints-plan §10). For an audit event with no resource, the actor's id; with neither, the event's own id — an unkeyed audit event is its own aggregate. |
 | **trace_parent** | VARCHAR(55) | Nullable | The W3C `traceparent` of the request that wrote the row, captured at insert. The relay copies it into the NATS headers so the consumer's span joins the originating trace — the publish happens on a later poll, outside that request's context. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | NULL means not yet published. |
@@ -275,6 +275,7 @@ Present in `identity`, `catalog`, `narration`, `billing`, `analytics` and `ai` �
 - The relay claims rows with `SELECT … WHERE published_at IS NULL ORDER BY id LIMIT $n FOR UPDATE SKIP LOCKED`, so replicas never publish the same batch.
 - **A published-but-unmarked row is republished**, and outside JetStream's 2-minute duplicate window that is a real second delivery. That is by design — consumers absorb it — and must not be "fixed".
 - Published rows are pruned after `OUTBOX_RETENTION_DAYS` (7).
+- **A sensitive subject's payload does not outlive its publish.** For a subject declared `sensitive` in the registry (today only `billing.staff.invited`, which carries an invite token), the relay replaces `payload` with `'{}'` in the same `UPDATE` that sets `published_at`, so the broker holds the only copy, for the invitation's own lifetime. Such a row is never republished — there is nothing left to republish — so its publish must be confirmed by the broker before that `UPDATE` runs, which the relay already requires.
 
 ### 2.11 Shared table shape: `processed_events`
 
@@ -518,7 +519,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **recipient_user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE | — |
-| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED` |
+| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN` |
 | **data** | JSONB | NOT NULL | Typed by `type` (`NotificationData` union). Ids and short values only — e.g. `{ placeId, placeName, decisionNote }`. |
 | **event_id** | UUID | NOT NULL | The producer's outbox event id. |
 | **read_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -539,11 +540,11 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **event_id** | UUID | NOT NULL, **UNIQUE** | Producer's outbox id. The unique constraint makes this consumer idempotent without a `processed_events` row. |
 | **occurred_at** | TIMESTAMPTZ(3) | NOT NULL | The producer's clock, not receipt time — an event delayed by a broker outage must still sort where it happened. |
 | **service** | VARCHAR(32) | NOT NULL | Producing service. |
-| **actor_type** | VARCHAR(16) | NOT NULL | `USER \| DEVICE \| SYSTEM \| STRIPE` |
+| **actor_type** | VARCHAR(16) | NOT NULL | `USER \| DEVICE \| SYSTEM \| STRIPE \| ANONYMOUS` — `ANONYMOUS` is an unauthenticated caller with no device, e.g. a console login for an unknown email; the row's `ip` and `user_agent` are then its only identification. |
 | **actor_user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | — |
 | **actor_device_id** | UUID | Nullable | Not a foreign key: devices are pruned, audit rows are not. |
 | **action** | VARCHAR(64) | NOT NULL, Indexed | `SCREAMING_SNAKE` past tense, from `AUDIT_ACTIONS`. |
-| **resource_type** | VARCHAR(32) | NOT NULL | `USER \| DEVICE \| ROLE \| OWNER_REGISTRATION \| PLACE \| SUBMISSION \| TOUR \| PRONUNCIATION \| SYNTHESIS_JOB \| PLAN \| BILLING_ACCOUNT \| VOUCHER_OFFER \| ORDER \| VOUCHER \| MAP_PACK \| LOCALIZATION \| STAFF_MEMBERSHIP \| ACCOUNT_RECOVERY` |
+| **resource_type** | VARCHAR(32) | NOT NULL | `USER \| DEVICE \| ROLE \| OWNER_REGISTRATION \| PLACE \| SUBMISSION \| TOUR \| CATEGORY \| AREA \| PRONUNCIATION \| SYNTHESIS_JOB \| PLAN \| BILLING_ACCOUNT \| BILLING_EVENT \| VOUCHER_OFFER \| ORDER \| VOUCHER \| MAP_PACK \| LOCALIZATION \| STAFF_MEMBERSHIP \| ACCOUNT_RECOVERY`. Each action has exactly one resource type, fixed in code (`AUDIT_ACTION_RESOURCE`). |
 | **resource_id** | UUID | Nullable | — |
 | **metadata** | JSONB | NOT NULL, `'{}'` | `{ before?, after?, reason? }`, built from a **per-action allowlist** of fields. Never a whole row: an allowlist cannot accidentally copy `password_hash` or a ciphertext into a table every admin can read. **No allowlist ever includes an email address, name or phone number**, which is why erasure needs no audit rewrite. |
 | **ip** | VARCHAR(45) | Nullable | — |
@@ -965,7 +966,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **source_content_hash** | CHAR(64) | NOT NULL | The source version this job translates. |
 | **requested_langs** | VARCHAR(16)[] | NOT NULL, **no column default** | Target languages. Never empty — `CHECK (cardinality(requested_langs) > 0)`. |
 | **include_audio** | BOOLEAN | NOT NULL | `true` for `PLACE`; `false` for menus, tours, offers and UI bundles, which are text-only. |
-| **priority** | SMALLINT | NOT NULL | BullMQ priority, lower runs first: `ON_DEMAND` 1, `HOTSET` 2, `HUMAN_EDIT`/`HUMAN_REVERT` 4, `APPROVAL`/`CONTENT_CHANGED` 5, `PREFETCH` 7, `WARMUP`/`DICTIONARY_CHANGED` 9. |
+| **priority** | SMALLINT | NOT NULL | BullMQ priority, lower runs first: `ON_DEMAND` 1, `HOTSET` 2, `HUMAN_EDIT`/`HUMAN_REVERT`/`MANUAL` 4, `APPROVAL`/`CONTENT_CHANGED` 5, `PREFETCH` 7, `WARMUP`/`DICTIONARY_CHANGED`/`ENTITLEMENT_EXPANDED` 9. Every trigger has a priority (`SYNTHESIS_PRIORITY` is exhaustive). |
 | **status** | VARCHAR(24) | NOT NULL | `QUEUED \| RUNNING \| PAUSED \| COMPLETED \| PARTIALLY_FAILED \| FAILED \| CANCELLED \| SUPERSEDED` |
 | **total_tasks** | SMALLINT | NOT NULL | — |
 | **completed_tasks** | SMALLINT | NOT NULL, 0 | — |
@@ -1136,7 +1137,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **sort_order** | SMALLINT | NOT NULL | — |
 | **max_places** | INT | NOT NULL | Grant. |
 | **auto_narration** | BOOLEAN | NOT NULL | Grant. **The paywall** ([ADR 0007](./decisions/0007-paid-placement-never-reaches-the-audio-channel.md)). |
-| **narration_language_scope** | VARCHAR(16) | NOT NULL | `BASIC` (`vi`, `en`) \| `LAUNCH` (the five launch languages) \| `EXTENDED` (launch + long-tail). |
+| **narration_language_scope** | VARCHAR(16) | NOT NULL | `BASIC` (`vi`, `en`) \| `LAUNCH` (the five launch languages) \| `EXTENDED` (launch + `LONG_TAIL_LANGUAGES`, a closed list in `packages/contracts`). |
 | **max_photos_per_place** | SMALLINT | NOT NULL | Grant, bounded by `MAX_PHOTOS_PER_PLACE`. |
 | **max_menu_items_per_place** | SMALLINT | NOT NULL | Grant, bounded by `MAX_MENU_ITEMS_PER_PLACE`. |
 | **discovery_boost_slots** | SMALLINT | NOT NULL | Grant. |
@@ -1248,7 +1249,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | — |
 | **billing_account_id** | UUID | NOT NULL, FK ➔ billing_accounts.id, RESTRICT | — |
 | **place_id** | UUID | NOT NULL | ref ➔ catalog.places.id. Validated over gRPC: must be a Venue owned by this account's owner. |
-| **weight** | SMALLINT | NOT NULL | `CHECK (weight BETWEEN 1 AND 100)`. Set from `DISCOVERY_BOOST_WEIGHT`, not chosen by the owner — slots are a count, not an auction. |
+| **weight** | SMALLINT | NOT NULL | `CHECK (weight BETWEEN 1 AND 100)`. Set from `DISCOVERY_BOOST_WEIGHT` (50), not chosen by the owner — slots are a count, not an auction. |
 | **starts_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **ends_at** | TIMESTAMPTZ(3) | Nullable | NULL = live. |
 | **ended_reason** | VARCHAR(24) | Nullable | `OWNER \| ENTITLEMENT_LIMIT \| PLACE_UNAVAILABLE`. `CHECK ((ends_at IS NULL) = (ended_reason IS NULL))`. |

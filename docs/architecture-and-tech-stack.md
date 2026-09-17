@@ -691,7 +691,6 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `EMAIL_NONPROD_ALLOWLIST` | identity | staging only: addresses that may receive mail; everything else goes to the team catch-all |
 | `SMTP_URL` | identity | local only: the Mailpit container |
 | `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing | Price IDs, never hardcoded |
-| `PLATFORM_COMMISSION_BPS` | billing | 1500 = 15%; 1000 on Pro. Basis points, integer |
 | `GEMINI_API_KEY` | ai | never reaches a client |
 | `PROXYPAL_*` | ai | LLM gateway config |
 | `TTS_PROVIDER`, `TRANSLATION_PROVIDER` | narration | selects the provider implementation |
@@ -700,6 +699,7 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally (OTLP) |
 | `OTEL_SDK_DISABLED` | all services | `true` turns tracing off; the test config sets it. Read by the OTel bootstrap in `nest-common`, not by the env schema |
 | `OTEL_TRACES_SAMPLER` | all services | `parentbased_always_on` locally and in staging. Set in the environment, never in code, so switching to a ratio later needs no deploy |
+| `MIN_SUPPORTED_APP_VERSION` | gateway | Semver; a mobile build below it gets `426 APP_VERSION_UNSUPPORTED`. `0.0.0` by default. Configuration, not a constant, so a floor moves without a client release |
 | `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
 | `OPS_PORT` | backend services | The HTTP port for `/health*` and `/version`. The gateway has none — its ops routes are on `PORT` |
 | `METRICS_PORT` | every service | The separate internal `/metrics` port |

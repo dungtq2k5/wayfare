@@ -72,3 +72,56 @@ describe('outbox relay claim (raw SQL)', () => {
     ]);
   });
 });
+
+describe('outbox relay: sensitive subjects', () => {
+  // A test-only sensitive subject, so the check does not depend on billing's real payload.
+  const SENSITIVE = 'test.secret.issued';
+
+  it("clears a sensitive row's payload when it is published, and leaves the others", async () => {
+    const [plainId, secretId] = [newId(), newId()];
+    await prisma.outboxEvent.createMany({
+      data: [
+        {
+          id: plainId,
+          subject: 'audit.record',
+          payload: { eventId: plainId },
+          aggregateId: plainId,
+        },
+        {
+          id: secretId,
+          subject: SENSITIVE,
+          payload: { eventId: secretId, token: 'raw' },
+          aggregateId: secretId,
+        },
+      ],
+    });
+    const received = new Map<string, unknown>();
+    const publisher: EventPublisher = {
+      publish: (_subject, data, { msgId }) => {
+        received.set(msgId, JSON.parse(new TextDecoder().decode(data)));
+        return Promise.resolve();
+      },
+    };
+
+    const result = await new OutboxRelay(prisma, publisher, new Set([SENSITIVE])).runOnce();
+
+    expect(result).toEqual({ claimed: 2, published: 2, failed: false });
+    expect(received.get(secretId)).toEqual({ eventId: secretId, token: 'raw' }); // the consumer got it all
+    const rows = await prisma.outboxEvent.findMany({ orderBy: { id: 'asc' } });
+    expect(rows.map((row) => [row.subject, row.payload, row.publishedAt !== null])).toEqual([
+      ['audit.record', { eventId: plainId }, true],
+      [SENSITIVE, {}, true],
+    ]);
+  });
+
+  it('keeps a sensitive payload while its publish is still failing', async () => {
+    const id = newId();
+    await prisma.outboxEvent.create({
+      data: { id, subject: SENSITIVE, payload: { eventId: id, token: 'raw' }, aggregateId: id },
+    });
+    const failing: EventPublisher = { publish: () => Promise.reject(new Error('broker down')) };
+    await new OutboxRelay(prisma, failing, new Set([SENSITIVE])).runOnce();
+    const row = await prisma.outboxEvent.findUniqueOrThrow({ where: { id } });
+    expect(row.payload).toEqual({ eventId: id, token: 'raw' });
+  });
+});

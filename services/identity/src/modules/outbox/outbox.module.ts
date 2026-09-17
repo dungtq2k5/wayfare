@@ -8,6 +8,7 @@ import {
   OutboxService,
 } from '@wayfare/nest-common';
 import type { JetStreamConsumer } from '@wayfare/nest-common';
+import { STREAM_NAMES } from '@wayfare/contracts';
 import type { StreamName } from '@wayfare/contracts';
 import { AppConfig } from '../../config/env.schema';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,8 +16,12 @@ import { PrismaService } from '../prisma/prisma.service';
 /** The service name used in durable names and dead-letter subjects. */
 export const SERVICE_NAME = 'identity';
 
-/** Streams identity publishes to or consumes from — both sides declare them (api-endpoints-plan §10). */
-export const IDENTITY_STREAMS: readonly StreamName[] = ['AUDIT', 'DLQ'];
+/**
+ * Streams identity declares at boot: every stream, since identity publishes to its own and
+ * consumes from all the others (api-endpoints-plan §10). `ensureStreams` creates a missing one and
+ * verifies an existing one.
+ */
+export const IDENTITY_STREAMS: readonly StreamName[] = STREAM_NAMES;
 
 /** Injection token for the consumers this service runs. */
 export const CONSUMERS = Symbol('CONSUMERS');

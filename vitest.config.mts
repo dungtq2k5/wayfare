@@ -24,7 +24,10 @@ const swcPlugin = (): Plugin =>
 /** Workspace packages resolve to source, so `test` needs no build. Exact matches only. */
 const alias = [
   { find: /^@wayfare\/contracts$/, replacement: root('./packages/contracts/src/index.ts') },
-  { find: /^@wayfare\/contracts\/grpc$/, replacement: root('./packages/contracts/src/grpc.ts') },
+  {
+    find: /^@wayfare\/contracts\/grpc$/,
+    replacement: root('./packages/contracts/src/grpc/index.ts'),
+  },
   { find: /^@wayfare\/nest-common$/, replacement: root('./packages/nest-common/src/index.ts') },
 ];
 

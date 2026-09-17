@@ -70,7 +70,8 @@ Every request sends **`X-Wayfare-Client: console | web | mobile`**. The gateway 
 
 - **`code` is the contract; `message` is not.** Codes are `SCREAMING_SNAKE`, listed in `ERROR_CODES` in `packages/contracts`, and **clients render user-facing text from the code through their i18n bundle** — so an error reads in the tourist's language, and rewording a server message never breaks a client. `message` is English, for developers and logs, and is generic in production.
 - `details` is typed per code. `requestId` is the OpenTelemetry trace id, which is what support asks for.
-- **Generic codes** used by every route: `VALIDATION_FAILED` (400), `MALFORMED_REQUEST` (400, the body is not valid JSON), `CLIENT_HEADER_REQUIRED` (400), `ROUTE_NOT_FOUND` (404), `UPSTREAM_UNAVAILABLE` (503), `UPSTREAM_TIMEOUT` (504), `INTERNAL` (500).
+- **Generic codes** used by every route: `400 VALIDATION_FAILED`, `400 MALFORMED_REQUEST` (the body is not valid JSON), `400 CLIENT_HEADER_REQUIRED`, `400 IDEMPOTENCY_KEY_REQUIRED` (a ⟳ route without the header), `401 UNAUTHENTICATED` (no valid token, or a stale one), `403 PERMISSION_DENIED` (`details.required`), `404 ROUTE_NOT_FOUND`, `404 RESOURCE_NOT_FOUND` (`details.resource` — missing, or not the caller's), `409 INVALID_STATE` (`details.status` — an illegal transition), `410 TOKEN_EXPIRED` (a single-use link spent or expired), `426 APP_VERSION_UNSUPPORTED` (`details.minimumVersion`), `429 RATE_LIMITED` (`details.retryAfterSeconds`), `500 INTERNAL`, `503 UPSTREAM_UNAVAILABLE`, `504 UPSTREAM_TIMEOUT`.
+- **Every code's HTTP status, gRPC status and `details` shape is one entry in `ERRORS`**; a service throws `rpcError(code, details?)` and never picks a status itself ([development-conventions §6.4](./development-conventions.md)).
 - Validation failures are `400 VALIDATION_FAILED` with `details.issues: [{ path, code }]` — `path` a JSON pointer, `code` a zod issue code, never a sentence.
 
 | HTTP | Used for |
@@ -83,7 +84,9 @@ Every request sends **`X-Wayfare-Client: console | web | mobile`**. The gateway 
 | `410` | a token or link that existed and is spent or expired |
 | `422` | well-formed but refused by a business rule not better expressed as `409` — e.g. a location outside every area |
 | `426` | client build below `MIN_SUPPORTED_APP_VERSION` |
-| `429` | rate limit or quota; `Retry-After` always set |
+| `429` | rate limit or quota; `Retry-After` always set — from `details.retryAfterSeconds` when the code carries it |
+| `500` | an unexpected failure — `INTERNAL`, logged as a bug |
+| `502` | a provider answered, but with something we refuse to pass on — e.g. `AI_OUTPUT_REJECTED` |
 | `503` | a required dependency is down; `Retry-After` set |
 | `504` | a required dependency did not answer within its deadline |
 
@@ -102,7 +105,7 @@ Two styles, chosen by the consumer, not by taste:
 
 - **Tourist content routes take `?lang=`, required.** Not `Accept-Language`: an explicit parameter is part of the URL, so CDN and client caches key on it without `Vary`, and a phone set to French asking for Japanese narration is expressible.
 - Every localized record in a response carries **`contentTier: "REQUESTED" | "ENGLISH" | "SOURCE"`** and **`stale: boolean`** (rdm-spec §1.5), so the UI can say "shown in English" instead of silently mixing languages.
-- An unsupported `lang` is not an error: it resolves through the fallback chain and schedules background translation where the entitlement allows.
+- An unsupported `lang` is not an error: any well-formed BCP 47 tag is accepted and resolves through the fallback chain. Background translation is scheduled only for a **supported** language (`CONTENT_LANGUAGES` or `LONG_TAIL_LANGUAGES`) the entitlement covers — an unknown tag never starts a job.
 
 ### 0.7 Caching and conditional requests
 
@@ -415,6 +418,8 @@ A job moves `ON_HOLD` → `LINK_SENT` when `hold_until` passes, and expires case
 | POST | `/admin/map-packs` ✎ | Register a pack built by `infra/tiles` and already uploaded: `{ areaId, pmtilesPath, stylePath, assets[], source, sourceDate, minZoom, maxZoom, buildTool }`. The service **re-hashes every object** before accepting — a build script's claimed sha256 is not trusted. Created `BUILDING` → `PUBLISHED` only via the next route. | perm:`map_pack.manage` |
 | POST | `/admin/map-packs/:id/publish` ✎ | Publish; retires the previous version. | perm:`map_pack.manage` |
 
+*Audit actions:* `TOUR_CREATED`, `TOUR_UPDATED`, `TOUR_STOPS_REPLACED`, `TOUR_ACTIVATED`, `TOUR_DEACTIVATED`, `TOUR_DELETED`, `TOUR_RESTORED` (resource `TOUR`); `CATEGORY_CREATED`, `CATEGORY_UPDATED` (resource `CATEGORY`, deactivation included); `AREA_CREATED`, `AREA_UPDATED` (resource `AREA`); `MAP_PACK_REGISTERED`, `MAP_PACK_PUBLISHED` (resource `MAP_PACK`).
+
 ---
 
 ## 4. `narration` — audio, translation, UI strings
@@ -552,6 +557,8 @@ The console explains why and until when. Viewing is never restricted.
 | GET | `/me/orders` | Cursor style. | USER |
 | GET | `/me/vouchers` | `?status=`. Voucher metadata — offer, Place, status, expiry. **Excludes `PENDING` vouchers and vouchers voided `PAYMENT_NOT_COMPLETED`**; an abandoned checkout is not a voucher that was taken back. **Never a secret or a short code**: the server holds neither. The device that holds a voucher's secret renders its QR from local storage; any other signed-in device shows the voucher with a *Move to this device* action. | USER |
 | POST | `/me/vouchers/:id/reissue` ✎ | *Move to this device.* `{ secretHash, shortCode }` generated on the calling device replaces the stored hashes, killing every old copy — the lost phone, a screenshot, a cleared browser. `409` unless `ISSUED`. **Refused `409 EMAIL_CHANGE_REVERT_PENDING` while a revert link is live**, so a takeover cannot strand the victim's vouchers. Every move emails the buyer (`VOUCHER_MOVED`): *"Your voucher for X was moved to a new device. If this wasn't you, contact support."* No cooldown after a password reset — losing a phone and resetting on the new one is the legitimate flow. A short-code collision is regenerated silently, as at checkout. [ADR 0053](./decisions/0053-sold-vouchers-survive-seller-deactivation-and-takeover.md) | USER+EMAIL + DEVICE |
+
+*Audit actions:* `VOUCHER_REISSUED` (resource `VOUCHER`).
 
 ### 5.7 Venue staff — `/owner/staff`, `/staff`
 
@@ -705,7 +712,7 @@ socket.io namespace `/ws` on the gateway, with `@socket.io/redis-adapter` ([ADR 
 
 ## 10. JetStream events
 
-Every subject is declared with its zod payload schema in `packages/contracts/src/events/` — **that file is the registry; a subject not declared there does not exist.** Every publish goes through the transactional outbox (rdm-spec §1.11, [ADR 0039](./decisions/0039-events-leave-through-a-transactional-outbox.md)); every consumer is idempotent (rdm-spec §2.11). Stream per publishing service — `IDENTITY`, `CATALOG`, `NARRATION`, `BILLING`, `AUDIT`, `NOTIFICATION` — with `max_age` 7 days and a 2-minute duplicate window keyed on `Nats-Msg-Id`.
+Every subject is declared with its zod payload schema in `packages/contracts/src/events/` — **that file is the registry; a subject not declared there does not exist.** Every publish goes through the transactional outbox (rdm-spec §1.11, [ADR 0039](./decisions/0039-events-leave-through-a-transactional-outbox.md)); every consumer is idempotent (rdm-spec §2.11). Stream per publishing service — `IDENTITY` (`identity.>`), `CATALOG` (`catalog.>`), `NARRATION` (`narration.>`), `BILLING` (`billing.>`), plus `AUDIT` (`audit.record`) and `NOTIFICATION` (`notification.create`) for the two subjects every service publishes — with `max_age` 7 days and a 2-minute duplicate window keyed on `Nats-Msg-Id`.
 
 - **Stream configs are defined once**, in `JETSTREAM_STREAMS` in `packages/contracts`. Publishers and consumers both call `ensureStreams()`, which **creates a missing stream and verifies an existing one, never updates it** — JetStream refuses a stream whose name exists with a different config, so two services declaring it differently fail at boot rather than silently.
 - **Dead letters** go to one `DLQ` stream on subjects `dlq.<service>.<consumer>`. The `DLQ` stream keeps messages **30 days** — longer than the 7-day event streams, because a dead letter exists to be inspected and a long weekend should not erase it. Consumers use `max_deliver: 10`, and durable names are **`<service>-<subject with dots as dashes>`** (e.g. `identity-audit-record`), which is also the `<consumer>` in the DLQ subject. Renaming a durable replays its stream, so names are chosen once. A handler throwing `PoisonMessage` copies the message to its DLQ subject and `term`s it; a transient failure on the **final** permitted delivery is treated the same way, so nothing is dropped silently when retries run out.
@@ -717,7 +724,7 @@ Subject form: `<publisher>.<aggregate>.<past-tense-verb>`.
 | `identity.device.claimed` | identity | `deviceId, userId` | catalog → set `favorites.user_id` |
 | `identity.device.forgotten` | identity | `deviceId` | catalog → delete favourites |
 | `identity.user.erased` | identity | `userId` | catalog → clear `favorites.user_id`; billing → null `orders.buyer_user_id` **and** `orders.buyer_device_id`, revoke any venue-staff memberships held; ai → nothing stored to erase, acknowledges |
-| `identity.user.deactivated` | identity | `userId, refundUnredeemedVouchers` | billing → revoke venue-staff memberships the user holds. **If the user is a seller, wind down:** pause every offer, expire open voucher Checkout Sessions, refund and void every remaining `ISSUED` voucher (refund reason `VENUE_UNAVAILABLE`, `reverse_transfer: true`) and notify each buyer who still has an account (`VOUCHER_REFUNDED`), revoke every membership of the seller. Vouchers found despite the admin's check — a sale racing the deactivation — are wound down the same way. |
+| `identity.user.deactivated` | identity | `userId, refundUnredeemedVouchers` | billing → revoke venue-staff memberships the user holds. **If the user is a seller, wind down:** pause every offer, expire open voucher Checkout Sessions, refund and void every remaining `ISSUED` voucher (refund reason `VENUE_UNAVAILABLE`, `reverse_transfer: true`) and publish `billing.voucher.refunded` per order, so identity emails each buyer who still has an account (`VOUCHER_REFUNDED` template), revoke every membership of the seller. Vouchers found despite the admin's check — a sale racing the deactivation — are wound down the same way. |
 | `identity.owner.verified` | identity | `userId` | billing → create B-3 on `FREE`, publish initial entitlements |
 | `identity.user.locked` | identity | `userId` | gateway → drop the user's sockets |
 | `catalog.place.content_changed` | catalog | `placeId, contentHash, langs[], trigger` | narration → create/supersede a `PLACE` job |
@@ -726,15 +733,18 @@ Subject form: `<publisher>.<aggregate>.<past-tense-verb>`.
 | `catalog.place.status_changed` | catalog | `placeId, from, to, reason, ownerUserId?` | identity → owner notification (`PLACE_ACTIVATED` / `PLACE_UNPUBLISHED`); billing → end boosts on a Place leaving `ACTIVE` |
 | `catalog.submission.reviewed` | catalog | `submissionId, placeId?, ownerUserId, decision, decisionNote?` | identity → notification |
 | `narration.localization.ready` | narration | `targetType, targetId, lang, sourceContentHash, translationSource, text {…}, audio? {assetId, objectPath, sha256, bytes, durationMs, voiceId, sourceContentHash}` — for a human correction of a Place, `text` and `audio` always arrive together | catalog → upsert C-4/C-7/C-9, bump `sync_version`, evaluate activation gate; billing → upsert B-8 for `VOUCHER_OFFER` |
-| `narration.localization.failed` | narration | `targetType, targetId, lang, stage, reason` | catalog → mark `audio_status = FAILED`; identity → notify the owner only after the final retry |
+| `narration.localization.failed` | narration | `targetType, targetId, lang, stage, reason, final` — `final` is true on the last permitted retry | catalog → mark `audio_status = FAILED`; identity → notify the owner only after the final retry |
 | `billing.entitlements.changed` | billing | `ownerUserId, entitlementsVersion, entitlements{…}, previous{…}` | catalog → set `auto_narration_enabled` on Venues, unpublish excess Places, request narration for newly entitled languages; ai → refresh cached quota; identity → `ENTITLEMENTS_REDUCED` notification when narrowed |
 | `billing.boosts.changed` | billing | `placeId, discoveryBoost` | catalog → set `places.discovery_boost` |
 | `billing.subscription.payment_failed` | billing | `ownerUserId, attemptCount, nextAttemptAt?` | identity → notification + email |
-| `billing.order.paid` | billing | `orderId, ownerUserId, placeId, quantity, amountMinor` | identity → `VOUCHER_SOLD` notification |
+| `billing.order.paid` | billing | `orderId, ownerUserId, placeId, quantity, amount` (`Money`) | identity → `VOUCHER_SOLD` notification (which carries no amount) |
+| `billing.voucher.refunded` | billing | `orderId, buyerUserId?, voucherIds[], reason` | identity → `VOUCHER_REFUNDED` email when `buyerUserId` is set |
+| `billing.voucher.moved` | billing | `voucherId, buyerUserId, offerTitle` | identity → `VOUCHER_MOVED` email (§5.6) |
+| `billing.staff.invited` | billing | `membershipId, billingAccountId, invitedEmail, sellerName, inviteToken, expiresAt` | identity → `STAFF_INVITE` email (§5.7). **The only payload carrying a secret and an address:** billing mints the token because billing's route accepts it, identity renders the link. Both fields are log-redacted; the subject is **sensitive**, so the outbox row's payload is cleared when it is published (rdm-spec §2.10), and the stream's 7-day retention equals the invitation's lifetime |
 | `billing.offer.reviewed` | billing | `offerId, ownerUserId, decision, decisionNote?` | identity → notification |
 | `billing.payout_account.action_required` | billing | `ownerUserId, requirementsDueCount` | identity → notification |
 | `audit.record` | every service | `eventId, occurredAt, service, actor{…}, action, resource{…}, metadata, ip?, userAgent?` | identity → insert I-11 |
-| `notification.create` | every service | `recipientUserId, type, data, eventId` | identity → upsert I-10, emit socket frame |
+| `notification.create` | every service | `recipientUserId, notification: { type, data }` — `data` typed per `type` (`NOTIFICATION_DATA`) | identity → upsert I-10, emit socket frame |
 
 **Ordering:** consumers must not assume cross-subject order. Within one aggregate the outbox publishes in `id` order, and every consumer that applies state guards with a version (`sync_version`, `entitlementsVersion`, `sourceContentHash`) rather than trusting arrival order.
 
@@ -778,9 +788,9 @@ analytics.read
 | `ADMIN` | yes | every code **except** `role.create`, `role.update`, `role.delete`, `user.role.assign`, `user.email.recover.approve`, `billing.plan.manage`, `billing.entitlement.override`, `billing.refund.create` — the operations that change who can do what, who controls an account, or move money |
 | `VENUE_OWNER` | yes | `owner.access` |
 | `USER` | yes | none — every tourist route is `DEVICE` or `USER`, not a permission |
+| `CONTENT_MODERATOR` | **no** — a seeded default an admin may edit or delete | `submission.read`, `submission.review`, `place.read`, `place.update`, `place.editorial.update`, `place.publish`, `owner_registration.read`, `owner_registration.review`, `voucher_offer.review`, `pronunciation.manage`, `narration.job.read`, `localization.edit` |
 
 **Venue staff are not a role.** Their access is a membership checked by the `STAFF` marker (§0.2), because a role cannot say *whose* vouchers ([ADR 0047](./decisions/0047-venue-staff-are-memberships-not-roles.md)). **Owner recovery needs two people:** `user.email.recover.open` (`ADMIN`, `SUPER_ADMIN`) and `user.email.recover.approve` (`SUPER_ADMIN`), and nobody approves a case they opened.
-| `CONTENT_MODERATOR` | **no** — a seeded default an admin may edit or delete | `submission.read`, `submission.review`, `place.read`, `place.update`, `place.editorial.update`, `place.publish`, `owner_registration.read`, `owner_registration.review`, `voucher_offer.review`, `pronunciation.manage`, `narration.job.read`, `localization.edit` |
 
 **Adding a permission** is: the code in `PERMISSION_CODES`, its `group` and description, the system-role grants in code, the `@RequirePermission` on the route, and this section — five edits, one PR.
 

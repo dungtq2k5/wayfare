@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AuditAction, AuditActorType, AuditResourceType } from '../audit';
-import { newId } from '../ids';
+import { AuditAction, AuditActorType, AuditResourceType } from '../audit/vocabulary';
+import { newId } from '../common/ids';
 import { AUDIT_RECORD, auditAggregateId, auditRecordPayloadSchema } from './audit.events';
 
 const deviceId = newId();
@@ -44,17 +44,47 @@ describe('audit.record payload', () => {
   it('defaults metadata to an empty object', () => {
     expect(auditRecordPayloadSchema.parse(base).metadata).toEqual({});
   });
+
+  it('refuses a resource type that does not match the action', () => {
+    const result = auditRecordPayloadSchema.safeParse({
+      ...base,
+      resource: { type: AuditResourceType.USER, id: deviceId },
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['resource', 'type']);
+  });
+
+  it('refuses an anonymous actor that carries an id', () => {
+    const failedLogin = {
+      ...base,
+      actor: { type: AuditActorType.ANONYMOUS },
+      action: AuditAction.USER_LOGIN_FAILED,
+      resource: { type: AuditResourceType.USER },
+    };
+    expect(auditRecordPayloadSchema.safeParse(failedLogin).success).toBe(true);
+    expect(
+      auditRecordPayloadSchema.safeParse({
+        ...failedLogin,
+        actor: { type: AuditActorType.ANONYMOUS, userId: newId() },
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('auditAggregateId', () => {
   it('prefers the resource, then the actor', () => {
     expect(auditAggregateId(base)).toBe(deviceId);
     const userId = newId();
-    expect(auditAggregateId({ actor: { userId }, resource: {} })).toBe(userId);
+    expect(auditAggregateId({ eventId: base.eventId, actor: { userId }, resource: {} })).toBe(
+      userId,
+    );
+    expect(auditAggregateId({ eventId: base.eventId, actor: { deviceId }, resource: {} })).toBe(
+      deviceId,
+    );
   });
 
-  it('refuses an event with neither', () => {
-    expect(() => auditAggregateId({ actor: {}, resource: {} })).toThrow();
+  it('falls back to the event id', () => {
+    expect(auditAggregateId({ eventId: base.eventId, actor: {}, resource: {} })).toBe(base.eventId);
   });
 
   it('is the definition used by AUDIT_RECORD', () => {

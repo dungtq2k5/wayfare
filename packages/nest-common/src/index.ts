@@ -1,5 +1,6 @@
 export * from './config/env-fields';
 export * from './context/request-context';
+export * from './crypto/content-hash';
 export * from './crypto/tokens';
 export * from './errors/grpc-service-error';
 export * from './errors/poison-message';

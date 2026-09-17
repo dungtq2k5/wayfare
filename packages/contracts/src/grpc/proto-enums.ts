@@ -1,6 +1,6 @@
-import { Platform } from './devices';
-import { Platform as ProtoPlatform } from './generated/wayfare/identity/device.pb';
-import { protoEnumBridge } from './proto-enum-bridge';
+import { Platform } from '../identity/enums';
+import { Platform as ProtoPlatform } from '../generated/wayfare/identity/device.pb';
+import { protoEnumBridge } from '../common/proto-enum-bridge';
 
 /** `Platform` ⇄ `wayfare.identity.Platform`. */
 export const platformProto = protoEnumBridge('Platform', Platform, ProtoPlatform);

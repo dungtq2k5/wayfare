@@ -1,4 +1,3 @@
-import { status } from '@grpc/grpc-js';
 import { Logger } from '@nestjs/common';
 import type { ProtoEnumBridge } from '@wayfare/contracts';
 import { rpcError } from '../errors/rpc-error';
@@ -22,7 +21,7 @@ export function requireProtoEnum<D extends string>(
       'unknown proto enum value — is a newer peer talking to us?',
     );
   }
-  throw rpcError(status.INVALID_ARGUMENT, 'VALIDATION_FAILED', {
+  throw rpcError('VALIDATION_FAILED', {
     issues: [{ path, code: 'invalid_value' }],
   });
 }

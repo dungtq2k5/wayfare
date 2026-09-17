@@ -18,20 +18,7 @@ export interface ErrorBody {
   };
 }
 
-/** gRPC status → HTTP status (conventions §6.4). `wf-http-status` overrides it per error. */
-export const GRPC_TO_HTTP_STATUS: Readonly<Partial<Record<GrpcStatus, number>>> = {
-  [GrpcStatus.INVALID_ARGUMENT]: HttpStatus.BAD_REQUEST,
-  [GrpcStatus.UNAUTHENTICATED]: HttpStatus.UNAUTHORIZED,
-  [GrpcStatus.PERMISSION_DENIED]: HttpStatus.FORBIDDEN,
-  [GrpcStatus.NOT_FOUND]: HttpStatus.NOT_FOUND,
-  [GrpcStatus.ALREADY_EXISTS]: HttpStatus.CONFLICT,
-  [GrpcStatus.FAILED_PRECONDITION]: HttpStatus.CONFLICT,
-  [GrpcStatus.RESOURCE_EXHAUSTED]: HttpStatus.TOO_MANY_REQUESTS,
-  [GrpcStatus.UNAVAILABLE]: HttpStatus.SERVICE_UNAVAILABLE,
-  [GrpcStatus.DEADLINE_EXCEEDED]: HttpStatus.GATEWAY_TIMEOUT,
-};
-
-/** `Retry-After` seconds sent with a `503`. */
+/** `Retry-After` seconds sent with a `503` or `429` whose details name no wait. */
 export const RETRY_AFTER_SECONDS = 5;
 
 // Plain numbers: HTTP statuses arrive as numbers, and comparing them to the enum is unsafe.
@@ -46,6 +33,8 @@ interface Resolved {
   message: string;
   details?: Record<string, unknown>;
   log?: unknown;
+  /** A peer's code this build's registry lacks. */
+  unknownCode?: true;
 }
 
 /**
@@ -63,11 +52,18 @@ export class ErrorFilter implements ExceptionFilter {
     const response = host.switchToHttp().getResponse<Response>();
     const resolved = resolve(exception);
 
+    if (resolved.unknownCode) {
+      this.logger.warn({ code: resolved.code, status: resolved.status }, 'gateway registry behind');
+    }
     if (resolved.status >= 500) {
       this.logger.error({ err: resolved.log ?? exception, code: resolved.code }, 'request failed');
     }
     if (resolved.status === SERVICE_UNAVAILABLE || resolved.status === TOO_MANY_REQUESTS) {
-      response.setHeader('Retry-After', String(RETRY_AFTER_SECONDS));
+      const wait = resolved.details?.retryAfterSeconds;
+      response.setHeader(
+        'Retry-After',
+        String(typeof wait === 'number' ? wait : RETRY_AFTER_SECONDS),
+      );
     }
     const generic = this.isProduction && (resolved.status >= 500 || resolved.status === FORBIDDEN);
     const body: ErrorBody = {
@@ -107,17 +103,16 @@ function resolve(exception: unknown): Resolved {
   }
   if (isGrpcServiceError(exception)) {
     const info = readGrpcErrorInfo(exception);
-    if (info.errorCode !== null) {
+    if (info !== null) {
       return {
-        status:
-          info.httpStatus ??
-          GRPC_TO_HTTP_STATUS[exception.code] ??
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        code: info.errorCode,
-        message: info.errorCode,
+        status: info.httpStatus,
+        code: info.code,
+        message: info.code,
         ...(info.details === null ? {} : { details: info.details }),
+        ...(info.known ? {} : { unknownCode: true }),
       };
     }
+    // No code: a transport failure, or a bug in the peer (conventions §6.4).
     if (exception.code === GrpcStatus.UNAVAILABLE) {
       return {
         status: HttpStatus.SERVICE_UNAVAILABLE,

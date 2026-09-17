@@ -56,42 +56,64 @@ describe('ErrorFilter mapping', () => {
     });
   });
 
-  it('maps an AppHttpException to its own status and code', () => {
-    const res = run(new AppHttpException(400, 'CLIENT_HEADER_REQUIRED'));
+  it('maps an AppHttpException to its registered status and code', () => {
+    const res = run(new AppHttpException('CLIENT_HEADER_REQUIRED'));
     expect(res.statusCode).toBe(400);
     expect(res.body?.error.code).toBe('CLIENT_HEADER_REQUIRED');
+    const limited = run(new AppHttpException('RATE_LIMITED', { retryAfterSeconds: 42 }));
+    expect(limited.statusCode).toBe(429);
+    expect(limited.body?.error.details).toEqual({ retryAfterSeconds: 42 });
+    expect(limited.headers['Retry-After']).toBe('42');
   });
 
   it.each([
-    [status.INVALID_ARGUMENT, 400],
-    [status.UNAUTHENTICATED, 401],
-    [status.PERMISSION_DENIED, 403],
-    [status.NOT_FOUND, 404],
-    [status.ALREADY_EXISTS, 409],
-    [status.FAILED_PRECONDITION, 409],
-    [status.RESOURCE_EXHAUSTED, 429],
-    [status.UNAVAILABLE, 503],
-    [status.DEADLINE_EXCEEDED, 504],
-  ])('maps gRPC status %i with an error code to HTTP %i', (code, http) => {
-    const res = run(grpcError(code, { 'wf-error-code': 'SOME_CODE' }));
+    ['TOKEN_EXPIRED', status.FAILED_PRECONDITION, 410],
+    ['IDEMPOTENCY_KEY_REUSED', status.FAILED_PRECONDITION, 422],
+    ['APP_VERSION_UNSUPPORTED', status.FAILED_PRECONDITION, 426],
+    ['AI_OUTPUT_REJECTED', status.INTERNAL, 502],
+    ['EMAIL_TAKEN', status.ALREADY_EXISTS, 409],
+    ['RESOURCE_NOT_FOUND', status.NOT_FOUND, 404],
+    ['ENTITLEMENTS_UNAVAILABLE', status.UNAVAILABLE, 503],
+  ] as const)('maps a peer %s to its registered HTTP status', (code, grpc, http) => {
+    const res = run(grpcError(grpc, { 'wf-error-code': code }));
     expect(res.statusCode).toBe(http);
-    expect(res.body?.error.code).toBe('SOME_CODE');
+    expect(res.body?.error.code).toBe(code);
   });
 
-  it('lets wf-http-status override the default status', () => {
+  it('ignores a lying wf-http-status for a code the gateway knows', () => {
     const res = run(
       grpcError(status.FAILED_PRECONDITION, {
-        'wf-error-code': 'TOKEN_SPENT',
-        'wf-http-status': '410',
+        'wf-error-code': 'TOKEN_EXPIRED',
+        'wf-http-status': '418',
       }),
     );
     expect(res.statusCode).toBe(410);
   });
 
+  it('answers an UNKNOWN code with its wf-http-status and keeps the code', () => {
+    // A literal cast: a service deployed with a new code before the gateway.
+    const res = run(
+      grpcError(status.FAILED_PRECONDITION, {
+        'wf-error-code': 'NEWER_CODE',
+        'wf-http-status': '422',
+      }),
+    );
+    expect(res.statusCode).toBe(422);
+    expect(res.body?.error.code).toBe('NEWER_CODE');
+  });
+
+  it('answers an unknown code without a usable header by its gRPC status', () => {
+    const res = run(
+      grpcError(status.NOT_FOUND, { 'wf-error-code': 'NEWER_CODE', 'wf-http-status': '999' }),
+    );
+    expect(res.statusCode).toBe(404);
+    expect(res.body?.error.code).toBe('NEWER_CODE');
+  });
+
   it('passes details through from trailing metadata', () => {
     const res = run(
       grpcError(status.FAILED_PRECONDITION, {
-        'wf-error-code': 'LIMIT',
+        'wf-error-code': 'PLACE_LIMIT_REACHED',
         'wf-error-details': '{"limit":1}',
       }),
     );
@@ -139,10 +161,13 @@ describe('ErrorFilter mapping', () => {
       message: 'Something went wrong',
     });
     const forbidden = run(
-      grpcError(status.PERMISSION_DENIED, { 'wf-error-code': 'NEEDS_PERM_X' }),
+      grpcError(status.PERMISSION_DENIED, { 'wf-error-code': 'PERMISSION_DENIED' }),
       true,
     );
-    expect(forbidden.body?.error).toMatchObject({ code: 'NEEDS_PERM_X', message: 'Forbidden' });
+    expect(forbidden.body?.error).toMatchObject({
+      code: 'PERMISSION_DENIED',
+      message: 'Forbidden',
+    });
   });
 });
 

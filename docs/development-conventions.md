@@ -79,7 +79,7 @@ private lockPendingSubmission(tx: Prisma.TransactionClient, id: string) { … }
 
 **Read back after the transaction, not inside it**, when the response needs several relations. Prisma loads `include`d relations concurrently, and inside a transaction they queue on the one pinned connection; outside it they run on the pool. The transaction returns the id; the service then loads the response shape with `this.prisma` and maps it.
 
-**Catch the unique-index race around the write** — `isUniqueConstraintViolation(error)` → `rpcError(status.ALREADY_EXISTS, 'EMAIL_TAKEN')`. The pre-check before the transaction gives the good message; only the index makes the duplicate impossible.
+**Catch the unique-index race around the write** — `isUniqueConstraintViolation(error)` → `rpcError('EMAIL_TAKEN')`. The pre-check before the transaction gives the good message; only the index makes the duplicate impossible.
 
 A method that runs inside a caller's transaction takes `tx` as its first parameter — including methods of *other* modules' services (`organizationsService.seatsInUse(tx, …)`) — and **MUST NOT** use `this.prisma` — mixing the two silently runs part of the work outside the transaction, which commits even when the rest rolls back.
 
@@ -253,11 +253,11 @@ const place = await this.prisma.place.findFirst({
   where: { id: request.placeId, ownerUserId: context.userId, deletedAt: null },
   select: PLACE_SUMMARY_SELECT,
 });
-if (!place) throw rpcError(status.NOT_FOUND, 'PLACE_NOT_FOUND');
+if (!place) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
 
 // ✗ two failure modes: leaks existence with a 403, and a forgotten check is a data leak
 const place = await this.prisma.place.findUnique({ where: { id: request.placeId } });
-if (place.ownerUserId !== context.userId) throw rpcError(status.PERMISSION_DENIED, 'FORBIDDEN');
+if (place.ownerUserId !== context.userId) throw rpcError('PERMISSION_DENIED', { required: [] });
 ```
 
 **Not found and not yours are the same answer: `404`.**
@@ -392,12 +392,14 @@ return res.users;
 
 ### 6.4 Errors across the boundary
 
-A service throws an `RpcException` with a gRPC `status`, always through `rpcError(status, code, details?)` from `packages/nest-common`, which also attaches the `ErrorCode` as trailing metadata (`wf-error-code`). The gateway maps the status to HTTP and the metadata to the response body's `code`:
+A service throws an `RpcException` always through `rpcError(code, details?)` from `packages/nest-common`. **The code decides everything else:** `ERRORS[code]` in `packages/contracts` holds each code's gRPC status, HTTP status and `details` schema, so one code can never travel with two statuses. `rpcError` attaches the code (`wf-error-code`) and the validated details (`wf-error-details`) as trailing metadata; the gateway maps a known code to its registered HTTP status:
 
 ```ts
-throw rpcError(status.NOT_FOUND, 'PLACE_NOT_FOUND');
-throw rpcError(status.FAILED_PRECONDITION, 'PLACE_LIMIT_REACHED', { limit }, { http: 409 });
+throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
+throw rpcError('PLACE_LIMIT_REACHED', { limit });
 ```
+
+A code whose registry entry has no `details` schema takes no second argument — a compile error, not a runtime surprise. The table below is the pairing the registry follows when it chooses a code's statuses:
 
 | gRPC status | HTTP | Use for |
 | :---- | :---- | :---- |
@@ -406,12 +408,12 @@ throw rpcError(status.FAILED_PRECONDITION, 'PLACE_LIMIT_REACHED', { limit }, { h
 | `PERMISSION_DENIED` | 403 | authenticated but not allowed |
 | `NOT_FOUND` | 404 | missing — **and** not the caller's (§4.3) |
 | `ALREADY_EXISTS` | 409 | uniqueness |
-| `FAILED_PRECONDITION` | 409 by default; `{ http: 410 }` or `{ http: 422 }` when the code is a spent token or a business rule | illegal transition, stale edit, limits |
+| `FAILED_PRECONDITION` | 409; 410 for a spent token, 422 for a business-rule refusal, 426 for an unsupported app version — set per code in `ERRORS` | illegal transition, stale edit, limits |
 | `RESOURCE_EXHAUSTED` | 429 | rate limit, quota |
 | `UNAVAILABLE` | 503 | a peer is down |
 | `DEADLINE_EXCEEDED` | 504 | a peer is too slow |
 
-**MUST NOT** `throw new RpcException({ … })` by hand — it carries no `ErrorCode`, and the client can only say "something went wrong". **An exception with no code, or an unmapped status, becomes `500 INTERNAL` and is logged as a bug.**
+**MUST NOT** `throw new RpcException({ … })` by hand — it carries no `ErrorCode`, and the client can only say "something went wrong". **The gateway maps an error in three steps:** a code in its own `ERRORS` takes the registered HTTP status, whatever `wf-http-status` says; a code it does not know yet (a service deployed first) keeps its code, takes `wf-http-status` when that is a registered status, and is logged at `warn`; **an error with no code** is `503 UPSTREAM_UNAVAILABLE` for `UNAVAILABLE`, `504 UPSTREAM_TIMEOUT` for `DEADLINE_EXCEEDED`, and otherwise `500 INTERNAL`, logged as a bug.
 
 ---
 
@@ -595,6 +597,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS place_submissions_one_pending_update
 | low-entropy identifiers looked up by value — voucher short codes, email addresses in delivery records | HMAC-SHA-256 with a server key (`keyedHash(purpose, value)`) | looked up by value, but guessable from a list — an unkeyed SHA-256 of an email or a 40-bit code is reversed by hashing candidates; the key makes a leaked table useless on its own |
 | content, file and cache fingerprints | SHA-256 hex (`sha256Hex`) | identity, not secrecy |
 
+- **The one plaintext token in transit:** a staff invitation's token travels in `billing.staff.invited`, because billing mints it and identity renders the email, and the invitee may have no account for identity to hold it against. The subject is declared `sensitive`: its payload is log-redacted and cleared from the outbox row on publish (rdm-spec §2.10), so no database copy remains. A second secret-bearing subject needs the same flag and a line here.
 - Compare digests with `timingSafeEqualHex`, never `===`.
 - Login against an unknown email **MUST** still run one argon2 verify against a fixed dummy hash, so response time does not reveal which addresses have accounts.
 
@@ -645,10 +648,10 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 - **MUST NOT** pass a bare `number` as an amount between functions, over gRPC (use the `Money` message) or in a response. A function that takes `priceMinor: number` has lost the currency.
 - `amountMinor` is always a safe integer. Arithmetic goes through `addMoney`, `multiplyMoney` and `applyBasisPoints`, which assert equal currencies and integer results.
-- **Fees round once, on the total, half up**, in `applyBasisPoints`. Never per unit, never `Math.round` inline.
+- **Fees round once, on the total, half up**, in `applyBasisPoints`. Never per unit, never `Math.round` inline. A voucher sale's split is `splitVoucherSale(unitPrice, quantity, commissionBps)`, which multiplies first; the commission rate is the plan grant `voucher_commission_bps`, never an environment variable.
 - Display formatting is `formatMoney(money, locale)` on the client — never a server-built string, never `amount / 100` in a component (it is wrong for zero-decimal currencies).
 - Prices come from our database or a Stripe Price. **MUST NOT** trust an amount sent by a client.
-- **Display-only prices are a different type.** A menu price is `DisplayPrice = { amountMinor, currency: MenuCurrency }`, and **no** fee, commission, refund or Stripe function accepts one ([ADR 0046](./decisions/0046-display-only-prices-use-the-venues-own-currency.md)). **MUST NOT** convert, derive or copy a display price into `Money` — a voucher's price is typed by the owner, never computed from a menu.
+- **Display-only prices are a different type.** A menu price is `DisplayPrice = { amountMinor, currency: MenuCurrency }`, **branded** so that even a USD one is not assignable to `Money`, and **no** fee, commission, refund or Stripe function accepts one ([ADR 0046](./decisions/0046-display-only-prices-use-the-venues-own-currency.md)). **MUST NOT** convert, derive or copy a display price into `Money` — a voucher's price is typed by the owner, never computed from a menu.
 
 ### 10.2 Stripe
 
@@ -674,7 +677,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 - **No user-facing sentence is composed on a server.** An error is a code; a notification is a `type` plus `data`; a category is a code. The client translates. Transactional email is the single exception, rendered from templates in `packages/i18n` at send time in the recipient's `preferred_locale`.
 - Vietnamese source text is **NFC-normalized** on the way in — `normalizeText()` at the edge, before validation, before hashing, before storage. Two encodings of "Bến Thành" that look identical and hash differently regenerate audio for no change and defeat de-duplication.
-- `contentHash()` in `packages/contracts` is the only way to compute a content hash. It canonicalizes JSON key order and normalizes text; hand-rolled `sha256(JSON.stringify(x))` is order-sensitive and will disagree.
+- `contentHash()` in `packages/nest-common` is the only way to compute a content hash — it needs `node:crypto`, and no client computes one. It hashes `canonicalJson()` from `packages/contracts`, which canonicalizes JSON key order and normalizes text; hand-rolled `sha256(JSON.stringify(x))` is order-sensitive and will disagree.
 
 ### 11.2 Language codes and fallback
 
@@ -817,7 +820,7 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 | Request DTO | `<Name>Dto`, built with `createZodDto(schema)` | `CreateSubmissionDto` |
 | Response DTO | `<Name>ResponseDto` — the suffix is required | `PlaceDetailResponseDto` |
 | Domain type | noun, no suffix | `Place`, `Entitlements` |
-| Service error | `rpcError(status, ErrorCode, details?)` (§6.4) | `rpcError(status.NOT_FOUND, 'PLACE_NOT_FOUND')` |
+| Service error | `rpcError(ErrorCode, details?)` (§6.4) | `rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' })` |
 | gRPC controller | `<module>-grpc.controller.ts`, `implements <Name>ServiceController` | `places-grpc.controller.ts` |
 | Select / include shape | `<ENTITY>_<VIEW>_SELECT` / `_INCLUDE` in the mapper, with a `<Entity><View>Row` type | `PLACE_SUMMARY_SELECT`, `PlaceSummaryRow` |
 | Mapper, outbound | `to<TargetType>` — the destination's type name verbatim, with an explicit return type | `toPlaceDetailResponseDto`, `toGetPlaceResponse` |
@@ -932,6 +935,8 @@ Rules for writing one:
 | `mapper-naming.spec.ts` | §15 mapper names, checked against the real target and source types |
 | `module-files.spec.ts` | Every file under `services/*/src/modules/` has a known role for its kind of service, with the matching class name; `domain/` files stay free of Nest and Prisma; no `*.repository.ts` ([ADR 0054](./decisions/0054-services-use-prisma-directly-without-a-repository-layer.md)) |
 | `env-contract.spec.ts` | §13: the env schema, `.env.example` and architecture §14 list the same variables |
+| `rdm-enum-sync.spec.ts` | Every enumerated column in rdm-spec has a TypeScript enum in `packages/contracts` with exactly its values, and every mapping still points at a real column. It reads a value list in any of rdm-spec's spellings (§0) |
+| `api-contract-sync.spec.ts` | api-endpoints-plan's permission block and role grants, its `NNN CODE` pairs and its JetStream subjects agree with `PERMISSIONS`, `SYSTEM_ROLE_GRANTS`, `ERRORS` and `EVENT_REGISTRY` |
 
 ---
 

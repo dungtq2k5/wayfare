@@ -11,8 +11,8 @@
       "default": "./dist/index.js"
     },
     "./grpc": {
-      "types": "./dist/grpc.d.ts",
-      "default": "./dist/grpc.js"
+      "types": "./dist/grpc/index.d.ts",
+      "default": "./dist/grpc/index.js"
     },
     "./package.json": "./package.json"
   },

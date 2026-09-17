@@ -60,6 +60,15 @@ const row = (id: string): Row => ({
 });
 
 describe('OutboxRelay cycle', () => {
+  it('clears only the sensitive rows, in the same statement that marks them published', async () => {
+    const secret = { ...row('b'), subject: 'test.secret.issued' };
+    const db = new FakeDb([row('a'), secret]);
+    await new OutboxRelay(db, new FakePublisher(), new Set(['test.secret.issued'])).runOnce();
+    const mark = db.executed.find((e) => e.sql.includes('published_at'));
+    expect(mark?.sql).toContain(`'{}'::jsonb`);
+    expect(mark?.values).toEqual([['b'], ['a', 'b']]);
+  });
+
   it('publishes in id order with Nats-Msg-Id = id and marks every published row', async () => {
     const db = new FakeDb([row('a'), row('b'), row('c')]);
     const publisher = new FakePublisher();
@@ -69,7 +78,7 @@ describe('OutboxRelay cycle', () => {
     expect(publisher.published[0]?.body).toEqual({ eventId: 'a' });
     expect(result).toEqual({ claimed: 3, published: 3, failed: false });
     const mark = db.executed.find((e) => e.sql.includes('published_at = now()'));
-    expect(mark?.values).toEqual([['a', 'b', 'c']]);
+    expect(mark?.values).toEqual([[], ['a', 'b', 'c']]); // no sensitive row to clear
   });
 
   it('STOPS at the first failure, records it, and marks only the rows before it', async () => {
@@ -82,7 +91,7 @@ describe('OutboxRelay cycle', () => {
     const failure = db.executed.find((e) => e.sql.includes('last_error ='));
     expect(failure?.values).toEqual(['broker unavailable', 'b']);
     const mark = db.executed.find((e) => e.sql.includes('published_at = now()'));
-    expect(mark?.values).toEqual([['a']]);
+    expect(mark?.values).toEqual([[], ['a']]);
   });
 
   it('marks nothing when nothing was claimed', async () => {

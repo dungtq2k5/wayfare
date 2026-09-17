@@ -1,14 +1,15 @@
 import { z } from 'zod';
+import { AUDIT_METADATA_ALLOWLIST } from '../audit/allowlist';
 import {
-  AUDIT_METADATA_ALLOWLIST,
+  AUDIT_ACTION_RESOURCE,
   AuditAction,
   AuditActorType,
   AuditResourceType,
   MAX_IP_LENGTH,
   MAX_USER_AGENT_LENGTH,
-} from '../audit';
-import { zUuidV7 } from '../ids';
-import { defineEvent } from './event-definition';
+} from '../audit/vocabulary';
+import { zUuidV7 } from '../common/ids';
+import { defineEvent, zEventInstant } from './event-definition';
 
 const auditSection = z.record(z.string(), z.unknown());
 
@@ -41,11 +42,36 @@ function checkMetadataAllowlist(
   }
 }
 
+/** The resource must be the one its action names, and an anonymous actor carries no id. */
+function checkResourceAndActor(
+  payload: {
+    action: AuditAction;
+    actor: { type: AuditActorType; userId?: string; deviceId?: string };
+    resource: { type: AuditResourceType };
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const expected = AUDIT_ACTION_RESOURCE[payload.action];
+  if (payload.resource.type !== expected) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['resource', 'type'],
+      message: `${payload.action} is about a ${expected}`,
+    });
+  }
+  if (
+    payload.actor.type === AuditActorType.ANONYMOUS &&
+    (payload.actor.userId !== undefined || payload.actor.deviceId !== undefined)
+  ) {
+    ctx.addIssue({ code: 'custom', path: ['actor'], message: 'An anonymous actor has no id' });
+  }
+}
+
 /** Payload of `audit.record` (api-endpoints-plan §10, rdm-spec I-11). */
 export const auditRecordPayloadSchema = z
   .object({
     eventId: zUuidV7,
-    occurredAt: z.iso.datetime({ offset: true }),
+    occurredAt: zEventInstant,
     service: z.string().min(1).max(32),
     actor: z
       .object({
@@ -73,24 +99,28 @@ export const auditRecordPayloadSchema = z
     userAgent: z.string().max(MAX_USER_AGENT_LENGTH).optional(),
   })
   .strict()
-  .superRefine(checkMetadataAllowlist);
+  .superRefine(checkMetadataAllowlist)
+  .superRefine(checkResourceAndActor);
 
 /** A validated `audit.record` payload. */
 export type AuditRecordPayload = z.output<typeof auditRecordPayloadSchema>;
 
-/** The aggregate an audit event is about: its resource, or its actor when it has none (rdm-spec §2.10). */
+/**
+ * The aggregate an audit event is about: its resource, else its actor, else the event itself — a
+ * failed login for an unknown email has neither (rdm-spec §2.10). Never throws.
+ */
 export function auditAggregateId(payload: {
+  eventId: string;
   actor: { userId?: string; deviceId?: string };
   resource: { id?: string };
 }): string {
-  const id = payload.resource.id ?? payload.actor.userId ?? payload.actor.deviceId;
-  if (!id) throw new Error('An audit event needs a resource id or an actor id');
-  return id;
+  return payload.resource.id ?? payload.actor.userId ?? payload.actor.deviceId ?? payload.eventId;
 }
 
 /** `audit.record` — published by every service, consumed by identity into `audit_logs`. */
 export const AUDIT_RECORD = defineEvent({
   subject: 'audit.record',
+  publisher: 'any',
   stream: 'AUDIT',
   schema: auditRecordPayloadSchema,
   aggregateId: auditAggregateId,

@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { SENSITIVE_SUBJECTS } from '@wayfare/contracts';
 import { context, propagation, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { toErrorMessage } from '../errors/poison-message';
 import { contextFromTraceparent, wayfareTracer } from '../observability/trace';
@@ -50,6 +51,10 @@ const encoder = new TextEncoder();
  * Order holds within one cycle and is best-effort across replicas. A crash between publish and
  * mark republishes the row — deduplicated by the broker inside its window, absorbed by consumers
  * outside it. That is by design.
+ *
+ * A sensitive subject's payload is cleared in the statement that marks the row published, so the
+ * broker's copy is the only one left (conventions §9.1). Rows are marked only after the broker's
+ * ack, so a cleared row is never republished.
  */
 export class OutboxRelay {
   private readonly logger = new Logger(OutboxRelay.name);
@@ -60,6 +65,7 @@ export class OutboxRelay {
   constructor(
     private readonly db: RelayDb,
     private readonly publisher: EventPublisher,
+    private readonly sensitiveSubjects: ReadonlySet<string> = SENSITIVE_SUBJECTS,
   ) {}
 
   /** Starts the poll loop in the background. */
@@ -116,11 +122,13 @@ export class OutboxRelay {
       FOR UPDATE SKIP LOCKED`;
 
     const published: string[] = [];
+    const cleared: string[] = [];
     let failed = false;
     for (const row of rows) {
       try {
         await this.publishRow(row);
         published.push(row.id);
+        if (this.sensitiveSubjects.has(row.subject)) cleared.push(row.id);
       } catch (error) {
         failed = true;
         const message = toErrorMessage(error).slice(0, 1_000);
@@ -138,7 +146,8 @@ export class OutboxRelay {
     if (published.length > 0) {
       await tx.$executeRaw`
         UPDATE outbox_events
-        SET published_at = now(), attempts = attempts + 1, last_error = NULL
+        SET published_at = now(), attempts = attempts + 1, last_error = NULL,
+            payload = CASE WHEN id = ANY(${cleared}::uuid[]) THEN '{}'::jsonb ELSE payload END
         WHERE id = ANY(${published}::uuid[])`;
     }
     return { claimed: rows.length, published: published.length, failed };

@@ -1,6 +1,9 @@
 import { zLogLevel, zNodeEnv, zPort } from '@wayfare/nest-common';
 import { z } from 'zod';
 
+/** `MAJOR.MINOR.PATCH`, no pre-release or build suffix. */
+const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
 /** "true" / "false" only — never `Boolean(value)`, which reads "false" as true (conventions §5.2). */
 const zBooleanString = z.enum(['true', 'false']).transform((value) => value === 'true');
 
@@ -29,6 +32,8 @@ export const envSchema = z
     IDENTITY_GRPC_URL: z.string().min(1),
     REDIS_URL: z.url(),
     METRICS_PORT: zPort,
+    // The oldest client build accepted; configuration, so the floor moves without a release.
+    MIN_SUPPORTED_APP_VERSION: z.string().regex(SEMVER).default('0.0.0'),
     APP_VERSION: z.string().default('0.0.0-dev'),
     GIT_SHA: z.string().default('unknown'),
     BUILT_AT: z.string().default('unknown'),

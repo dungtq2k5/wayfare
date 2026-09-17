@@ -1,0 +1,17 @@
+/** Active or invited staff per seller (rdm-spec B-13, api-endpoints-plan §5.7). */
+export const MAX_STAFF_PER_OWNER = 10;
+
+/** How long a staff invitation stays open (rdm-spec B-13). */
+export const STAFF_INVITE_TTL_DAYS = 7;
+
+/** The `discovery_boost` weight one active boost slot writes (rdm-spec B-5). */
+export const DISCOVERY_BOOST_WEIGHT = 50;
+
+/** Upper bound of a voucher offer title (rdm-spec B-7, B-8). */
+export const MAX_OFFER_TITLE_LENGTH = 120;
+
+/** Upper bound of a voucher offer's description and terms (rdm-spec B-7, B-8). */
+export const MAX_OFFER_TEXT_LENGTH = 1000;
+
+/** Vouchers per order (rdm-spec B-9 CHECK). */
+export const MAX_VOUCHERS_PER_ORDER = 10;

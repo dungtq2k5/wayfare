@@ -1,28 +1,73 @@
 import { Metadata, status } from '@grpc/grpc-js';
 import type { ServiceError } from '@grpc/grpc-js';
+import { compareStrings, ERROR_CODES, ERRORS } from '@wayfare/contracts';
+import type { ErrorCode } from '@wayfare/contracts';
+import type { RpcException } from '@nestjs/microservices';
 import { describe, expect, it } from 'vitest';
 import { isGrpcServiceError, readGrpcErrorInfo } from './grpc-service-error';
-import { rpcError } from './rpc-error';
+import { GRPC_STATUS_BY_NAME, rpcError } from './rpc-error';
 import type { RpcErrorObject } from './rpc-error';
 
+// Each code with details, and a valid value for it.
+const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
+  VALIDATION_FAILED: { issues: [{ path: '/a', code: 'invalid_type' }] },
+  PERMISSION_DENIED: { required: ['place.update'] },
+  RESOURCE_NOT_FOUND: { resource: 'PLACE' },
+  INVALID_STATE: { status: 'ACTIVE' },
+  PAYOUT_CHANGES_COOLING_DOWN: { until: '2026-09-23T00:00:00.000Z' },
+  PLACE_LIMIT_REACHED: { limit: 1 },
+  PHOTO_LIMIT_REACHED: { limit: 3 },
+  MENU_LIMIT_REACHED: { limit: 10 },
+  STAFF_LIMIT_REACHED: { limit: 10 },
+  BOOST_SLOTS_EXCEEDED: { limit: 1 },
+  VOUCHER_NOT_REDEEMABLE: { status: 'REDEEMED', redeemedAt: '2026-09-16T00:00:00.000Z' },
+  PRICE_BELOW_MINIMUM: { minimum: { amountMinor: 300, currency: 'USD' } },
+  APP_VERSION_UNSUPPORTED: { minimumVersion: '1.2.0' },
+  RATE_LIMITED: { retryAfterSeconds: 30 },
+  SHORT_CODE_ENTRY_PAUSED: { retryAfterSeconds: 600 },
+  AI_QUOTA_EXHAUSTED: { resetsAt: '2026-09-17T00:00:00.000+07:00' },
+};
+
+// The signature forbids a mismatch at compile time; this reaches the runtime check.
+const untypedRpcError = rpcError as unknown as (...args: unknown[]) => RpcException;
+const loose = (code: ErrorCode, details?: unknown): RpcException => untypedRpcError(code, details);
+
 describe('rpcError', () => {
-  it('carries the error code in a REAL grpc-js Metadata instance', () => {
-    const error = rpcError(status.NOT_FOUND, 'PLACE_NOT_FOUND').getError() as RpcErrorObject;
-    expect(error.code).toBe(status.NOT_FOUND);
-    expect(error.metadata).toBeInstanceOf(Metadata);
-    expect(error.metadata.get('wf-error-code')).toEqual(['PLACE_NOT_FOUND']);
-    expect(error.metadata.get('wf-http-status')).toEqual([]);
+  it('knows every code that has a details schema', () => {
+    const withDetails = ERROR_CODES.filter((code) => 'details' in ERRORS[code]);
+    expect(Object.keys(VALID_DETAILS).toSorted(compareStrings)).toEqual(
+      withDetails.toSorted(compareStrings),
+    );
   });
 
-  it('adds the HTTP override and details only when given', () => {
-    const error = rpcError(
-      status.FAILED_PRECONDITION,
-      'PLACE_LIMIT_REACHED',
-      { limit: 1 },
-      { http: 422 },
-    ).getError() as RpcErrorObject;
-    expect(error.metadata.get('wf-http-status')).toEqual(['422']);
-    expect(error.metadata.get('wf-error-details')).toEqual(['{"limit":1}']);
+  it.each(ERROR_CODES)('%s travels with its registered statuses', (code) => {
+    const error = loose(code, VALID_DETAILS[code]).getError() as RpcErrorObject;
+    expect(error.code).toBe(GRPC_STATUS_BY_NAME[ERRORS[code].grpc]);
+    expect(error.metadata).toBeInstanceOf(Metadata);
+    expect(error.metadata.get('wf-error-code')).toEqual([code]);
+    expect(error.metadata.get('wf-http-status')).toEqual([String(ERRORS[code].http)]);
+    const details = VALID_DETAILS[code];
+    expect(error.metadata.get('wf-error-details')).toEqual(
+      details === undefined ? [] : [JSON.stringify(details)],
+    );
+  });
+
+  it('types the details argument per code', () => {
+    expect(rpcError('INTERNAL')).toBeDefined();
+    expect(rpcError('PLACE_LIMIT_REACHED', { limit: 1 })).toBeDefined();
+    // @ts-expect-error — a code without a schema takes no details.
+    expect(() => rpcError('INTERNAL', { a: 1 })).toThrow(/INTERNAL/);
+    // @ts-expect-error — a code with a schema requires them.
+    expect(rpcError('PLACE_LIMIT_REACHED')).toBeDefined();
+  });
+
+  it.each([
+    ['PLACE_LIMIT_REACHED', { limit: 'one' }],
+    ['PLACE_LIMIT_REACHED', { limit: 1, extra: true }],
+    ['RESOURCE_NOT_FOUND', { resource: 'place' }],
+    ['VALIDATION_FAILED', { issues: [] }],
+  ] as const)('%s refuses bad details %j — a bug in the thrower', (code, details) => {
+    expect(() => loose(code, details)).toThrow(new RegExp(code));
   });
 });
 
@@ -39,22 +84,54 @@ describe('client-side gRPC errors', () => {
     expect(isGrpcServiceError({ code: 14, metadata: {} })).toBe(false);
   });
 
-  it('reads the Wayfare fields from trailing metadata', () => {
+  it('reads a known code with its REGISTERED status, ignoring a lying header', () => {
     const info = readGrpcErrorInfo(
       serviceError(status.FAILED_PRECONDITION, {
-        'wf-error-code': 'X',
-        'wf-http-status': '410',
+        'wf-error-code': 'TOKEN_EXPIRED',
+        'wf-http-status': '418',
         'wf-error-details': '{"a":1}',
       }),
     );
-    expect(info).toEqual({ errorCode: 'X', httpStatus: 410, details: { a: 1 } });
+    expect(info).toEqual({
+      code: 'TOKEN_EXPIRED',
+      httpStatus: 410,
+      known: true,
+      details: { a: 1 },
+    });
+  });
+
+  it("reads an unknown code with the header's status, and keeps the code", () => {
+    const info = readGrpcErrorInfo(
+      serviceError(status.FAILED_PRECONDITION, {
+        'wf-error-code': 'NEW_CODE',
+        'wf-http-status': '422',
+      }),
+    );
+    expect(info).toEqual({ code: 'NEW_CODE', httpStatus: 422, known: false, details: null });
+  });
+
+  it('falls back to the gRPC mapping for an unknown code with an illegal or missing header', () => {
+    const read = (entries: Record<string, string>) =>
+      readGrpcErrorInfo(serviceError(status.NOT_FOUND, { 'wf-error-code': 'NEW_CODE', ...entries }))
+        ?.httpStatus;
+    expect(read({ 'wf-http-status': '418' })).toBe(404);
+    expect(read({ 'wf-http-status': 'x' })).toBe(404);
+    expect(read({})).toBe(404);
+    expect(
+      readGrpcErrorInfo(serviceError(status.DATA_LOSS, { 'wf-error-code': 'NEW_CODE' }))
+        ?.httpStatus,
+    ).toBe(500);
   });
 
   it('drops malformed details but keeps the code', () => {
     expect(
       readGrpcErrorInfo(
-        serviceError(status.INTERNAL, { 'wf-error-code': 'X', 'wf-error-details': '{' }),
+        serviceError(status.INTERNAL, { 'wf-error-code': 'INTERNAL', 'wf-error-details': '{' }),
       ),
-    ).toEqual({ errorCode: 'X', httpStatus: null, details: null });
+    ).toEqual({ code: 'INTERNAL', httpStatus: 500, known: true, details: null });
+  });
+
+  it('is null without a code', () => {
+    expect(readGrpcErrorInfo(serviceError(status.UNAVAILABLE))).toBeNull();
   });
 });

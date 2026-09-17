@@ -27,6 +27,10 @@ export const LOG_REDACT_PATHS = [
   '*.secret',
   '*.secretHash',
   '*.nationalId',
+  // billing.staff.invited — the one event payload with a secret and an address (conventions §9.1).
+  '*.inviteToken',
+  '*.invitedEmail',
+  '*.sellerName',
 ];
 
 /** Options for `createLoggerModule`. */

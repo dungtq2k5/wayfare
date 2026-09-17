@@ -1,4 +1,3 @@
-import { status } from '@grpc/grpc-js';
 import { Injectable } from '@nestjs/common';
 import {
   AUDIT_RECORD,
@@ -45,7 +44,7 @@ export class DevicesService {
   ): Promise<identityGrpc.RegisterDeviceResponse> {
     const fields = registerDeviceFields.safeParse(request);
     if (!fields.success) {
-      throw rpcError(status.INVALID_ARGUMENT, 'VALIDATION_FAILED', {
+      throw rpcError('VALIDATION_FAILED', {
         issues: fields.error.issues.map((issue) => ({
           path: `/${issue.path.join('/')}`,
           code: issue.code,

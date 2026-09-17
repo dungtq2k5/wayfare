@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { CLIENT_HEADER, isWayfareClient } from '@wayfare/contracts';
@@ -23,7 +23,7 @@ export class ClientHeaderGuard implements CanActivate {
     if (skip) return true;
     const request = context.switchToHttp().getRequest<Request>();
     if (!isWayfareClient(request.header(CLIENT_HEADER))) {
-      throw new AppHttpException(HttpStatus.BAD_REQUEST, 'CLIENT_HEADER_REQUIRED');
+      throw new AppHttpException('CLIENT_HEADER_REQUIRED');
     }
     return true;
   }

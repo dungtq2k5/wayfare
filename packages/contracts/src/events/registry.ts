@@ -1,7 +1,70 @@
 import { AUDIT_RECORD } from './audit.events';
+import {
+  BILLING_BOOSTS_CHANGED,
+  BILLING_ENTITLEMENTS_CHANGED,
+  BILLING_OFFER_REVIEWED,
+  BILLING_ORDER_PAID,
+  BILLING_PAYOUT_ACCOUNT_ACTION_REQUIRED,
+  BILLING_STAFF_INVITED,
+  BILLING_SUBSCRIPTION_PAYMENT_FAILED,
+  BILLING_VOUCHER_MOVED,
+  BILLING_VOUCHER_REFUNDED,
+} from './billing.events';
+import {
+  CATALOG_MENU_CONTENT_CHANGED,
+  CATALOG_PLACE_CONTENT_CHANGED,
+  CATALOG_PLACE_STATUS_CHANGED,
+  CATALOG_SUBMISSION_REVIEWED,
+  CATALOG_TOUR_CONTENT_CHANGED,
+} from './catalog.events';
 import type { EventDefinition } from './event-definition';
+import {
+  IDENTITY_DEVICE_CLAIMED,
+  IDENTITY_DEVICE_FORGOTTEN,
+  IDENTITY_OWNER_VERIFIED,
+  IDENTITY_USER_DEACTIVATED,
+  IDENTITY_USER_ERASED,
+  IDENTITY_USER_LOCKED,
+} from './identity.events';
+import { NARRATION_LOCALIZATION_FAILED, NARRATION_LOCALIZATION_READY } from './narration.events';
+import { NOTIFICATION_CREATE } from './notification.events';
+
+/** Every declared event, in api-endpoints-plan §10's order. */
+export const EVENT_DEFINITIONS = [
+  IDENTITY_DEVICE_CLAIMED,
+  IDENTITY_DEVICE_FORGOTTEN,
+  IDENTITY_USER_ERASED,
+  IDENTITY_USER_DEACTIVATED,
+  IDENTITY_OWNER_VERIFIED,
+  IDENTITY_USER_LOCKED,
+  CATALOG_PLACE_CONTENT_CHANGED,
+  CATALOG_MENU_CONTENT_CHANGED,
+  CATALOG_TOUR_CONTENT_CHANGED,
+  CATALOG_PLACE_STATUS_CHANGED,
+  CATALOG_SUBMISSION_REVIEWED,
+  NARRATION_LOCALIZATION_READY,
+  NARRATION_LOCALIZATION_FAILED,
+  BILLING_ENTITLEMENTS_CHANGED,
+  BILLING_BOOSTS_CHANGED,
+  BILLING_SUBSCRIPTION_PAYMENT_FAILED,
+  BILLING_ORDER_PAID,
+  BILLING_VOUCHER_REFUNDED,
+  BILLING_VOUCHER_MOVED,
+  BILLING_STAFF_INVITED,
+  BILLING_OFFER_REVIEWED,
+  BILLING_PAYOUT_ACCOUNT_ACTION_REQUIRED,
+  AUDIT_RECORD,
+  NOTIFICATION_CREATE,
+] as const satisfies readonly EventDefinition[];
 
 /** Every declared event, by subject. A subject missing here does not exist (api-endpoints-plan §10). */
-export const EVENT_REGISTRY: Readonly<Record<string, EventDefinition>> = {
-  [AUDIT_RECORD.subject]: AUDIT_RECORD,
-};
+export const EVENT_REGISTRY: Readonly<Record<string, EventDefinition>> = Object.fromEntries(
+  EVENT_DEFINITIONS.map((definition) => [definition.subject, definition as EventDefinition]),
+);
+
+/** The subjects whose payload carries a secret — cleared from the outbox on publish (conventions §9.1). */
+export const SENSITIVE_SUBJECTS: ReadonlySet<string> = new Set(
+  EVENT_DEFINITIONS.filter((definition: EventDefinition) => definition.sensitive).map(
+    (definition) => definition.subject,
+  ),
+);

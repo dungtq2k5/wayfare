@@ -1,14 +1,29 @@
 import { HttpException } from '@nestjs/common';
+import { ERRORS } from '@wayfare/contracts';
 import type { ErrorCode } from '@wayfare/contracts';
+import type { RpcErrorDetailsArgs } from '../errors/rpc-error';
 
-/** An HTTP error raised at the gateway, carrying its `ErrorCode` for the error filter. */
-export class AppHttpException extends HttpException {
+class AppHttpExceptionImpl extends HttpException {
+  readonly details?: Record<string, unknown>;
+
   constructor(
-    status: number,
     readonly code: ErrorCode,
-    readonly details?: Record<string, unknown>,
-    message: string = code,
+    details?: Record<string, unknown>,
   ) {
-    super(message, status);
+    super(code, ERRORS[code].http);
+    if (details !== undefined) this.details = details;
   }
 }
+
+/** The constructor's public shape: details typed per code, as `rpcError` takes them. */
+interface AppHttpExceptionConstructor {
+  new <C extends ErrorCode>(code: C, ...details: RpcErrorDetailsArgs<C>): AppHttpExceptionImpl;
+  readonly prototype: AppHttpExceptionImpl;
+}
+
+/**
+ * An HTTP error raised at the gateway, carrying its `ErrorCode` for the error filter. Like
+ * `rpcError`, the status comes from the registry.
+ */
+export type AppHttpException = AppHttpExceptionImpl;
+export const AppHttpException = AppHttpExceptionImpl as AppHttpExceptionConstructor;

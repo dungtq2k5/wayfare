@@ -1,4 +1,4 @@
-import { HttpStatus, StreamableFile } from '@nestjs/common';
+import { StreamableFile } from '@nestjs/common';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
 import { map } from 'rxjs';
@@ -70,12 +70,10 @@ export class ResponseValidationInterceptor implements NestInterceptor {
   }
 
   private fail(reason: string): never {
-    throw new AppHttpException(
-      HttpStatus.INTERNAL_SERVER_ERROR,
-      'INTERNAL',
-      undefined,
-      `Response failed its schema: ${reason}`,
-    );
+    const error = new AppHttpException('INTERNAL');
+    // The reason reaches the body outside production only; the filter hides every 5xx message there.
+    error.message = `Response failed its schema: ${reason}`;
+    throw error;
   }
 }
 
