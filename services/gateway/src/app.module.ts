@@ -16,16 +16,24 @@ import {
 import type { Redis } from 'ioredis';
 import { envSchema } from './config/env.schema';
 import type { GatewayConfig } from './config/env.schema';
+import { AdminPlacesModule } from './modules/admin-places/admin-places.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
+import { AreasModule } from './modules/areas/areas.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { EmailChangeModule } from './modules/email-change/email-change.module';
 import { EmailWebhooksModule } from './modules/email-webhooks/email-webhooks.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { REDIS, RedisLifecycle, RedisModule } from './modules/ops/redis.module';
 import { PasswordModule } from './modules/password/password.module';
+import { PlacesModule } from './modules/places/places.module';
+import { QrModule } from './modules/qr/qr.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { SyncModule } from './modules/sync/sync.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 
 /** The gateway — the only public HTTP surface. No database, no business logic (conventions §2.2). */
@@ -65,6 +73,14 @@ export class AppModule {
         PasswordModule,
         EmailChangeModule,
         EmailWebhooksModule,
+        CatalogModule,
+        SyncModule,
+        PlacesModule,
+        QrModule,
+        CategoriesModule,
+        AreasModule,
+        UploadsModule,
+        AdminPlacesModule,
       ],
       providers: [
         {

@@ -1,0 +1,26 @@
+{
+  "extensions": ["postgis"],
+  "sequences": ["catalog_sync_version_seq"],
+  "indexes": [
+    "outbox_events_unpublished_idx",
+    "places_active_location_gist",
+    "places_owner_live_idx",
+    "areas_boundary_gist"
+  ],
+  "constraints": [
+    "places_kind_owner_ck",
+    "places_editorial_narrates_ck",
+    "places_editorial_no_boost_ck",
+    "places_radius_ck",
+    "places_priority_ck",
+    "places_boost_ck",
+    "places_price_band_ck",
+    "places_inactive_reason_ck",
+    "places_menu_currency_ck",
+    "place_localizations_audio_ready_ck",
+    "menu_items_price_ck",
+    "place_opening_hours_one_of_ck",
+    "place_opening_hours_times_ck",
+    "place_opening_hours_weekday_ck"
+  ]
+}

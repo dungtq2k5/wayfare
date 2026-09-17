@@ -1,11 +1,14 @@
+import { resolve } from 'node:path';
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   createConfigModule,
   createLoggerModuleAsync,
+  createSchemaCheck,
   NatsClient,
   OpsModule,
+  packageRoot,
 } from '@wayfare/nest-common';
 import { envSchema } from './config/env.schema';
 import type { IdentityConfig } from './config/env.schema';
@@ -33,12 +36,18 @@ import { SystemCatalogModule } from './modules/system-catalog/system-catalog.mod
 import { TokensModule } from './modules/tokens/tokens.module';
 import { UsersModule } from './modules/users/users.module';
 
+const ROOT = packageRoot(__dirname);
+
 /** identity's root module — a hybrid app: gRPC plus HTTP ops routes (api-endpoints-plan §13). */
 @Module({})
 export class AppModule {
   /** `env` is for tests only: validate exactly that object, ignoring `.env` and `process.env`. */
   static forRoot(
-    options: { env?: Readonly<Record<string, string | undefined>> } = {},
+    options: {
+      env?: Readonly<Record<string, string | undefined>>;
+      /** Tests only: point the boot-time schema check at other expectations. */
+      schema?: { migrationsDir?: string; expectedObjectsPath?: string };
+    } = {},
   ): DynamicModule {
     return {
       module: AppModule,
@@ -86,6 +95,15 @@ export class AppModule {
         }),
       ],
       providers: [
+        // Refuses to boot on an undeployed database, before any bootstrap hook (conventions §8.1).
+        ...createSchemaCheck({
+          service: 'identity',
+          prismaToken: PrismaService,
+          migrationsDir: options.schema?.migrationsDir ?? resolve(ROOT, 'prisma/migrations'),
+          expectedObjectsPath:
+            options.schema?.expectedObjectsPath ??
+            resolve(ROOT, 'prisma/sql/expected-objects.json'),
+        }),
         EventSpine,
         {
           provide: CONSUMERS,

@@ -68,3 +68,39 @@ expect_refused() {
   [[ $status == 401 ]] || fail "$who's old access token still works after 2 s (HTTP $status)"
   echo "✓ $who's old access token is refused after $((attempt * 200)) ms or less"
 }
+
+# catalog_sql SQL — runs SQL against the local catalog database and prints the bare result.
+catalog_sql() {
+  (cd "$repo_root" && docker compose exec -T catalog-db \
+    psql -U wayfare -d wayfare_catalog -At -v ON_ERROR_STOP=1 -c "$1")
+}
+
+# ready_event PLACE_ID LANG HASH [AUDIO_HASH|none] — a `narration.localization.ready` payload,
+# shaped by the contracts' own fixture (the built package).
+ready_event() {
+  local audio=${4:-$3}
+  (cd "$repo_root/packages/contracts" && node -e '
+    const [placeId, lang, sourceContentHash, audio] = process.argv.slice(1);
+    const { localizationReadyFixture } = require("./dist/testing");
+    process.stdout.write(JSON.stringify(localizationReadyFixture({
+      placeId, lang, sourceContentHash, name: `Walk place (${lang})`,
+      audioContentHash: audio === "none" ? null : audio,
+    })));' "$1" "$2" "$3" "$audio")
+}
+
+# publish SUBJECT PAYLOAD — publishes to the local JetStream through nats-box, deduplicated by the
+# payload's eventId as the outbox relay would.
+publish() {
+  local id
+  id=$(jq -r .eventId <<<"$2")
+  (cd "$repo_root" && docker compose --profile tools run --rm -T nats-box \
+    nats pub "$1" "$2" -H "Nats-Msg-Id:$id" >/dev/null 2>&1) || fail "could not publish $1"
+  echo "✓ published $1 ($id)"
+}
+
+# catalog_node SCRIPT ARGS… — runs a script with catalog's dependencies (sharp, qrcode) available.
+catalog_node() {
+  local script=$1
+  shift
+  (cd "$repo_root/services/catalog" && node -e "$script" "$@")
+}

@@ -3,6 +3,7 @@ import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/com
 import type { Reflector } from '@nestjs/core';
 import { map } from 'rxjs';
 import type { Observable } from 'rxjs';
+import { NotModified } from './etag';
 import { WithMeta } from './paged';
 import { SKIP_ENVELOPE } from './skip-envelope.decorator';
 
@@ -31,6 +32,8 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
 
 function wrap(value: unknown): unknown {
   if (value instanceof StreamableFile) return value;
+  // A 304 has no body.
+  if (value instanceof NotModified) return undefined;
   if (value instanceof WithMeta) return { data: value.data, meta: value.meta } satisfies Envelope;
   return { data: value ?? null } satisfies Envelope;
 }

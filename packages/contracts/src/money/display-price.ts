@@ -21,10 +21,13 @@ export interface DisplayPrice {
   readonly [displayOnly]: true;
 }
 
-/** Per-currency sanity ceilings — above them is a typo, not a price (ADR 0046). ₫100 M and $1 000. */
+/**
+ * Per-currency sanity ceilings — above them is a typo, not a price (rdm-spec C-6, ADR 0046).
+ * ₫50 M and $2 000.
+ */
 export const DISPLAY_PRICE_CEILING_MINOR: Readonly<Record<MenuCurrency, number>> = {
-  [MenuCurrency.VND]: 100_000_000,
-  [MenuCurrency.USD]: 100_000,
+  [MenuCurrency.VND]: 50_000_000,
+  [MenuCurrency.USD]: 200_000,
 };
 
 function isValidDisplayAmount(amountMinor: number, currency: MenuCurrency): boolean {

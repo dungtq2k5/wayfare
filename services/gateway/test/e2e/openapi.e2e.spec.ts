@@ -6,7 +6,9 @@ import type { E2eApp } from '../support/app';
 interface Operation {
   responses: Record<
     string,
-    { content?: Record<string, { schema: { properties?: Record<string, unknown> } }> }
+    {
+      content?: Record<string, { schema: { type?: string; properties?: Record<string, unknown> } }>;
+    }
   >;
   security?: Record<string, string[]>[];
 }
@@ -63,14 +65,25 @@ const DEVICE_ROUTES = new Set([
   'PATCH /api/v1/devices/me',
   'DELETE /api/v1/devices/me',
   'POST /api/v1/devices/me/legal-acceptances',
+  'GET /api/v1/sync/places',
+  'GET /api/v1/places/nearby',
+  'GET /api/v1/places/{id}',
+  'GET /api/v1/places/by-code/{publicCode}',
 ]);
+
+/** Public reads a CDN may hold. */
+const PUBLIC_READS = new Set(['GET /api/v1/categories', 'GET /api/v1/areas']);
+
+/** Bodies that are not the JSON envelope, with their media type. */
+const NON_JSON = new Map([['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml']]);
 
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(44);
-    // Provider webhooks are not client routes; they stay out of the document.
+    expect(names).toHaveLength(65);
+    // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
+    expect(names.some((name) => name.includes('/q/'))).toBe(false);
     expect(names.some((name) => name.includes('/health'))).toBe(false);
   });
 
@@ -105,7 +118,12 @@ describe('OpenAPI contract', () => {
       const success = Object.keys(operation.responses).filter((status) => status.startsWith('2'));
       expect(success, name).toHaveLength(1);
       const [status] = success;
-      if (status === '204' || status === '202')
+      const mediaType = NON_JSON.get(name);
+      if (mediaType !== undefined)
+        expect(operation.responses[status!]?.content, name).toEqual({
+          [mediaType]: { schema: { type: 'string' } },
+        });
+      else if (status === '204' || status === '202')
         expect(operation.responses[status]?.content, name).toBeUndefined();
       else
         expect(
@@ -125,7 +143,8 @@ describe('OpenAPI contract', () => {
 
   it("matches each operation's security to its marker", () => {
     for (const [name, operation] of operations()) {
-      if (NO_SECURITY.has(name)) expect(operation.security, name).toBeUndefined();
+      if (NO_SECURITY.has(name) || PUBLIC_READS.has(name))
+        expect(operation.security, name).toBeUndefined();
       else if (REFRESH_COOKIE.has(name))
         expect(operation.security, name).toEqual([{ refreshCookie: [] }]);
       else if (DEVICE_ROUTES.has(name)) {
@@ -137,5 +156,21 @@ describe('OpenAPI contract', () => {
       } else
         expect(operation.security, name).toEqual([{ accountBearer: [] }, { accessCookie: [] }]);
     }
+  });
+
+  it('documents the tagged reads with their 304, and a sync page with its own meta', () => {
+    for (const name of ['GET /api/v1/sync/places', 'GET /api/v1/places/{id}']) {
+      expect(Object.fromEntries(operations())[name]!.responses['304'], name).toBeDefined();
+    }
+    const sync = Object.fromEntries(operations())['GET /api/v1/sync/places']!;
+    expect(sync.responses['200']?.content?.['application/json']?.schema).toEqual({
+      type: 'object',
+      required: ['data', 'meta'],
+      properties: {
+        data: { $ref: '#/components/schemas/SyncPlacesResponseDto' },
+        meta: { $ref: '#/components/schemas/SyncMetaResponseDto' },
+      },
+    });
+    expect(document.components.schemas.SyncMetaResponseDto).toBeDefined();
   });
 });

@@ -14,11 +14,18 @@ export const PROTO_FILES = {
     'wayfare/identity/email_change.proto',
     'wayfare/identity/email_webhook.proto',
   ],
+  catalog: [
+    'wayfare/catalog/place_types.proto',
+    'wayfare/catalog/place_query.proto',
+    'wayfare/catalog/place_admin.proto',
+    'wayfare/catalog/upload.proto',
+  ],
   health: ['grpc/health/v1/health.proto'],
 } as const;
 
 /** The gRPC package names the services serve. */
 export const GRPC_PACKAGES = {
   identity: 'wayfare.identity',
+  catalog: 'wayfare.catalog',
   health: 'grpc.health.v1',
 } as const;

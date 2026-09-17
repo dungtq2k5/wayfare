@@ -24,7 +24,7 @@ services:
       - ./postgres-init/identity.sh:/docker-entrypoint-initdb.d/20-identity.sh:ro
     healthcheck: *postgres-health
 
-  # PostGIS — the one database with a different image; not used by any service yet.
+  # PostGIS — the one database with a different image.
   catalog-db:
     image: postgis/postgis:17-3.5
     environment:
@@ -93,10 +93,21 @@ services:
       timeout: 3s
       retries: 20
 
-  # Not used by any service yet.
+  # The media bucket's emulator (architecture §3.6). `-public-host` makes signed PUTs resolve;
+  # the bucket comes from `pnpm --filter @wayfare/catalog storage:setup`.
   fake-gcs:
     image: fsouza/fake-gcs-server:1.56
-    command: ['-scheme', 'http', '-port', '4443', '-external-url', 'http://localhost:4443']
+    command:
+      [
+        '-scheme',
+        'http',
+        '-port',
+        '4443',
+        '-external-url',
+        'http://localhost:4443',
+        '-public-host',
+        'localhost:4443',
+      ]
     ports: ['4443:4443']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:4443/storage/v1/b']
@@ -156,6 +167,44 @@ services:
       timeout: 3s
       retries: 30
 
+  catalog:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: catalog
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@catalog-db:5432/wayfare_catalog?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:50052
+      OPS_PORT: '3102'
+      METRICS_PORT: '9102'
+      GCS_BUCKET_MEDIA: wayfare-media-local
+      GCS_API_ENDPOINT: http://fake-gcs:4443
+      GCS_PUBLIC_BASE_URL: http://localhost:4443/wayfare-media-local
+      # The throwaway key `pnpm keys:dev` writes.
+      GOOGLE_APPLICATION_CREDENTIALS: /keys/gcs-dev.json
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: catalog
+    volumes:
+      - ../../services/catalog/.keys:/keys:ro
+    ports: ['3102:3102']
+    depends_on:
+      catalog-db: { condition: service_healthy }
+      fake-gcs: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3102/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
   gateway:
     profiles: [apps]
     build:
@@ -175,6 +224,9 @@ services:
       TRUST_PROXY_HOPS: '0'
       SWAGGER_ENABLED: 'true'
       IDENTITY_GRPC_URL: identity:50051
+      CATALOG_GRPC_URL: catalog:50052
+      PUBLIC_QR_BASE_URL: http://localhost:3000
+      PUBLIC_LINK_BASE_URL: http://localhost:5174
       REDIS_URL: redis://redis:6379
       METRICS_PORT: '9100'
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
@@ -184,6 +236,7 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       identity: { condition: service_healthy }
+      catalog: { condition: service_healthy }
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health/ready']
       interval: 5s

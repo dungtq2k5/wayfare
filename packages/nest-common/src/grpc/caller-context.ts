@@ -1,6 +1,6 @@
 import { Metadata } from '@grpc/grpc-js';
 import { isUuidV7 } from '@wayfare/contracts';
-import { isAccountContext } from '../context/request-context';
+import { deviceIdOf, isAccountContext } from '../context/request-context';
 import type { AccountContext, RequestContext, RequestOrigin } from '../context/request-context';
 import { rpcError } from '../errors/rpc-error';
 
@@ -90,4 +90,14 @@ export function unpackCallerContext(metadata: Metadata | undefined): RequestCont
 export function requireAccountContext(context: RequestContext): AccountContext {
   if (!isAccountContext(context)) throw rpcError('UNAUTHENTICATED');
   return context;
+}
+
+/**
+ * The caller's device id, for an RPC that serves devices (a device token, or an account token
+ * carrying one); anything else is `UNAUTHENTICATED` — the gateway's `DEVICE` marker refuses it first.
+ */
+export function requireDeviceContext(context: RequestContext): string {
+  const deviceId = deviceIdOf(context);
+  if (deviceId === null) throw rpcError('UNAUTHENTICATED');
+  return deviceId;
 }

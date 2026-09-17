@@ -16,6 +16,9 @@ const PATTERNS: readonly (readonly [string, RegExp])[] = [
   ['working-doc citation', /\b[Dd]ocs?\s+\d+/],
   ['path into the archive', /docs\/archive\b/],
   ['relative link into the archive', /\]\((?:\.\.?\/)*archive\//],
+  // A working doc's decision label, as code cites it: `(D10)`, `(D1, D2)`. Bare `D10` is left
+  // alone — too common in other senses to refuse.
+  ['working-doc decision label', /\(\s*D\d{1,2}\b[^)]*\)/],
 ];
 const WRAPPED_HEAD = /\b[Dd]ocs?\s*$/;
 const COMMENT_LEADER = /^\s*(?:\*|\/\/|#)\s*/;
@@ -79,6 +82,8 @@ describe('archive references', () => {
       'moved to docs/archive/impls',
       'see [the plan](../archive/impls/01.md)',
       'see [the plan](archive/impls/01.md)',
+      '/** the same thing (D10). */',
+      '// both at once (D1, D2)',
     ];
     for (const line of planted) expect(scanText('x.md', line), line).toHaveLength(1);
     expect(scanText('x.ts', '// the details are in doc\n// 03 §2')).toHaveLength(1);
@@ -94,6 +99,9 @@ describe('archive references', () => {
       'Measured: 471 tests',
       'The same rule covers `archive/`: it is scratch',
       'a sentence that ends in doc\nand continues without a digit',
+      'a D10 lens (DSLR)',
+      'the device (DEVICE marker)',
+      'grid cell D4',
     ];
     for (const text of accepted) expect(scanText('x.md', text), text).toEqual([]);
   });

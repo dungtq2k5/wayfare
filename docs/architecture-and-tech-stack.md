@@ -294,7 +294,9 @@ It also holds identity's **revocation state** — each user's token cutoff and t
 📌 [ADR 0022](./decisions/0022-gcs-behind-a-storage-provider-interface.md): **GCS**, in the Firebase/Google ecosystem. No MinIO, no S3, no R2.
 
 - **SDK:** `@google-cloud/storage` with a service-account credential. Buckets provisioned through the Firebase console are ordinary GCS buckets, so either entry point works.
-- **Local development:** **`fake-gcs-server`** in Compose. Same API, no cloud account needed for day-to-day work.
+- **Local development:** **`fake-gcs-server`** in Compose, started with `-public-host localhost:4443` (signed `PUT`s answer `404` without it). The client is pointed at it with an explicit `apiEndpoint` (`GCS_API_ENDPOINT`), signs with a throwaway local service-account key, and the bucket is created by a setup step — the emulator starts empty and does **not** enforce `x-goog-content-length-range`, so the confirm-time size check is the only local size guard.
+- **Signing in Cloud Run** uses the service's own identity through IAM `signBlob`, which needs `roles/iam.serviceAccountTokenCreator` on that service account; no key file is deployed.
+- **Only `photos/…` (and `audio/…`, packs) are public**, through the CDN's path rules; `uploads/…` never is, and an original is deleted at confirm. The bucket's CORS allows `PUT` from the console and web origins with the `Content-Type` and `x-goog-content-length-range` headers.
 - Stores place photos, generated MP3s, and built PMTiles archives.
 - **Uploads use signed URLs**: the client uploads straight to the bucket and only tells the API the resulting object name. Never proxy a 5 MB photo through a NestJS process.
 - ⚠️ Gotcha: **Firebase Storage security rules are irrelevant to us.** Those rules govern direct client SDK access; all our writes are backend-mediated through signed URLs, and all our reads are public objects behind a CDN. Do not spend time writing rules that never execute.
@@ -615,7 +617,7 @@ Set this up while there is nothing to break, not once there is everything to bre
 
 1. Everything above
 2. Build and push service images to **Artifact Registry**, tagged with the commit SHA
-3. `prisma migrate deploy` per service against staging
+3. Each service's `pnpm db:deploy` (migrations, schema objects, system rows) against staging, as a job that must succeed before the new revision takes traffic; for identity, also `email:check-domain`
 4. Deploy services
 5. Deploy `apps/web` and `apps/console` to static hosting with a preview URL
 6. Smoke-test `/health/ready` on every service; roll back on failure
@@ -711,6 +713,11 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `OTEL_SDK_DISABLED` | all services | `true` turns tracing off; the test config sets it. Read by the OTel bootstrap in `nest-common`, not by the env schema |
 | `OTEL_TRACES_SAMPLER` | all services | `parentbased_always_on` locally and in staging. Set in the environment, never in code, so switching to a ratio later needs no deploy |
 | `MIN_SUPPORTED_APP_VERSION` | gateway | Semver; a mobile build below it gets `426 APP_VERSION_UNSUPPORTED`. `0.0.0` by default. Configuration, not a constant, so a floor moves without a client release |
+| `CATALOG_GRPC_URL` | gateway | catalog's gRPC address |
+| `PUBLIC_QR_BASE_URL` | gateway, catalog's QR rendering | the host printed on every QR sticker (`https://go.wayfare.app`), mapped to the gateway; **it can never change** once stickers exist |
+| `GCS_API_ENDPOINT` | catalog | local only: the fake-gcs origin |
+| `PUBLIC_LINK_BASE_URL` | gateway | the universal-link host `/q/:code` redirects to (`https://wayfare.app` in production) |
+| `GCS_PUBLIC_BASE_URL` | catalog | where clients fetch media — photos and narration audio alike — the CDN in front of the media bucket; the emulator locally |
 | `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
 | `OPS_PORT` | backend services | The HTTP port for `/health*` and `/version`. The gateway has none — its ops routes are on `PORT` |
 | `METRICS_PORT` | every service | The separate internal `/metrics` port |

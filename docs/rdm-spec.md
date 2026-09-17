@@ -126,6 +126,9 @@ The tourist client holds the whole active corpus for its area locally (product-o
 - **This is why Places are never hard-deleted.** A hard delete leaves no row to carry a `sync_version`, so a client would keep a deleted Place forever. The soft-deleted row *is* the tombstone; no separate tombstone table exists.
 - A sequence, not `updated_at`: two transactions committing in the same millisecond, or a clock step backwards on a replica, silently lose a change under timestamp sync. A sequence value is never reused.
 - ⚠️ A sequence value is taken at write time but visible at commit time, so a long transaction can commit a *lower* `sync_version` after a client has already synced past it. The sync query therefore reads with a small **safety lag**: it only returns rows up to `max(sync_version)` among transactions already older than `SYNC_SAFETY_LAG_MS` (default 5 s), and the client re-requests from its last `datasetVersion`. Without the lag the failure is a Place that silently never appears on one phone.
+- **How the lag is made safe.** Every transaction that bumps a `sync_version` opens with `SET LOCAL transaction_timeout = '4s'` as its **first** statement (Postgres starts that timer at the `SET`, not at `BEGIN`) and bumps through one helper, `bumpSyncVersion`, as its last write — `sync_version = nextval(…)` and `updated_at = clock_timestamp()` **in the same statement** — the moment the version is taken, not the transaction's start. With `now()`, a long transaction could take a higher version after a shorter, still-open one took a lower one, and the settled cap could pass the lower, uncommitted row; with both stamped together, a lower version always has an earlier stamp. The client-side transaction timeout is lower (3.5 s), so an overrun normally rolls back politely; the server timeout is the backstop, and it **closes the connection**, which the service answers as a retryable `503`. No such transaction outlives 4 s past its start, so it ends within 4 s of any stamp it wrote, and any row whose `updated_at` is older than the 5 s lag is settled.
+- **The sync read.** Changes are read across **every** area — `since < sync_version <= cap` — and a Place that is not active, deleted, or **no longer in the requested area** is listed in `removedPlaceIds`, so a Place moved to another area leaves the old area's phones. `cap = max(largest settled sync_version, since)`, so `datasetVersion` never goes backwards, and it is one number across all areas.
+- **Only `bumpSyncVersion` writes `places.updated_at`** (no ORM auto-stamp, which would use the application's clock), and an insert takes its first `sync_version` from `nextval` in the same statement. No column default references the sequence: it is created by the schema-objects file, after the migration.
 
 ### 1.8 Deletion policy
 
@@ -318,7 +321,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 [ catalog   ] places, categories, areas, place_localizations, place_photos, menu_items,
               menu_item_localizations, tours, tour_localizations, tour_stops,
               place_submissions, pending_uploads, favorites, map_packs, place_qr_scans_daily,
-              place_opening_hours
+              place_opening_hours, orphaned_objects
 [ narration ] synthesis_jobs, synthesis_tasks, audio_assets, translation_cache,
               pronunciation_entries, ui_bundles, localization_overrides
 [ billing   ] plans, plan_prices, billing_accounts, billing_events, discovery_boosts,
@@ -515,7 +518,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 - Consuming a `PASSWORD_RESET` revokes every session and stamps `users.credentials_changed_at`. Consuming either a `PASSWORD_RESET` or an `ACCOUNT_SETUP` also sets `is_email_verified`, since the bound link proved control of the current address. An `ACCOUNT_SETUP` on an account that has no password stamps nothing — no existing credential was bypassed; on an account that already has one (set by the bootstrap or an earlier reset) it acts as a reset and stamps `credentials_changed_at`.
 - **The plaintext token exists only in the email that carries it.** A send that fails is never retried with the same token; the person asks again, which mints a new one and invalidates the old.
 - **A live `EMAIL_CHANGE_REVERT` token reserves its `target_email`**: registering or changing to that address is refused, so an attacker cannot block the revert by claiming the old address. It also blocks, on its user, account erasure, another email change, payout-routing changes and staff invitations. Found through the index `(target_email) WHERE purpose = 'EMAIL_CHANGE_REVERT' AND used_at IS NULL AND invalidated_at IS NULL`.
-- **Consuming a revert** restores the address, revokes every session, bumps `tokens_valid_after`, invalidates outstanding `EMAIL_CHANGE` tokens and issues a `PASSWORD_RESET` — the password is treated as compromised ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)).
+- **Consuming a revert** restores the address (marked verified again — it is the address the account had proven), revokes every session, bumps `tokens_valid_after`, invalidates outstanding `EMAIL_CHANGE` tokens and issues a `PASSWORD_RESET` — the password is treated as compromised ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)).
 
 #### Table I-10: notifications
 
@@ -559,6 +562,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Indexes:** `(resource_type, resource_id, occurred_at DESC)`, `(actor_user_id, occurred_at DESC)`, `(action, occurred_at DESC)`, and `(occurred_at DESC, id DESC)` for the unfiltered console list, which pages on both.
 - **Never updated, never soft-deleted.** Pruned after `AUDIT_RETENTION_DAYS` (730).
+- **Alert actions** (`AUDIT_ALERT_ACTIONS`: a refresh-token replay, an email-change revert) are logged at `error` with `alert: true` by the consumer **when the row is newly written**, so a redelivered event never alerts twice.
 - Lives in `identity` because every audited actor is a user or device `identity` owns, and the console reads audit history beside the user it concerns.
 
 #### Table I-12: legal_acceptances
@@ -601,7 +605,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 - **Never holds the body, the subject or any link.** Links carry single-use tokens; a table of them is a table of account-takeover keys.
 - **Unique:** `(template, event_id, recipient_user_id)`, `NULLS NOT DISTINCT` — one email per triggering event per recipient, including a staff invite to an address with no account. A redelivered event or retried job finds the row and does not send again. This, not the provider, is the guarantee. A row still `QUEUED` with no `provider_message_id` (a send interrupted before the provider answered) may be re-sent by the event's redelivery, under the row id as the provider's idempotency key.
 - **Status only moves forward.** Rank `QUEUED` 0, `SENT` 1, `DELIVERED` 2, `COMPLAINED` 3; `BOUNCED` and `FAILED` are terminal. A webhook update applies only if it moves rank forward or reaches a terminal status from a non-terminal one — so a late `delivered` never overwrites `BOUNCED`, and `COMPLAINED` may follow `DELIVERED`. A "delivery delayed" report changes nothing. **`SENT` means only that the provider accepted it**; support must never read it as delivered.
-- A **hard** bounce stamps `users.email_bounced_at` if unset. A complaint does not.
+- A **hard** bounce stamps `users.email_bounced_at` if unset — and only while the bounced address is still the account's address; a bounce reported for an address the account has since left changes nothing on the account. A complaint does not stamp it.
 - Pruned after `EMAIL_DELIVERY_RETENTION_DAYS` (400), matching `billing_events`.
 
 #### Table I-14: account_recoveries
@@ -673,7 +677,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
   - `(owner_user_id) WHERE deleted_at IS NULL` — the Owner Portal list and the place-limit count.
   - `(area_id, status)`.
 - **What counts against an owner's place limit:** Places in `DRAFT`, `PROCESSING` or `ACTIVE` with `deleted_at IS NULL`, **plus** `PENDING` `CREATE` submissions (C-11). A pending creation reserves its slot — counting only approved Places would let an owner on a 1-place plan submit five and have the admin discover the overrun on approval. `INACTIVE` Places do not count, which is what lets a downgrade unpublish the excess without deleting anything; reactivating one re-checks the limit.
-- **Ranking in the nearby list** is computed at read time from distance and `discovery_boost` with a fixed formula in `packages/core`, and any result where boost changed its position carries `sponsored: true`. The formula is not a column, so changing it is a deploy, not a data migration.
+- **Ranking in the nearby list** is computed at read time from distance and `discovery_boost` with a fixed formula in `packages/core` — rank distance = `distance × (1 − 0.5 × discovery_boost / 100)`, applied after the radius filter — and any result where boost changed its position carries `sponsored: true`. The formula is not a column, so changing it is a deploy, not a data migration.
 
 #### Table C-2: categories
 
@@ -763,7 +767,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **name_vi** | VARCHAR(120) | NOT NULL | — |
 | **description_vi** | VARCHAR(500) | Nullable | — |
 | **content_hash** | CHAR(64) | NOT NULL | Of the NFC-normalized name + description. Menu changes regenerate **text** translations only; menus are never narrated. |
-| **price_minor** | INT | Nullable | In the Place's `menu_currency` (C-1): whole đồng for VND, cents for USD. `CHECK (price_minor >= 0)`, and a per-currency ceiling (`MENU_PRICE_CEILING_MINOR`: VND 50,000,000, USD 200,000) enforced at the edge because a `CHECK` cannot read the Place — a larger value is almost always a typo. Display-only; NULL means "ask". |
+| **price_minor** | INT | Nullable | In the Place's `menu_currency` (C-1): whole đồng for VND, cents for USD. `CHECK (price_minor >= 0)`, and a per-currency ceiling (`DISPLAY_PRICE_CEILING_MINOR`: VND 50,000,000, USD 200,000) enforced at the edge because a `CHECK` cannot read the Place — a larger value is almost always a typo. Display-only; NULL means "ask". |
 | **sort_order** | SMALLINT | NOT NULL | — |
 | **is_available** | BOOLEAN | NOT NULL, true | Sold out today, without deleting the item. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
@@ -871,14 +875,14 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **purpose** | VARCHAR(24) | NOT NULL | `PLACE_PHOTO \| TOUR_COVER` |
 | **uploader_user_id** | UUID | NOT NULL, ref ➔ identity.users.id, Indexed | Only this user may confirm or use it. |
 | **object_path** | VARCHAR(512) | NOT NULL, **UNIQUE** | Generated server-side: `uploads/<id>/original`. **Never derived from a client filename.** |
-| **declared_content_type** | VARCHAR(64) | NOT NULL | From the allowlist `image/jpeg \| image/png \| image/webp \| image/heic`. |
+| **declared_content_type** | VARCHAR(64) | NOT NULL | From the allowlist `image/jpeg \| image/png \| image/webp`. HEIC is not accepted — the image pipeline cannot decode it — so clients convert to JPEG first. |
 | **max_bytes** | INT | NOT NULL | `MAX_UPLOAD_BYTES` (5 MB), baked into the signed URL's conditions. |
 | **expires_at** | TIMESTAMPTZ(3) | NOT NULL | Signed URL lifetime, 15 min. |
-| **confirmed_at** | TIMESTAMPTZ(3) | Nullable | Set when the confirm route has verified the object exists, **sniffed its magic bytes**, and generated the WebP variants. |
+| **confirmed_at** | TIMESTAMPTZ(3) | Nullable | Set when the confirm route has verified the object exists, **sniffed its magic bytes**, refused an image over `MAX_UPLOAD_PIXELS`, generated the WebP variants, and **deleted the original** — which still carries the phone's EXIF, GPS included. Only the variants (`photos/…`) are ever public; `uploads/…` is never served. |
 | **sniffed_content_type** | VARCHAR(64) | Nullable | What the bytes actually are. A mismatch with the declared type rejects the upload. |
 | **bytes** | INT | Nullable | — |
 | **sha256** | CHAR(64) | Nullable | — |
-| **variants** | JSONB | Nullable | `PhotoVariants` written at confirm, under `photos/<id>/…`. Immutable paths, so an approved photo row can reference them directly — nothing is copied on approval. |
+| **variants** | JSONB | Nullable | `PhotoVariants` written at confirm, under `photos/<id>/{thumb,card,full}.webp` (320, 800 and 1600 px on the long edge), with orientation applied and all metadata stripped. Immutable paths, so an approved photo row can reference them directly — nothing is copied on approval. |
 | **consumed_at** | TIMESTAMPTZ(3) | Nullable | Set when a submission approval or an admin edit turns this into a `place_photos` row. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
@@ -954,6 +958,17 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 - `CHECK (weekday IS NULL OR weekday BETWEEN 1 AND 7)`.
 - Several rows per weekday are allowed (lunch and dinner). **Any `specific_date` row replaces every weekday row for that date** — an exception is total, never merged. A Place with no rows has unknown hours and is excluded from the "open now" filter rather than assumed open.
 - Replaced as a whole list, like photos and menu items.
+
+#### Table C-17: orphaned_objects
+
+*Storage paths whose rows are gone and whose objects still exist.*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **object_path** | VARCHAR(512) | PK | A media path no row references any more. |
+| **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- Written in the **same transaction** that deletes the row referencing the path (a photo removed by a replace), so the intent to delete survives a crash; read by the `photo-objects-cleanup` job, which deletes the object and then the row. This is how C-5's "objects are removed after the row is gone" is kept without a scan of the bucket.
 
 ### 3.3 `narration` — translation, pronunciation, synthesis
 
@@ -1692,7 +1707,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | identity | `account_recoveries_one_live` | partial unique | one live recovery per owner |
 | identity | `account_recoveries_evidence_ck` | CHECK | ≥ 2 checks, including the phone callback |
 | identity | `account_recoveries_four_eyes_ck` | CHECK | approver differs from opener |
-| catalog | `postgis` | extension | — |
+| catalog | `postgis` | extension | created by the **first line of the first migration** (`CREATE EXTENSION IF NOT EXISTS postgis`), so a shadow database replaying the migrations has it before any `geography` column |
 | catalog | `catalog_sync_version_seq` | sequence | delta sync (§1.7) |
 | catalog | `places_kind_owner_ck` | CHECK | Venue ⇔ owner |
 | catalog | `places_editorial_narrates_ck` | CHECK | Editorial always auto-narrates |
@@ -1700,6 +1715,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | catalog | `places_radius_ck`, `places_priority_ck`, `places_boost_ck`, `places_price_band_ck` | CHECK | bounds |
 | catalog | `places_inactive_reason_ck` | CHECK | inactive ⇔ reason |
 | catalog | `places_active_location_gist` | partial GIST | nearby query |
+| catalog | `places_owner_live_idx` | partial index | `(owner_user_id) WHERE deleted_at IS NULL` — the owner's list and place-limit count (C-1) |
 | catalog | `areas_boundary_gist` | GIST | containment checks |
 | catalog | `place_localizations_audio_ready_ck` | CHECK | READY audio has a file |
 | catalog | `places_menu_currency_ck` | CHECK | menu currency is VND or USD (ADR 0046) |
@@ -1762,6 +1778,8 @@ New questions are added here, numbered after the last one ever recorded, and rem
 | Translation cache | 365 d since last used | `translation-cache-prune` job |
 | Pending uploads | 15 min unconfirmed / 14 d unconsumed | `pending-uploads-reap` job |
 | Retired map pack objects | 30 d | `map-packs-gc` job |
+| Objects of removed photos | until deleted, retried every run | `photo-objects-cleanup` job (C-17) |
+| Upload originals (`uploads/<id>/original`) | until confirm, or the reap job | deleted at confirm once the variants exist; unconfirmed ones by `pending-uploads-reap` |
 | Stripe webhook events | 400 d | `billing-events-prune` job |
 | Email delivery records | 400 d | `email-deliveries-prune` job (identity) |
 | Account recoveries | indefinitely | security record; every transition also audited |

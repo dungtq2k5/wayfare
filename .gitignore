@@ -5,5 +5,7 @@ coverage/
 *.tsbuildinfo
 .env
 services/*/generated/
+# Throwaway local signing keys written by `pnpm keys:dev`.
+services/*/.keys/
 docs/archive/
 cspell.json

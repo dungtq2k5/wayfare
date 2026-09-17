@@ -1,0 +1,274 @@
+syntax = "proto3";
+
+// Staff administration of Places — api-endpoints-plan §3.5, rdm-spec §1.4, §1.6, C-1 to C-7, C-16.
+package wayfare.catalog;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/catalog/place_types.proto";
+import "wayfare/common/geo.proto";
+import "wayfare/common/page.proto";
+
+// Creates, edits, publishes and deletes Places. The caller travels as metadata; the gateway checks
+// the route's permission, catalog checks the rules only it can know.
+service PlaceAdminService {
+  rpc ListPlaces(ListPlacesRequest) returns (ListPlacesResponse);
+  rpc GetPlaceAdmin(GetPlaceAdminRequest) returns (GetPlaceAdminResponse);
+  rpc CreateEditorialPlace(CreateEditorialPlaceRequest) returns (CreateEditorialPlaceResponse);
+  rpc UpdatePlace(UpdatePlaceRequest) returns (UpdatePlaceResponse);
+  rpc UpdateEditorial(UpdateEditorialRequest) returns (UpdateEditorialResponse);
+  rpc ReplacePhotos(ReplacePhotosRequest) returns (ReplacePhotosResponse);
+  rpc ReplaceMenu(ReplaceMenuRequest) returns (ReplaceMenuResponse);
+  rpc ReplaceOpeningHours(ReplaceOpeningHoursRequest) returns (ReplaceOpeningHoursResponse);
+  rpc RequestActivation(RequestActivationRequest) returns (RequestActivationResponse);
+  rpc DeactivatePlace(DeactivatePlaceRequest) returns (DeactivatePlaceResponse);
+  rpc DeletePlace(DeletePlaceRequest) returns (DeletePlaceResponse);
+  rpc RestorePlace(RestorePlaceRequest) returns (RestorePlaceResponse);
+  rpc GetPlaceQr(GetPlaceQrRequest) returns (GetPlaceQrResponse);
+}
+
+message ListPlacesRequest {
+  // `q` matches the Vietnamese name or the public code.
+  wayfare.common.PageNumberRequest page = 1;
+  optional PlaceKind kind = 2;
+  optional PlaceStatus status = 3;
+  optional string area_id = 4;
+  optional string category_code = 5;
+  optional string owner_user_id = 6;
+  bool include_deleted = 7;
+}
+
+message ListPlacesResponse {
+  repeated AdminPlaceListItem places = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+// One console table row.
+message AdminPlaceListItem {
+  string id = 1;
+  PlaceKind kind = 2;
+  string public_code = 3;
+  string name_vi = 4;
+  string category_code = 5;
+  string area_id = 6;
+  string area_code = 7;
+  PlaceStatus status = 8;
+  optional PlaceInactiveReason inactive_reason = 9;
+  optional string owner_user_id = 10;
+  int64 sync_version = 11;
+  PhotoView cover = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  google.protobuf.Timestamp deleted_at = 14;
+}
+
+message GetPlaceAdminRequest {
+  string place_id = 1;
+}
+
+message GetPlaceAdminResponse {
+  AdminPlace place = 1;
+}
+
+// Every column of a Place, and its children.
+message AdminPlace {
+  string id = 1;
+  PlaceKind kind = 2;
+  string public_code = 3;
+  optional string owner_user_id = 4;
+  string category_code = 5;
+  string area_id = 6;
+  string area_code = 7;
+  string name_vi = 8;
+  string description_vi = 9;
+  string content_hash = 10;
+  wayfare.common.GeoPoint location = 11;
+  optional string address_vi = 12;
+  int32 trigger_radius_m = 13;
+  int32 narration_priority = 14;
+  bool auto_narration_enabled = 15;
+  int32 discovery_boost = 16;
+  optional int32 price_band = 17;
+  MenuCurrency menu_currency = 18;
+  optional string phone = 19;
+  optional string website_url = 20;
+  PlaceStatus status = 21;
+  optional PlaceInactiveReason inactive_reason = 22;
+  google.protobuf.Timestamp activation_requested_at = 23;
+  google.protobuf.Timestamp published_at = 24;
+  int64 sync_version = 25;
+  string created_by_id = 26;
+  google.protobuf.Timestamp created_at = 27;
+  google.protobuf.Timestamp updated_at = 28;
+  google.protobuf.Timestamp deleted_at = 29;
+  optional string deleted_by_id = 30;
+  repeated LocalizationReadiness localizations = 31;
+  repeated AdminPhoto photos = 32;
+  repeated AdminMenuItem menu_items = 33;
+  repeated OpeningHoursRow opening_hours = 34;
+  // What the activation gate still waits for: `en.text`, `en.audio`, `activation`.
+  repeated string activation_missing = 35;
+}
+
+// One language's readiness (api-endpoints-plan §3.5).
+message LocalizationReadiness {
+  string lang = 1;
+  bool text_ready = 2;
+  bool stale = 3;
+  AudioStatus audio_status = 4;
+  bool audio_stale = 5;
+  TranslationSource translation_source = 6;
+}
+
+message AdminPhoto {
+  string id = 1;
+  int32 sort_order = 2;
+  optional string alt_text_vi = 3;
+  PhotoVariantViews variants = 4;
+  string original_sha256 = 5;
+}
+
+message AdminMenuItem {
+  string id = 1;
+  string name_vi = 2;
+  optional string description_vi = 3;
+  optional int32 price_minor = 4;
+  bool is_available = 5;
+  int32 sort_order = 6;
+}
+
+// The content fields shared with the owner submission payload — never the editorial values.
+message PlaceContent {
+  string name_vi = 1;
+  string description_vi = 2;
+  string category_code = 3;
+  wayfare.common.GeoPoint location = 4;
+  optional string address_vi = 5;
+  optional int32 price_band = 6;
+  optional string phone = 7;
+  optional string website_url = 8;
+}
+
+// One photo of an ordered set: exactly one of photo_id (kept) and upload_id (added).
+message PhotoSetItem {
+  optional string photo_id = 1;
+  optional string upload_id = 2;
+  optional string alt_text_vi = 3;
+}
+
+message CreateEditorialPlaceRequest {
+  PlaceContent content = 1;
+  int32 trigger_radius_m = 2;
+  int32 narration_priority = 3;
+  repeated PhotoSetItem photos = 4;
+  repeated OpeningHoursRow opening_hours = 5;
+  bool request_activation = 6;
+}
+
+message CreateEditorialPlaceResponse {
+  AdminPlace place = 1;
+}
+
+// Content fields only; an absent field is unchanged. An empty string, or a price band of 0, clears
+// an optional field.
+message UpdatePlaceRequest {
+  string place_id = 1;
+  optional string name_vi = 2;
+  optional string description_vi = 3;
+  optional string category_code = 4;
+  wayfare.common.GeoPoint location = 5;
+  optional string address_vi = 6;
+  optional int32 price_band = 7;
+  optional string phone = 8;
+  optional string website_url = 9;
+}
+
+message UpdatePlaceResponse {
+  AdminPlace place = 1;
+}
+
+message UpdateEditorialRequest {
+  string place_id = 1;
+  optional int32 trigger_radius_m = 2;
+  optional int32 narration_priority = 3;
+}
+
+message UpdateEditorialResponse {
+  AdminPlace place = 1;
+}
+
+message ReplacePhotosRequest {
+  string place_id = 1;
+  repeated PhotoSetItem items = 2;
+}
+
+message ReplacePhotosResponse {
+  AdminPlace place = 1;
+}
+
+message MenuItemInput {
+  string name_vi = 1;
+  optional string description_vi = 2;
+  optional int32 price_minor = 3;
+  bool is_available = 4;
+}
+
+message ReplaceMenuRequest {
+  string place_id = 1;
+  MenuCurrency menu_currency = 2;
+  repeated MenuItemInput items = 3;
+}
+
+message ReplaceMenuResponse {
+  AdminPlace place = 1;
+}
+
+message ReplaceOpeningHoursRequest {
+  string place_id = 1;
+  repeated OpeningHoursRow rows = 2;
+}
+
+message ReplaceOpeningHoursResponse {
+  AdminPlace place = 1;
+}
+
+message RequestActivationRequest {
+  string place_id = 1;
+}
+
+message RequestActivationResponse {
+  PlaceStatus status = 1;
+  repeated string missing = 2;
+}
+
+message DeactivatePlaceRequest {
+  string place_id = 1;
+  string reason = 2;
+}
+
+message DeactivatePlaceResponse {
+  AdminPlace place = 1;
+}
+
+message DeletePlaceRequest {
+  string place_id = 1;
+}
+
+message DeletePlaceResponse {}
+
+message RestorePlaceRequest {
+  string place_id = 1;
+}
+
+message RestorePlaceResponse {
+  AdminPlace place = 1;
+}
+
+message GetPlaceQrRequest {
+  string place_id = 1;
+  // The sticker host, from the gateway's configuration; catalog holds no public URL.
+  string qr_base_url = 2;
+}
+
+message GetPlaceQrResponse {
+  string svg = 1;
+  string public_code = 2;
+}

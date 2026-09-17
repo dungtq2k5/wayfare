@@ -50,6 +50,13 @@ export interface EnvelopeDoc {
   readonly list?: 'cursor' | 'page';
   /** `{ data: T[] }`, no meta. */
   readonly array?: true;
+  /** `{ data, meta }` with this route's own meta shape. */
+  readonly meta?: abstract new (...args: never[]) => unknown;
+  /**
+   * A body that is not the JSON envelope — `@SkipEnvelope` routes such as an SVG. `model` is then
+   * `null` and the body is documented as a string of this media type.
+   */
+  readonly mediaType?: string;
   readonly description?: string;
 }
 

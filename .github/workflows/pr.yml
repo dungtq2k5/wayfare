@@ -61,6 +61,8 @@ jobs:
       - run: pnpm vitest run --project unit:guards
       - run: pnpm build
       - run: pnpm test
+      # packages/core carries a coverage bar (conventions §17.3).
+      - run: pnpm test:coverage
 
       - name: Boot the stack
         run: docker compose up -d --wait
@@ -70,6 +72,10 @@ jobs:
 
       - run: pnpm test:integration
 
+      # The emulator starts empty; catalog is not ready without its media bucket.
+      - name: Create the media bucket
+        run: pnpm --filter @wayfare/catalog storage:setup
+
       - name: Images build and boot
         run: docker compose --profile apps up -d --build --wait
 
@@ -77,6 +83,8 @@ jobs:
         run: |
           curl -fsS localhost:3000/health/ready
           curl -fsS localhost:3101/health/ready
+          curl -fsS localhost:3102/health/ready
+          curl -fsS localhost:3000/api/v1/categories -H 'x-wayfare-client: web'
           curl -fsS -X POST localhost:3000/api/v1/devices \
             -H 'content-type: application/json' -H 'x-wayfare-client: mobile' \
             -d '{"platform":"ANDROID","appVersion":"0.1.0","contentLocale":"en","privacyPolicyVersion":"2026-09-01"}'

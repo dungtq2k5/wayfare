@@ -284,6 +284,7 @@ As defined in api-endpoints-plan §0.4. A global interceptor wraps success as `{
 - A non-list response that needs `meta` (a composed route's `meta.degraded`) returns `WithMeta.of(data, meta)`; `Paged` is its list-shaped subclass.
 - **`@SkipEnvelope()`** (nest-common) exempts a controller or handler from the envelope. It is for **ops routes only** — `/health`, `/health/ready`, `/version` — which are unwrapped on every service (api-endpoints-plan §13). An API route **MUST NOT** use it: clients branch on the envelope's shape.
 
+- **Conditional reads** go through nest-common's `@ETagged()` helper: the handler returns its value with a version, the helper sets `ETag`, and a matching `If-None-Match` answers `304` with no body, bypassing the envelope and response validation. **Public cache headers** (`@PublicCache(seconds)`) are allowed only on anonymous, account-independent reads (`/categories`, `/areas`); every other route is `private, no-store` or unset.
 - Handlers **MUST** return raw data, or `{ data, meta }` via the `Paged` helper. Returning `{ data }` yourself double-wraps.
 - Every thrown error **MUST** carry an `ErrorCode` from `packages/contracts`. A new code is added there, with its `details` schema, and to the client i18n bundle in the same PR.
 - **MUST NOT** put a user-facing sentence in `message`. It is English, for developers, and replaced with a generic string in production.
@@ -352,7 +353,7 @@ app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
 The generated document is passed through nestjs-zod's **`cleanupOpenApiDoc`** before it is served, so zod-derived schemas render correctly for Swagger UI and Orval.
 
-Every route **MUST** declare its response with **`@ApiEnvelope(Dto, { status?, list? })`**, which documents the body as the wire carries it — `{ data }`, or `{ data, meta }` with the shared `CursorMeta` / `PageMeta` components. `@ZodResponse` documents the bare DTO and is not used on gateway routes; `@ZodSerializerDto` still validates. Every route also declares the error codes only it can return (`@ApiErrors('PLACE_LIMIT_REACHED', …)`); the codes every route shares (`INTERNAL`, `CLIENT_HEADER_REQUIRED`, `RATE_LIMITED` when throttled, the marker's auth codes, and the upstream codes on controllers marked `@UsesUpstream()`) are added automatically. An OpenAPI contract test checks every operation. Orval generates the clients from this spec; an undeclared response is an untyped client, and an undeclared error code is a client that shows "Something went wrong" for a condition it could have explained.
+Every route **MUST** declare its response with **`@ApiEnvelope(Dto, { status?, list? })`**, which documents the body as the wire carries it — `{ data }`, or `{ data, meta }` with the shared `CursorMeta` / `PageMeta` components. `@ZodResponse` documents the bare DTO and is not used on gateway routes; `@ZodSerializerDto` still validates. Every route also declares the error codes only it can return (`@ApiErrors('PLACE_LIMIT_REACHED', …)`); the codes every route shares (`INTERNAL`, `CLIENT_HEADER_REQUIRED`, `RATE_LIMITED` when throttled, the marker's auth codes, and the upstream codes on controllers marked `@UsesUpstream()`) are added automatically. An OpenAPI contract test checks every operation. **Provider webhooks and redirect routes (`/q/:code`) are left out of the document** (`@ApiExcludeController()`): they are not client routes, and Orval must not generate a caller for them. A `@SkipEnvelope()` route that returns a non-JSON body (the QR SVG) documents its one `200` with its media type and no envelope. A `202` or `204` carries no body, and is documented without one. Orval generates the clients from this spec; an undeclared response is an untyped client, and an undeclared error code is a client that shows "Something went wrong" for a condition it could have explained.
 
 ---
 
@@ -469,6 +470,7 @@ Every durable consumer is a `JetStreamConsumer` subclass registered in the servi
 
 [ADR 0019](./decisions/0019-bullmq-for-in-service-work.md). JetStream carries facts **between** services; BullMQ runs work **inside** one.
 
+- **The wiring is nest-common's `JobsModule`**: it registers each service's repeatable jobs by stable id, runs one worker per service, and closes both on shutdown. A job is a `<subject>-<verb>.job.ts` class whose plain method takes `now`; tests call that method and never start a worker.
 - A job's durable state lives in **our** table (N-1 for synthesis); BullMQ is the executor. A monitor reads our table, never BullMQ's Redis keys.
 - A scheduled job is a **BullMQ repeatable job with a stable `jobId`**, never `@Cron`. `@Cron` fires once per replica.
 - A scheduled job **MUST** be a plain method taking an explicit window or `now` (`sweep(now = new Date())`), so a test runs it without waiting and a backfill runs it for any range.
@@ -492,7 +494,10 @@ Every durable consumer is a `JetStreamConsumer` subclass registered in the servi
 ### 8.1 Schema changes
 
 - **Development:** edit `schema.prisma`, run `pnpm db:migrate:dev --name <what>`, then `pnpm db:objects` (§8.7). Commit the migration. Where `migrate dev` cannot run (it refuses a non-interactive shell), write the same folder by hand — `prisma/migrations/<yyyymmddhhmmss>_<what>/migration.sql` from `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script` — and `pnpm db:drift` proves the two agree.
-- **`pnpm db:setup` builds the service first**, because it also runs the system-catalogue sync (`db:seed:system`) from the compiled service, on both databases.
+- **`pnpm db:deploy` is a service's whole database deployment:** `prisma migrate deploy`, then `db:objects`, then `db:seed:system` (an explicit no-op in a service with no system rows). A deployment runs it before the new revision takes traffic. **`pnpm db:setup`** is `db:deploy` on the working and the `_test` databases, and builds first, because the seed runs from the compiled service.
+- **One service at a time** is a filter, not an alias: `pnpm db:setup --filter=@wayfare/catalog`, `pnpm db:verify --filter=@wayfare/identity`. No root script names a service.
+- **An extension a table needs is created by the first migration's first line** (`CREATE EXTENSION IF NOT EXISTS postgis`), never by a step before `migrate deploy`: the shadow database that `db:drift` and `migrate dev` replay into is reset empty, and would otherwise fail on the first `geography` column.
+- **A service asserts its schema at boot and never applies it.** `createSchemaCheck` (nest-common) runs in `onModuleInit` — before any `onApplicationBootstrap` hook, a catalogue sync or a consumer — and refuses to start when a migration folder shipped with the service is not finished, or an object in `expected-objects.json` is missing, and names what is missing (a database with no `_prisma_migrations` table is reported as "not migrated"). DDL at boot is forbidden: even `CREATE INDEX IF NOT EXISTS` takes a lock that queues behind open writes, in front of readiness. `wayfare-db-verify` runs the same checks from the command line.
 - **Every other environment:** `prisma migrate deploy`, then `pnpm db:objects`, from CI. Never `db push` outside a throwaway local database.
 - **A committed migration is never edited.** A mistake is fixed by the next migration.
 - **Expand, then contract — never both in one release.** A column is dropped in the release *after* the one that stopped reading it; a rename is add → dual-write → backfill → switch reads → drop across releases. There are no down-migrations, so the only rollback is redeploying the previous image, and that is safe only if the previous image still works against the current schema.
@@ -728,7 +733,8 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - An adapter records which provider answered on the task or ledger row it serves.
 - A provider fallback is configuration (`TTS_PROVIDER_ORDER`), not an `if` in a use case.
 - Every provider call has a timeout and a circuit breaker; a provider failing repeatedly is skipped for `PROVIDER_COOLDOWN_MS` rather than retried on every task. Email sends are the exception to the breaker: they are user-initiated and never retried in a loop, so a timeout alone bounds them.
-- **A lint rule enforces the adapter boundary:** `no-restricted-imports` refuses each vendor SDK outside `services/*/src/providers/<kind>/`.
+- **Media processing runs bounded:** `sharp` with `limitInputPixels` (`MAX_UPLOAD_PIXELS`), one image at a time per process, so a small file that declares a huge canvas cannot exhaust memory.
+- **A lint rule enforces the adapter boundary:** `no-restricted-imports` refuses each vendor SDK — `resend`, `nodemailer`, `@google-cloud/storage`, `sharp`, and each later provider — outside `services/*/src/providers/<kind>/`.
 
 ---
 
@@ -797,6 +803,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - **Type-only imports MUST use `import type`** — enforced by `@typescript-eslint/consistent-type-imports`. SWC resolves imports more literally than `tsc`; an unmarked type import can become a runtime `require` and surface as a circular-dependency crash at boot.
 - **Except a class injected through a constructor.** Under `emitDecoratorMetadata`, `import type` on an injected class turns its metadata into `Object` and Nest resolves `undefined`. The lint rule is configured with `parserOptions.emitDecoratorMetadata` and `experimentalDecorators` so its autofix leaves those imports alone — never switch that off.
 - **Shared packages are compiled** (`dist`, CJS plus `.d.ts`); services never import a sibling package's `src`. Tests alias package names to source.
+- **Prettier runs from the repository root** (`pnpm format`), never from inside a package: run from a package directory it does not apply the root `.prettierignore`, and reformats generated code.
 - **Generated gRPC code is committed** (`packages/contracts/src/generated/`) and regenerated in CI with a diff check; **the Prisma client is not** (`services/<svc>/generated/`, gitignored, generated by `pnpm db:generate`).
 - `entryFile` is `src/main`, because the Prisma 7 client is generated outside `src/` and the build output mirrors the service root. A service that changes where Prisma generates must re-check it.
 
@@ -910,7 +917,7 @@ Keep it proportional: a one-line constant gets one line.
 
 ### 17.2 Rules
 
-- **Test projects are declared in the root `vitest.config.mts`** (`test.projects`) — Vitest 4 has no `vitest.workspace.ts`. Integration and contract tests use the separate test broker (`NATS_URL_TEST`) as well as the `_test` database.
+- **Test projects are declared in the root `vitest.config.mts`** (`test.projects`) — Vitest 4 has no `vitest.workspace.ts`. Several integration projects' global setups can share one process, so a setup **reads its service's `.env` into a local object and never writes `process.env`**; otherwise one service's migrations run against another's database. Integration and contract tests use the separate test broker (`NATS_URL_TEST`) as well as the `_test` database.
 - **Vitest transforms with SWC** (`unplugin-swc`, with decorator metadata on) in every Nest package. Vitest's default transform emits no decorator metadata, so Nest's dependency injection resolves `undefined` and the failure looks like a broken provider rather than a test setup problem.
 
 - **Test names state the invariant**, present tense, no "should": `it('supersedes the previous pending update for the same place')`. One word in CAPS for what makes the case worth its own test: `it('refuses a CONCURRENT second redemption')`.
@@ -955,7 +962,7 @@ Rules for writing one:
 | Guard | Rule it enforces |
 | :---- | :---- |
 | `adr-structure.spec.ts` | Every ADR matches `docs/decisions/TEMPLATE.md`: file name, title number, status line, sections, mutual `Supersedes` / `Superseded by`, and a row in `docs/README.md` |
-| `archive-references.spec.ts` | Nothing tracked cites the git-ignored archive, by path, by relative link, or as "doc NN" |
+| `archive-references.spec.ts` | Nothing tracked cites the git-ignored archive, by path, by relative link, as "doc NN", or by a working doc's decision label in parentheses (`(D10)`) — cite the ADR or spec section instead |
 | `dto-naming.spec.ts` | §15 DTO names: `…ResponseDto` only in `*-response.dto.ts`, built with `createZodDto`, inside `dto/` |
 | `mapper-naming.spec.ts` | §15 mapper names, checked against the real target and source types |
 | `module-files.spec.ts` | Every file under `services/*/src/modules/` has a known role for its kind of service, with the matching class name; `domain/` files stay free of Nest and Prisma; no `*.repository.ts` ([ADR 0054](./decisions/0054-services-use-prisma-directly-without-a-repository-layer.md)) |

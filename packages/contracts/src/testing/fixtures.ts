@@ -109,6 +109,7 @@ export const EVENT_FIXTURES: Readonly<Record<Subject, EventFixture>> = {
     from: PlaceStatus.ACTIVE,
     to: PlaceStatus.INACTIVE,
     reason: PlaceInactiveReason.ENTITLEMENT_LIMIT,
+    deleted: false,
     ownerUserId: user,
   }),
   'catalog.submission.reviewed': fixture(submission, {

@@ -1,10 +1,11 @@
-import { VersioningType } from '@nestjs/common';
+import { RequestMethod, VersioningType } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { APP_VERSION_HEADER } from '@wayfare/contracts';
 import {
   createRequestContextMiddleware,
   ErrorFilter,
+  ETagInterceptor,
   isProductionEnv,
   ResponseEnvelopeInterceptor,
   ResponseValidationInterceptor,
@@ -16,8 +17,13 @@ import type { Env as GatewayEnv, GatewayConfig } from './config/env.schema';
 import { IdentityService } from './modules/identity/identity.service';
 import { REDIS } from './modules/ops/redis.module';
 
-/** Routes outside the global prefix: probes and, later, the printed QR URL (ADR 0057). */
-export const UNPREFIXED_ROUTES = ['health', 'health/ready', 'version'];
+/** Routes outside the global prefix: probes and the printed QR URL (ADR 0057). */
+export const UNPREFIXED_ROUTES = [
+  'health',
+  'health/ready',
+  'version',
+  { path: 'q/:publicCode', method: RequestMethod.GET },
+];
 
 /**
  * The HTTP pipeline, in order. Shared by `main.ts` and the e2e suite so tests exercise exactly
@@ -56,6 +62,9 @@ export function configureApp(app: NestExpressApplication, config: GatewayConfig)
     // and only then does the envelope wrap it.
     new ResponseEnvelopeInterceptor(app.get(Reflector)),
     new ResponseValidationInterceptor(app.get(Reflector), isProduction),
+    // Registered LAST = runs FIRST on the way out: a matching If-None-Match becomes a 304
+    // before validation and the envelope see anything.
+    new ETagInterceptor(app.get(Reflector)),
   );
   app.useGlobalFilters(new ErrorFilter(isProduction));
   if (read('SWAGGER_ENABLED'))

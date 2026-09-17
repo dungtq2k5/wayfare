@@ -8,6 +8,9 @@ const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 /** "true" / "false" only — never `Boolean(value)`, which reads "false" as true (conventions §5.2). */
 const zBooleanString = z.enum(['true', 'false']).transform((value) => value === 'true');
 
+/** An origin (and optional path) with no trailing slash. */
+const zBaseUrl = z.url({ protocol: /^https?$/ }).transform((value) => value.replace(/\/+$/, ''));
+
 /** gateway's environment, parsed once at boot (conventions §13, architecture §14). */
 export const envSchema = z
   .object({
@@ -31,6 +34,11 @@ export const envSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10),
     SWAGGER_ENABLED: zBooleanString,
     IDENTITY_GRPC_URL: z.string().min(1),
+    CATALOG_GRPC_URL: z.string().min(1),
+    // The sticker host (api-endpoints-plan §2.1): printed on every QR, so it can never change.
+    PUBLIC_QR_BASE_URL: zBaseUrl,
+    // The universal-link host `/q/:code` redirects to.
+    PUBLIC_LINK_BASE_URL: zBaseUrl,
     // Verification keys by kid; two entries during a rotation (ADR 0043). `pnpm keys:dev` locally.
     JWT_PUBLIC_KEYS: zPublicKeysEnv,
     REDIS_URL: z.url(),

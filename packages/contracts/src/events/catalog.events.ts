@@ -53,7 +53,10 @@ export const CATALOG_TOUR_CONTENT_CHANGED = defineEvent({
   aggregateId: (payload) => payload.tourId,
 });
 
-/** `catalog.place.status_changed` — a Place moved between statuses. */
+/**
+ * `catalog.place.status_changed` — a Place's tourist visibility changed: one event per transaction,
+ * carrying the net change. `deleted` changes on a soft delete or restore, even when the status does not.
+ */
 export const CATALOG_PLACE_STATUS_CHANGED = defineEvent({
   subject: 'catalog.place.status_changed',
   publisher: 'catalog',
@@ -63,6 +66,7 @@ export const CATALOG_PLACE_STATUS_CHANGED = defineEvent({
     from: z.enum(PlaceStatus),
     to: z.enum(PlaceStatus),
     reason: z.enum(PlaceInactiveReason).nullable(),
+    deleted: z.boolean(),
     ownerUserId: zUuidV7.optional(),
   }),
   aggregateId: (payload) => payload.placeId,

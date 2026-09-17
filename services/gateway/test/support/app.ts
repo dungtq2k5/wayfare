@@ -16,6 +16,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from '../../src/app.module';
 import type { GatewayConfig } from '../../src/config/env.schema';
 import { configureApp } from '../../src/configure-app';
+import { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
 import { IdentityServiceGrpcClient } from '../../src/modules/identity/identity-service-grpc.client';
 import { REDIS } from '../../src/modules/ops/redis.module';
 
@@ -33,6 +34,9 @@ export function e2eEnv(overrides: Record<string, string> = {}): Record<string, s
     TRUST_PROXY_HOPS: '1',
     SWAGGER_ENABLED: 'true',
     IDENTITY_GRPC_URL: 'localhost:1',
+    CATALOG_GRPC_URL: 'localhost:2',
+    PUBLIC_QR_BASE_URL: 'https://go.wayfare.test',
+    PUBLIC_LINK_BASE_URL: 'https://wayfare.test',
     JWT_PUBLIC_KEYS: keys.publicKeys,
     REDIS_URL: 'redis://localhost:1',
     METRICS_PORT: '1',
@@ -54,6 +58,7 @@ export class StubCaller {
     return handler(request as never, context);
   }
 
+  // FIXME Unexpected empty method 'init'.
   init(): void {}
 }
 
@@ -91,6 +96,22 @@ export class IdentityStub {
   }
 }
 
+/** catalog, stubbed the same way. */
+export class CatalogStub {
+  readonly placeQueries = new StubCaller();
+  readonly placeAdmin = new StubCaller();
+  readonly uploads = new StubCaller();
+
+  onModuleInit(): void {}
+
+  reset(): void {
+    for (const caller of [this.placeQueries, this.placeAdmin, this.uploads]) {
+      caller.calls.length = 0;
+      caller.handlers = {};
+    }
+  }
+}
+
 /** The fake Redis, with the readiness surface the ops module uses. */
 export class E2eRedis extends FakeRedis {
   healthy = true;
@@ -106,6 +127,7 @@ export class E2eRedis extends FakeRedis {
 export interface E2eApp {
   readonly app: NestExpressApplication;
   readonly identity: IdentityStub;
+  readonly catalog: CatalogStub;
   readonly redis: E2eRedis;
   readonly config: GatewayConfig;
 }
@@ -116,12 +138,15 @@ export async function bootGateway(overrides: Record<string, string> = {}): Promi
   const restoreEnv = snapshotProcessEnv();
   const identity = new IdentityStub();
   identity.reset();
+  const catalog = new CatalogStub();
   const redis = new E2eRedis();
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule.forRoot({ env: e2eEnv(overrides) })],
   })
     .overrideProvider(IdentityServiceGrpcClient)
     .useValue(identity)
+    .overrideProvider(CatalogServiceGrpcClient)
+    .useValue(catalog)
     .overrideProvider(REDIS)
     .useValue(redis)
     .compile();
@@ -133,7 +158,7 @@ export async function bootGateway(overrides: Record<string, string> = {}): Promi
   configureApp(app, config);
   await app.init();
   restoreEnv();
-  return { app, identity, redis, config };
+  return { app, identity, catalog, redis, config };
 }
 
 const now = () => new Date();

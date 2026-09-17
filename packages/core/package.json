@@ -1,0 +1,30 @@
+{
+  "name": "@wayfare/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure domain rules shared by the server and the clients: ranking, walking time, the content fallback chain (conventions §3.2).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -w -p tsconfig.build.json --preserveWatchOutput",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@wayfare/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@wayfare/config": "workspace:*"
+  }
+}

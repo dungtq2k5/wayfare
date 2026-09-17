@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { OpsModule } from '../health/ops.module';
 import { Auth, RequirePermission } from './auth.decorators';
 import { STAFF_MEMBERSHIP_RESOLVER } from './auth.guard';
+import { PublicCache } from './public-cache.decorator';
 import { RouteContractCheck, RouteContractError } from './route-contract';
 
 @Controller('ok')
@@ -21,6 +22,12 @@ class BadController {
   @Get('none') unmarked() {}
   @Get('both') @Auth('USER') @RequirePermission('place.read') both() {}
   @Get('staff') @Auth('STAFF') staff() {}
+  @Get('cached') @RequirePermission('place.read') @PublicCache(60) cached() {}
+}
+
+@Controller('cached')
+class PublicCacheController {
+  @Get() @Auth('PUBLIC') @PublicCache(300) list() {}
 }
 
 @Auth('USER')
@@ -43,7 +50,7 @@ async function boot(controllers: (new () => unknown)[], providers: object[] = []
 
 describe('route contract', () => {
   it('accepts routes with exactly one rule, class-level rules and non-HTTP handlers', async () => {
-    const app = await boot([GoodController, ClassLevelController]);
+    const app = await boot([GoodController, ClassLevelController, PublicCacheController]);
     await expect(app.init()).resolves.toBeDefined();
     await app.close();
   });
@@ -56,6 +63,9 @@ describe('route contract', () => {
     expect((error as Error).message).toContain('BadController.both has both');
     expect((error as Error).message).toContain(
       'BadController.staff uses STAFF, but no StaffMembershipResolver',
+    );
+    expect((error as Error).message).toContain(
+      'BadController.cached is publicly cached but not PUBLIC',
     );
   });
 

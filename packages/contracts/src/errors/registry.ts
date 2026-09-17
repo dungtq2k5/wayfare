@@ -121,6 +121,7 @@ export const ERRORS = {
   SUBMISSION_CONFLICT: conflict,
   PLACE_HAS_LIVE_VOUCHERS: conflict,
   PLACE_IN_ACTIVE_TOUR: conflict,
+  UPLOAD_NOT_READY: conflict,
   DIFF_UNAVAILABLE: conflict,
   LANGUAGE_NOT_ENTITLED: conflict,
   LOCALIZATION_SOURCE_CHANGED: conflict,
@@ -140,6 +141,9 @@ export const ERRORS = {
   // 422
   IDEMPOTENCY_KEY_REUSED: unprocessable,
   LOCATION_OUTSIDE_AREAS: unprocessable,
+  CATEGORY_NOT_APPLICABLE: unprocessable,
+  UPLOAD_TOO_LARGE: unprocessable,
+  UPLOAD_TYPE_MISMATCH: unprocessable,
   PRICE_BELOW_MINIMUM: { ...unprocessable, details: priceBelowMinimumDetails },
   RECOVERY_EVIDENCE_INSUFFICIENT: unprocessable,
   PERMISSION_RETIRED: { ...unprocessable, details: permissionRetiredDetails },

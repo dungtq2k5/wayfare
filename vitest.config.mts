@@ -32,6 +32,7 @@ const alias = [
     find: /^@wayfare\/contracts\/testing$/,
     replacement: root('./packages/contracts/src/testing/index.ts'),
   },
+  { find: /^@wayfare\/core$/, replacement: root('./packages/core/src/index.ts') },
   { find: /^@wayfare\/i18n$/, replacement: root('./packages/i18n/src/index.ts') },
   { find: /^@wayfare\/nest-common$/, replacement: root('./packages/nest-common/src/index.ts') },
   {
@@ -55,11 +56,20 @@ const unit = (name: string, dir: string, include: string[]) => ({
 
 export default defineConfig({
   test: {
+    // Measured only where a bar is set: packages/core (conventions §17.3). `pnpm test:coverage`.
+    coverage: {
+      provider: 'v8',
+      include: ['packages/core/src/**/*.ts'],
+      exclude: ['**/*.spec.ts', '**/index.ts'],
+      thresholds: { lines: 90, branches: 90 },
+    },
     projects: [
       unit('contracts', './packages/contracts', ['src/**/*.spec.ts']),
+      unit('core', './packages/core', ['src/**/*.spec.ts']),
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
       unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
+      unit('catalog', './services/catalog', ['src/**/*.spec.ts']),
       unit('gateway', './services/gateway', ['src/**/*.spec.ts', 'test/e2e/**/*.spec.ts']),
       unit('config', './packages/config', ['markdownlint/**/*.spec.ts']),
       // Repo-wide rules as tests (conventions §17.4); also a named step in pr.yml.
@@ -71,6 +81,23 @@ export default defineConfig({
           name: 'integration:identity',
           root: root('./services/identity'),
           include: ['test/integration/**/*.spec.ts', 'test/contract/**/*.spec.ts'],
+          environment: 'node',
+          globalSetup: ['test/setup/global-setup.ts'],
+          setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],
+          env: { OTEL_SDK_DISABLED: 'true' },
+          // One database: suites run serially (conventions §17.2).
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
+        },
+      },
+      {
+        plugins: [swcPlugin()],
+        resolve: { alias },
+        test: {
+          name: 'integration:catalog',
+          root: root('./services/catalog'),
+          include: ['test/integration/**/*.spec.ts'],
           environment: 'node',
           globalSetup: ['test/setup/global-setup.ts'],
           setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],

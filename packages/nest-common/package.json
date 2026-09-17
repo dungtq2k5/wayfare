@@ -2,9 +2,12 @@
   "name": "@wayfare/nest-common",
   "version": "0.0.0",
   "private": true,
-  "description": "The shared Nest spine: crypto, rpcError, the gRPC client base, the outbox, JetStream, HTTP plumbing, observability and health.",
+  "description": "The shared Nest spine: crypto, rpcError, the gRPC client base, the outbox, JetStream, HTTP plumbing, observability, health and the schema checks.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "wayfare-db-verify": "./scripts/db-verify.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,6 +17,10 @@
       "types": "./dist/observability/instrumentation.d.ts",
       "default": "./dist/observability/instrumentation.js"
     },
+    "./schema": {
+      "types": "./dist/prisma/schema.d.ts",
+      "default": "./dist/prisma/schema.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
@@ -21,7 +28,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "scripts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -37,8 +45,11 @@
     "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
     "@opentelemetry/sdk-node": "^0.222.0",
     "@wayfare/contracts": "workspace:*",
+    "bullmq": "6.3.6",
+    "dotenv": "^17.4.2",
     "helmet": "^8.3.0",
     "nestjs-pino": "^4.6.1",
+    "pg": "^8.23.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "prom-client": "^15.1.3"

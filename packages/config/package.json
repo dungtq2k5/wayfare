@@ -2,18 +2,11 @@
   "name": "@wayfare/config",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared tsconfig, ESLint and Nest CLI presets, plus database tooling scripts.",
-  "bin": {
-    "wayfare-db-verify": "./scripts/db-verify.mjs"
-  },
+  "description": "Shared tsconfig, ESLint and Nest CLI presets, plus the dev-key script.",
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./eslint": "./eslint.config.mjs",
     "./nest-cli.preset.json": "./nest-cli.preset.json"
-  },
-  "dependencies": {
-    "dotenv": "^17.4.2",
-    "pg": "^8.23.0"
   },
   "peerDependencies": {
     "@eslint/js": "^9.0.0",

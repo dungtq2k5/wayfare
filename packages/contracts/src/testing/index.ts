@@ -2,3 +2,4 @@
 // rule allows it only in specs, test/ and scripts/ (conventions §17).
 export * from './fixtures';
 export * from './identity-rpc-fixtures';
+export * from './catalog-fixtures';

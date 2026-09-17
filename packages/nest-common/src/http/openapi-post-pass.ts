@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { effectiveAuth, effectiveRateLimitClass } from './auth-rules';
 import type { EffectiveAuth } from './auth-rules';
 import { USES_UPSTREAM } from './auth.decorators';
+import { ETAGGED } from './etag';
 import { API_ENVELOPE, API_ERROR_CODES, ROUTE_REF_EXTENSION, routeRefOf } from './route-docs';
 import type { EnvelopeDoc } from './route-docs';
 import { SKIP_CLIENT_HEADER } from './skip-client-header.decorator';
@@ -110,6 +111,13 @@ function successSchema(envelope: EnvelopeDoc) {
       properties: { data: { type: 'array', items: item } },
     };
   }
+  if (envelope.meta !== undefined) {
+    return {
+      type: 'object',
+      required: ['data', 'meta'],
+      properties: { data: item, meta: { $ref: `#/components/schemas/${envelope.meta.name}` } },
+    };
+  }
   return { type: 'object', required: ['data'], properties: { data: item } };
 }
 
@@ -151,12 +159,17 @@ export function applyWayfareOpenApi(document: OpenAPIObject): OpenAPIObject {
       if (envelope !== undefined) {
         const status = successStatus(method, envelope, handler);
         responses[String(status)] =
-          envelope.model === null
-            ? { description: envelope.description ?? 'No content' }
-            : {
+          envelope.mediaType !== undefined
+            ? {
                 description: envelope.description ?? 'Success',
-                content: { 'application/json': { schema: successSchema(envelope) } },
-              };
+                content: { [envelope.mediaType]: { schema: { type: 'string' } } },
+              }
+            : envelope.model === null
+              ? { description: envelope.description ?? 'No content' }
+              : {
+                  description: envelope.description ?? 'Success',
+                  content: { 'application/json': { schema: successSchema(envelope) } },
+                };
       }
 
       const hasInput =
@@ -164,6 +177,10 @@ export function applyWayfareOpenApi(document: OpenAPIObject): OpenAPIObject {
         (operation.parameters ?? []).some(
           (parameter: object) => 'in' in parameter && parameter.in !== 'header',
         );
+      if (reflector.get<boolean | undefined>(ETAGGED, handler)) {
+        responses['304'] = { description: 'Not modified: the If-None-Match tag is current' };
+      }
+
       const codes = new Set<ErrorCode>([...routeCodes, 'INTERNAL', ...markerCodes(auth)]);
       if (!reflector.getAllAndOverride<boolean | undefined>(SKIP_CLIENT_HEADER, targets))
         codes.add('CLIENT_HEADER_REQUIRED');

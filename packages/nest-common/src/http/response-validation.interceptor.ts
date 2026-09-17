@@ -5,6 +5,7 @@ import { map } from 'rxjs';
 import type { Observable } from 'rxjs';
 import type { z } from 'zod';
 import { AppHttpException } from './app-http.exception';
+import { NotModified } from './etag';
 import { Paged, WithMeta } from './paged';
 
 /** The metadata key `@ZodSerializerDto` / `@ZodResponse` from nestjs-zod write. */
@@ -39,7 +40,7 @@ export class ResponseValidationInterceptor implements NestInterceptor {
   }
 
   private check(value: unknown, schema: z.ZodType, isArray: boolean): unknown {
-    if (value instanceof StreamableFile) return value;
+    if (value instanceof StreamableFile || value instanceof NotModified) return value;
     if (value instanceof Paged) {
       // A Paged result is always a list: each item is checked against the declared item schema.
       return value.withItems(value.items.map((item) => this.checkOne(item, schema)));

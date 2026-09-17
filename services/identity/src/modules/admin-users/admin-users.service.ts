@@ -27,6 +27,7 @@ import type { identityGrpc } from '@wayfare/contracts/grpc';
 import {
   decodeCursor,
   encodeCursor,
+  escapeLike,
   isUniqueConstraintViolation,
   OutboxService,
   parseRpcRequest,
@@ -764,11 +765,6 @@ function requireNone(lacking: readonly string[]): void {
 function requireLive(target: AdminUserRow): void {
   if (target.erasedAt !== null) throw rpcError('INVALID_STATE', { status: 'ERASED' });
   if (target.deletedAt !== null) throw rpcError('INVALID_STATE', { status: 'DEACTIVATED' });
-}
-
-/** `\`, `%` and `_` taken literally by `ILIKE … ESCAPE '\'`. */
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
 /** The shape the permission read takes. */

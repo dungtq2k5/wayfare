@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1.7
 # One image recipe for every Nest service: `docker build --build-arg SERVICE=identity …`.
-# The runtime image holds only the built service and its production dependencies — no Prisma CLI,
-# no migrations: those run from CI (or a one-off job built from the `build` stage).
+# The runtime image holds the built service and its production dependencies — no Prisma CLI.
+# `pnpm deploy` copies the whole service directory (no `files` field), so `prisma/migrations/` and
+# `prisma/sql/expected-objects.json` are there for the boot-time schema check to read; the
+# migrations themselves run from the deploy job (`db:deploy`, architecture §13.1).
 
 ARG NODE_VERSION=24.14.0
 

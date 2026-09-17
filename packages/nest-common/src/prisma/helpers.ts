@@ -6,6 +6,11 @@ export function isUniqueConstraintViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
 }
 
+/** `\`, `%` and `_` taken literally by `ILIKE … ESCAPE '\'`. */
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
 /** A value Prisma accepts for a JSONB column. */
 export type JsonInput = string | number | boolean | { [key: string]: JsonInput } | JsonInput[];
 

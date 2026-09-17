@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+// Shapes shared by catalog's Place services — rdm-spec C-1 to C-7, C-16, api-endpoints-plan §2.1.
+package wayfare.catalog;
+
+// Who a Place belongs to (rdm-spec C-1).
+enum PlaceKind {
+  PLACE_KIND_UNSPECIFIED = 0;
+  PLACE_KIND_EDITORIAL = 1;
+  PLACE_KIND_VENUE = 2;
+}
+
+// A Place's lifecycle (rdm-spec §1.6).
+enum PlaceStatus {
+  PLACE_STATUS_UNSPECIFIED = 0;
+  PLACE_STATUS_DRAFT = 1;
+  PLACE_STATUS_PROCESSING = 2;
+  PLACE_STATUS_ACTIVE = 3;
+  PLACE_STATUS_INACTIVE = 4;
+}
+
+// Why a Place is inactive (rdm-spec C-1).
+enum PlaceInactiveReason {
+  PLACE_INACTIVE_REASON_UNSPECIFIED = 0;
+  PLACE_INACTIVE_REASON_ADMIN = 1;
+  PLACE_INACTIVE_REASON_OWNER = 2;
+  PLACE_INACTIVE_REASON_ENTITLEMENT_LIMIT = 3;
+}
+
+// Which Places a category may tag (rdm-spec C-2).
+enum CategoryAppliesTo {
+  CATEGORY_APPLIES_TO_UNSPECIFIED = 0;
+  CATEGORY_APPLIES_TO_EDITORIAL = 1;
+  CATEGORY_APPLIES_TO_VENUE = 2;
+  CATEGORY_APPLIES_TO_ANY = 3;
+}
+
+// A localization's audio state (rdm-spec C-4).
+enum AudioStatus {
+  AUDIO_STATUS_UNSPECIFIED = 0;
+  AUDIO_STATUS_PENDING = 1;
+  AUDIO_STATUS_READY = 2;
+  AUDIO_STATUS_FAILED = 3;
+}
+
+// Where a localized text came from (rdm-spec C-4).
+enum TranslationSource {
+  TRANSLATION_SOURCE_UNSPECIFIED = 0;
+  TRANSLATION_SOURCE_SOURCE = 1;
+  TRANSLATION_SOURCE_MACHINE = 2;
+  TRANSLATION_SOURCE_HUMAN = 3;
+}
+
+// The one currency of a Place's menu (rdm-spec C-1, ADR 0046).
+enum MenuCurrency {
+  MENU_CURRENCY_UNSPECIFIED = 0;
+  MENU_CURRENCY_VND = 1;
+  MENU_CURRENCY_USD = 2;
+}
+
+// Which text a localized record carries (rdm-spec §1.5).
+enum ContentTier {
+  CONTENT_TIER_UNSPECIFIED = 0;
+  CONTENT_TIER_REQUESTED = 1;
+  CONTENT_TIER_ENGLISH = 2;
+  CONTENT_TIER_SOURCE = 3;
+}
+
+// One opening-hours row (rdm-spec C-16): exactly one of weekday and specific_date.
+message OpeningHoursRow {
+  // ISO weekday, 1 = Monday.
+  optional int32 weekday = 1;
+  // YYYY-MM-DD.
+  optional string specific_date = 2;
+  // HH:MM, business time.
+  optional string opens_at = 3;
+  optional string closes_at = 4;
+  bool is_closed = 5;
+}
+
+// A served photo variant: its public URL and what a client verifies.
+message PhotoView {
+  string url = 1;
+  string sha256 = 2;
+  int32 bytes = 3;
+  int32 width = 4;
+  int32 height = 5;
+}
+
+// A photo's three served variants (rdm-spec C-5).
+message PhotoVariantViews {
+  PhotoView thumb = 1;
+  PhotoView card = 2;
+  PhotoView full = 3;
+}
+
+// A Place's served narration.
+message PlaceAudio {
+  string url = 1;
+  string sha256 = 2;
+  int32 bytes = 3;
+  int32 duration_ms = 4;
+}
+
+// A record's localized text and where it came from (api-endpoints-plan §0.6).
+message PlaceLocalization {
+  // The language of the text served.
+  string lang = 1;
+  string name = 2;
+  string description = 3;
+  ContentTier content_tier = 4;
+  bool stale = 5;
+  // Absent unless the audio is ready for the text served.
+  PlaceAudio audio = 6;
+}

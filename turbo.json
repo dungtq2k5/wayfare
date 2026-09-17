@@ -27,6 +27,10 @@
       "dependsOn": ["build"],
       "cache": false
     },
+    "db:deploy": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
     "db:objects": {
       "cache": false
     },

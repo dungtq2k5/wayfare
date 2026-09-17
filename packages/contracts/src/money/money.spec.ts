@@ -94,9 +94,9 @@ describe('money: display prices', () => {
   });
 
   it('refuse an amount above the currency ceiling', () => {
-    expect(displayPrice(100_000_000, MenuCurrency.VND).amountMinor).toBe(100_000_000);
-    expect(() => displayPrice(100_000_001, MenuCurrency.VND)).toThrow(RangeError);
-    expect(() => displayPrice(100_001, MenuCurrency.USD)).toThrow(RangeError);
+    expect(displayPrice(50_000_000, MenuCurrency.VND).amountMinor).toBe(50_000_000);
+    expect(() => displayPrice(50_000_001, MenuCurrency.VND)).toThrow(RangeError);
+    expect(() => displayPrice(200_001, MenuCurrency.USD)).toThrow(RangeError);
     expect(() => displayPrice(1.5, MenuCurrency.USD)).toThrow(RangeError);
   });
 
@@ -105,6 +105,6 @@ describe('money: display prices', () => {
       amountMinor: 45_000,
       currency: 'VND',
     });
-    expect(zDisplayPrice.safeParse({ amountMinor: 100_001, currency: 'USD' }).success).toBe(false);
+    expect(zDisplayPrice.safeParse({ amountMinor: 200_001, currency: 'USD' }).success).toBe(false);
   });
 });

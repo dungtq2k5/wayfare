@@ -1,0 +1,276 @@
+// catalog — rdm-spec §3.2. Every geography column is `Unsupported` and read and written with raw
+// SQL in a named service method (rdm-spec §2.6).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma" // outside src/ — ADR 0056's entryFile depends on it
+  moduleFormat = "cjs" // ADR 0058; never rely on inference
+}
+
+datasource db {
+  provider = "postgresql" // no url here — it lives in prisma.config.ts
+}
+
+/// A Place — rdm-spec C-1. Soft-deletable: the deleted row is the sync tombstone (rdm-spec §1.7).
+/// Inserted with raw SQL (its location); `sync_version` and `updated_at` are written only by
+/// `bumpSyncVersion`.
+model Place {
+  id                    String                                 @id @db.Uuid
+  kind                  String                                 @db.VarChar(16)
+  ownerUserId           String?                                @map("owner_user_id") @db.Uuid
+  /// Crockford base32; full unique, never reused.
+  publicCode            String                                 @unique(map: "places_public_code_key") @map("public_code") @db.VarChar(12)
+  categoryId            String                                 @map("category_id") @db.Uuid
+  areaId                String                                 @map("area_id") @db.Uuid
+  nameVi                String                                 @map("name_vi") @db.VarChar(160)
+  descriptionVi         String                                 @map("description_vi") @db.Text
+  contentHash           String                                 @map("content_hash") @db.Char(64)
+  location              Unsupported("geography(Point, 4326)")
+  addressVi             String?                                @map("address_vi") @db.VarChar(255)
+  triggerRadiusM        Int                                    @default(30) @map("trigger_radius_m") @db.SmallInt
+  narrationPriority     Int                                    @default(50) @map("narration_priority") @db.SmallInt
+  autoNarrationEnabled  Boolean                                @map("auto_narration_enabled")
+  discoveryBoost        Int                                    @default(0) @map("discovery_boost") @db.SmallInt
+  priceBand             Int?                                   @map("price_band") @db.SmallInt
+  menuCurrency          String                                 @default("VND") @map("menu_currency") @db.Char(3)
+  phone                 String?                                @db.VarChar(20)
+  websiteUrl            String?                                @map("website_url") @db.VarChar(512)
+  status                String                                 @db.VarChar(16)
+  inactiveReason        String?                                @map("inactive_reason") @db.VarChar(24)
+  activationRequestedAt DateTime?                              @map("activation_requested_at") @db.Timestamptz(3)
+  publishedAt           DateTime?                              @map("published_at") @db.Timestamptz(3)
+  /// From catalog_sync_version_seq; no default names the sequence (rdm-spec §1.7).
+  syncVersion           BigInt                                 @map("sync_version")
+  createdById           String                                 @map("created_by_id") @db.Uuid
+  createdAt             DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Written only by bumpSyncVersion, with the database's clock — no @updatedAt.
+  updatedAt             DateTime                               @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt             DateTime?                              @map("deleted_at") @db.Timestamptz(3)
+  deletedById           String?                                @map("deleted_by_id") @db.Uuid
+
+  category      Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  area          Area                 @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  localizations PlaceLocalization[]
+  photos        PlacePhoto[]
+  menuItems     MenuItem[]
+  qrScans       PlaceQrScanDaily[]
+  openingHours  PlaceOpeningHours[]
+
+  @@index([syncVersion], map: "places_sync_version_idx")
+  @@index([areaId, status], map: "places_area_status_idx")
+  @@map("places")
+}
+
+/// A category — rdm-spec C-2. Its display name comes from the UI bundle.
+model Category {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  code      String   @unique @db.VarChar(32)
+  appliesTo String   @map("applies_to") @db.VarChar(16)
+  icon      String   @db.VarChar(64)
+  sortOrder Int      @default(0) @map("sort_order") @db.SmallInt
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  places Place[]
+
+  @@map("categories")
+}
+
+/// A pilot area — rdm-spec C-3. Inserted with raw SQL (its geography).
+model Area {
+  id          String                                   @id @db.Uuid
+  code        String                                   @unique @db.VarChar(32)
+  nameVi      String                                   @map("name_vi") @db.VarChar(120)
+  boundary    Unsupported("geography(Polygon, 4326)")
+  center      Unsupported("geography(Point, 4326)")
+  defaultZoom Int                                      @map("default_zoom") @db.SmallInt
+  isActive    Boolean                                  @default(false) @map("is_active")
+  sortOrder   Int                                      @default(0) @map("sort_order") @db.SmallInt
+  createdAt   DateTime                                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime                                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  places Place[]
+
+  @@map("areas")
+}
+
+/// A Place's text and audio in one language — rdm-spec C-4. Written only by the
+/// narration.localization.ready consumer (ADR 0040).
+model PlaceLocalization {
+  placeId                String   @map("place_id") @db.Uuid
+  lang                   String   @db.VarChar(16)
+  name                   String   @db.VarChar(160)
+  description            String   @db.Text
+  sourceContentHash      String   @map("source_content_hash") @db.Char(64)
+  translationSource      String   @map("translation_source") @db.VarChar(16)
+  audioStatus            String   @map("audio_status") @db.VarChar(16)
+  audioSourceContentHash String?  @map("audio_source_content_hash") @db.Char(64)
+  audioAssetId           String?  @map("audio_asset_id") @db.Uuid
+  audioObjectPath        String?  @map("audio_object_path") @db.VarChar(512)
+  audioSha256            String?  @map("audio_sha256") @db.Char(64)
+  audioBytes             Int?     @map("audio_bytes")
+  audioDurationMs        Int?     @map("audio_duration_ms")
+  voiceId                String?  @map("voice_id") @db.VarChar(64)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@id([placeId, lang])
+  @@map("place_localizations")
+}
+
+/// A photo — rdm-spec C-5. Hard-deleted; its objects go to orphaned_objects in the same transaction.
+model PlacePhoto {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  placeId        String   @map("place_id") @db.Uuid
+  sortOrder      Int      @map("sort_order") @db.SmallInt
+  /// PhotoVariants (packages/contracts).
+  variants       Json     @db.JsonB
+  originalSha256 String   @map("original_sha256") @db.Char(64)
+  altTextVi      String?  @map("alt_text_vi") @db.VarChar(255)
+  uploadedById   String   @map("uploaded_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@unique([placeId, originalSha256], map: "place_photos_place_original_key")
+  @@map("place_photos")
+}
+
+/// A menu line — rdm-spec C-6. Display-only; the currency is the Place's (ADR 0046).
+model MenuItem {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  placeId       String   @map("place_id") @db.Uuid
+  nameVi        String   @map("name_vi") @db.VarChar(120)
+  descriptionVi String?  @map("description_vi") @db.VarChar(500)
+  contentHash   String   @map("content_hash") @db.Char(64)
+  priceMinor    Int?     @map("price_minor")
+  sortOrder     Int      @map("sort_order") @db.SmallInt
+  isAvailable   Boolean  @default(true) @map("is_available")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  place         Place                     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  localizations MenuItemLocalization[]
+
+  @@index([placeId], map: "menu_items_place_idx")
+  @@map("menu_items")
+}
+
+/// A menu line's text in one language — rdm-spec C-7.
+model MenuItemLocalization {
+  menuItemId        String   @map("menu_item_id") @db.Uuid
+  lang              String   @db.VarChar(16)
+  name              String   @db.VarChar(120)
+  description       String?  @db.VarChar(500)
+  sourceContentHash String   @map("source_content_hash") @db.Char(64)
+  translationSource String   @map("translation_source") @db.VarChar(16)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, lang])
+  @@map("menu_item_localizations")
+}
+
+/// One presigned upload, from signing to use — rdm-spec C-12. Private to its uploader.
+model PendingUpload {
+  id                  String    @id @db.Uuid
+  purpose             String    @db.VarChar(24)
+  uploaderUserId      String    @map("uploader_user_id") @db.Uuid
+  objectPath          String    @unique @map("object_path") @db.VarChar(512)
+  declaredContentType String    @map("declared_content_type") @db.VarChar(64)
+  maxBytes            Int       @map("max_bytes")
+  expiresAt           DateTime  @map("expires_at") @db.Timestamptz(3)
+  confirmedAt         DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  sniffedContentType  String?   @map("sniffed_content_type") @db.VarChar(64)
+  bytes               Int?
+  sha256              String?   @db.Char(64)
+  /// PhotoVariants (packages/contracts), written at confirm.
+  variants            Json?     @db.JsonB
+  consumedAt          DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([uploaderUserId], map: "pending_uploads_uploader_idx")
+  @@map("pending_uploads")
+}
+
+/// Aggregate QR scans per business day — rdm-spec C-15. No personal data.
+model PlaceQrScanDaily {
+  placeId String   @map("place_id") @db.Uuid
+  day     DateTime @db.Date
+  scans   Int      @default(0)
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@id([placeId, day])
+  @@map("place_qr_scans_daily")
+}
+
+/// One opening-hours row — rdm-spec C-16. Replaced as a whole list.
+model PlaceOpeningHours {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  placeId      String    @map("place_id") @db.Uuid
+  weekday      Int?      @db.SmallInt
+  specificDate DateTime? @map("specific_date") @db.Date
+  opensAt      DateTime? @map("opens_at") @db.Time(0)
+  closesAt     DateTime? @map("closes_at") @db.Time(0)
+  isClosed     Boolean   @default(false) @map("is_closed")
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@index([placeId], map: "place_opening_hours_place_idx")
+  @@map("place_opening_hours")
+}
+
+/// Storage paths whose rows are gone — rdm-spec C-17. Read by photo-objects-cleanup.
+model OrphanedObject {
+  objectPath String   @id @map("object_path") @db.VarChar(512)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("orphaned_objects")
+}
+
+/// rdm-spec §2.10.
+model OutboxEvent {
+  /// Also the event's eventId and the JetStream Nats-Msg-Id.
+  id          String    @id @default(uuid(7)) @db.Uuid
+  subject     String    @db.VarChar(128)
+  payload     Json      @db.JsonB
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  /// W3C traceparent of the request that wrote the row.
+  traceParent String?   @map("trace_parent") @db.VarChar(55)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error") @db.Text
+
+  @@map("outbox_events")
+}
+
+/// rdm-spec §2.11 — written in the same transaction as the handler's effect.
+model ProcessedEvent {
+  consumer    String   @db.VarChar(64)
+  eventId     String   @map("event_id") @db.Uuid
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+
+  @@id([consumer, eventId])
+  @@map("processed_events")
+}
+
+/// rdm-spec §2.12.
+model JobRun {
+  jobName             String    @id @map("job_name") @db.VarChar(64)
+  lastStartedAt       DateTime? @map("last_started_at") @db.Timestamptz(3)
+  lastSucceededAt     DateTime? @map("last_succeeded_at") @db.Timestamptz(3)
+  lastFailedAt        DateTime? @map("last_failed_at") @db.Timestamptz(3)
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastDurationMs      Int?      @map("last_duration_ms")
+  lastError           String?   @map("last_error") @db.Text
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("job_runs")
+}

@@ -1,0 +1,190 @@
+syntax = "proto3";
+
+// The tourist read path — api-endpoints-plan §2.1, rdm-spec §1.5, §1.7. Serves only ACTIVE,
+// non-deleted Places.
+package wayfare.catalog;
+
+import "wayfare/catalog/place_types.proto";
+import "wayfare/common/geo.proto";
+
+// Delta sync, nearby, detail, QR resolution, categories and areas.
+service PlaceQueryService {
+  rpc SyncPlaces(SyncPlacesRequest) returns (SyncPlacesResponse);
+  rpc NearbyPlaces(NearbyPlacesRequest) returns (NearbyPlacesResponse);
+  rpc GetPlace(GetPlaceRequest) returns (GetPlaceResponse);
+  rpc GetPlaceByCode(GetPlaceByCodeRequest) returns (GetPlaceByCodeResponse);
+  // Counts the scan (rdm-spec C-15) and says whether the code names any Place.
+  rpc ResolvePublicCode(ResolvePublicCodeRequest) returns (ResolvePublicCodeResponse);
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+  rpc ListAreas(ListAreasRequest) returns (ListAreasResponse);
+}
+
+message SyncPlacesRequest {
+  string area_id = 1;
+  // The requested tag, as sent; any well-formed BCP 47 tag.
+  string lang = 2;
+  // 0 for a first sync.
+  int64 since = 3;
+}
+
+message SyncPlacesResponse {
+  repeated PlaceSyncRecord places = 1;
+  repeated string removed_place_ids = 2;
+  int64 dataset_version = 3;
+  bool complete = 4;
+}
+
+// What the offline engine holds per Place. Never the discovery boost.
+message PlaceSyncRecord {
+  string id = 1;
+  PlaceKind kind = 2;
+  string public_code = 3;
+  string category_code = 4;
+  string area_id = 5;
+  wayfare.common.GeoPoint location = 6;
+  int32 trigger_radius_m = 7;
+  int32 narration_priority = 8;
+  bool auto_narration_enabled = 9;
+  PlaceLocalization localization = 10;
+  PhotoView card_photo = 11;
+  optional int32 price_band = 12;
+  repeated OpeningHoursRow opening_hours = 13;
+}
+
+message NearbyPlacesRequest {
+  double lat = 1;
+  double lng = 2;
+  int32 radius_m = 3;
+  string lang = 4;
+  optional string category_code = 5;
+  int32 limit = 6;
+}
+
+message NearbyPlacesResponse {
+  repeated PlaceSummary places = 1;
+}
+
+// One nearby result; `sponsored` exactly when a boost moved it ahead.
+message PlaceSummary {
+  string id = 1;
+  PlaceKind kind = 2;
+  string public_code = 3;
+  string category_code = 4;
+  wayfare.common.GeoPoint location = 5;
+  string name = 6;
+  string lang = 7;
+  ContentTier content_tier = 8;
+  bool stale = 9;
+  PhotoView card_photo = 10;
+  optional int32 price_band = 11;
+  int32 distance_m = 12;
+  int32 walking_eta_minutes = 13;
+  bool sponsored = 14;
+}
+
+message GetPlaceRequest {
+  string place_id = 1;
+  string lang = 2;
+}
+
+message GetPlaceResponse {
+  PlaceDetail place = 1;
+}
+
+message GetPlaceByCodeRequest {
+  string public_code = 1;
+  string lang = 2;
+}
+
+message GetPlaceByCodeResponse {
+  PlaceDetail place = 1;
+}
+
+// A Place's full tourist view (api-endpoints-plan §2.1). Billing's offers are composed by the gateway.
+message PlaceDetail {
+  string id = 1;
+  PlaceKind kind = 2;
+  string public_code = 3;
+  string category_code = 4;
+  string area_id = 5;
+  wayfare.common.GeoPoint location = 6;
+  optional string address = 7;
+  int32 trigger_radius_m = 8;
+  int32 narration_priority = 9;
+  bool auto_narration_enabled = 10;
+  PlaceLocalization localization = 11;
+  repeated PlacePhotoView photos = 12;
+  optional PlaceMenuView menu = 13;
+  repeated OpeningHoursRow opening_hours = 14;
+  optional int32 price_band = 15;
+  optional string phone = 16;
+  optional string website_url = 17;
+  // The ETag's version.
+  int64 sync_version = 18;
+}
+
+// One photo in display order.
+message PlacePhotoView {
+  string id = 1;
+  optional string alt_text = 2;
+  PhotoVariantViews variants = 3;
+}
+
+// A Venue's menu in the requested language.
+message PlaceMenuView {
+  MenuCurrency menu_currency = 1;
+  repeated MenuItemView items = 2;
+}
+
+message MenuItemView {
+  string id = 1;
+  string name = 2;
+  optional string description = 3;
+  optional int32 price_minor = 4;
+  bool is_available = 5;
+  ContentTier content_tier = 6;
+  bool stale = 7;
+}
+
+message ResolvePublicCodeRequest {
+  string public_code = 1;
+}
+
+message ResolvePublicCodeResponse {
+  bool exists = 1;
+}
+
+message ListCategoriesRequest {}
+
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+}
+
+// An active category (rdm-spec C-2). Its name comes from the UI bundle.
+message Category {
+  string id = 1;
+  string code = 2;
+  CategoryAppliesTo applies_to = 3;
+  string icon = 4;
+  int32 sort_order = 5;
+}
+
+message ListAreasRequest {}
+
+message ListAreasResponse {
+  repeated Area areas = 1;
+}
+
+// An active area (rdm-spec C-3).
+message Area {
+  string id = 1;
+  string code = 2;
+  string name_vi = 3;
+  // GeoJSON Polygon.
+  string boundary_geojson = 4;
+  wayfare.common.GeoPoint center = 5;
+  int32 default_zoom = 6;
+  int32 sort_order = 7;
+  // The sync cap every area shares (rdm-spec §1.7).
+  int64 dataset_version = 8;
+}

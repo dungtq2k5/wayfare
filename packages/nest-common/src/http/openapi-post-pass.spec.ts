@@ -9,10 +9,12 @@ import { z } from 'zod';
 import { ApiEnvelope } from './api-envelope.decorator';
 import { ApiErrors } from './api-errors.decorator';
 import { Auth, RateLimit, UsesUpstream } from './auth.decorators';
+import { ETagged } from './etag';
 import { applyWayfareOpenApi } from './openapi-post-pass';
 
 class ThingDto extends createZodDto(z.object({ id: z.string() })) {}
 class ThingBodyDto extends createZodDto(z.object({ name: z.string() })) {}
+class ThingMetaDto extends createZodDto(z.object({ complete: z.boolean() })) {}
 
 @UsesUpstream()
 @Controller('things')
@@ -45,6 +47,17 @@ class ThingsController {
   @Auth('USER_EMAIL')
   @ApiEnvelope(ThingDto, { array: true })
   all() {}
+
+  @Get('page')
+  @Auth('DEVICE')
+  @ETagged()
+  @ApiEnvelope(ThingDto, { meta: ThingMetaDto })
+  page() {}
+
+  @Get('picture')
+  @Auth('USER')
+  @ApiEnvelope(null, { status: 200, mediaType: 'image/svg+xml' })
+  picture() {}
 
   @Delete()
   @Auth('SIGNATURE')
@@ -148,5 +161,23 @@ describe('OpenAPI post-pass', () => {
       { accessCookie: [] },
     ]);
     expect(JSON.stringify(document)).not.toContain('x-wayfare-route');
+  });
+
+  it("documents a route's own meta, a tagged read's 304, and a non-JSON body", () => {
+    expect(schemaOf('/things/page', 'get', '200')).toEqual({
+      type: 'object',
+      required: ['data', 'meta'],
+      properties: {
+        data: { $ref: '#/components/schemas/ThingDto' },
+        meta: { $ref: '#/components/schemas/ThingMetaDto' },
+      },
+    });
+    expect(document.components?.schemas?.ThingMetaDto).toBeDefined();
+    expect(op('/things/page', 'get').responses['304']).toBeDefined();
+    expect(op('/things', 'get').responses['304']).toBeUndefined();
+    expect(op('/things/picture', 'get').responses['200']).toEqual({
+      description: 'Success',
+      content: { 'image/svg+xml': { schema: { type: 'string' } } },
+    });
   });
 });

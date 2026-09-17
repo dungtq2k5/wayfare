@@ -5,7 +5,8 @@ import { resolve } from 'node:path';
 import { generateTestSigningKeys } from '@wayfare/nest-common/testing';
 import { config } from 'dotenv';
 
-config({ path: resolve(__dirname, '../../.env'), quiet: true });
+// `override`: a worker inherits the runner's environment, which may hold another service's values.
+config({ path: resolve(__dirname, '../../.env'), quiet: true, override: true });
 if (!process.env.DATABASE_URL_TEST)
   throw new Error('DATABASE_URL_TEST is not set — copy .env.example to .env');
 process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;

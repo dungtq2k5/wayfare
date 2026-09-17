@@ -96,7 +96,7 @@ export async function syncSystemCatalog(
   );
 }
 
-/** Runs the sync at boot, so the running build and its catalogue are the same thing (D10). */
+/** Runs the sync at boot, so the running build and its catalogue are the same thing (ADR 0044). */
 @Injectable()
 export class SystemCatalogService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SystemCatalogService.name);

@@ -15,6 +15,9 @@ const valid = {
   TRUST_PROXY_HOPS: '0',
   SWAGGER_ENABLED: 'true',
   IDENTITY_GRPC_URL: 'localhost:50051',
+  CATALOG_GRPC_URL: 'localhost:50052',
+  PUBLIC_QR_BASE_URL: 'https://go.wayfare.app/',
+  PUBLIC_LINK_BASE_URL: 'https://wayfare.app',
   JWT_PUBLIC_KEYS: keys.publicKeys,
   REDIS_URL: 'redis://localhost:6379',
   METRICS_PORT: '9100',
@@ -30,6 +33,14 @@ describe('gateway configuration', () => {
     expect(config.SWAGGER_ENABLED).toBe(true);
     expect(config.JWT_PUBLIC_KEYS.get('dev-1')?.asymmetricKeyType).toBe('ed25519');
     expect(config.MIN_SUPPORTED_APP_VERSION).toBe('0.0.0');
+    // No trailing slash: paths are appended.
+    expect(config.PUBLIC_QR_BASE_URL).toBe('https://go.wayfare.app');
+  });
+
+  it('refuses a sticker host that is not http(s)', () => {
+    expect(() => parse({ ...valid, PUBLIC_QR_BASE_URL: 'ftp://go.wayfare.app' })).toThrow(
+      /PUBLIC_QR_BASE_URL/,
+    );
   });
 
   it('refuses a malformed port, naming it on its own line', () => {

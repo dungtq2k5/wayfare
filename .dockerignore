@@ -4,6 +4,7 @@
 **/coverage
 **/generated/prisma
 **/.env
+**/.keys
 **/.env.*
 !**/.env.example
 .git

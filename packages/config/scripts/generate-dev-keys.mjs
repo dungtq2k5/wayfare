@@ -2,11 +2,13 @@
 // pnpm keys:dev — generates an Ed25519 signing pair for local development and CI (ADR 0043).
 // Writes JWT_PRIVATE_KEY and JWT_KEY_ID into services/identity/.env and JWT_PUBLIC_KEYS into
 // services/gateway/.env, replacing only those lines. EMAIL_HASH_KEY is written only when it is
-// absent or empty: a new key would stop every stored address hash from matching. Never for
-// production keys.
-import { generateKeyPairSync, randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+// absent or empty: a new key would stop every stored address hash from matching. catalog gets a
+// throwaway service-account key to sign upload URLs against the storage emulator (architecture
+// §3.6), written once to services/catalog/.keys/ and named by GOOGLE_APPLICATION_CREDENTIALS.
+// Never for production keys.
+import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
 if (process.env.NODE_ENV === 'production') {
   console.error(
@@ -53,3 +55,22 @@ setEnv('services/identity/.env', {
 setEnv('services/gateway/.env', {
   JWT_PUBLIC_KEYS: `'${JSON.stringify({ [keyId]: base64(publicPem) })}'`,
 });
+
+// A service-account-shaped key: the storage client only signs with it, and the emulator never checks.
+const gcsKeyPath = resolve(root, 'services/catalog/.keys/gcs-dev.json');
+if (!existsSync(gcsKeyPath)) {
+  const { privateKey: rsaKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  mkdirSync(dirname(gcsKeyPath), { recursive: true });
+  const key = {
+    type: 'service_account',
+    project_id: 'wayfare-local',
+    private_key_id: randomBytes(20).toString('hex'),
+    private_key: rsaKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    client_email: 'catalog@wayfare-local.iam.gserviceaccount.com',
+    client_id: randomUUID(),
+    token_uri: 'https://oauth2.googleapis.com/token',
+  };
+  writeFileSync(gcsKeyPath, `${JSON.stringify(key, null, 2)}\n`, { mode: 0o600 });
+  console.log('✓ services/catalog/.keys/gcs-dev.json');
+}
+setEnv('services/catalog/.env', { GOOGLE_APPLICATION_CREDENTIALS: gcsKeyPath });
