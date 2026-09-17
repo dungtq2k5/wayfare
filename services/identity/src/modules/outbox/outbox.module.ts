@@ -10,7 +10,8 @@ import {
 import type { JetStreamConsumer } from '@wayfare/nest-common';
 import { STREAM_NAMES } from '@wayfare/contracts';
 import type { StreamName } from '@wayfare/contracts';
-import { AppConfig } from '../../config/env.schema';
+import { ConfigService } from '@nestjs/config';
+import type { IdentityConfig } from '../../config/env.schema';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** The service name used in durable names and dead-letter subjects. */
@@ -69,8 +70,9 @@ export class EventSpine implements OnApplicationShutdown {
     { provide: OutboxService, useValue: new OutboxService() },
     {
       provide: NatsClient,
-      inject: [AppConfig],
-      useFactory: (config: AppConfig) => NatsClient.connect(config.NATS_URL, SERVICE_NAME),
+      inject: [ConfigService],
+      useFactory: (config: IdentityConfig) =>
+        NatsClient.connect(config.get('NATS_URL', { infer: true }), SERVICE_NAME),
     },
     {
       provide: OutboxRelay,

@@ -3,7 +3,11 @@
  * nest-common resolves the directory at runtime; this file stays free of Node APIs.
  */
 export const PROTO_FILES = {
-  identity: ['wayfare/identity/device.proto'],
+  identity: [
+    'wayfare/identity/device.proto',
+    'wayfare/identity/auth.proto',
+    'wayfare/identity/user.proto',
+  ],
   health: ['grpc/health/v1/health.proto'],
 } as const;
 

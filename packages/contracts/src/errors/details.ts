@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { VoucherStatus } from '../billing/enums';
+import { LegalDocument } from '../identity/enums';
 import { zMoney } from '../money/money';
 
 const zInstant = z.iso.datetime({ offset: true });
@@ -47,3 +48,8 @@ export const retryAfterDetails = z.object({ retryAfterSeconds: z.number().int().
 
 /** `AI_QUOTA_EXHAUSTED`: when the daily quota resets. */
 export const quotaExhaustedDetails = z.object({ resetsAt: zInstant }).strict();
+
+/** `LEGAL_VERSION_OUTDATED`: which document, and its current version. */
+export const legalVersionOutdatedDetails = z
+  .object({ document: z.enum(LegalDocument), currentVersion: z.string().min(1) })
+  .strict();

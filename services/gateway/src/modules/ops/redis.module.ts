@@ -2,7 +2,8 @@ import { Global, Inject, Injectable, Module } from '@nestjs/common';
 import type { OnApplicationShutdown } from '@nestjs/common';
 import type { ReadinessCheck } from '@wayfare/nest-common';
 import { Redis } from 'ioredis';
-import { AppConfig } from '../../config/env.schema';
+import { ConfigService } from '@nestjs/config';
+import type { GatewayConfig } from '../../config/env.schema';
 
 /** Injection token for the gateway's Redis client. */
 export const REDIS = Symbol('REDIS');
@@ -36,9 +37,9 @@ export class RedisLifecycle implements OnApplicationShutdown {
   providers: [
     {
       provide: REDIS,
-      inject: [AppConfig],
-      useFactory: (config: AppConfig) =>
-        new Redis(config.REDIS_URL, {
+      inject: [ConfigService],
+      useFactory: (config: GatewayConfig) =>
+        new Redis(config.get('REDIS_URL', { infer: true }), {
           lazyConnect: false,
           enableOfflineQueue: false,
           maxRetriesPerRequest: 1,

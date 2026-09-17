@@ -29,7 +29,7 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
   - *Why:* orchestrates the task graph and caches outputs (Prisma client generation, `tsc` builds, test runs) so unchanged packages are never rebuilt. In CI, `turbo run build --filter=...[origin/main]` builds only what the PR actually touched.
 - **Containerization:** **Docker & Docker Compose**
   - *Why:* one `docker compose up` boots every service's Postgres, plus NATS, Redis and the GCS emulator. Environment parity is not a nice-to-have on a distributed team — it is the difference between "works on my machine" and a working demo.
-- **Pinned majors:** NestJS **11**, Prisma **7**, TypeScript **5.9**, ESLint **9**, Vitest **4** (verified: Nest 11.2.5, Prisma 7.10.0, TypeScript 5.9.3). A newer major (Nest 12, Prisma 8, TypeScript 7) is an upgrade decision, never a side effect of `pnpm add`.
+- **Pinned majors:** NestJS **11**, Prisma **7**, TypeScript **5.9**, ESLint **9**, Vitest **4** (verified: Nest 11.2.5, Prisma 7.10.0, TypeScript 5.9.3). **`@nestjs/config` is pinned at 4.0.4:** 12.x ships ES modules only, which the CommonJS services ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)) do not load, and moving to it is an upgrade decision like any other major. A newer major (Nest 12, Prisma 8, TypeScript 7) is an upgrade decision, never a side effect of `pnpm add`.
 - **Build tool (backend):** **SWC** via the Nest CLI builder, with `typeCheck: true`, for every service **except the gateway**, which builds with `tsc`. 📌 [ADR 0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md). Vitest uses `unplugin-swc` so tests get the decorator metadata Nest's DI needs.
   - ⚠️ Gotcha: under SWC, type-only imports must be written `import type`, or they can turn into runtime `require`s and a circular-import crash at boot.
 - **Build tool (web):** **Vite 7.x** with `vite-plugin-pwa`
@@ -97,7 +97,7 @@ wayfare/
   - *Why:* one schema yields both the runtime validator and the TypeScript type, and the same schema can validate a NATS event payload. Validate at every boundary: HTTP body, gRPC message, event payload, webhook body, environment variables at boot.
 - **API gateway / BFF:** a dedicated **NestJS `gateway` service**
   - *Why:* clients talk to exactly one host. The gateway verifies auth, applies rate limits, aggregates several gRPC calls into one mobile-friendly response (critical over a bad tourist data connection), and is the only service exposed to the internet.
-- **Rate limiting:** `@nestjs/throttler` with a **Redis** store, so limits are shared across replicas. Applied hardest to the endpoints that cost real money: TTS, translation, AI, analytics ingest.
+- **Rate limiting:** the gateway's own `RateLimitGuard` over an atomic **Redis** counter script (no throttler package — each route has exactly one class from `RATE_LIMITS`, and each key is its own bucket), so limits are shared across replicas. Applied hardest to the endpoints that cost real money: TTS, translation, AI, analytics ingest.
 - **Caching:** `@nestjs/cache-manager` backed by **Redis**. The hot path is the entitlement lookup that `catalog` performs on every place mutation, plus the voice catalogue and the dataset-version token.
 - **Background jobs:** **BullMQ** (Redis-backed) 📌 [ADR 0019](./decisions/0019-bullmq-for-in-service-work.md) for TTS generation, translation warmup, media cleanup and analytics rollups.
   - *Why over a plain JetStream consumer:* we need retries with backoff, concurrency limits, progress reporting, pause/resume/cancel, and a dashboard — that is precisely the Admin Console's TTS job monitor, and BullMQ gives all of it for free.
@@ -284,6 +284,8 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 - **Cache** — entitlements, voice catalogue, dataset version token.
 - **BullMQ** — TTS, translation warmup, media cleanup, analytics rollup queues.
 - **WebSocket adapter** — cross-replica broadcast for job progress and notifications.
+
+It also holds identity's **revocation state** — each user's token cutoff and the signed-out session families the gateway checks on every account request. Neither is the record: a missing cutoff is re-read from identity, and a missing family marker costs at most one access-token lifetime.
 
 ⚠️ Gotcha: Redis is a *cache and a transport*, not a database. Every value in it must be reconstructible from Postgres or Stripe. Assume `FLUSHALL` could happen and the app must still be correct — the one exception is in-flight BullMQ jobs, which is why TTS jobs are also snapshotted to Postgres and recovered on boot.
 
@@ -515,7 +517,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 ## 10. Security & identity
 
 - **Password hashing:** **argon2** (`argon2` npm) — the current recommendation. bcrypt is acceptable if argon2's native build causes trouble in Docker; do not invent anything else.
-- **Tokens:** **`jose`** for JWT signing and verification (modern, typed, no `jsonwebtoken` footguns). Access tokens are **EdDSA-signed by `identity` and only verified elsewhere** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Access token 30 min, refresh token 7 days with **rotation** and reuse detection.
+- **Tokens:** **`node:crypto`** for JWT signing and verification — EdDSA is `crypto.sign(null, …)` / `crypto.verify(null, …)` over the JWS signing input, in one small shared module with `kid`, `iss`, `aud` and `exp` checks. No JWT library: the maintained one (`jose` 6) is ESM-only, the services are CommonJS ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)), and the whole need is a few dozen lines. Access tokens are **EdDSA-signed by `identity` and only verified elsewhere** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Access token 30 min, refresh token 7 days with **rotation** and reuse detection.
 - **Transport of tokens:**
   - Web console → **httpOnly, `Secure`, `SameSite=Lax` cookies**. JavaScript cannot read them, so an XSS cannot exfiltrate a session.
   - Mobile → bearer token from **`expo-secure-store`** (Keychain / Keystore).
@@ -654,15 +656,16 @@ Fly.io or Render remain perfectly reasonable alternatives if Cloud Run's cold st
 
 ## 14. Environment variables
 
-Validate all of these with zod at service startup and fail fast on anything missing. Keep a committed `.env.example` with every key and no value.
+Every Nest service loads these through `@nestjs/config` and validates them with its zod schema at startup, failing fast on anything missing (development-conventions §13). Keep a committed `.env.example` with every key and no value.
 
 | Variable | Used by | Notes |
 | :---- | :---- | :---- |
 | `DATABASE_URL` | each service | Its **own** Postgres. `postgresql://…/wayfare_<service>?schema=public` |
 | `DATABASE_URL_TEST` | each service | Same server, `wayfare_<service>_test`. Derivable from the above |
-| `REDIS_URL` | all services | throttler, cache, BullMQ, WebSocket adapter |
+| `REDIS_URL` | all services | rate-limit counters, revocation state, cache, BullMQ, WebSocket adapter |
 | `NATS_URL` | all services | JetStream event bus |
-| `JWT_PRIVATE_KEY` | identity | Ed25519 signing key — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). ⚠️ refuse to boot without it outside dev |
+| `JWT_PRIVATE_KEY` | identity | Ed25519 signing key, a base64-encoded PKCS#8 PEM — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Required in every environment; `pnpm keys:dev` generates a local pair |
+| `JWT_KEY_ID` | identity | The `kid` written into every token header |
 | `GLOBAL_PREFIX` | gateway | `api`. Combined with Nest URI versioning to give `/api/v1/…`; never hard-coded elsewhere |
 | `PORT` | gateway | Public HTTP port |
 | `CORS_ORIGINS` | gateway | Comma-separated allowlist; never `*` with credentials |
@@ -675,7 +678,7 @@ Validate all of these with zod at service startup and fail fast on anything miss
 | `NATS_URL_TEST` | each NATS-using service | The **separate** test broker (`nats-test`, port 4223). Integration tests never publish to the development broker, or their events land in the running services' databases |
 | `DATABASE_URL_SHADOW` | each service | `wayfare_<service>_shadow`, used only by `db:drift` |
 | `PRISMA_DB` | Prisma CLI only | `working` (default) or `test` — picks the URL in `prisma.config.ts`; unknown values throw. The shadow database is never a target; its URL is `shadowDatabaseUrl` in the same file |
-| `JWT_PUBLIC_KEY` | gateway (and any verifier) | Verification only. Refresh tokens and device secrets are opaque and hashed, so they need no key |
+| `JWT_PUBLIC_KEYS` | gateway (and any verifier) | JSON `{ "<kid>": "<base64 SPKI PEM>" }`; two entries during a key rotation. Verification only — refresh tokens and device secrets are opaque and hashed, so they need no key |
 | `PII_ENCRYPTION_KEY` | identity | 32 bytes, AES-256-GCM, versioned for rotation |
 | `GCS_BUCKET_MEDIA`, `GCS_BUCKET_AUDIO`, `GCS_BUCKET_TILES` | catalog, narration | separate buckets; tiles and audio have different cache policies |
 | `GOOGLE_APPLICATION_CREDENTIALS` | catalog, narration | service-account key path; Secret Manager in staging |

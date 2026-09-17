@@ -1,0 +1,31 @@
+import { Inject, Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
+import type { ClientGrpc } from '@nestjs/microservices';
+import { identityGrpc } from '@wayfare/contracts/grpc';
+import { GrpcServiceCaller } from '@wayfare/nest-common';
+
+/** Injection token for identity's gRPC connection. */
+export const IDENTITY_GRPC = Symbol('IDENTITY_GRPC');
+
+/**
+ * identity as the gateway calls it: one caller per stub (conventions §6.2). Returns proto types only;
+ * the deadline, caller metadata and down-versus-slow mapping live in each caller.
+ */
+@Injectable()
+export class IdentityServiceGrpcClient implements OnModuleInit {
+  readonly devices: GrpcServiceCaller<identityGrpc.DeviceServiceClient>;
+  readonly auth: GrpcServiceCaller<identityGrpc.AuthServiceClient>;
+  readonly users: GrpcServiceCaller<identityGrpc.UserServiceClient>;
+
+  constructor(@Inject(IDENTITY_GRPC) grpc: ClientGrpc) {
+    this.devices = new GrpcServiceCaller(grpc, identityGrpc.DEVICE_SERVICE_NAME);
+    this.auth = new GrpcServiceCaller(grpc, identityGrpc.AUTH_SERVICE_NAME);
+    this.users = new GrpcServiceCaller(grpc, identityGrpc.USER_SERVICE_NAME);
+  }
+
+  onModuleInit(): void {
+    this.devices.init();
+    this.auth.init();
+    this.users.init();
+  }
+}

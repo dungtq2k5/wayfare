@@ -17,11 +17,11 @@ Every request resolves, at the gateway, to exactly one context. Services receive
 | Context | Token | Carries | Created by |
 | :---- | :---- | :---- | :---- |
 | **Device** | device access token, `typ: "device"` | `deviceId` | `POST /devices`, then `POST /devices/token` |
-| **Account** | account access token, `typ: "user"` | `userId`, `deviceId?`, `permissions[]`, `ownerVerified` | `POST /auth/login` |
+| **Account** | account access token, `typ: "user"` | `userId`, `deviceId?`, `sessionId`, `permissions[]`, `ownerVerified`, `emailVerified` | `POST /auth/login` |
 | **Anonymous** | none | — | — |
 
 - An account token issued on a phone **carries that phone's `deviceId`**, so a signed-in mobile request is both contexts at once with one token. A console session has no `deviceId`.
-- Access tokens are EdDSA-signed by `identity` and verified at the gateway with the public key only ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). The gateway also rejects any account token whose `iat` precedes `users.tokens_valid_after` (I-1), read from Redis — that is how a lock or a role change takes effect within seconds rather than 30 minutes.
+- Access tokens are EdDSA-signed by `identity` and verified at the gateway with the public key only ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). The gateway also rejects any account token issued (`iatMs`, milliseconds) before `users.tokens_valid_after` (I-1), or belonging to a session family that has been signed out (`sid`) — both read from Redis, written by identity from `identity.session.revoked`, and re-read from identity on a cache miss. That is how a lock, a role change or a logout takes effect within seconds rather than 30 minutes. **If the check cannot run, account routes answer `503`; they never pass unchecked.**
 
 ### 0.2 Auth column legend
 
@@ -41,14 +41,15 @@ A route marked ✎ writes an `audit.record` event (I-11). The action name is lis
 
 ### 0.3 Client transports
 
-Every request sends **`X-Wayfare-Client: console | web | mobile`**. The gateway refuses a request without it (`400 CLIENT_HEADER_REQUIRED`).
+Every request sends **`X-Wayfare-Client: console | web | mobile`**. The gateway refuses a request without it (`400 CLIENT_HEADER_REQUIRED`). **`mobile` requests also send `X-Wayfare-App-Version`** (semver); a missing or older version than `MIN_SUPPORTED_APP_VERSION` is `426 APP_VERSION_UNSUPPORTED`. `POST /devices` is judged by its body's `appVersion` instead. `console` and `web` are served from our own origin and are never version-checked.
 
 | Client | Tokens travel in | Refresh |
 | :---- | :---- | :---- |
-| `console` | `httpOnly`, `Secure`, `SameSite=Lax` cookies — `wf_at` (access, path `/`), `wf_rt` (refresh, path `/api` — every API version) | `POST /auth/refresh` with the cookie |
+| `console` | `httpOnly`, `Secure`, `SameSite=Lax` cookies — `wf_at` (access, path `/`), `wf_rt` (refresh, path `/${GLOBAL_PREFIX}` — `/api`, covering every API version) | `POST /auth/refresh` with the cookie |
 | `web` (tourist PWA) | **Device:** `Authorization: Bearer`, device secret in IndexedDB. **Account (after sign-in):** the same `httpOnly` cookies as `console` | `POST /devices/token`; `POST /auth/refresh` with the cookie |
 | `mobile` | `Authorization: Bearer`; device secret and refresh token in `expo-secure-store` | `POST /devices/token`, `POST /auth/refresh` with the token in the body |
 
+- **A `console` request's `Authorization` header is ignored** — the console authenticates by cookie only, which is what the client header's CSRF defence relies on. Where a request carries both an account cookie and a device bearer (a signed-in web install), the account token wins.
 - **Response bodies to `console` and `web` never contain an account token.** Response bodies to `mobile` do, because a native app has no cookie jar worth trusting.
 - **Why `web` account sessions use cookies:** a tourist who signs in on the PWA to buy must stay signed in across the Stripe Checkout round trip and for the length of their trip, which needs a refresh token — and a refresh token in IndexedDB is readable by any script that runs on the page. `wayfare.app` and `api.wayfare.app` are the same site, so `SameSite=Lax` cookies survive the Checkout redirect. The device token stays a Bearer token: it has no human credential behind it and is re-derived from the device secret.
 - **The header doubles as CSRF protection for cookie sessions.** A cross-site form or `<img>` cannot set a custom header, and a cross-site `fetch` that sets one triggers a CORS preflight the gateway refuses. So every state-changing `console` request is proven same-origin without a separate CSRF token.
@@ -70,7 +71,7 @@ Every request sends **`X-Wayfare-Client: console | web | mobile`**. The gateway 
 
 - **`code` is the contract; `message` is not.** Codes are `SCREAMING_SNAKE`, listed in `ERROR_CODES` in `packages/contracts`, and **clients render user-facing text from the code through their i18n bundle** — so an error reads in the tourist's language, and rewording a server message never breaks a client. `message` is English, for developers and logs, and is generic in production.
 - `details` is typed per code. `requestId` is the OpenTelemetry trace id, which is what support asks for.
-- **Generic codes** used by every route: `400 VALIDATION_FAILED`, `400 MALFORMED_REQUEST` (the body is not valid JSON), `400 CLIENT_HEADER_REQUIRED`, `400 IDEMPOTENCY_KEY_REQUIRED` (a ⟳ route without the header), `401 UNAUTHENTICATED` (no valid token, or a stale one), `403 PERMISSION_DENIED` (`details.required`), `404 ROUTE_NOT_FOUND`, `404 RESOURCE_NOT_FOUND` (`details.resource` — missing, or not the caller's), `409 INVALID_STATE` (`details.status` — an illegal transition), `410 TOKEN_EXPIRED` (a single-use link spent or expired), `426 APP_VERSION_UNSUPPORTED` (`details.minimumVersion`), `429 RATE_LIMITED` (`details.retryAfterSeconds`), `500 INTERNAL`, `503 UPSTREAM_UNAVAILABLE`, `504 UPSTREAM_TIMEOUT`.
+- **Generic codes** used by every route: `400 VALIDATION_FAILED`, `400 MALFORMED_REQUEST` (the body is not valid JSON), `400 CLIENT_HEADER_REQUIRED`, `400 IDEMPOTENCY_KEY_REQUIRED` (a ⟳ route without the header), `401 UNAUTHENTICATED` (no valid token, or a stale one), `403 EMAIL_NOT_VERIFIED` (a `USER+EMAIL` route, called before verification — the client shows its verify-your-email prompt), `409 LEGAL_VERSION_OUTDATED` (`details.document`, `details.currentVersion` — a legal document accepted at a version other than `LEGAL_DOCUMENT_VERSIONS`'), `403 PERMISSION_DENIED` (`details.required`), `404 ROUTE_NOT_FOUND`, `404 RESOURCE_NOT_FOUND` (`details.resource` — missing, or not the caller's), `409 INVALID_STATE` (`details.status` — an illegal transition), `410 TOKEN_EXPIRED` (a single-use link spent or expired), `426 APP_VERSION_UNSUPPORTED` (`details.minimumVersion`), `429 RATE_LIMITED` (`details.retryAfterSeconds`), `500 INTERNAL`, `503 UPSTREAM_UNAVAILABLE`, `504 UPSTREAM_TIMEOUT`.
 - **Every code's HTTP status, gRPC status and `details` shape is one entry in `ERRORS`**; a service throws `rpcError(code, details?)` and never picks a status itself ([development-conventions §6.4](./development-conventions.md)).
 - Validation failures are `400 VALIDATION_FAILED` with `details.issues: [{ path, code }]` — `path` a JSON pointer, `code` a zod issue code, never a sentence.
 
@@ -123,7 +124,7 @@ Every id in this API is a **UUIDv7** ([ADR 0055](./decisions/0055-every-identifi
 
 ### 0.9 Rate limits
 
-Enforced by `@nestjs/throttler` on Redis, keyed as shown. Numbers are defaults in `RATE_LIMITS`.
+Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, keyed as shown — each key of a class is its own bucket, and every bucket must pass. Numbers are defaults in `RATE_LIMITS`.
 
 | Class | Key | Limit |
 | :---- | :---- | :---- |
@@ -156,10 +157,10 @@ A new version is never used for an additive change. Within v1: fields are added,
 
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
-| POST | `/devices` ✎ | Register an install. Body `{ platform, appVersion, osVersion?, contentLocale, privacyPolicyVersion }`. Creates I-2 and a `PRIVACY_POLICY` acceptance (I-12). Returns `{ deviceId, deviceSecret, accessToken, expiresIn }` — **`deviceSecret` is returned exactly once**; losing it means registering a new device. `426` below the minimum app version. | PUBLIC |
+| POST | `/devices` ✎ | Register an install. Body `{ platform, appVersion, osVersion?, contentLocale, privacyPolicyVersion }`. Creates I-2 and a `PRIVACY_POLICY` acceptance (I-12). Returns `{ deviceId, deviceSecret, accessToken, expiresIn }` — **`deviceSecret` is returned exactly once**; losing it means registering a new device. `426` when the body's `appVersion` is below `MIN_SUPPORTED_APP_VERSION`; `409 LEGAL_VERSION_OUTDATED` when `privacyPolicyVersion` is not the current one. | PUBLIC |
 | POST | `/devices/token` | Exchange `{ deviceId, deviceSecret }` for a fresh device access token (15 min). Looks the secret up by SHA-256. A revoked device answers `401 DEVICE_REVOKED`, and the client registers anew. | PUBLIC |
 | PATCH | `/devices/me` | Update `{ appVersion?, osVersion?, contentLocale?, pushToken? }`. A `pushToken` already held by another device row moves to this one. | DEVICE |
-| DELETE | `/devices/me` | Forget this install: revoke the device, publish `identity.device.forgotten` (catalog drops its favourites). The account, if any, is untouched. | DEVICE |
+| DELETE | `/devices/me` | Forget this install: revoke the device, publish `identity.device.forgotten` (catalog drops its favourites). The account, if any, is untouched, but the install's own sessions are revoked — a session bound to a phone nobody should be using any more. | DEVICE |
 | POST | `/devices/me/legal-acceptances` | Record acceptance of a new policy version `{ document, version }`. | DEVICE |
 
 ### 1.2 Authentication — `/auth`
@@ -169,9 +170,9 @@ A new version is never used for an additive change. Within v1: fields are added,
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
 | POST | `/auth/register` | `{ email, password, fullName?, preferredLocale, termsVersion }`. An address reserved by a live revert token answers `409 EMAIL_TAKEN`. Creates I-1 with role `USER`, a `TERMS_OF_SERVICE` acceptance, and sends an `EMAIL_VERIFICATION` token. **If the request carries a device token, the device is claimed** in the same transaction. Signs the user in (same response as login). An email already registered answers `409 EMAIL_TAKEN` — acceptable enumeration on register, because the alternative (silent success) strands a real user who mistyped nothing. | PUBLIC / DEVICE |
-| POST | `/auth/login` | `{ email, password }`. Wrong email and wrong password are **indistinguishable** — same `401 INVALID_CREDENTIALS`, same timing (a dummy argon2 verify runs for an unknown email). Locked → `403 ACCOUNT_LOCKED`. On success: creates a session family (I-3), claims the calling device if any, sets cookies or returns tokens per §0.3, and returns `{ user }`. | PUBLIC / DEVICE |
-| POST | `/auth/refresh` | Rotate. Unknown hash → `401`. **Hash found with `rotated_at` set → replay: revoke the whole `family_id`, write `REFRESH_TOKEN_REPLAY_DETECTED`, `401`.** Otherwise mark spent, insert the successor with the same `family_id`, return new tokens. | PUBLIC (refresh token) |
-| POST | `/auth/logout` ✎ | Revoke the current family. | USER |
+| POST | `/auth/login` | `{ email, password }`. Wrong email and wrong password are **indistinguishable** — same `401 INVALID_CREDENTIALS`, same timing (a dummy argon2 verify runs for an unknown email). Locked → `403 ACCOUNT_LOCKED`. On success: creates a session family (I-3), claims the calling device if any — **a device claimed by another account moves to this one**, and the previous account's sessions on it are revoked — sets cookies or returns tokens per §0.3, and returns `{ user }`. | PUBLIC / DEVICE |
+| POST | `/auth/refresh` | Rotate. Unknown hash → `401`. **Hash found with `rotated_at` set → replay: revoke the whole `family_id`, write `REFRESH_TOKEN_REPLAY_DETECTED`, `401`.** **For a `console` or `web` session, a hash rotated less than `REFRESH_RACE_GRACE_MS` (10 s) ago is a lost race, not a replay** — two tabs sharing one cookie jar refreshed together — and answers `409 INVALID_STATE` (`details.status: "ROTATED"`) without revoking anything; the client retries once with the cookie it now holds, and the gateway leaves the cookies alone (a `401` clears them). A `mobile` session keeps strict rotation: its app refreshes single-flight, so any rotated hash is a replay. Otherwise mark spent, insert the successor with the same `family_id` and the **same `expires_at`** (rotation never extends a session), and return new tokens. A locked, deactivated or erased account's family is revoked and the answer is `401`. `console`/`web` send the `wf_rt` cookie; `mobile` sends `{ refreshToken }`. | PUBLIC (refresh token) |
+| POST | `/auth/logout` ✎ | Revoke the current family — identified by the access token's `sid`, or, when the access token has expired, by the refresh token (the `wf_rt` cookie, or `{ refreshToken }` from `mobile`). Always clears the caller's cookies, even on an error: a client asking to be signed out is signed out locally. | USER / PUBLIC (refresh token) |
 | POST | `/auth/logout/all` ✎ | Revoke every family and bump `tokens_valid_after`. | USER |
 | POST | `/auth/password/forgot` | `{ email }`. Issues a `PASSWORD_RESET` token (1 h) when the account exists. **Always `202`.** | PUBLIC |
 | GET | `/auth/password/reset/:token` | Validate before rendering the form → `{ valid: true, emailMasked }`, or `410`. | PUBLIC |
@@ -184,7 +185,7 @@ A new version is never used for an additive change. Within v1: fields are added,
 | POST | `/auth/email/change/revert` ✎ | `{ token }` — the "this wasn't me" link. In one transaction: restores the old address, revokes every session, bumps `tokens_valid_after`, invalidates outstanding `EMAIL_CHANGE` tokens, and issues a `PASSWORD_RESET` to the restored address — the password is treated as compromised. `410` if spent or expired. Raises the same alert as `REFRESH_TOKEN_REPLAY_DETECTED` ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)). | PUBLIC |
 | POST | `/auth/devices/claim` ✎ | Claim the calling device for the signed-in account when the device was registered after login. Idempotent. | USER + DEVICE |
 
-*Audit actions:* `USER_REGISTERED`, `USER_LOGIN`, `USER_LOGIN_FAILED`, `USER_LOGOUT_ALL`, `REFRESH_TOKEN_REPLAY_DETECTED` (alerts), `PASSWORD_RESET_REQUESTED`, `PASSWORD_RESET_COMPLETED`, `PASSWORD_CHANGED`, `EMAIL_VERIFIED`, `EMAIL_CHANGED`, `DEVICE_CLAIMED`, `EMAIL_CHANGE_REVERTED` (alerts).
+*Audit actions:* `USER_REGISTERED`, `USER_LOGIN`, `USER_LOGIN_FAILED`, `USER_LOGOUT`, `USER_LOGOUT_ALL`, `REFRESH_TOKEN_REPLAY_DETECTED` (alerts), `PASSWORD_RESET_REQUESTED`, `PASSWORD_RESET_COMPLETED`, `PASSWORD_CHANGED`, `EMAIL_VERIFIED`, `EMAIL_CHANGED`, `DEVICE_CLAIMED`, `EMAIL_CHANGE_REVERTED` (alerts).
 
 ### 1.3 Own account — `/users/me`
 
@@ -193,7 +194,7 @@ A new version is never used for an additive change. Within v1: fields are added,
 | GET | `/users/me` | Bootstrap: `{ user, roles[], permissions[], ownerVerified, owner?: { billingSummary, pendingRegistration } }`. The console's first call. | USER |
 | PATCH | `/users/me` | `{ fullName?, preferredLocale? }`. Nothing else — email has its own flow, and roles are never self-service. | USER |
 | DELETE | `/users/me` ✎ | **Erasure** (rdm-spec I-1, [ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)). Body `{ currentPassword, confirm: "DELETE" }`. Irreversible. Purchases survive **anonymised**; unredeemed vouchers are neither voided nor waited for — the client first warns *"Your N unused vouchers stay on this phone until they expire and can't be moved after deletion."* **Refused `409 BUYER_HAS_PENDING_ORDER`** while a checkout is open (at most 30 minutes), **`409 EMAIL_CHANGE_REVERT_PENDING`** while a revert link is live, and **`409 OWNER_HAS_ACTIVE_OBLIGATIONS`** for an owner with an active paid subscription, unredeemed vouchers sold, or an open dispute — those must be wound down first, because erasing the counterparty to a live financial obligation leaves nobody to pay or refund. | USER |
-| GET | `/users/me/legal-acceptances` | Current accepted versions, so the client knows when to re-prompt. | USER |
+| GET | `/users/me/legal-acceptances` | Newest acceptance per `(party, document)` — the account's, plus the calling device's when there is one, each marked `party: USER \| DEVICE` — each with `current: boolean` against `LEGAL_DOCUMENT_VERSIONS`, so the client knows when to re-prompt. | USER |
 | POST | `/users/me/legal-acceptances` | `{ document, version }`. | USER |
 
 *Audit actions:* `USER_ERASED`.
@@ -727,6 +728,7 @@ Subject form: `<publisher>.<aggregate>.<past-tense-verb>`.
 | `identity.user.deactivated` | identity | `userId, refundUnredeemedVouchers` | billing → revoke venue-staff memberships the user holds. **If the user is a seller, wind down:** pause every offer, expire open voucher Checkout Sessions, refund and void every remaining `ISSUED` voucher (refund reason `VENUE_UNAVAILABLE`, `reverse_transfer: true`) and publish `billing.voucher.refunded` per order, so identity emails each buyer who still has an account (`VOUCHER_REFUNDED` template), revoke every membership of the seller. Vouchers found despite the admin's check — a sale racing the deactivation — are wound down the same way. |
 | `identity.owner.verified` | identity | `userId` | billing → create B-3 on `FREE`, publish initial entitlements |
 | `identity.user.locked` | identity | `userId` | gateway → drop the user's sockets |
+| `identity.session.revoked` | identity | `userId, familyIds[] \| null, tokensValidAfter?, reason` — `null` families means every one | identity → write the Redis cutoff (only ever raised) and the revoked-family markers the gateway reads (§0.1) |
 | `catalog.place.content_changed` | catalog | `placeId, contentHash, langs[], trigger` | narration → create/supersede a `PLACE` job |
 | `catalog.menu.content_changed` | catalog | `placeId, menuItemIds[], langs[]` | narration → text-only `MENU_ITEM` jobs |
 | `catalog.tour.content_changed` | catalog | `tourId, contentHash, langs[]` | narration → text-only `TOUR` job |
@@ -827,6 +829,7 @@ gRPC packages are `wayfare.<service>`, protos in `packages/contracts/proto/wayfa
 | RPC | Caller | Why synchronous | If it fails |
 | :---- | :---- | :---- | :---- |
 | `identity.UserService.BatchGetUsers(ids)` | catalog, billing, narration (admin views) | display names for review screens | show ids; never block the screen |
+| `identity.AuthService.GetTokenCutoff(userId)` | gateway (on a revocation-cache miss, §0.1) | a revoked token must never pass on a stale answer | **`503` on account routes**; public routes are unaffected |
 | `identity.OwnerService.GetOwnerVerification(userId)` | catalog (accept `owner_user_id`), billing (open account) | a write must not reference an unverified owner | **refuse the write** (`503`) |
 | `catalog.PlaceService.BatchGetPlaceSummaries(ids)` | billing (boosts, offers), analytics (dashboard names) | validate kind, owner and status before a money-related write | refuse the write; dashboards show ids |
 | `catalog.PlaceService.GetLocalizationSource(targetType, targetId)` | narration | the job must translate the text *as it is now*, not as an event described it | task retries with backoff |

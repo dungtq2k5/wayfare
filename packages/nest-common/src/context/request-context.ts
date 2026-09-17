@@ -24,9 +24,12 @@ export interface DeviceContext {
 export interface AccountContext {
   readonly kind: 'account';
   readonly userId: string;
+  /** The session family the access token belongs to. */
+  readonly sessionId: string;
   readonly deviceId: string | null;
   readonly permissions: readonly string[];
   readonly ownerVerified: boolean;
+  readonly emailVerified: boolean;
   readonly origin: RequestOrigin;
 }
 
@@ -35,6 +38,18 @@ export interface AccountContext {
  * A discriminated union: narrow with the type guards, never cast (conventions §4.1).
  */
 export type RequestContext = AnonymousContext | DeviceContext | AccountContext;
+
+/** True when the caller is a device (not an account carrying one). */
+export function isDeviceContext(context: RequestContext): context is DeviceContext {
+  return context.kind === 'device';
+}
+
+/** The caller's device id, from a device context or an account token that carries one. */
+export function deviceIdOf(context: RequestContext): string | null {
+  if (context.kind === 'device') return context.deviceId;
+  if (context.kind === 'account') return context.deviceId;
+  return null;
+}
 
 /** True when the caller is an account. */
 export function isAccountContext(context: RequestContext): context is AccountContext {

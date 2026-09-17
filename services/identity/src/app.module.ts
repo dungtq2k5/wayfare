@@ -1,64 +1,82 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
-import { createLoggerModule, NatsClient, OpsModule } from '@wayfare/nest-common';
-import { AppConfig } from './config/env.schema';
+import { ConfigService } from '@nestjs/config';
+import {
+  createConfigModule,
+  createLoggerModuleAsync,
+  NatsClient,
+  OpsModule,
+} from '@wayfare/nest-common';
+import { envSchema } from './config/env.schema';
+import type { IdentityConfig } from './config/env.schema';
+import { AccessModule } from './modules/access/access.module';
 import { AuditConsumer } from './modules/audit/audit.consumer';
 import { AuditModule } from './modules/audit/audit.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { DevicesModule } from './modules/devices/devices.module';
+import { LegalModule } from './modules/legal/legal.module';
 import { CONSUMERS, EventSpine, OutboxModule } from './modules/outbox/outbox.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
-
-/** Makes the parsed configuration injectable everywhere. */
-@Module({})
-class ConfigModule {
-  static forRoot(config: AppConfig): DynamicModule {
-    return {
-      module: ConfigModule,
-      global: true,
-      providers: [{ provide: AppConfig, useValue: config }],
-      exports: [AppConfig],
-    };
-  }
-}
+import { RedisLifecycle, RedisModule } from './modules/redis/redis.module';
+import { RevocationConsumer } from './modules/revocation/revocation.consumer';
+import { RevocationModule } from './modules/revocation/revocation.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
+import { SystemCatalogModule } from './modules/system-catalog/system-catalog.module';
+import { TokensModule } from './modules/tokens/tokens.module';
+import { UsersModule } from './modules/users/users.module';
 
 /** identity's root module — a hybrid app: gRPC plus HTTP ops routes (api-endpoints-plan §13). */
 @Module({})
 export class AppModule {
-  static forRoot(config: AppConfig): DynamicModule {
+  /** `env` is for tests only: validate exactly that object, ignoring `.env` and `process.env`. */
+  static forRoot(
+    options: { env?: Readonly<Record<string, string | undefined>> } = {},
+  ): DynamicModule {
     return {
       module: AppModule,
       imports: [
-        ConfigModule.forRoot(config),
-        createLoggerModule({ level: config.LOG_LEVEL }),
+        createConfigModule('identity', envSchema, { source: options.env }),
+        createLoggerModuleAsync(),
         PrismaModule,
+        RedisModule,
         OutboxModule,
         AuditModule,
+        SystemCatalogModule,
+        TokensModule,
+        AccessModule,
+        LegalModule,
+        SessionsModule,
         DevicesModule,
-        OpsModule.forRoot({
+        AuthModule,
+        UsersModule,
+        RevocationModule,
+        OpsModule.forRootAsync({
           grpcHealth: true,
-          version: {
-            service: 'identity',
-            version: config.APP_VERSION,
-            gitSha: config.GIT_SHA,
-            builtAt: config.BUILT_AT,
-          },
-          // Readiness: this service's own dependencies — its database and NATS (api-endpoints-plan §13).
-          checks: {
-            inject: [PrismaService, NatsClient],
-            useFactory: (prisma: PrismaService, nats: NatsClient) => [
-              prisma.readinessCheck(),
-              nats.readinessCheck(),
-            ],
-          },
+          // Readiness: this service's own dependencies — database, NATS, Redis (api-endpoints-plan §13).
+          inject: [ConfigService, PrismaService, NatsClient, RedisLifecycle],
+          useFactory: (
+            config: IdentityConfig,
+            prisma: PrismaService,
+            nats: NatsClient,
+            redis: RedisLifecycle,
+          ) => ({
+            version: {
+              service: 'identity',
+              version: config.get('APP_VERSION', { infer: true }),
+              gitSha: config.get('GIT_SHA', { infer: true }),
+              builtAt: config.get('BUILT_AT', { infer: true }),
+            },
+            checks: [prisma.readinessCheck(), nats.readinessCheck(), redis.readinessCheck()],
+          }),
         }),
       ],
       providers: [
         EventSpine,
         {
           provide: CONSUMERS,
-          inject: [AuditConsumer],
-          useFactory: (audit: AuditConsumer) => [audit],
+          inject: [AuditConsumer, RevocationConsumer],
+          useFactory: (audit: AuditConsumer, revocation: RevocationConsumer) => [audit, revocation],
         },
       ],
     };

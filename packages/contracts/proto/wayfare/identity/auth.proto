@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+// Accounts and sessions — api-endpoints-plan §1.2, rdm-spec I-1, I-3.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+
+// How a session was opened; decides the token transport (rdm-spec I-3).
+enum SessionClient {
+  SESSION_CLIENT_UNSPECIFIED = 0;
+  SESSION_CLIENT_CONSOLE = 1;
+  SESSION_CLIENT_WEB = 2;
+  SESSION_CLIENT_MOBILE = 3;
+}
+
+// Signs people in and out. The caller (and any device) travels as metadata.
+service AuthService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Refresh(RefreshRequest) returns (RefreshResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc LogoutAll(LogoutAllRequest) returns (LogoutAllResponse);
+  rpc ClaimDevice(ClaimDeviceRequest) returns (ClaimDeviceResponse);
+  // Internal, called by the gateway only (api-endpoints-plan §12.2).
+  rpc GetTokenCutoff(GetTokenCutoffRequest) returns (GetTokenCutoffResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+  // Secret: never logged.
+  string password = 2;
+  optional string full_name = 3;
+  string preferred_locale = 4;
+  string terms_version = 5;
+  SessionClient client = 6;
+}
+
+message LoginRequest {
+  string email = 1;
+  // Secret: never logged.
+  string password = 2;
+  SessionClient client = 3;
+}
+
+message RefreshRequest {
+  // Secret: never logged.
+  string refresh_token = 1;
+  SessionClient client = 2;
+}
+
+message LogoutRequest {
+  // Used only when the caller has no valid access token. Secret: never logged.
+  optional string refresh_token = 1;
+}
+
+message LogoutAllRequest {}
+
+message LogoutResponse {}
+
+message LogoutAllResponse {}
+
+message ClaimDeviceRequest {}
+
+message ClaimDeviceResponse {}
+
+message GetTokenCutoffRequest {
+  string user_id = 1;
+}
+
+message GetTokenCutoffResponse {
+  // Milliseconds since the epoch; absent when the user has no cutoff.
+  optional int64 tokens_valid_after_ms = 1;
+}
+
+// The signed-in person, as every session response carries it.
+message SessionUser {
+  string id = 1;
+  string email = 2;
+  optional string full_name = 3;
+  string preferred_locale = 4;
+  bool is_email_verified = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message RegisterResponse {
+  Session session = 1;
+}
+
+message LoginResponse {
+  Session session = 1;
+}
+
+message RefreshResponse {
+  Session session = 1;
+}
+
+// A freshly opened or rotated session.
+message Session {
+  SessionUser user = 1;
+  string access_token = 2;
+  google.protobuf.Timestamp access_expires_at = 3;
+  // Secret: never logged.
+  string refresh_token = 4;
+  google.protobuf.Timestamp refresh_expires_at = 5;
+}

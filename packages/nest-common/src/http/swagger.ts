@@ -3,6 +3,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
+import { ACCESS_COOKIE, REFRESH_COOKIE } from './session-cookies';
+import { applyWayfareOpenApi, AUTH_SCHEMES } from './openapi-post-pass';
 
 /** Where Swagger UI and the OpenAPI JSON Orval reads are mounted (api-endpoints-plan §13). */
 export const SWAGGER_PATH = 'docs';
@@ -50,8 +52,29 @@ export function setupSwagger(app: INestApplication, options: SwaggerOptions): vo
   const config = new DocumentBuilder()
     .setTitle(options.title)
     .setVersion(options.version)
-    .addBearerAuth()
-    .addCookieAuth('wf_at')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Device access token' },
+      AUTH_SCHEMES.deviceBearer,
+    )
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Account access token (mobile)',
+      },
+      AUTH_SCHEMES.accountBearer,
+    )
+    .addCookieAuth(
+      ACCESS_COOKIE,
+      { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE },
+      AUTH_SCHEMES.accessCookie,
+    )
+    .addCookieAuth(
+      REFRESH_COOKIE,
+      { type: 'apiKey', in: 'cookie', name: REFRESH_COOKIE },
+      AUTH_SCHEMES.refreshCookie,
+    )
     .addGlobalParameters({
       name: 'X-Wayfare-Client',
       in: 'header',
@@ -59,6 +82,12 @@ export function setupSwagger(app: INestApplication, options: SwaggerOptions): vo
       schema: { type: 'string', enum: ['console', 'web', 'mobile'] },
     })
     .build();
-  const document = cleanupOpenApiDoc(SwaggerModule.createDocument(app, config));
-  SwaggerModule.setup(SWAGGER_PATH, app, document, { jsonDocumentUrl: `${SWAGGER_PATH}-json` });
+  const document = applyWayfareOpenApi(
+    cleanupOpenApiDoc(SwaggerModule.createDocument(app, config)),
+  );
+  SwaggerModule.setup(SWAGGER_PATH, app, document, {
+    jsonDocumentUrl: `${SWAGGER_PATH}-json`,
+    // "Try it out" sends the console cookies, and keeps a pasted bearer across reloads.
+    swaggerOptions: { withCredentials: true, persistAuthorization: true },
+  });
 }

@@ -5,6 +5,7 @@
 
 ARG NODE_VERSION=24.14.0
 
+# Alpine (musl) is fine for argon2: its package ships musl prebuilds for x64 and arm64, so no build tools.
 FROM node:${NODE_VERSION}-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH

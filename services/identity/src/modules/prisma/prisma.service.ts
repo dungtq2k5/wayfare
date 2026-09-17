@@ -3,7 +3,8 @@ import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import type { ReadinessCheck } from '@wayfare/nest-common';
 import { PrismaClient } from '../../../generated/prisma/client';
-import { AppConfig } from '../../config/env.schema';
+import { ConfigService } from '@nestjs/config';
+import type { Env } from '../../config/env.schema';
 
 /**
  * identity's Prisma client over the `pg` driver adapter (ADR 0014). Registered as a class so Nest
@@ -11,8 +12,10 @@ import { AppConfig } from '../../config/env.schema';
  */
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  constructor(config: AppConfig) {
-    super({ adapter: new PrismaPg({ connectionString: config.DATABASE_URL }) });
+  constructor(config: ConfigService<Env, true>) {
+    super({
+      adapter: new PrismaPg({ connectionString: config.get('DATABASE_URL', { infer: true }) }),
+    });
   }
 
   async onModuleInit(): Promise<void> {

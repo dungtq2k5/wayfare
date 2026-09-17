@@ -10,16 +10,22 @@ import { GRPC_LOADER_OPTIONS, packCallerContext, protoPaths } from '@wayfare/nes
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/modules/prisma/prisma.service';
-import { testConfig, truncateAll } from '../setup/database';
+import { snapshotProcessEnv } from '@wayfare/nest-common/testing';
+import { testConfig, testEnv, truncateAll } from '../setup/database';
 
 /**
  * identity's gRPC server in-process, driven by a plain @grpc/grpc-js client loading the protos
  * the way any peer does — this catches a proto regenerated on one side only, and trailing
  * metadata lost inside Nest's exception handling.
  */
+const env = testEnv({ GRPC_URL: '127.0.0.1:50161' });
 const config = testConfig({ GRPC_URL: '127.0.0.1:50161' });
+// The config module writes validated values back into process.env; restored when the suite ends.
+const restoreEnv = snapshotProcessEnv();
 let app: INestApplication;
 let deviceClient: InstanceType<ServiceClientConstructor>;
+let authClient: InstanceType<ServiceClientConstructor>;
+let userClient: InstanceType<ServiceClientConstructor>;
 let healthClient: InstanceType<ServiceClientConstructor>;
 
 function unary<T>(
@@ -42,7 +48,7 @@ function unary<T>(
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    imports: [AppModule.forRoot(config)],
+    imports: [AppModule.forRoot({ env })],
   }).compile();
   app = moduleRef.createNestApplication({ logger: false });
   app.connectMicroservice<MicroserviceOptions>({
@@ -50,7 +56,7 @@ beforeAll(async () => {
     options: {
       package: [GRPC_PACKAGES.identity, GRPC_PACKAGES.health],
       protoPath: protoPaths('identity', 'health'),
-      url: config.GRPC_URL,
+      url: config.get('GRPC_URL', { infer: true }),
       loader: GRPC_LOADER_OPTIONS,
     },
   });
@@ -63,19 +69,30 @@ beforeAll(async () => {
   const identity = (loaded.wayfare as GrpcObject).identity as GrpcObject;
   const health = ((loaded.grpc as GrpcObject).health as GrpcObject).v1 as GrpcObject;
   deviceClient = new (identity.DeviceService as ServiceClientConstructor)(
-    config.GRPC_URL,
+    config.get('GRPC_URL', { infer: true }),
+    credentials.createInsecure(),
+  );
+  authClient = new (identity.AuthService as ServiceClientConstructor)(
+    config.get('GRPC_URL', { infer: true }),
+    credentials.createInsecure(),
+  );
+  userClient = new (identity.UserService as ServiceClientConstructor)(
+    config.get('GRPC_URL', { infer: true }),
     credentials.createInsecure(),
   );
   healthClient = new (health.Health as ServiceClientConstructor)(
-    config.GRPC_URL,
+    config.get('GRPC_URL', { infer: true }),
     credentials.createInsecure(),
   );
 });
 
 afterAll(async () => {
   deviceClient.close();
+  authClient.close();
+  userClient.close();
   healthClient.close();
   await app.close();
+  restoreEnv();
 });
 
 beforeEach(() => truncateAll(app.get(PrismaService)));
@@ -126,6 +143,109 @@ describe('wayfare.identity.DeviceService', () => {
       privacyPolicyVersion: '2026-09-01',
     }).catch((e: unknown) => e as ServiceError);
     expect((error as ServiceError).code).toBe(status.UNKNOWN);
+  });
+});
+
+interface WireSession {
+  session: {
+    user: { id: string; email: string; createdAt: { seconds: string; nanos: number } };
+    accessToken: string;
+    refreshToken: string;
+    accessExpiresAt: { seconds: string };
+  };
+}
+
+describe('wayfare.identity device, auth and user RPCs', () => {
+  it('RegisterDevice also returns a device token and its lifetime', async () => {
+    const response = await unary<{
+      accessToken: string;
+      expiresIn: number;
+      deviceSecret: string;
+      deviceId: string;
+    }>(
+      deviceClient,
+      'registerDevice',
+      { platform: 1, appVersion: '1.0.0', contentLocale: 'en', privacyPolicyVersion: '2026-09-01' },
+      caller(),
+    );
+    expect(response.accessToken.split('.')).toHaveLength(3);
+    expect(response.expiresIn).toBe(900);
+    const exchanged = await unary<{ accessToken: string }>(
+      deviceClient,
+      'exchangeDeviceToken',
+      { deviceId: response.deviceId, deviceSecret: response.deviceSecret },
+      caller(),
+    );
+    expect(exchanged.accessToken.split('.')).toHaveLength(3);
+  });
+
+  it('Register and Login carry the secret fields, the SessionClient enum and int64 timestamps', async () => {
+    const email = `contract-${Date.now()}@example.com`;
+    const registered = await unary<WireSession>(
+      authClient,
+      'register',
+      {
+        email,
+        password: 'correct horse battery',
+        preferredLocale: 'en',
+        termsVersion: '2026-09-01',
+        client: 1,
+      },
+      caller(),
+    );
+    expect(registered.session.user.email).toBe(email);
+    expect(typeof registered.session.accessExpiresAt.seconds).toBe('string'); // int64 as a string
+    const loggedIn = await unary<WireSession>(
+      authClient,
+      'login',
+      { email, password: 'correct horse battery', client: 3 },
+      caller(),
+    );
+    expect(loggedIn.session.refreshToken).toHaveLength(43);
+    const session = await app
+      .get(PrismaService)
+      .session.findFirstOrThrow({ where: { client: 'MOBILE' } });
+    expect(session.userId).toBe(registered.session.user.id);
+
+    const cutoff = await unary<{ tokensValidAfterMs?: string }>(
+      authClient,
+      'getTokenCutoff',
+      { userId: registered.session.user.id },
+      caller(),
+    );
+    expect(cutoff.tokensValidAfterMs).toBeUndefined();
+
+    const me = await unary<{ roles: string[]; ownerVerified: boolean }>(
+      userClient,
+      'getMe',
+      {},
+      packCallerContext({
+        kind: 'account',
+        userId: registered.session.user.id,
+        sessionId: registered.session.user.id,
+        deviceId: null,
+        permissions: [],
+        ownerVerified: false,
+        emailVerified: false,
+        origin: { ip: null, userAgent: null },
+      }),
+    );
+    expect(me).toEqual({
+      user: expect.any(Object) as unknown,
+      roles: ['USER'],
+      permissions: [],
+      ownerVerified: false,
+    });
+  });
+
+  it('refuses an unspecified SessionClient', async () => {
+    const error = await unary(
+      authClient,
+      'login',
+      { email: 'a@b.co', password: 'x', client: 0 },
+      caller(),
+    ).catch((e: unknown) => e as ServiceError);
+    expect((error as ServiceError).metadata.get('wf-error-details')[0]).toContain('/client');
   });
 });
 

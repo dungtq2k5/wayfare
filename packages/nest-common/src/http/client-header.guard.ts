@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { createParamDecorator, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { CLIENT_HEADER, isWayfareClient } from '@wayfare/contracts';
-import type { Request } from 'express';
+import type { WayfareClient } from '@wayfare/contracts';
 import { AppHttpException } from './app-http.exception';
+import { requestOf } from './request-of';
 import { SKIP_CLIENT_HEADER } from './skip-client-header.decorator';
 
 /**
@@ -21,10 +22,19 @@ export class ClientHeaderGuard implements CanActivate {
       context.getClass(),
     ]);
     if (skip) return true;
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = requestOf(context);
     if (!isWayfareClient(request.header(CLIENT_HEADER))) {
       throw new AppHttpException('CLIENT_HEADER_REQUIRED');
     }
     return true;
   }
 }
+
+/** Injects the request's `X-Wayfare-Client` value, which `ClientHeaderGuard` has already checked. */
+export const ClientKind = createParamDecorator(
+  (_data: unknown, host: ExecutionContext): WayfareClient => {
+    const value = requestOf(host).header(CLIENT_HEADER);
+    if (!isWayfareClient(value)) throw new AppHttpException('CLIENT_HEADER_REQUIRED');
+    return value;
+  },
+);

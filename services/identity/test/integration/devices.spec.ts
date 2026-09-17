@@ -1,12 +1,12 @@
 import { AUDIT_RECORD } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
-import { hashToken, OutboxService } from '@wayfare/nest-common';
+import { hashToken } from '@wayfare/nest-common';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { DevicesService } from '../../src/modules/devices/devices.service';
 import { testPrisma, truncateAll } from '../setup/database';
+import { identityServices } from '../setup/services';
 
 const prisma = testPrisma();
-const devices = new DevicesService(prisma, new OutboxService());
+const { devices } = identityServices(prisma);
 const context = { kind: 'anonymous', origin: { ip: '203.0.113.9', userAgent: 'it/1.0' } } as const;
 const request = {
   platform: identityGrpc.Platform.PLATFORM_IOS,
@@ -32,7 +32,7 @@ describe('registerDevice against the test database', () => {
     });
     expect(device.updatedAt).toBeInstanceOf(Date);
 
-    const [event] = await prisma.outboxEvent.findMany();
+    const [event] = await prisma.outboxEvent.findMany({ where: { subject: AUDIT_RECORD.subject } });
     expect(event).toMatchObject({
       subject: AUDIT_RECORD.subject,
       aggregateId: deviceId,
@@ -43,10 +43,12 @@ describe('registerDevice against the test database', () => {
   });
 
   it('rolls the device back when the outbox write fails', async () => {
-    const failing = new DevicesService(prisma, {
+    const failing = identityServices(prisma, {
       add: () => Promise.reject(new Error('outbox refused')),
     });
-    await expect(failing.registerDevice(request, context)).rejects.toThrow('outbox refused');
+    await expect(failing.devices.registerDevice(request, context)).rejects.toThrow(
+      'outbox refused',
+    );
     expect(await prisma.device.count()).toBe(0);
   });
 });

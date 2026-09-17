@@ -3,7 +3,7 @@ import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/com
 import type { Reflector } from '@nestjs/core';
 import { map } from 'rxjs';
 import type { Observable } from 'rxjs';
-import { Paged } from './paged';
+import { WithMeta } from './paged';
 import { SKIP_ENVELOPE } from './skip-envelope.decorator';
 
 /** The success envelope: `{ data }`, plus `meta` when there is something to say. */
@@ -11,7 +11,7 @@ export type Envelope = { data: unknown; meta?: Record<string, unknown> };
 
 /**
  * Wraps every successful HTTP response as `{ data, meta? }` (conventions §5.1).
- * Handlers return raw data or a `Paged`; returning `{ data }` yourself double-wraps.
+ * Handlers return raw data, a `Paged` or a `WithMeta`; returning `{ data }` yourself double-wraps.
  * Routes marked `@SkipEnvelope()` — the ops routes — are served unwrapped.
  * Registered FIRST so it runs LAST on the way out — after response validation.
  */
@@ -31,6 +31,6 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
 
 function wrap(value: unknown): unknown {
   if (value instanceof StreamableFile) return value;
-  if (value instanceof Paged) return { data: value.items, meta: value.meta } satisfies Envelope;
+  if (value instanceof WithMeta) return { data: value.data, meta: value.meta } satisfies Envelope;
   return { data: value ?? null } satisfies Envelope;
 }

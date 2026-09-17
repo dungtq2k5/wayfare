@@ -1,53 +1,11 @@
-import { Metadata, status } from '@grpc/grpc-js';
-import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Test } from '@nestjs/testing';
-import { compareStrings } from '@wayfare/contracts';
+import { status } from '@grpc/grpc-js';
+import { compareStrings, newId } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
-import type { RequestContext } from '@wayfare/nest-common';
+import { toProtoTimestamp } from '@wayfare/nest-common';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AppModule } from '../../src/app.module';
-import { loadConfig } from '../../src/config/env.schema';
-import { configureApp } from '../../src/configure-app';
-import { IdentityServiceGrpcClient } from '../../src/modules/devices/identity-service-grpc.client';
-import { REDIS } from '../../src/modules/ops/redis.module';
-
-const config = loadConfig({
-  NODE_ENV: 'test',
-  LOG_LEVEL: 'fatal',
-  PORT: '3999', // never listened on: supertest drives the server directly
-  GLOBAL_PREFIX: 'api',
-  CORS_ORIGINS: 'http://localhost:5173',
-  TRUST_PROXY_HOPS: '1',
-  SWAGGER_ENABLED: 'true',
-  IDENTITY_GRPC_URL: 'localhost:1',
-  REDIS_URL: 'redis://localhost:1',
-  METRICS_PORT: '1',
-});
-
-/** identity, stubbed (conventions §17.1: gRPC peers are stubbed in the gateway e2e suite). */
-class IdentityStub {
-  calls: { request: identityGrpc.RegisterDeviceRequest; context: RequestContext }[] = [];
-  next: () => Promise<identityGrpc.RegisterDeviceResponse> = () =>
-    Promise.resolve({ deviceId: '01a0aa49-c07f-715b-bbe1-35ea926e0980', deviceSecret: 's3cret' });
-
-  registerDevice(requestBody: identityGrpc.RegisterDeviceRequest, context: RequestContext) {
-    this.calls.push({ request: requestBody, context });
-    return this.next();
-  }
-}
-
-const redis = {
-  healthy: true,
-  ping: () => (redis.healthy ? Promise.resolve('PONG') : Promise.reject(new Error('down'))),
-  quit: () => Promise.resolve('OK'),
-};
-
-function serviceError(code: status, entries: Record<string, string> = {}): Error {
-  const metadata = new Metadata();
-  for (const [key, value] of Object.entries(entries)) metadata.set(key, value);
-  return Object.assign(new Error('grpc'), { code, details: 'x', metadata });
-}
+import { accountToken, bootGateway, deviceToken, serviceError } from '../support/app';
+import type { E2eApp } from '../support/app';
 
 const body = {
   platform: 'ANDROID',
@@ -56,33 +14,30 @@ const body = {
   privacyPolicyVersion: '2026-09-01',
 };
 
-let app: NestExpressApplication;
-const identity = new IdentityStub();
+let gateway: E2eApp;
+const server = () => gateway.app.getHttpServer();
 
 beforeAll(async () => {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] })
-    .overrideProvider(IdentityServiceGrpcClient)
-    .useValue(identity)
-    .overrideProvider(REDIS)
-    .useValue(redis)
-    .compile();
-  app = moduleRef.createNestApplication<NestExpressApplication>({ rawBody: true, logger: false });
-  configureApp(app, config);
-  await app.init();
+  gateway = await bootGateway();
 });
 
-afterAll(async () => {
-  await app.close();
-});
+afterAll(() => gateway.app.close());
 
 beforeEach(() => {
-  identity.calls = [];
-  identity.next = () =>
-    Promise.resolve({ deviceId: '01a0aa49-c07f-715b-bbe1-35ea926e0980', deviceSecret: 's3cret' });
-  redis.healthy = true;
+  gateway.identity.reset();
+  gateway.redis.values.clear();
+  gateway.redis.failure = null;
+  gateway.redis.healthy = true;
+  gateway.identity.devices.handlers.registerDevice = () =>
+    Promise.resolve({
+      deviceId: '01a0aa49-c07f-715b-bbe1-35ea926e0980',
+      deviceSecret: 's3cret',
+      accessToken: 'tok',
+      expiresIn: 900,
+    });
 });
 
-const post = () => request(app.getHttpServer()).post('/api/v1/devices');
+const post = () => request(server()).post('/api/v1/devices');
 
 describe('POST /api/v1/devices', () => {
   it('registers a device: 201, enveloped, never cached', async () => {
@@ -92,9 +47,14 @@ describe('POST /api/v1/devices', () => {
       .send(body);
     expect(res.status).toBe(201);
     expect(res.body).toEqual({
-      data: { deviceId: '01a0aa49-c07f-715b-bbe1-35ea926e0980', deviceSecret: 's3cret' },
+      data: {
+        deviceId: '01a0aa49-c07f-715b-bbe1-35ea926e0980',
+        deviceSecret: 's3cret',
+        accessToken: 'tok',
+        expiresIn: 900,
+      },
     });
-    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['cache-control']).toBe('private, no-store');
   });
 
   it('maps the body to proto and passes the OBSERVED origin, not a claimed one', async () => {
@@ -103,14 +63,15 @@ describe('POST /api/v1/devices', () => {
       .set('User-Agent', 'Wayfare/1.0')
       .set('X-Forwarded-For', '198.51.100.7')
       .send(body);
-    expect(identity.calls[0]?.request).toEqual({
+    const [call] = gateway.identity.devices.calls;
+    expect(call?.request).toEqual({
       platform: identityGrpc.Platform.PLATFORM_ANDROID,
       appVersion: '0.1.0',
       contentLocale: 'en',
       privacyPolicyVersion: '2026-09-01',
     });
     // TRUST_PROXY_HOPS=1: exactly one hop is trusted, so X-Forwarded-For's last entry is the client.
-    expect(identity.calls[0]?.context).toEqual({
+    expect(call?.context).toEqual({
       kind: 'anonymous',
       origin: { ip: '198.51.100.7', userAgent: 'Wayfare/1.0' },
     });
@@ -121,7 +82,7 @@ describe('POST /api/v1/devices', () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('CLIENT_HEADER_REQUIRED');
     expect(res.body.error.requestId).toEqual(expect.any(String));
-    expect(identity.calls).toHaveLength(0);
+    expect(gateway.identity.devices.calls).toHaveLength(0);
   });
 
   it('refuses an unknown client kind', async () => {
@@ -157,7 +118,8 @@ describe('POST /api/v1/devices', () => {
   });
 
   it('answers 503 UPSTREAM_UNAVAILABLE with Retry-After when identity is down', async () => {
-    identity.next = () => Promise.reject(serviceError(status.UNAVAILABLE));
+    gateway.identity.devices.handlers.registerDevice = () =>
+      Promise.reject(serviceError(status.UNAVAILABLE));
     const res = await post().set('X-Wayfare-Client', 'mobile').send(body);
     expect(res.status).toBe(503);
     expect(res.headers['retry-after']).toBe('5');
@@ -165,38 +127,58 @@ describe('POST /api/v1/devices', () => {
   });
 
   it('answers 504 UPSTREAM_TIMEOUT when identity is too slow', async () => {
-    identity.next = () => Promise.reject(serviceError(status.DEADLINE_EXCEEDED));
+    gateway.identity.devices.handlers.registerDevice = () =>
+      Promise.reject(serviceError(status.DEADLINE_EXCEEDED));
     const res = await post().set('X-Wayfare-Client', 'mobile').send(body);
     expect(res.status).toBe(504);
     expect(res.body.error.code).toBe('UPSTREAM_TIMEOUT');
   });
 
   it("passes identity's error code and details through", async () => {
-    identity.next = () =>
+    gateway.identity.devices.handlers.registerDevice = () =>
       Promise.reject(
-        serviceError(status.INVALID_ARGUMENT, {
-          'wf-error-code': 'VALIDATION_FAILED',
-          'wf-error-details': '{"issues":[{"path":"/platform","code":"invalid_value"}]}',
+        serviceError(status.FAILED_PRECONDITION, {
+          'wf-error-code': 'LEGAL_VERSION_OUTDATED',
+          'wf-error-details': '{"document":"PRIVACY_POLICY","currentVersion":"2026-09-01"}',
         }),
       );
     const res = await post().set('X-Wayfare-Client', 'mobile').send(body);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(409);
     expect(res.body.error).toMatchObject({
-      code: 'VALIDATION_FAILED',
-      details: { issues: [{ path: '/platform' }] },
+      code: 'LEGAL_VERSION_OUTDATED',
+      details: { document: 'PRIVACY_POLICY' },
     });
+  });
+
+  it('is limited per IP: the eleventh registration in an hour is 429 with Retry-After', async () => {
+    for (let n = 0; n < 10; n++) {
+      expect(
+        (
+          await post()
+            .set('X-Wayfare-Client', 'mobile')
+            .set('X-Forwarded-For', '198.51.100.8')
+            .send(body)
+        ).status,
+      ).toBe(201);
+    }
+    const res = await post()
+      .set('X-Wayfare-Client', 'mobile')
+      .set('X-Forwarded-For', '198.51.100.8')
+      .send(body);
+    expect(res.status).toBe(429);
+    expect(res.body.error).toMatchObject({
+      code: 'RATE_LIMITED',
+      details: { retryAfterSeconds: 3600 },
+    });
+    expect(res.headers['retry-after']).toBe('3600');
   });
 
   it('never serves an unversioned or v2 path', async () => {
     expect(
-      (
-        await request(app.getHttpServer())
-          .post('/api/devices')
-          .set('X-Wayfare-Client', 'web')
-          .send(body)
-      ).status,
+      (await request(server()).post('/api/devices').set('X-Wayfare-Client', 'web').send(body))
+        .status,
     ).toBe(404);
-    const res = await request(app.getHttpServer())
+    const res = await request(server())
       .post('/api/v2/devices')
       .set('X-Wayfare-Client', 'web')
       .send(body);
@@ -205,68 +187,94 @@ describe('POST /api/v1/devices', () => {
   });
 });
 
-describe('ops routes', () => {
-  it('serves /health and /health/ready unprefixed and version-neutral, without the client header', async () => {
-    // Unwrapped on every service (api-endpoints-plan §13).
-    expect((await request(app.getHttpServer()).get('/health')).body).toEqual({ status: 'ok' });
-    const ready = await request(app.getHttpServer()).get('/health/ready');
-    expect(ready.status).toBe(200);
-    expect(ready.body).toEqual({ ready: true, checks: { redis: { ok: true } } });
+describe('the other device routes', () => {
+  const deviceId = newId();
+
+  it('exchanges a secret: 200, never cached', async () => {
+    gateway.identity.devices.handlers.exchangeDeviceToken = () =>
+      Promise.resolve({ accessToken: 'fresh', expiresIn: 900 });
+    const res = await request(server())
+      .post('/api/v1/devices/token')
+      .set('X-Wayfare-Client', 'mobile')
+      .send({ deviceId, deviceSecret: 's3cret' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ accessToken: 'fresh', expiresIn: 900 });
+    expect(res.headers['cache-control']).toBe('private, no-store');
   });
 
-  it('does NOT serve the ops routes under a version or the prefix', async () => {
-    expect((await request(app.getHttpServer()).get('/v1/health/ready')).status).toBe(404);
-    expect(
-      (
-        await request(app.getHttpServer())
-          .get('/api/v1/health/ready')
-          .set('X-Wayfare-Client', 'web')
-      ).status,
-    ).toBe(404);
+  it('updates the calling device with a device bearer, and refuses anonymous callers', async () => {
+    gateway.identity.devices.handlers.updateDevice = () =>
+      Promise.resolve({ device: { deviceId, appVersion: '1.1.0', contentLocale: 'ja' } });
+    const res = await request(server())
+      .patch('/api/v1/devices/me')
+      .set('X-Wayfare-Client', 'mobile')
+      .set('Authorization', `Bearer ${deviceToken(deviceId)}`)
+      .send({ appVersion: '1.1.0', contentLocale: 'ja' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({
+      deviceId,
+      appVersion: '1.1.0',
+      osVersion: null,
+      contentLocale: 'ja',
+    });
+    expect(gateway.identity.devices.calls[0]?.context).toMatchObject({ kind: 'device', deviceId });
+
+    const anonymous = await request(server())
+      .patch('/api/v1/devices/me')
+      .set('X-Wayfare-Client', 'mobile')
+      .send({});
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body.error.code).toBe('UNAUTHENTICATED');
   });
 
-  it('answers 503 on /health/ready when Redis is down', async () => {
-    redis.healthy = false;
-    const res = await request(app.getHttpServer()).get('/health/ready');
-    expect(res.status).toBe(503);
-    expect(res.body.checks.redis).toEqual({ ok: false, error: 'down' });
+  it('forgets the device: 204 with no body', async () => {
+    gateway.identity.devices.handlers.forgetDevice = () => Promise.resolve({});
+    const res = await request(server())
+      .delete('/api/v1/devices/me')
+      .set('X-Wayfare-Client', 'mobile')
+      .set('Authorization', `Bearer ${deviceToken(deviceId)}`);
+    expect(res.status).toBe(204);
+    expect(res.text).toBe('');
   });
 
-  it('serves /version', async () => {
-    const res = await request(app.getHttpServer()).get('/version');
-    expect(res.body).toMatchObject({ service: 'gateway', version: '0.0.0-dev' });
+  it('records a device acceptance for a signed-in phone', async () => {
+    gateway.identity.users.handlers.recordLegalAcceptance = () =>
+      Promise.resolve({
+        acceptance: {
+          party: identityGrpc.LegalParty.LEGAL_PARTY_DEVICE,
+          document: identityGrpc.LegalDocument.LEGAL_DOCUMENT_PRIVACY_POLICY,
+          version: '2026-09-01',
+          acceptedAt: toProtoTimestamp(new Date('2026-09-17T00:00:00.000Z')),
+          current: true,
+        },
+      });
+    const res = await request(server())
+      .post('/api/v1/devices/me/legal-acceptances')
+      .set('X-Wayfare-Client', 'mobile')
+      .set('Authorization', `Bearer ${accountToken({ deviceId })}`)
+      .send({ document: 'PRIVACY_POLICY', version: '2026-09-01' });
+    expect(res.status).toBe(201);
+    expect(res.body.data).toEqual({
+      party: 'DEVICE',
+      document: 'PRIVACY_POLICY',
+      version: '2026-09-01',
+      acceptedAt: '2026-09-17T00:00:00.000Z',
+    });
+    expect(gateway.identity.users.calls[0]?.request).toEqual({
+      party: identityGrpc.LegalParty.LEGAL_PARTY_DEVICE,
+      document: identityGrpc.LegalDocument.LEGAL_DOCUMENT_PRIVACY_POLICY,
+      version: '2026-09-01',
+    });
   });
 });
 
-describe('edge behaviour', () => {
-  it('keeps the STRICT CSP on API routes and relaxes it for Swagger UI only', async () => {
-    const api = await post().set('X-Wayfare-Client', 'web').send(body);
-    expect(api.headers['content-security-policy']).toContain("script-src 'self';");
-    const docs = await request(app.getHttpServer()).get('/docs/');
-    expect(docs.status).toBe(200);
-    expect(docs.headers['content-security-policy']).toContain("script-src 'self' 'unsafe-inline'");
-  });
-
-  it('publishes the OpenAPI document with the route and its error codes, and no probes', async () => {
-    const res = await request(app.getHttpServer()).get('/docs-json');
-    const operation = res.body.paths['/api/v1/devices'].post;
-    expect(Object.keys(operation.responses).toSorted(compareStrings)).toEqual([
-      '201',
-      '400',
-      '503',
-      '504',
-    ]);
-    expect(res.body.paths['/health']).toBeUndefined();
-  });
-
-  it('allows the client header in a CORS preflight from an allowed origin', async () => {
-    const res = await request(app.getHttpServer())
-      .options('/api/v1/devices')
-      .set('Origin', 'http://localhost:5173')
-      .set('Access-Control-Request-Method', 'POST')
-      .set('Access-Control-Request-Headers', 'x-wayfare-client,content-type');
-    expect(res.status).toBe(204);
-    expect(res.headers['access-control-allow-headers']).toContain('X-Wayfare-Client');
-    expect(res.headers['access-control-allow-credentials']).toBe('true');
+describe('ops routes', () => {
+  it('are public, unwrapped and never rate-limited', async () => {
+    for (let n = 0; n < 130; n++) {
+      const res = await request(server()).get('/health').set('X-Forwarded-For', '198.51.100.9');
+      expect(res.status).toBe(200);
+    }
+    const keys = [...gateway.redis.values.keys()].toSorted(compareStrings);
+    expect(keys).toEqual([]);
   });
 });

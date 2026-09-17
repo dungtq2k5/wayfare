@@ -1,16 +1,20 @@
 import { VersioningType } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { APP_VERSION_HEADER } from '@wayfare/contracts';
 import {
+  createRequestContextMiddleware,
   ErrorFilter,
-  requestContextMiddleware,
+  isProductionEnv,
   ResponseEnvelopeInterceptor,
   ResponseValidationInterceptor,
   securityHeaders,
   setupSwagger,
 } from '@wayfare/nest-common';
 import { ZodValidationPipe } from 'nestjs-zod';
-import type { AppConfig } from './config/env.schema';
+import type { Env as GatewayEnv, GatewayConfig } from './config/env.schema';
+import { IdentityService } from './modules/identity/identity.service';
+import { REDIS } from './modules/ops/redis.module';
 
 /** Routes outside the global prefix: probes and, later, the printed QR URL (ADR 0057). */
 export const UNPREFIXED_ROUTES = ['health', 'health/ready', 'version'];
@@ -19,26 +23,42 @@ export const UNPREFIXED_ROUTES = ['health', 'health/ready', 'version'];
  * The HTTP pipeline, in order. Shared by `main.ts` and the e2e suite so tests exercise exactly
  * what production runs. The order is part of the contract.
  */
-export function configureApp(app: NestExpressApplication, config: AppConfig): void {
-  app.set('trust proxy', config.TRUST_PROXY_HOPS); // exact hop count; 0 locally
-  app.setGlobalPrefix(config.GLOBAL_PREFIX, { exclude: UNPREFIXED_ROUTES });
+export function configureApp(app: NestExpressApplication, config: GatewayConfig): void {
+  const read = <K extends keyof GatewayEnv>(key: K) => config.get(key, { infer: true });
+  const isProduction = isProductionEnv(read('NODE_ENV'));
+
+  app.set('trust proxy', read('TRUST_PROXY_HOPS')); // exact hop count; 0 locally
+  app.setGlobalPrefix(read('GLOBAL_PREFIX'), { exclude: UNPREFIXED_ROUTES });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.use(securityHeaders()); // strict CSP everywhere, Swagger UI's policy under /docs only
-  app.use(requestContextMiddleware); // resolves the caller once, for @Ctx()
+  // Resolves the caller once — tokens verified, revocation checked — before any guard (conventions §4.1).
+  app.use(
+    createRequestContextMiddleware({
+      publicKeys: read('JWT_PUBLIC_KEYS'),
+      redis: app.get(REDIS),
+      cutoffSource: app.get(IdentityService),
+    }),
+  );
   app.enableCors({
-    origin: config.CORS_ORIGINS,
+    origin: read('CORS_ORIGINS'),
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Wayfare-Client', 'Idempotency-Key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Wayfare-Client',
+      APP_VERSION_HEADER,
+      'Idempotency-Key',
+    ],
   });
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalInterceptors(
     // Registered FIRST = runs LAST on the way out: validation sees the handler's raw value,
     // and only then does the envelope wrap it.
     new ResponseEnvelopeInterceptor(app.get(Reflector)),
-    new ResponseValidationInterceptor(app.get(Reflector), config.isProduction),
+    new ResponseValidationInterceptor(app.get(Reflector), isProduction),
   );
-  app.useGlobalFilters(new ErrorFilter(config.isProduction));
-  if (config.SWAGGER_ENABLED)
-    setupSwagger(app, { title: 'Wayfare API', version: config.APP_VERSION });
+  app.useGlobalFilters(new ErrorFilter(isProduction));
+  if (read('SWAGGER_ENABLED'))
+    setupSwagger(app, { title: 'Wayfare API', version: read('APP_VERSION') });
   app.enableShutdownHooks();
 }

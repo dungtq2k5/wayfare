@@ -13,6 +13,8 @@ onlyBuiltDependencies:
   - '@prisma/client'
   # Installs the buf binary used by proto:generate / proto:lint.
   - '@bufbuild/buf'
+  # Password hashing; its install script only picks the bundled prebuild (glibc or musl).
+  - argon2
 ignoredBuiltDependencies:
   # Only prints a version check; the runtime needs nothing it builds.
   - protobufjs

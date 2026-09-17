@@ -210,27 +210,27 @@ export const MAX_TRIGGER_RADIUS_M = 100;
 
 ### 4.1 Reading the caller
 
-The gateway verifies the token and builds a `RequestContext`; services receive it as gRPC metadata and rebuild it with `unpackCallerContext(metadata)` in the gRPC controller. Handlers take it by decorator:
+The gateway verifies the token **in `requestContextMiddleware`, once, before any guard runs**, and builds a `RequestContext`; services receive it as gRPC metadata and rebuild it with `unpackCallerContext(metadata)` in the gRPC controller. Handlers take it by decorator, and the route's `@Auth` marker (§5.3) is what guarantees the variant:
 
 ```ts
 @Get('me/favorites')
-@UseGuards(DeviceGuard)
+@Auth('DEVICE')
 list(@Ctx() ctx: DeviceContext, @Query() q: ListFavoritesQuery) { … }
 
 @Post('owner/submissions')
-@UseGuards(AccountGuard, OwnerGuard)
-submit(@Ctx() ctx: OwnerContext, @Body() body: CreateSubmissionBody) { … }
+@Auth('OWNER')
+submit(@Ctx() ctx: AccountContext, @Body() body: CreateSubmissionBody) { … }
 ```
+
+Guards and decorators reach the request through `requestOf(context)`, never `switchToHttp()`, so the same code serves the WebSocket gateway.
 
 `RequestContext` is a **discriminated union**, and a handler **MUST** declare the narrowest variant it needs:
 
 | Type | Has | Guard |
 | :---- | :---- | :---- |
-| `AnonymousContext` | `origin` | none |
-| `DeviceContext` | `deviceId`, `origin` | `DeviceGuard` — accepts a device token or an account token carrying `deviceId` |
-| `AccountContext` | `userId`, `permissions`, `ownerVerified`, `deviceId?`, `origin` | `AccountGuard` |
-| `OwnerContext` | `AccountContext` with `ownerVerified: true` | `AccountGuard`, `OwnerGuard` |
-| `StaffContext` | `AccountContext` with at least one required permission | `AccountGuard`, `PermissionGuard` |
+| `AnonymousContext` | `origin` | `@Auth('PUBLIC')` |
+| `DeviceContext` | `deviceId`, `origin` | `@Auth('DEVICE')` — also admits an account token carrying `deviceId` |
+| `AccountContext` | `userId`, `sessionId`, `permissions`, `ownerVerified`, `emailVerified`, `deviceId?`, `origin` | `@Auth('USER' \| 'USER_EMAIL' \| 'OWNER')`, `@RequirePermission(…)` |
 
 - **MUST NOT** cast one variant to another. Narrow with the provided type guards (`isAccountContext`). A cast reads a device-only request as an account with an empty permission list — which every permission check then silently denies, or, worse, a missing `userId` gets written as `undefined`.
 - **MUST NOT** accept `userId`, `deviceId`, `ownerUserId` or any permission-bearing value from a path, body or query. The only ids a client supplies are ids of *resources*, which the service then checks against the context.
@@ -257,7 +257,7 @@ if (!place) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
 
 // ✗ two failure modes: leaks existence with a 403, and a forgotten check is a data leak
 const place = await this.prisma.place.findUnique({ where: { id: request.placeId } });
-if (place.ownerUserId !== context.userId) throw rpcError('PERMISSION_DENIED', { required: [] });
+if (place.ownerUserId !== context.userId) throw rpcError('PERMISSION_DENIED', { required: ['owner.access'] });
 ```
 
 **Not found and not yours are the same answer: `404`.**
@@ -280,6 +280,7 @@ A limit can be bound by a **platform ceiling** (a constant in `packages/contract
 
 As defined in api-endpoints-plan §0.4. A global interceptor wraps success as `{ data, meta? }`; a global filter builds `{ error: { code, message, details?, requestId } }`.
 
+- A non-list response that needs `meta` (a composed route's `meta.degraded`) returns `WithMeta.of(data, meta)`; `Paged` is its list-shaped subclass.
 - **`@SkipEnvelope()`** (nest-common) exempts a controller or handler from the envelope. It is for **ops routes only** — `/health`, `/health/ready`, `/version` — which are unwrapped on every service (api-endpoints-plan §13). An API route **MUST NOT** use it: clients branch on the envelope's shape.
 
 - Handlers **MUST** return raw data, or `{ data, meta }` via the `Paged` helper. Returning `{ data }` yourself double-wraps.
@@ -295,35 +296,39 @@ As defined in api-endpoints-plan §0.4. A global interceptor wraps success as `{
 - **Nullable and optional are different.** A response field is `.nullable()` (key always present) — never `.optional()` — so clients and the generated types have a stable key set. A request field is `.optional()` only when absence genuinely means "leave unchanged".
 - **A PATCH schema MUST NOT default fields.** A default on a PATCH writes the default over the stored value on every unrelated update.
 
-### 5.3 Guards, in order
+### 5.3 Auth markers and the guard chain
 
-Nest runs guards left to right. The order is always:
+**Every route declares exactly one auth rule**, mirroring api-endpoints-plan §0.2: `@Auth('PUBLIC' | 'DEVICE' | 'USER' | 'USER_EMAIL' | 'OWNER' | 'STAFF' | 'SIGNATURE')`, or `@RequirePermission(…)` for `perm:` (which implies an account). **A route with no rule, or with both, stops the gateway from booting** — a forgotten guard is the failure that actually happens, and it fails open. The marker also applies the route's Swagger security scheme and its auth error codes.
 
-`ClientHeaderGuard` → `DeviceGuard` | `AccountGuard` → `TokenFreshnessGuard` → `OwnerGuard` → `PermissionGuard` → `EmailVerifiedGuard` → `ThrottlerGuard`
+Tokens are verified in `requestContextMiddleware` (§4.1); guards only judge what it resolved. Nest runs global guards left to right, and the chain is always:
 
-| Guard | Put it on | Never on |
+`ClientHeaderGuard` → `AppVersionGuard` → `AuthGuard` → `RateLimitGuard`
+
+| Marker | Admits | Never on |
 | :---- | :---- | :---- |
-| `ClientHeaderGuard` | global | the Stripe webhooks, `/q/:code`, `/health*` |
-| `DeviceGuard` | tourist routes | console-only routes |
-| `AccountGuard` | anything needing an account | `/auth/login`, `/auth/register`, `/auth/refresh`, `/devices*` |
-| `TokenFreshnessGuard` | after `AccountGuard`, always | before it — there is no `iat` to compare yet |
-| `OwnerGuard` | `/owner/*` except `/owner/registration` | `/owner/registration` — a not-yet-verified owner must reach it |
-| `PermissionGuard` via `@RequirePermission` | staff routes | before `AccountGuard` |
-| `EmailVerifiedGuard` | purchases, owner registration | `/auth/email/verify*` — it would deadlock the account |
+| `PUBLIC` | anyone; a bad token is ignored | anything reading account data |
+| `DEVICE` | a device token, or an account token carrying `deviceId` | console-only routes |
+| `USER` (`alsoDevice` for `USER + DEVICE`) | an account token | `/auth/login`, `/auth/register`, `/auth/refresh`, `/devices*` except `/devices/me*` |
+| `USER_EMAIL` | an account with `emailVerified`; otherwise `403 EMAIL_NOT_VERIFIED` | `/auth/email/verify*` — it would deadlock the account |
+| `OWNER` | an account with `ownerVerified` and `owner.access`; otherwise `403 PERMISSION_DENIED { required: ['owner.access'] }` | `/owner/registration` — a not-yet-verified owner must reach it |
+| `STAFF` | an active venue-staff membership for the addressed seller | anything but `/staff/*` |
+| `SIGNATURE` | anyone; the route verifies the provider signature itself | anything but provider webhooks |
 
 - `@RequirePermission(a, b)` means **any of**. A route needing two grants stacks the decorator twice.
 - `@RequirePermission()` with no codes is a compile error by type, because empty metadata would read as "no permission required".
+- A revoked or invalid token is `401` on every non-public route; a revocation check that could not run is `503` on account routes — never a pass.
+- **Every route has one rate-limit class** (`RATE_LIMITS`), from `@RateLimit(…)` or the marker's default (`PUBLIC` → `PUBLIC_READ`, `DEVICE` → `DEVICE_READ`, account markers → `AUTHENTICATED`, `SIGNATURE` → none). The ops routes declare `@RateLimit(null)`: a probe behind a shared load-balancer address must never be told `429`. `PERMISSION_DENIED.details.required` is never empty — a refusal that is not about a permission code has its own error code. Each key of a class is its own bucket and all must pass. A rate-limit store outage fails **open** with an alerting log line.
 
 ### 5.4 Cookies and tokens
 
-- Cookie names come from configuration, are set and read only by `SessionCookieService`, and are always `httpOnly`, `Secure`, `SameSite=Lax`. The refresh cookie's path is `/api` — covering every API version — never `/api/v1/…`, which would stop the cookie reaching a `v2` refresh route.
-- **A `console` response body never contains a token.** A `mobile` response body does. The branch lives in one place — `SessionResponder` — and every route that issues a session goes through it.
+- Cookie names are constants — `wf_at` and `wf_rt` (api-endpoints-plan §0.3) — are set and read only by `SessionCookieService`, and are always host-only, `httpOnly`, `Secure`, `SameSite=Lax`. The refresh cookie's path is `/${GLOBAL_PREFIX}` (`/api`) — covering every API version, and following the prefix if configuration changes it — never `/api/v1/…`, which would stop the cookie reaching a `v2` refresh route.
+- **A `console` response body never contains a token.** A `mobile` response body does. The branch lives in one place — `SessionResponder` — and every route that issues a session goes through it. The refresh token arrives the same way it left: the cookie for `console` and `web`, the body for `mobile`; the other source is ignored, never merged.
 - The gateway **verifies, never mints**. It holds only the public key ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)).
 
 ### 5.5 Lists
 
-- Cursor lists extend `CursorQuery` and return `Paged.cursor(items, nextCursor)`. The cursor is an opaque base64url of `{ id }` — **clients MUST NOT parse it**, and servers MAY change its content.
-- Page lists extend `PageQuery` with a **sort allowlist** per route. An unlisted sort field is `400`, never passed into an `orderBy`.
+- Cursor lists take `zCursorQuery` and return `Paged.cursor(items, nextCursor)`. The cursor is an opaque base64url of `{ id }`, made and read only by `encodeCursor` / `decodeCursor` — **clients MUST NOT parse it**, and servers MAY change its content. A cursor that does not decode is `400`.
+- Page lists take `zPageQuery({ sort, defaultSort, search? })`, whose **sort allowlist** is per route and whose default must be in it (checked when the schema is built). An unlisted sort field is `400`, never passed into an `orderBy`. The free-text `q` exists **only** when the route passes `search: true` and actually filters on it — a route advertising a search it ignores tells the caller "no other matches exist".
 - A list's `limit` is capped at 100 by the shared schema. A route needing more is an export, not a list.
 
 ### 5.6 Global prefix and versioning
@@ -345,7 +350,7 @@ app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
 The generated document is passed through nestjs-zod's **`cleanupOpenApiDoc`** before it is served, so zod-derived schemas render correctly for Swagger UI and Orval.
 
-Every route **MUST** declare its response schema and every error code it can return (`@ApiErrors('PLACE_LIMIT_REACHED', …)`). Orval generates the clients from this spec; an undeclared response is an untyped client, and an undeclared error code is a client that shows "Something went wrong" for a condition it could have explained.
+Every route **MUST** declare its response with **`@ApiEnvelope(Dto, { status?, list? })`**, which documents the body as the wire carries it — `{ data }`, or `{ data, meta }` with the shared `CursorMeta` / `PageMeta` components. `@ZodResponse` documents the bare DTO and is not used on gateway routes; `@ZodSerializerDto` still validates. Every route also declares the error codes only it can return (`@ApiErrors('PLACE_LIMIT_REACHED', …)`); the codes every route shares (`INTERNAL`, `CLIENT_HEADER_REQUIRED`, `RATE_LIMITED` when throttled, the marker's auth codes, and the upstream codes on controllers marked `@UsesUpstream()`) are added automatically. An OpenAPI contract test checks every operation. Orval generates the clients from this spec; an undeclared response is an untyped client, and an undeclared error code is a client that shows "Something went wrong" for a condition it could have explained.
 
 ---
 
@@ -358,6 +363,7 @@ Every route **MUST** declare its response schema and every error code it can ret
 - `package wayfare.<service>;` and the directory mirrors it. `buf lint` enforces this.
 - The package is unversioned, so `buf lint`'s `PACKAGE_VERSION_SUFFIX` rule is disabled; `buf breaking` against `main` runs in CI and is the only thing between a proto edit and a wire-incompatible deploy. A breaking change is allowed only with every caller changed in the same PR.
 - **Enum members are prefixed with the enum name** (`PLACE_STATUS_ACTIVE`) and the zero member is `…_UNSPECIFIED`. Protobuf enum values share one namespace per package.
+- **Every RPC has its own request and response message** (`Login` → `LoginRequest` / `LoginResponse`), even when two would be identical — `buf lint` requires it, and it keeps one RPC's response free to grow. A shape several responses share is its own message, nested inside them (`LoginResponse { Session session = 1; }`).
 
 ### 6.2 Calling a peer
 
@@ -384,6 +390,7 @@ return res.users;
 ### 6.3 Mapping
 
 - `google.protobuf.Timestamp` ⇄ `Date` only through `toProtoTimestamp` / `fromProtoTimestamp`.
+- **`int64` fields are strings in TypeScript** (ts-proto `forceLong=string`, matching how the proto loader decodes them). The mapper converts at the boundary — `Number(value)` after a safe-integer check for counts and milliseconds, never arithmetic on the string.
 - Protobuf has no `null`. An absent optional field arrives as `undefined` and **MUST** be converted to `null` in the mapper, field by field, so response shapes stay stable.
 - **A proto enum crosses the wire only through its bridge.** Each domain enum carried in a `.proto` file has one `protoEnumBridge` instance in `@wayfare/contracts/grpc`, named `<camelDomainEnum>Proto` (`platformProto`). The bridge pairs each domain **value** with the proto member `<ENUM_NAME>_<VALUE>` (`'IOS'` ⇄ `PLATFORM_IOS`, §15), requires every domain member's key to equal its value, and throws when the module loads if either side has a member the other lacks. So a new value added on one side only fails every test that imports it, and the service will not boot. **MUST NOT** hand-write a proto↔domain table; an enum whose sides are not 1:1 by name gets a hand-written mapper whose docblock says why.
 - An `…_UNSPECIFIED` enum value arriving in a request **MUST** be rejected as `INVALID_ARGUMENT`, never defaulted to a real member. For a required field, the mapper calls `requireProtoEnum(bridge, value, '/field')` from `@wayfare/nest-common`, which throws `VALIDATION_FAILED` with that path.
@@ -479,7 +486,8 @@ Every durable consumer is a `JetStreamConsumer` subclass registered in the servi
 
 ### 8.1 Schema changes
 
-- **Development:** edit `schema.prisma`, run `pnpm db:migrate:dev --name <what>`, then `pnpm db:objects` (§8.7). Commit the migration.
+- **Development:** edit `schema.prisma`, run `pnpm db:migrate:dev --name <what>`, then `pnpm db:objects` (§8.7). Commit the migration. Where `migrate dev` cannot run (it refuses a non-interactive shell), write the same folder by hand — `prisma/migrations/<yyyymmddhhmmss>_<what>/migration.sql` from `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script` — and `pnpm db:drift` proves the two agree.
+- **`pnpm db:setup` builds the service first**, because it also runs the system-catalogue sync (`db:seed:system`) from the compiled service, on both databases.
 - **Every other environment:** `prisma migrate deploy`, then `pnpm db:objects`, from CI. Never `db push` outside a throwaway local database.
 - **A committed migration is never edited.** A mistake is fixed by the next migration.
 - **Expand, then contract — never both in one release.** A column is dropped in the release *after* the one that stopped reading it; a rename is add → dual-write → backfill → switch reads → drop across releases. There are no down-migrations, so the only rollback is redeploying the previous image, and that is safe only if the previous image still works against the current schema.
@@ -757,9 +765,16 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 ## 13. Configuration
 
-- Every environment variable is declared in the service's `config/env.schema.ts` as a zod schema and parsed **once at boot**. A missing or malformed value stops the process before it listens.
+- Every environment variable is declared in the service's `config/env.schema.ts` as a zod schema. **`@nestjs/config` loads it** — `createConfigModule(service, envSchema)` from nest-common, which runs `ConfigModule.forRoot` with the schema as its only validator — **once at boot**. A missing or malformed value stops the process before it listens, with one `KEY: message` line per problem.
+- **Real environment variables beat `.env`**, and images carry no `.env` (`.dockerignore`). The file is a local-development convenience, never a deployment mechanism.
 - Fields every service shares are built from `@wayfare/nest-common`: `zNodeEnv` (required), `zLogLevel` (`info` by default) and `zPort`. **MUST NOT** re-type the `NODE_ENV` or `LOG_LEVEL` value lists.
-- Read configuration through the typed `AppConfig` provider, injected. **MUST NOT** read `process.env` outside `env.schema.ts` and `main.ts`.
+- Read configuration through the injected **`ConfigService<Env, true>`** with `get(KEY, { infer: true })`, which returns exactly the schema's converted value — an array, a boolean, a key object — or `undefined` where the schema allows it; the module is configured with `skipProcessEnv`, so `get` never falls back to a raw environment string.
+- **Read a value into a typed local before placing it in a union-typed options object** (`MicroserviceOptions`, a `ClientsModule` registration). Inside such an object TypeScript infers `get`'s generic from the context and the result is silently `any`; `const url = config.get('GRPC_URL', { infer: true });` first keeps it typed.
+- **A constructor parameter is typed `ConfigService<Env, true>` — never the service's alias** (`IdentityConfig`, `GatewayConfig`). The build emits a type alias's design-time type as `Object`, and Nest then cannot resolve the parameter. The alias is for every other position: `app.get<IdentityConfig>(ConfigService)`, factory parameters, helper signatures.
+- `@nestjs/config` is a peer of `nest-common` and a pinned dependency of each service, so exactly one `ConfigService` class exists; two copies are two injection tokens.
+- `NestFactory.create` runs with **`abortOnError: false`**: a configuration error then reaches `bootstrap().catch`, which prints it and exits `1`, instead of Nest aborting the process. **MUST NOT** read `process.env` outside `instrumentation.ts`, `prisma.config.ts`, scripts and test setup — none of which run inside Nest.
+- A value used on every request is read **once**, into a field, in the constructor or factory. A module configured by values uses its async form (`forRootAsync` / `registerAsync` with `inject: [ConfigService]`), never a config object threaded through `forRoot(config)`.
+- Tests build `AppModule.forRoot({ env })`, which validates exactly that object and ignores both `.env` and `process.env`; unit tests use `buildConfigService(service, schema, env)` from `@wayfare/nest-common/testing`.
 - Limits and tunables that are product decisions (product-overview §9) are constants in `packages/contracts` with an environment override **only** where operations genuinely need one. A tunable that exists only as an environment variable is invisible to code review.
 - Every service ships `.env.example` listing every variable, with no secret values. A new variable is added to the schema, the example and architecture-and-tech-stack §14 in the same PR — `env-contract.spec.ts` (§17.4) fails otherwise. A variable read outside the schema (by `prisma.config.ts`, the test setup or the OTel SDK) is listed in that spec's exemptions, together with the file that reads it.
 - The gateway's `GLOBAL_PREFIX` is configuration, validated at boot; nothing else reads it (§5.6).
@@ -890,6 +905,7 @@ Keep it proportional: a one-line constant gets one line.
 - **Vitest transforms with SWC** (`unplugin-swc`, with decorator metadata on) in every Nest package. Vitest's default transform emits no decorator metadata, so Nest's dependency injection resolves `undefined` and the failure looks like a broken provider rather than a test setup problem.
 
 - **Test names state the invariant**, present tense, no "should": `it('supersedes the previous pending update for the same place')`. One word in CAPS for what makes the case worth its own test: `it('refuses a CONCURRENT second redemption')`.
+- Shared test helpers come from two entry points, which only test files, `test/` and `scripts/` may import (a lint rule enforces it): **`@wayfare/contracts/testing`** — the event fixtures, client-safe like the rest of contracts — and **`@wayfare/nest-common/testing`** — context builders, `generateTestSigningKeys()` and a fake Redis, which need Node.
 - **Never mock** the class under test, pure functions from `packages/contracts` or `packages/core`, or Prisma in an integration test.
 - **Always mock** the Prisma client in a unit test, gRPC peers in the gateway e2e suite, and the clock wherever an expiry matters.
 - **Every RPC is exercised by a test in the service that owns it**, against its real database — even when every caller mocks it. A mocked RPC with no owner test is an assumption nobody checks.

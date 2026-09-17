@@ -17,17 +17,21 @@ describe('caller context over gRPC metadata', () => {
     {
       kind: 'account',
       userId: newId(),
+      sessionId: newId(),
       deviceId: newId(),
       permissions: ['place.read', 'user.read'],
       ownerVerified: true,
+      emailVerified: true,
       origin,
     },
     {
       kind: 'account',
       userId: newId(),
+      sessionId: newId(),
       deviceId: null,
       permissions: [],
       ownerVerified: false,
+      emailVerified: false,
       origin,
     },
   ];

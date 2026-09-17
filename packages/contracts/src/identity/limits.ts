@@ -38,3 +38,35 @@ export const DEVICE_ACCESS_TOKEN_TTL_MS = 15 * MINUTE_MS;
 
 /** A refresh token's lifetime (product-overview §9, api-endpoints-plan §1.1). */
 export const REFRESH_TOKEN_TTL_MS = 7 * DAY_MS;
+
+/** Shortest accepted password (conventions §9.1). */
+export const MIN_PASSWORD_LENGTH = 10;
+
+/** Longest accepted password — bounds the argon2 input. */
+export const MAX_PASSWORD_LENGTH = 128;
+
+/** Upper bound of `users.full_name` (rdm-spec I-1). */
+export const MAX_FULL_NAME_LENGTH = 120;
+
+/** Upper bound of an email address — the RFC 5321 path limit (rdm-spec I-1). */
+export const MAX_EMAIL_LENGTH = 254;
+
+/** Upper bound of `devices.push_token` (rdm-spec I-2). */
+export const MAX_PUSH_TOKEN_LENGTH = 255;
+
+/** Upper bound of a presented refresh token — a generated one is 43 characters. */
+export const MAX_REFRESH_TOKEN_LENGTH = 256;
+
+/** How long a just-rotated cookie session's token is a lost race rather than a replay (rdm-spec I-3). */
+export const REFRESH_RACE_GRACE_MS = 10_000;
+
+/** `devices.last_seen_at` is bumped at most this often (rdm-spec I-2). */
+export const DEVICE_LAST_SEEN_THROTTLE_MS = HOUR_MS;
+
+/** Most session families one `identity.session.revoked` event lists; a larger set is split. */
+export const MAX_FAMILIES_PER_EVENT = 100;
+
+/** The `typ` claim of an access token (api-endpoints-plan §0.1). */
+export const TOKEN_TYPES = { device: 'device', user: 'user' } as const;
+/** An access token's type. */
+export type TokenType = (typeof TOKEN_TYPES)[keyof typeof TOKEN_TYPES];

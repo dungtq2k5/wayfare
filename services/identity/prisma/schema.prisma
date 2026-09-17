@@ -10,21 +10,170 @@ datasource db {
   provider = "postgresql" // no url here — it lives in prisma.config.ts
 }
 
-/// An install — rdm-spec I-2. Every non-nullable column exists; the nullable claim, push and revocation columns are added later.
-model Device {
-  id            String   @id @default(uuid(7)) @db.Uuid
-  /// SHA-256 hex of the device secret, looked up by value.
-  secretHash    String   @unique @map("secret_hash") @db.Char(64)
-  /// Platform in `@wayfare/contracts`
-  platform      String   @db.VarChar(16)
-  appVersion    String   @map("app_version") @db.VarChar(32)
-  osVersion     String?  @map("os_version") @db.VarChar(32)
-  contentLocale String   @map("content_locale") @db.VarChar(16)
-  lastSeenAt    DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+/// An account — rdm-spec I-1. Soft-deletable (deactivation) and erasable.
+model User {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  /// Normalized (lower-case); full unique, deactivated rows keep their address.
+  email                String    @unique @db.VarChar(254)
+  isEmailVerified      Boolean   @default(false) @map("is_email_verified")
+  /// argon2id.
+  passwordHash         String?   @map("password_hash") @db.VarChar(255)
+  fullName             String?   @map("full_name") @db.VarChar(120)
+  preferredLocale      String    @default("en") @map("preferred_locale") @db.VarChar(16)
+  ownerVerifiedAt      DateTime? @map("owner_verified_at") @db.Timestamptz(3)
+  isLocked             Boolean   @default(false) @map("is_locked")
+  lockedUntil          DateTime? @map("locked_until") @db.Timestamptz(3)
+  lockReason           String?   @map("lock_reason") @db.VarChar(255)
+  /// Access tokens issued before this instant are rejected.
+  tokensValidAfter     DateTime? @map("tokens_valid_after") @db.Timestamptz(3)
+  credentialsChangedAt DateTime? @map("credentials_changed_at") @db.Timestamptz(3)
+  emailBouncedAt       DateTime? @map("email_bounced_at") @db.Timestamptz(3)
+  lastLoginAt          DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedById          String?   @map("deleted_by_id") @db.Uuid
+  erasedAt             DateTime? @map("erased_at") @db.Timestamptz(3)
 
+  deletedBy        User?             @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedUsers     User[]            @relation("UserDeletedBy")
+  devices          Device[]
+  sessions         Session[]
+  roles            UserRole[]
+  legalAcceptances LegalAcceptance[]
+  auditLogs        AuditLog[]
+
+  @@index([deletedAt])
+  @@map("users")
+}
+
+/// An install — rdm-spec I-2. The primary identity (ADR 0003).
+model Device {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  /// SHA-256 hex of the device secret, looked up by value.
+  secretHash    String    @unique @map("secret_hash") @db.Char(64)
+  /// The claim. NULL = anonymous.
+  userId        String?   @map("user_id") @db.Uuid
+  claimedAt     DateTime? @map("claimed_at") @db.Timestamptz(3)
+  /// Platform in `@wayfare/contracts`
+  platform      String    @db.VarChar(16)
+  appVersion    String    @map("app_version") @db.VarChar(32)
+  osVersion     String?   @map("os_version") @db.VarChar(32)
+  contentLocale String    @map("content_locale") @db.VarChar(16)
+  /// Expo push token; moves to the newest row that registers it.
+  pushToken     String?   @unique @map("push_token") @db.VarChar(255)
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessions         Session[]
+  legalAcceptances LegalAcceptance[]
+
+  @@index([userId])
   @@map("devices")
+}
+
+/// A refresh-token lineage — rdm-spec I-3. Spent rows are kept: that is the replay defence.
+model Session {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  /// The mobile install the session lives on; NULL for console and web.
+  deviceId         String?   @map("device_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.Char(64)
+  /// SessionClient in `@wayfare/contracts`
+  client           String    @db.VarChar(16)
+  ip               String?   @db.VarChar(45)
+  userAgent        String?   @map("user_agent") @db.VarChar(512)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  rotatedAt        DateTime? @map("rotated_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  /// SessionRevokedReason in `@wayfare/contracts`
+  revokedReason    String?   @map("revoked_reason") @db.VarChar(32)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// A role — rdm-spec I-4. System roles' grants are code (ADR 0044).
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  code        String   @unique @db.VarChar(32)
+  name        String   @unique @db.VarChar(80)
+  description String?  @db.VarChar(255)
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+/// The permission catalogue — rdm-spec I-5. A mirror of `PERMISSIONS`, never data.
+model Permission {
+  code        String   @id @db.VarChar(64)
+  group       String   @db.VarChar(32)
+  description String   @db.VarChar(255)
+  isRetired   Boolean  @default(false) @map("is_retired")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+/// A user's role — rdm-spec I-6.
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+/// A role's grant — rdm-spec I-7.
+model RolePermission {
+  roleId         String @map("role_id") @db.Uuid
+  permissionCode String @map("permission_code") @db.VarChar(64)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionCode], references: [code], onDelete: Restrict)
+
+  @@id([roleId, permissionCode])
+  @@map("role_permissions")
+}
+
+/// Proof of accepting a legal document version — rdm-spec I-12. Append-only.
+model LegalAcceptance {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  deviceId   String?  @map("device_id") @db.Uuid
+  /// LegalDocument in `@wayfare/contracts`
+  document   String   @db.VarChar(32)
+  version    String   @db.VarChar(16)
+  acceptedAt DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  ip         String?  @db.VarChar(45)
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, document, acceptedAt(sort: Desc)])
+  @@index([deviceId, document, acceptedAt(sort: Desc)])
+  @@map("legal_acceptances")
 }
 
 /// Transactional outbox — rdm-spec §2.10, ADR 0039.
@@ -53,7 +202,6 @@ model AuditLog {
   service       String   @db.VarChar(32)
   /// AuditActorType in `@wayfare/contracts`
   actorType     String   @map("actor_type") @db.VarChar(16)
-  /// Foreign key to users added once the users table exists (rdm-spec I-11).
   actorUserId   String?  @map("actor_user_id") @db.Uuid
   /// Not a foreign key: devices are pruned, audit rows are not.
   actorDeviceId String?  @map("actor_device_id") @db.Uuid
@@ -66,6 +214,8 @@ model AuditLog {
   ip            String?  @db.VarChar(45)
   userAgent     String?  @map("user_agent") @db.VarChar(512)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([resourceType, resourceId, occurredAt(sort: Desc)])
   @@index([actorUserId, occurredAt(sort: Desc)])

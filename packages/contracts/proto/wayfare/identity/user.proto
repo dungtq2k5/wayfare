@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+// The caller's own account — api-endpoints-plan §1.3, rdm-spec I-1, I-12.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/identity/auth.proto";
+
+// A legal document a party accepts (rdm-spec I-12).
+enum LegalDocument {
+  LEGAL_DOCUMENT_UNSPECIFIED = 0;
+  LEGAL_DOCUMENT_TERMS_OF_SERVICE = 1;
+  LEGAL_DOCUMENT_PRIVACY_POLICY = 2;
+  LEGAL_DOCUMENT_OWNER_AGREEMENT = 3;
+}
+
+// Who accepted a legal document.
+enum LegalParty {
+  LEGAL_PARTY_UNSPECIFIED = 0;
+  LEGAL_PARTY_USER = 1;
+  LEGAL_PARTY_DEVICE = 2;
+}
+
+// Reads and edits the calling account. The caller travels as metadata.
+service UserService {
+  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+  rpc UpdateMe(UpdateMeRequest) returns (UpdateMeResponse);
+  rpc ListLegalAcceptances(ListLegalAcceptancesRequest) returns (ListLegalAcceptancesResponse);
+  rpc RecordLegalAcceptance(RecordLegalAcceptanceRequest) returns (RecordLegalAcceptanceResponse);
+}
+
+message GetMeRequest {}
+
+message GetMeResponse {
+  SessionUser user = 1;
+  repeated string roles = 2;
+  repeated string permissions = 3;
+  bool owner_verified = 4;
+}
+
+message UpdateMeRequest {
+  optional string full_name = 1;
+  optional string preferred_locale = 2;
+}
+
+message UpdateMeResponse {
+  SessionUser user = 1;
+}
+
+message ListLegalAcceptancesRequest {}
+
+message ListLegalAcceptancesResponse {
+  repeated LegalAcceptance acceptances = 1;
+}
+
+message RecordLegalAcceptanceRequest {
+  LegalParty party = 1;
+  LegalDocument document = 2;
+  string version = 3;
+}
+
+message RecordLegalAcceptanceResponse {
+  LegalAcceptance acceptance = 1;
+}
+
+message LegalAcceptance {
+  LegalParty party = 1;
+  LegalDocument document = 2;
+  string version = 3;
+  google.protobuf.Timestamp accepted_at = 4;
+  bool current = 5;
+}

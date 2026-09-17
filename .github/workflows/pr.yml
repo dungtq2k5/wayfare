@@ -40,6 +40,10 @@ jobs:
       - name: Use the example environment
         run: for s in services/*; do cp "$s/.env.example" "$s/.env"; done
 
+      # The examples leave every *KEY* empty; a throwaway signing pair fills them.
+      - name: Generate development signing keys
+        run: pnpm keys:dev
+
       # Before typecheck on purpose: a stale committed client makes every later error a lie.
       - name: Generated gRPC code is committed and current
         run: pnpm proto:generate && git diff --exit-code -- packages/contracts/src/generated

@@ -16,3 +16,8 @@ export const zNodeEnv = z.enum(NODE_ENVS);
 export const zLogLevel = z.enum(LOG_LEVELS).default('info');
 /** A TCP port from an env string. */
 export const zPort = z.coerce.number().int().min(1).max(65535);
+
+/** True in production — where messages are generic and Swagger is off. */
+export function isProductionEnv(nodeEnv: NodeEnv): boolean {
+  return nodeEnv === 'production';
+}

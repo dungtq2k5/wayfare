@@ -5,23 +5,41 @@ import type { Observable } from 'rxjs';
 import { of, throwError } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 import { unpackCallerContext } from './caller-context';
-import { BaseGrpcClient, DEFAULT_GRPC_DEADLINE_MS } from './base-grpc.client';
+import { BaseGrpcClient } from './base-grpc.client';
+import { DEFAULT_GRPC_DEADLINE_MS, GrpcServiceCaller } from './grpc-service-caller';
 
 interface EchoService {
   echo(request: { value: string }, metadata?: Metadata): Observable<{ value: string }>;
 }
 
-class EchoClient extends BaseGrpcClient<EchoService> {
+const caller = () =>
+  ({ kind: 'device', deviceId, origin: { ip: '203.0.113.1', userAgent: null } }) as const;
+
+/** The caller under test, with the one-method surface the cases use. */
+class EchoClient {
+  private readonly echoCaller: GrpcServiceCaller<EchoService>;
+
+  constructor(grpc: ClientGrpc) {
+    this.echoCaller = new GrpcServiceCaller<EchoService>(grpc, 'EchoService');
+  }
+
+  onModuleInit(): void {
+    this.echoCaller.init();
+  }
+
+  echo(value: string) {
+    return this.echoCaller.call('echo', { value }, caller());
+  }
+}
+
+/** A single-stub client, which only delegates. */
+class LegacyEchoClient extends BaseGrpcClient<EchoService> {
   constructor(grpc: ClientGrpc) {
     super(grpc, 'EchoService');
   }
 
   echo(value: string) {
-    return this.call(
-      'echo',
-      { value },
-      { kind: 'device', deviceId, origin: { ip: '203.0.113.1', userAgent: null } },
-    );
+    return this.call('echo', { value }, caller());
   }
 }
 
@@ -50,7 +68,7 @@ function fakeGrpc(
   } as ClientGrpc;
 }
 
-describe('BaseGrpcClient.call', () => {
+describe('GrpcServiceCaller.call', () => {
   it('attaches the caller as metadata and a deadline', async () => {
     let seen: { metadata?: Metadata; deadline?: number } = {};
     const client = new EchoClient(
@@ -99,5 +117,20 @@ describe('BaseGrpcClient.call', () => {
   it('refuses to call before module init', async () => {
     const client = new EchoClient(fakeGrpc(() => of({ value: '' }), ConnectivityState.READY));
     await expect(client.echo('hi')).rejects.toThrow(/before module init/);
+  });
+});
+
+describe('BaseGrpcClient', () => {
+  it('delegates to one caller, deadline and metadata included', async () => {
+    let seen: Metadata | undefined;
+    const client = new LegacyEchoClient(
+      fakeGrpc((request, metadata) => {
+        seen = metadata;
+        return of(request);
+      }, ConnectivityState.READY),
+    );
+    client.onModuleInit();
+    expect(await client.echo('hi')).toEqual({ value: 'hi' });
+    expect(unpackCallerContext(seen)).toMatchObject({ kind: 'device', deviceId });
   });
 });

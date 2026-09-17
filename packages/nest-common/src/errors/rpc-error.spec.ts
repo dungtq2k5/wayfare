@@ -26,6 +26,7 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   RATE_LIMITED: { retryAfterSeconds: 30 },
   SHORT_CODE_ENTRY_PAUSED: { retryAfterSeconds: 600 },
   AI_QUOTA_EXHAUSTED: { resetsAt: '2026-09-17T00:00:00.000+07:00' },
+  LEGAL_VERSION_OUTDATED: { document: 'PRIVACY_POLICY', currentVersion: '2026-09-01' },
 };
 
 // The signature forbids a mismatch at compile time; this reaches the runtime check.

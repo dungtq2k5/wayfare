@@ -10,9 +10,15 @@ const PRISMA_CLIENT_PATTERN = {
     'The Prisma client is only used from *.service.ts and prisma.service.ts (conventions §2.1).',
 };
 
+const TESTING_ENTRY_PATTERN = {
+  group: ['@wayfare/*/testing'],
+  message: 'Test helpers are for specs, test/ and scripts/ only (conventions §17).',
+};
+
+/** Where the testing entry points may be imported. */
+const TESTING_ALLOWED = ['**/*.spec.ts', '**/test/**', '**/scripts/**'];
+
 const PROCESS_ENV_ALLOWED = [
-  '**/env.schema.ts',
-  '**/main.ts',
   '**/instrumentation.ts',
   '**/prisma.config.ts',
   '**/vitest.config.mts',
@@ -88,7 +94,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
           {
             selector: "MemberExpression[object.name='process'][property.name='env']",
             message:
-              'Read configuration through AppConfig; process.env only in env.schema.ts and main.ts (conventions §13).',
+              'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
           },
         ],
       },
@@ -105,7 +111,8 @@ export function wayfareConfig({ tsconfigRootDir }) {
           'error',
           {
             selector: "MemberExpression[object.name='process'][property.name='env']",
-            message: 'Read configuration through AppConfig (conventions §13).',
+            message:
+              'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
           },
         ],
       },
@@ -123,9 +130,38 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
+      files: ['**/*.ts'],
+      ignores: TESTING_ALLOWED,
+      rules: {
+        'no-restricted-imports': ['error', { patterns: [TESTING_ENTRY_PATTERN] }],
+      },
+    },
+    {
       files: ['**/*.controller.ts', '**/*.consumer.ts'],
       rules: {
-        'no-restricted-imports': ['error', { patterns: [PRISMA_CLIENT_PATTERN] }],
+        'no-restricted-imports': [
+          'error',
+          { patterns: [PRISMA_CLIENT_PATTERN, TESTING_ENTRY_PATTERN] },
+        ],
+      },
+    },
+    {
+      // The gateway documents with @ApiEnvelope and validates with @ZodSerializerDto (conventions §5.7).
+      files: ['services/gateway/**/*.ts'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              {
+                name: 'nestjs-zod',
+                importNames: ['ZodResponse'],
+                message:
+                  'Use @ApiEnvelope for the document and @ZodSerializerDto for validation (conventions §5.7).',
+              },
+            ],
+          },
+        ],
       },
     },
     {
@@ -148,6 +184,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
                 group: ['**/dto/**'],
                 message: 'A gRPC client returns proto types only — never a DTO (conventions §2.2).',
               },
+              TESTING_ENTRY_PATTERN,
             ],
           },
         ],
@@ -177,6 +214,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
                 message:
                   'Client-shared packages import nothing Node-only or framework-bound (conventions §3.2, §3.3).',
               },
+              TESTING_ENTRY_PATTERN,
             ],
           },
         ],

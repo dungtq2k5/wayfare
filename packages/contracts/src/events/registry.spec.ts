@@ -10,8 +10,8 @@ import {
   PUBLISHER_STREAM,
 } from './event-definition';
 import type { EventDefinition } from './event-definition';
-import { EVENT_FIXTURES, FIXTURE_IDS } from './fixtures';
-import type { EventFixture } from './fixtures';
+import { EVENT_FIXTURES, FIXTURE_IDS } from '../testing/fixtures';
+import type { EventFixture } from '../testing/fixtures';
 import { EVENT_DEFINITIONS, EVENT_REGISTRY, SENSITIVE_SUBJECTS } from './registry';
 import { streamsForSubject } from './streams';
 
@@ -33,7 +33,7 @@ describe('events registry', () => {
     const subjects = definitions.map((definition) => definition.subject);
     expect(new Set(subjects).size).toBe(subjects.length);
     expect(Object.keys(EVENT_REGISTRY)).toHaveLength(subjects.length);
-    expect(subjects).toHaveLength(24);
+    expect(subjects).toHaveLength(25);
   });
 
   it.each(definitions.map((definition) => [definition.subject, definition] as const))(
@@ -202,5 +202,16 @@ describe('defineEvent', () => {
     ).toThrow(/zUuidV7/);
     expect(() => defineEvent({ ...base, schema: schema.loose() })).toThrow(/strict/);
     expect(() => defineEvent({ ...base, schema })).not.toThrow();
+  });
+});
+
+describe('events: identity.session.revoked', () => {
+  it('bounds its family list', () => {
+    const definition = definitionFor('identity.session.revoked');
+    const payload = fixtureFor('identity.session.revoked').payload;
+    const many = Array.from({ length: 101 }, () => FIXTURE_IDS.family);
+    expect(definition.schema.safeParse({ ...payload, familyIds: many }).success).toBe(false);
+    expect(definition.schema.safeParse({ ...payload, familyIds: [] }).success).toBe(false);
+    expect(definition.schema.safeParse({ ...payload, familyIds: null }).success).toBe(true);
   });
 });

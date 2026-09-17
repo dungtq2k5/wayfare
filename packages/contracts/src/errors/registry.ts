@@ -3,6 +3,7 @@ import {
   appVersionUnsupportedDetails,
   coolingDownDetails,
   invalidStateDetails,
+  legalVersionOutdatedDetails,
   limitDetails,
   permissionDeniedDetails,
   priceBelowMinimumDetails,
@@ -80,6 +81,7 @@ export const ERRORS = {
   ACCOUNT_LOCKED: forbidden,
   INVITATION_EMAIL_MISMATCH: forbidden,
   RECOVERY_SELF_APPROVAL: forbidden,
+  EMAIL_NOT_VERIFIED: forbidden,
   CONSENT_REQUIRED: forbidden,
   ANALYTICS_LEVEL_INSUFFICIENT: forbidden,
 
@@ -119,6 +121,7 @@ export const ERRORS = {
   SELLER_NOT_READY: conflict,
   PLAN_HAS_SUBSCRIBERS: conflict,
   TRANSLATION_NOT_READY: conflict,
+  LEGAL_VERSION_OUTDATED: { ...conflict, details: legalVersionOutdatedDetails },
 
   // 410 — every single-use link, spent or expired.
   TOKEN_EXPIRED: gone,

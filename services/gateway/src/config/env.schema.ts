@@ -1,4 +1,5 @@
-import { zLogLevel, zNodeEnv, zPort } from '@wayfare/nest-common';
+import { zLogLevel, zNodeEnv, zPort, zPublicKeysEnv } from '@wayfare/nest-common';
+import type { TypedConfigService } from '@wayfare/nest-common';
 import { z } from 'zod';
 
 /** `MAJOR.MINOR.PATCH`, no pre-release or build suffix. */
@@ -30,6 +31,8 @@ export const envSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10),
     SWAGGER_ENABLED: zBooleanString,
     IDENTITY_GRPC_URL: z.string().min(1),
+    // Verification keys by kid; two entries during a rotation (ADR 0043). `pnpm keys:dev` locally.
+    JWT_PUBLIC_KEYS: zPublicKeysEnv,
     REDIS_URL: z.url(),
     METRICS_PORT: zPort,
     // The oldest client build accepted; configuration, so the floor moves without a release.
@@ -44,31 +47,10 @@ export const envSchema = z
   });
 
 /** The validated environment. */
-export type Env = z.infer<typeof envSchema>;
+export type Env = z.output<typeof envSchema>;
 
-/** Typed configuration, injected by class token. Read configuration only through this. */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- fields come from Env
-export class AppConfig {
-  constructor(env: Env) {
-    Object.assign(this, env);
-  }
-
-  get isProduction(): boolean {
-    return this.NODE_ENV === 'production';
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging, @typescript-eslint/no-empty-object-type
-export interface AppConfig extends Env {}
-
-/** Parses the environment; a missing or malformed value stops the process before it listens. */
-export function loadConfig(source: Record<string, string | undefined> = process.env): AppConfig {
-  const result = envSchema.safeParse(source);
-  if (!result.success) {
-    const problems = result.error.issues.map(
-      (issue) => `${issue.path.join('.')}: ${issue.message}`,
-    );
-    throw new Error(`Invalid gateway configuration:\n  ${problems.join('\n  ')}`);
-  }
-  return new AppConfig(result.data);
-}
+/**
+ * The gateway's configuration, as injected (conventions §13). For `app.get` and factory parameters
+ * only: a constructor parameter is typed `ConfigService<Env, true>`, which SWC can emit as a DI token.
+ */
+export type GatewayConfig = TypedConfigService<Env>;

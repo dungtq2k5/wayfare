@@ -3,6 +3,7 @@ import type { DynamicModule, FactoryProvider, ModuleMetadata } from '@nestjs/com
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { GrpcHealthController } from '../grpc/grpc-health.controller';
+import { Auth, RateLimit } from '../http/auth.decorators';
 import { SkipClientHeader } from '../http/skip-client-header.decorator';
 import { SkipEnvelope } from '../http/skip-envelope.decorator';
 import { READINESS_CHECKS, ReadinessService } from './readiness';
@@ -22,10 +23,14 @@ const VERSION_INFO = Symbol('VERSION_INFO');
 /**
  * `/health`, `/health/ready`, `/version` (api-endpoints-plan §13). Version-neutral and exempt
  * from the client header: probes send neither a version nor custom headers. Served unwrapped, so
- * the body has one shape on every service. Excluded from the
- * OpenAPI document — generated clients never call probes.
+ * the body has one shape on every service. Public and never rate-limited — a probe behind a shared
+ * load-balancer address must never be told 429. Excluded from the OpenAPI document — generated
+ * clients never call probes — which is also what keeps these unwrapped routes out of the OpenAPI
+ * contract suite's "one 2xx with `data`" rule.
  */
 @ApiExcludeController()
+@Auth('PUBLIC')
+@RateLimit(null)
 @Controller({ version: VERSION_NEUTRAL })
 @SkipClientHeader()
 @SkipEnvelope()
@@ -68,6 +73,24 @@ export interface OpsModuleOptions {
   readonly grpcHealth?: boolean;
 }
 
+/** What `OpsModule.forRootAsync`'s factory returns. */
+export interface OpsModuleValues {
+  readonly version: VersionInfo;
+  readonly checks: ReadinessCheck[];
+}
+
+/** Options for `OpsModule.forRootAsync`: one factory for the version and the readiness checks. */
+export interface OpsModuleAsyncOptions {
+  /** `inject` tokens must come from `imports` or be global (`ConfigService` is). */
+  readonly inject: FactoryProvider<OpsModuleValues>['inject'];
+  readonly useFactory: FactoryProvider<OpsModuleValues>['useFactory'];
+  readonly imports?: ModuleMetadata['imports'];
+  /** Also serve `grpc.health.v1.Health` — a static flag: a controller list cannot come from a factory. */
+  readonly grpcHealth?: boolean;
+}
+
+const OPS_VALUES = Symbol('OPS_VALUES');
+
 /**
  * The ops surface every service serves. On the gateway it rides the public port; backend
  * services serve it from their own `OPS_PORT` listener. It never opens a listener itself.
@@ -84,6 +107,31 @@ export class OpsModule {
         ShutdownRegistry,
         { provide: VERSION_INFO, useValue: options.version },
         { provide: READINESS_CHECKS, ...options.checks },
+      ],
+      exports: [ReadinessService, ShutdownRegistry],
+    };
+  }
+
+  /** The same surface, its version and checks built by one factory from injected services. */
+  static forRootAsync(options: OpsModuleAsyncOptions): DynamicModule {
+    return {
+      module: OpsModule,
+      imports: options.imports ?? [],
+      controllers: options.grpcHealth ? [OpsController, GrpcHealthController] : [OpsController],
+      providers: [
+        ReadinessService,
+        ShutdownRegistry,
+        { provide: OPS_VALUES, inject: options.inject ?? [], useFactory: options.useFactory },
+        {
+          provide: VERSION_INFO,
+          inject: [OPS_VALUES],
+          useFactory: (values: OpsModuleValues) => values.version,
+        },
+        {
+          provide: READINESS_CHECKS,
+          inject: [OPS_VALUES],
+          useFactory: (values: OpsModuleValues) => values.checks,
+        },
       ],
       exports: [ReadinessService, ShutdownRegistry],
     };

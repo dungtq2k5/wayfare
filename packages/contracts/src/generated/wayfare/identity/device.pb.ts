@@ -33,32 +33,106 @@ export interface RegisterDeviceResponse {
   deviceId: string;
   /** Returned exactly once; only its SHA-256 is stored. */
   deviceSecret: string;
+  accessToken: string;
+  /** Seconds until the access token expires. */
+  expiresIn: number;
+}
+
+export interface ExchangeDeviceTokenRequest {
+  deviceId: string;
+  /** Secret: never logged. */
+  deviceSecret: string;
+}
+
+export interface ExchangeDeviceTokenResponse {
+  accessToken: string;
+  expiresIn: number;
+}
+
+export interface UpdateDeviceRequest {
+  appVersion?: string | undefined;
+  osVersion?: string | undefined;
+  contentLocale?: string | undefined;
+  pushToken?: string | undefined;
+}
+
+export interface UpdateDeviceResponse {
+  device: DeviceView | undefined;
+}
+
+export interface DeviceView {
+  deviceId: string;
+  appVersion: string;
+  osVersion?: string | undefined;
+  contentLocale: string;
+}
+
+export interface ForgetDeviceRequest {
+}
+
+export interface ForgetDeviceResponse {
 }
 
 export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
-/** Registers and manages anonymous installs (ADR 0003). */
+/** Registers and manages anonymous installs (ADR 0003). The caller travels as metadata. */
 
 export interface DeviceServiceClient {
-  /** Creates a device and returns its secret exactly once. */
+  /** Creates a device and returns its secret exactly once, with a first device token. */
 
   registerDevice(request: RegisterDeviceRequest, metadata?: Metadata): Observable<RegisterDeviceResponse>;
+
+  /** Exchanges a device secret for a fresh device access token. */
+
+  exchangeDeviceToken(
+    request: ExchangeDeviceTokenRequest,
+    metadata?: Metadata,
+  ): Observable<ExchangeDeviceTokenResponse>;
+
+  /** Updates the calling device. */
+
+  updateDevice(request: UpdateDeviceRequest, metadata?: Metadata): Observable<UpdateDeviceResponse>;
+
+  /** Forgets the calling device and revokes its sessions. */
+
+  forgetDevice(request: ForgetDeviceRequest, metadata?: Metadata): Observable<ForgetDeviceResponse>;
 }
 
-/** Registers and manages anonymous installs (ADR 0003). */
+/** Registers and manages anonymous installs (ADR 0003). The caller travels as metadata. */
 
 export interface DeviceServiceController {
-  /** Creates a device and returns its secret exactly once. */
+  /** Creates a device and returns its secret exactly once, with a first device token. */
 
   registerDevice(
     request: RegisterDeviceRequest,
     metadata?: Metadata,
   ): Promise<RegisterDeviceResponse> | Observable<RegisterDeviceResponse> | RegisterDeviceResponse;
+
+  /** Exchanges a device secret for a fresh device access token. */
+
+  exchangeDeviceToken(
+    request: ExchangeDeviceTokenRequest,
+    metadata?: Metadata,
+  ): Promise<ExchangeDeviceTokenResponse> | Observable<ExchangeDeviceTokenResponse> | ExchangeDeviceTokenResponse;
+
+  /** Updates the calling device. */
+
+  updateDevice(
+    request: UpdateDeviceRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateDeviceResponse> | Observable<UpdateDeviceResponse> | UpdateDeviceResponse;
+
+  /** Forgets the calling device and revokes its sessions. */
+
+  forgetDevice(
+    request: ForgetDeviceRequest,
+    metadata?: Metadata,
+  ): Promise<ForgetDeviceResponse> | Observable<ForgetDeviceResponse> | ForgetDeviceResponse;
 }
 
 export function DeviceServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["registerDevice"];
+    const grpcMethods: string[] = ["registerDevice", "exchangeDeviceToken", "updateDevice", "forgetDevice"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("DeviceService", method)(constructor.prototype[method], method, descriptor);

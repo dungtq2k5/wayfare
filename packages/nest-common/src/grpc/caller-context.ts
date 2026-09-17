@@ -8,6 +8,8 @@ const KEYS = {
   deviceId: 'wf-caller-device-id',
   permissions: 'wf-caller-permissions',
   ownerVerified: 'wf-caller-owner-verified',
+  sessionId: 'wf-caller-session-id',
+  emailVerified: 'wf-caller-email-verified',
   ip: 'wf-origin-ip',
   userAgent: 'wf-origin-user-agent',
 } as const;
@@ -27,6 +29,8 @@ export function packCallerContext(
     if (context.deviceId !== null) metadata.set(KEYS.deviceId, context.deviceId);
     metadata.set(KEYS.permissions, context.permissions.join(','));
     metadata.set(KEYS.ownerVerified, context.ownerVerified ? '1' : '0');
+    metadata.set(KEYS.sessionId, context.sessionId);
+    metadata.set(KEYS.emailVerified, context.emailVerified ? '1' : '0');
   }
   return metadata;
 }
@@ -65,9 +69,11 @@ export function unpackCallerContext(metadata: Metadata | undefined): RequestCont
       return {
         kind,
         userId: uuid(KEYS.userId),
+        sessionId: uuid(KEYS.sessionId),
         deviceId: read(KEYS.deviceId) === null ? null : uuid(KEYS.deviceId),
         permissions: (read(KEYS.permissions) ?? '').split(',').filter((code) => code.length > 0),
         ownerVerified: read(KEYS.ownerVerified) === '1',
+        emailVerified: read(KEYS.emailVerified) === '1',
         origin,
       };
     default:

@@ -24,7 +24,7 @@
       "persistent": true
     },
     "db:setup": {
-      "dependsOn": ["db:generate"],
+      "dependsOn": ["build"],
       "cache": false
     },
     "db:objects": {

@@ -12,3 +12,5 @@ plugins:
       - esModuleInterop=true
       - outputIndex=false
       - fileSuffix=.pb
+      # int64 as strings, matching the loader (`longs: String`) in nest-common.
+      - forceLong=string

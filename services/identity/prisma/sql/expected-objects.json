@@ -1,3 +1,10 @@
 {
-  "indexes": ["outbox_events_unpublished_idx"]
+  "indexes": ["outbox_events_unpublished_idx"],
+  "constraints": [
+    "users_email_lower_ck",
+    "users_erased_implies_deleted_ck",
+    "users_locked_until_ck",
+    "legal_acceptances_party_ck",
+    "sessions_client_ck"
+  ]
 }

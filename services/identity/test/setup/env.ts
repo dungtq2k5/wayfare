@@ -1,6 +1,7 @@
 // Integration and contract suites run against the paired _test database (ADR 0034) and a separate
 // NATS server: the service reads DATABASE_URL and NATS_URL, so both are repointed before anything connects.
 import { resolve } from 'node:path';
+import { generateTestSigningKeys } from '@wayfare/nest-common/testing';
 import { config } from 'dotenv';
 
 config({ path: resolve(__dirname, '../../.env'), quiet: true });
@@ -11,3 +12,7 @@ process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;
 if (!process.env.NATS_URL_TEST)
   throw new Error('NATS_URL_TEST is not set — copy .env.example to .env');
 process.env.NATS_URL = process.env.NATS_URL_TEST;
+// Suites sign with a throwaway key, never the .env one: a `pnpm keys:dev` rerun cannot break a run.
+const keys = generateTestSigningKeys();
+process.env.JWT_PRIVATE_KEY = keys.privateKey;
+process.env.JWT_KEY_ID = keys.keyId;

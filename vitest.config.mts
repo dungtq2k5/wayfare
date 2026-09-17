@@ -28,7 +28,15 @@ const alias = [
     find: /^@wayfare\/contracts\/grpc$/,
     replacement: root('./packages/contracts/src/grpc/index.ts'),
   },
+  {
+    find: /^@wayfare\/contracts\/testing$/,
+    replacement: root('./packages/contracts/src/testing/index.ts'),
+  },
   { find: /^@wayfare\/nest-common$/, replacement: root('./packages/nest-common/src/index.ts') },
+  {
+    find: /^@wayfare\/nest-common\/testing$/,
+    replacement: root('./packages/nest-common/src/testing/index.ts'),
+  },
 ];
 
 const unit = (name: string, dir: string, include: string[]) => ({

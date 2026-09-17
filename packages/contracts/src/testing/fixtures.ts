@@ -2,6 +2,7 @@
 import { AuditAction, AuditActorType, AuditResourceType } from '../audit/vocabulary';
 import { RefundReason } from '../billing/enums';
 import { PlaceInactiveReason, PlaceStatus } from '../catalog/enums';
+import { SessionRevokedReason } from '../identity/enums';
 import { AnalyticsLevel, NarrationLanguageScope } from '../entitlements/entitlements';
 import type { Entitlements } from '../entitlements/entitlements';
 import { CurrencyCode } from '../money/money';
@@ -12,7 +13,7 @@ import {
   TranslationSource,
 } from '../narration/enums';
 import { NotificationType } from '../notifications/types';
-import type { EVENT_DEFINITIONS } from './registry';
+import type { EVENT_DEFINITIONS } from '../events/registry';
 
 /** Fixed UUIDv7s, so a fixture's expected aggregate id is readable. */
 export const FIXTURE_IDS = {
@@ -29,6 +30,7 @@ export const FIXTURE_IDS = {
   membership: '01990000-0000-7000-8000-00000000000b',
   billingAccount: '01990000-0000-7000-8000-00000000000c',
   asset: '01990000-0000-7000-8000-00000000000d',
+  family: '01990000-0000-7000-8000-00000000000e',
 } as const;
 
 const HASH = 'a'.repeat(64);
@@ -84,6 +86,12 @@ export const EVENT_FIXTURES: Readonly<Record<Subject, EventFixture>> = {
   'identity.user.deactivated': fixture(user, { userId: user, refundUnredeemedVouchers: true }),
   'identity.owner.verified': fixture(user, { userId: user }),
   'identity.user.locked': fixture(user, { userId: user }),
+  'identity.session.revoked': fixture(user, {
+    userId: user,
+    familyIds: [FIXTURE_IDS.family],
+    tokensValidAfter: null,
+    reason: SessionRevokedReason.LOGOUT,
+  }),
   'catalog.place.content_changed': fixture(place, {
     placeId: place,
     contentHash: HASH,

@@ -11,10 +11,16 @@ enum Platform {
   PLATFORM_WEB = 3;
 }
 
-// Registers and manages anonymous installs (ADR 0003).
+// Registers and manages anonymous installs (ADR 0003). The caller travels as metadata.
 service DeviceService {
-  // Creates a device and returns its secret exactly once.
+  // Creates a device and returns its secret exactly once, with a first device token.
   rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+  // Exchanges a device secret for a fresh device access token.
+  rpc ExchangeDeviceToken(ExchangeDeviceTokenRequest) returns (ExchangeDeviceTokenResponse);
+  // Updates the calling device.
+  rpc UpdateDevice(UpdateDeviceRequest) returns (UpdateDeviceResponse);
+  // Forgets the calling device and revokes its sessions.
+  rpc ForgetDevice(ForgetDeviceRequest) returns (ForgetDeviceResponse);
 }
 
 message RegisterDeviceRequest {
@@ -30,4 +36,40 @@ message RegisterDeviceResponse {
   string device_id = 1;
   // Returned exactly once; only its SHA-256 is stored.
   string device_secret = 2;
+  string access_token = 3;
+  // Seconds until the access token expires.
+  int32 expires_in = 4;
 }
+
+message ExchangeDeviceTokenRequest {
+  string device_id = 1;
+  // Secret: never logged.
+  string device_secret = 2;
+}
+
+message ExchangeDeviceTokenResponse {
+  string access_token = 1;
+  int32 expires_in = 2;
+}
+
+message UpdateDeviceRequest {
+  optional string app_version = 1;
+  optional string os_version = 2;
+  optional string content_locale = 3;
+  optional string push_token = 4;
+}
+
+message UpdateDeviceResponse {
+  DeviceView device = 1;
+}
+
+message DeviceView {
+  string device_id = 1;
+  string app_version = 2;
+  optional string os_version = 3;
+  string content_locale = 4;
+}
+
+message ForgetDeviceRequest {}
+
+message ForgetDeviceResponse {}

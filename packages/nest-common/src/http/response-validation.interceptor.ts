@@ -5,7 +5,7 @@ import { map } from 'rxjs';
 import type { Observable } from 'rxjs';
 import type { z } from 'zod';
 import { AppHttpException } from './app-http.exception';
-import { Paged } from './paged';
+import { Paged, WithMeta } from './paged';
 
 /** The metadata key `@ZodSerializerDto` / `@ZodResponse` from nestjs-zod write. */
 export const ZOD_SERIALIZER_DTO_METADATA = 'ZOD_SERIALIZER_DTO_OPTIONS';
@@ -42,10 +42,10 @@ export class ResponseValidationInterceptor implements NestInterceptor {
     if (value instanceof StreamableFile) return value;
     if (value instanceof Paged) {
       // A Paged result is always a list: each item is checked against the declared item schema.
-      return rebuildPaged(
-        value,
-        value.items.map((item) => this.checkOne(item, schema)),
-      );
+      return value.withItems(value.items.map((item) => this.checkOne(item, schema)));
+    }
+    if (value instanceof WithMeta) {
+      return WithMeta.of(this.check(value.data, schema, isArray), value.meta);
     }
     if (isArray) {
       if (!Array.isArray(value)) this.fail('expected an array');
@@ -79,14 +79,6 @@ export class ResponseValidationInterceptor implements NestInterceptor {
 
 function toSchema(declared: SchemaOrDto): z.ZodType {
   return 'schema' in declared ? declared.schema : declared;
-}
-
-function rebuildPaged(page: Paged<unknown>, items: unknown[]): Paged<unknown> {
-  return Object.assign(
-    Object.create(Object.getPrototypeOf(page) as object) as Paged<unknown>,
-    page,
-    { items },
-  );
 }
 
 /** Top-level and nested object keys present in the input but dropped by the schema. */

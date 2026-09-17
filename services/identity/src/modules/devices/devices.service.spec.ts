@@ -2,10 +2,15 @@ import { status } from '@grpc/grpc-js';
 import { AUDIT_RECORD, isUuidV7 } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
 import { hashToken } from '@wayfare/nest-common';
+import { buildConfigService, generateTestSigningKeys } from '@wayfare/nest-common/testing';
 import type { RequestContext, RpcErrorObject } from '@wayfare/nest-common';
 import { RpcException } from '@nestjs/microservices';
 import { describe, expect, it, vi } from 'vitest';
+import { envSchema } from '../../config/env.schema';
+import { LegalService } from '../legal/legal.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { SessionsService } from '../sessions/sessions.service';
+import { TokensService } from '../tokens/tokens.service';
 import { DevicesService } from './devices.service';
 
 const context: RequestContext = {
@@ -19,11 +24,35 @@ const request: identityGrpc.RegisterDeviceRequest = {
   privacyPolicyVersion: '2026-09-01',
 };
 
+const keys = generateTestSigningKeys();
+const tokens = new TokensService(
+  buildConfigService('identity', envSchema, {
+    NODE_ENV: 'test',
+    DATABASE_URL: 'postgresql://unit@localhost/unit',
+    NATS_URL: 'nats://localhost:1',
+    REDIS_URL: 'redis://localhost:1',
+    JWT_PRIVATE_KEY: keys.privateKey,
+    JWT_KEY_ID: keys.keyId,
+    GRPC_URL: 'localhost:1',
+    OPS_PORT: '1',
+    METRICS_PORT: '2',
+  }),
+);
+
 function setup() {
-  const tx = { device: { create: vi.fn().mockResolvedValue({ id: 'x' }) } };
+  const tx = {
+    device: { create: vi.fn().mockResolvedValue({ id: 'x' }) },
+    legalAcceptance: { create: vi.fn().mockResolvedValue({ acceptedAt: new Date() }) },
+  };
   const prisma = { $transaction: vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)) };
   const outbox = { add: vi.fn().mockResolvedValue({}) };
-  const service = new DevicesService(prisma as unknown as PrismaService, outbox);
+  const service = new DevicesService(
+    prisma as unknown as PrismaService,
+    outbox,
+    tokens,
+    new LegalService(),
+    {} as SessionsService, // registration revokes nothing
+  );
   return { service, tx, prisma, outbox };
 }
 
@@ -43,6 +72,29 @@ describe('DevicesService.registerDevice', () => {
     expect(data.secretHash).toBe(hashToken(response.deviceSecret));
     expect(JSON.stringify(data)).not.toContain(response.deviceSecret);
     expect(data).toMatchObject({ platform: 'ANDROID', osVersion: null, contentLocale: 'en' });
+    expect(response.accessToken.split('.')).toHaveLength(3);
+    expect(response.expiresIn).toBe(900);
+  });
+
+  it('records the privacy policy acceptance for the device, with the observed ip', async () => {
+    const { service, tx } = setup();
+    const response = await service.registerDevice(request, context);
+    expect(tx.legalAcceptance.create.mock.calls[0]![0].data).toEqual({
+      userId: null,
+      deviceId: response.deviceId,
+      document: 'PRIVACY_POLICY',
+      version: '2026-09-01',
+      ip: '203.0.113.9',
+    });
+  });
+
+  it('refuses an outdated privacy policy version before writing anything', async () => {
+    const { service, prisma } = setup();
+    const error = await service
+      .registerDevice({ ...request, privacyPolicyVersion: '2025-01-01' }, context)
+      .catch((e: unknown) => e);
+    expect(codeOf(error)).toBe('LEGAL_VERSION_OUTDATED');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('writes DEVICE_REGISTERED to the outbox INSIDE the same transaction', async () => {

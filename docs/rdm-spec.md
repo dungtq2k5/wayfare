@@ -348,7 +348,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **is_locked** | BOOLEAN | NOT NULL, false | Authoritative. A locked account cannot sign in or refresh. |
 | **locked_until** | TIMESTAMPTZ(3) | Nullable | When a temporary lock lapses. NULL with `is_locked = true` means indefinite. `CHECK (locked_until IS NULL OR is_locked)`. |
 | **lock_reason** | VARCHAR(255) | Nullable | Shown to staff, never to the user. |
-| **tokens_valid_after** | TIMESTAMPTZ(3) | Nullable | **Access tokens issued before this instant are rejected** by the gateway, which reads it from Redis on every authenticated request. Bumped on lock, password change, role change and owner verification. It is how a 30-minute stateless access token becomes revocable in seconds without a per-request database read. NULL means no cutoff. |
+| **tokens_valid_after** | TIMESTAMPTZ(3) | Nullable | **Access tokens issued before this instant are rejected** by the gateway, which reads it from Redis on every authenticated request. identity publishes every bump as `identity.session.revoked`, and its own consumer writes the Redis value — only ever raising it — so a failed cache write is retried rather than lost; a cache miss is answered from this column. Bumped on lock, password change, role change and owner verification. It is how a 30-minute stateless access token becomes revocable in seconds without a per-request database read. NULL means no cutoff. |
 | **credentials_changed_at** | TIMESTAMPTZ(3) | Nullable | Stamped on every email change, password reset and completed account recovery. **Drives the payout-change cooldown** ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)): for `PAYOUT_CHANGE_COOLDOWN_DAYS` (7) after it, changing payout routing is refused. A password *change* by a signed-in user who knows the current password does not stamp it — only flows that bypass the current credential do. |
 | **email_bounced_at** | TIMESTAMPTZ(3) | Nullable | Set by the first **hard bounce** recorded in I-13; cleared when an address is (re-)verified. While set, an owner sees a console banner. A spam complaint never sets it ([ADR 0049](./decisions/0049-transactional-email-via-resend-metadata-only.md)). |
 | **last_login_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -371,7 +371,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Returned to the client once and stored in secure storage. Not secret by itself. |
 | **secret_hash** | CHAR(64) | NOT NULL, **UNIQUE** | SHA-256 of the 32-byte device secret issued at registration. Looked up by value on every device-token exchange (§2.7). The plaintext is returned exactly once. |
-| **user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | **The claim.** NULL = anonymous. Set on sign-in; cleared on erasure. |
+| **user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | **The claim.** NULL = anonymous. Set on sign-in; cleared on erasure. **A sign-in by a different account moves the claim** (a shared or handed-down phone) and revokes the previous account's sessions on the device. |
 | **claimed_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **platform** | VARCHAR(16) | NOT NULL | `IOS \| ANDROID \| WEB` |
 | **app_version** | VARCHAR(32) | NOT NULL | Semver of the client build. Lets the gateway refuse a build known to be broken with a clear `426` instead of a crash. |
@@ -407,6 +407,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **A spent row is kept, not deleted — that is the replay defence.** A refresh presenting a hash whose row has `rotated_at` set proves two parties hold the same token; the handler revokes **every row in the `family_id`** and returns `401`. Delete the spent row and the replay looks like an unknown token, indistinguishable from a typo.
+- **A lost race is not a replay — for cookie clients.** A `CONSOLE` or `WEB` session's hash rotated less than `REFRESH_RACE_GRACE_MS` (10 s) earlier is a second tab sharing the cookie jar that refreshed at the same moment; it gets `409` and nothing is revoked. A `MOBILE` session has no grace: its app refreshes single-flight, so any rotated hash is a replay. Rotation is a conditional update (`WHERE rotated_at IS NULL`), so exactly one of two concurrent refreshes wins.
+- **A successor keeps its family's `expires_at`.** Rotation never extends a session beyond `REFRESH_TOKEN_TTL` from the login.
 - A session is live iff `rotated_at IS NULL AND revoked_at IS NULL AND expires_at > now()`. Rows are pruned 30 days after `expires_at`.
 - **Devices do not have sessions.** A device token is re-derived from the device secret (I-2) whenever it expires; there is no rotation lineage to protect because there is no human credential behind it.
 
@@ -1680,6 +1682,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | identity | `owner_registrations_one_pending` | partial unique | one open application per user |
 | identity | `owner_registrations_reviewed_ck` | CHECK | reviewed ⇔ approved/rejected |
 | identity | `legal_acceptances_party_ck` | CHECK | a user or a device accepted |
+| identity | `sessions_client_ck` | CHECK | `client` is `CONSOLE`, `WEB` or `MOBILE` — a wrong value would send tokens down the wrong transport (§2.4) |
 | identity | `action_tokens_live_revert_idx` | partial index | reserved addresses during a revert window |
 | identity | `email_deliveries_one_per_event` | unique | one email per event per recipient |
 | identity | `account_recoveries_one_live` | partial unique | one live recovery per owner |

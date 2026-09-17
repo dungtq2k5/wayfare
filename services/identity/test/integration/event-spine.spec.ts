@@ -1,19 +1,13 @@
 import { headers } from '@nats-io/transport-node';
 import { AUDIT_RECORD, dlqSubject, newId } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
-import {
-  ConsumerRunner,
-  ensureStreams,
-  NatsClient,
-  OutboxRelay,
-  OutboxService,
-} from '@wayfare/nest-common';
+import { ConsumerRunner, ensureStreams, NatsClient, OutboxRelay } from '@wayfare/nest-common';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AuditConsumer } from '../../src/modules/audit/audit.consumer';
 import { AuditService } from '../../src/modules/audit/audit.service';
-import { DevicesService } from '../../src/modules/devices/devices.service';
 import { IDENTITY_STREAMS } from '../../src/modules/outbox/outbox.module';
 import { testConfig, testPrisma, truncateAll } from '../setup/database';
+import { identityServices } from '../setup/services';
 
 /**
  * A durable of its own, reading only NEW messages. The suite runs against the separate test
@@ -28,7 +22,7 @@ const config = testConfig();
 let nats: NatsClient;
 let runner: ConsumerRunner;
 const consumer = new TestAuditConsumer(new AuditService(prisma));
-const devices = new DevicesService(prisma, new OutboxService());
+const { devices } = identityServices(prisma);
 const deadLetters = dlqSubject(consumer.service, consumer.durable);
 
 async function waitFor<T>(
@@ -57,7 +51,7 @@ async function dlqCount(): Promise<number> {
 }
 
 beforeAll(async () => {
-  nats = await NatsClient.connect(config.NATS_URL, 'identity-it');
+  nats = await NatsClient.connect(config.get('NATS_URL', { infer: true }), 'identity-it');
   await ensureStreams(nats.jsm, IDENTITY_STREAMS);
   await nats.jsm.consumers.delete(AUDIT_RECORD.stream, consumer.durable).catch(() => undefined);
   runner = new ConsumerRunner(nats);
