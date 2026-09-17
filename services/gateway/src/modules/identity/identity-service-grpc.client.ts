@@ -19,6 +19,9 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
   readonly adminUsers: GrpcServiceCaller<identityGrpc.AdminUserServiceClient>;
   readonly roles: GrpcServiceCaller<identityGrpc.RoleServiceClient>;
   readonly audit: GrpcServiceCaller<identityGrpc.AuditServiceClient>;
+  readonly passwords: GrpcServiceCaller<identityGrpc.PasswordServiceClient>;
+  readonly emailChange: GrpcServiceCaller<identityGrpc.EmailChangeServiceClient>;
+  readonly emailWebhooks: GrpcServiceCaller<identityGrpc.EmailWebhookServiceClient>;
 
   constructor(@Inject(IDENTITY_GRPC) grpc: ClientGrpc) {
     this.devices = new GrpcServiceCaller(grpc, identityGrpc.DEVICE_SERVICE_NAME);
@@ -27,6 +30,9 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
     this.adminUsers = new GrpcServiceCaller(grpc, identityGrpc.ADMIN_USER_SERVICE_NAME);
     this.roles = new GrpcServiceCaller(grpc, identityGrpc.ROLE_SERVICE_NAME);
     this.audit = new GrpcServiceCaller(grpc, identityGrpc.AUDIT_SERVICE_NAME);
+    this.passwords = new GrpcServiceCaller(grpc, identityGrpc.PASSWORD_SERVICE_NAME);
+    this.emailChange = new GrpcServiceCaller(grpc, identityGrpc.EMAIL_CHANGE_SERVICE_NAME);
+    this.emailWebhooks = new GrpcServiceCaller(grpc, identityGrpc.EMAIL_WEBHOOK_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -36,5 +42,8 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
     this.adminUsers.init();
     this.roles.init();
     this.audit.init();
+    this.passwords.init();
+    this.emailChange.init();
+    this.emailWebhooks.init();
   }
 }

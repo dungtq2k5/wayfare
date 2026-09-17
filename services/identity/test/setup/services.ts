@@ -3,17 +3,23 @@
 import { MAX_ROLE_HOLDERS_PER_CHANGE } from '@wayfare/contracts';
 import { OutboxService } from '@wayfare/nest-common';
 import { AccessService } from '../../src/modules/access/access.service';
+import { AccountLinksService } from '../../src/modules/account-links/account-links.service';
 import { AdminUsersService } from '../../src/modules/admin-users/admin-users.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
 import { DevicesService } from '../../src/modules/devices/devices.service';
+import { EmailChangeService } from '../../src/modules/email-change/email-change.service';
+import { EmailDispatcher } from '../../src/modules/email/email.module';
+import { EmailService } from '../../src/modules/email/email.service';
 import { LegalService } from '../../src/modules/legal/legal.service';
+import { PasswordService } from '../../src/modules/password/password.service';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { RolesService } from '../../src/modules/roles/roles.service';
 import { SessionsService } from '../../src/modules/sessions/sessions.service';
 import { TokensService } from '../../src/modules/tokens/tokens.service';
 import { UsersService } from '../../src/modules/users/users.service';
 import { testConfig } from './database';
+import { RecordingEmailProvider } from './email';
 
 /**
  * Every identity use case over one Prisma client. `outboxOverride` replaces outbox methods to
@@ -22,7 +28,11 @@ import { testConfig } from './database';
 export function identityServices(
   prisma: PrismaService,
   outboxOverride: Partial<OutboxService> = {},
-  options: { billing?: BillingPortService; roleHoldersLimit?: number } = {},
+  options: {
+    billing?: BillingPortService;
+    roleHoldersLimit?: number;
+    mailbox?: RecordingEmailProvider;
+  } = {},
 ) {
   const real = new OutboxService();
   const outbox: OutboxService = {
@@ -35,10 +45,44 @@ export function identityServices(
   const legal = new LegalService();
   const sessions = new SessionsService(outbox, access, tokens);
   const devices = new DevicesService(prisma, outbox, tokens, legal, sessions);
-  const auth = new AuthService(prisma, outbox, tokens, access, legal, sessions, devices);
+  const mailbox = options.mailbox ?? new RecordingEmailProvider();
+  const email = new EmailService(prisma, mailbox, config);
+  const dispatcher = new EmailDispatcher(email);
+  const links = new AccountLinksService();
+  const emailChange = new EmailChangeService(
+    prisma,
+    outbox,
+    tokens,
+    sessions,
+    links,
+    email,
+    dispatcher,
+  );
+  const passwords = new PasswordService(prisma, outbox, tokens, sessions, links, email, dispatcher);
+  const auth = new AuthService(
+    prisma,
+    outbox,
+    tokens,
+    access,
+    legal,
+    sessions,
+    devices,
+    links,
+    emailChange,
+    dispatcher,
+  );
   const users = new UsersService(prisma, access, legal, devices);
   const billing = options.billing ?? new BillingPortService();
-  const adminUsers = new AdminUsersService(prisma, outbox, access, sessions, billing);
+  const adminUsers = new AdminUsersService(
+    prisma,
+    outbox,
+    access,
+    sessions,
+    billing,
+    links,
+    email,
+    dispatcher,
+  );
   const roles = new RolesService(
     prisma,
     outbox,
@@ -46,5 +90,22 @@ export function identityServices(
     sessions,
     options.roleHoldersLimit ?? MAX_ROLE_HOLDERS_PER_CHANGE,
   );
-  return { config, tokens, access, legal, sessions, devices, auth, users, adminUsers, roles };
+  return {
+    config,
+    tokens,
+    access,
+    legal,
+    sessions,
+    devices,
+    auth,
+    users,
+    adminUsers,
+    roles,
+    mailbox,
+    email,
+    dispatcher,
+    links,
+    emailChange,
+    passwords,
+  };
 }

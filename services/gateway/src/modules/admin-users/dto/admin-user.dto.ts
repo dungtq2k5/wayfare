@@ -5,6 +5,7 @@ import {
   MAX_LOCK_REASON_LENGTH,
   MAX_ROLES_PER_USER,
   zBooleanParam,
+  zCursorQuery,
   zEmail,
   zPageQuery,
   zUuidV7,
@@ -95,3 +96,15 @@ export const deactivateUserBodySchema = z
 
 /** Validated `DELETE /admin/users/:id` body. */
 export class DeactivateUserDto extends createZodDto(deactivateUserBodySchema) {}
+
+/** `GET /admin/users/:id/email-deliveries` query. */
+export const listEmailDeliveriesQuerySchema = zCursorQuery;
+
+/** Validated delivery-history query. */
+export class ListEmailDeliveriesQueryDto extends createZodDto(listEmailDeliveriesQuerySchema) {}
+
+/** `POST /admin/users/:id/email-deliveries/check` body: the claimed address, in a body only. */
+export const checkEmailDeliveryBodySchema = z.object({ email: zEmail }).strict();
+
+/** Validated delivery-check body. */
+export class CheckEmailDeliveryDto extends createZodDto(checkEmailDeliveryBodySchema) {}

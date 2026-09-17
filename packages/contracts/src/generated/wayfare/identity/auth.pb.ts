@@ -80,7 +80,11 @@ export interface SessionUser {
   fullName?: string | undefined;
   preferredLocale: string;
   isEmailVerified: boolean;
-  createdAt: Timestamp | undefined;
+  createdAt:
+    | Timestamp
+    | undefined;
+  /** A hard bounce was recorded since the address was last verified. */
+  emailBounced: boolean;
 }
 
 export interface RegisterResponse {

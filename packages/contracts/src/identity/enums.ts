@@ -39,6 +39,8 @@ export enum ActionTokenPurpose {
   EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
   EMAIL_CHANGE = 'EMAIL_CHANGE',
   EMAIL_CHANGE_REVERT = 'EMAIL_CHANGE_REVERT',
+  /** A new staff account's first-password link. */
+  ACCOUNT_SETUP = 'ACCOUNT_SETUP',
 }
 
 /** Every `ActionTokenPurpose` value. */

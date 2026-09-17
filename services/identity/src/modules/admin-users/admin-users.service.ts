@@ -4,7 +4,9 @@ import {
   AuditAction,
   AuditActorType,
   AuditResourceType,
+  ActionTokenPurpose,
   compareStrings,
+  EmailTemplate,
   IDENTITY_USER_DEACTIVATED,
   IDENTITY_USER_LOCKED,
   MAX_ADMIN_REASON_LENGTH,
@@ -17,11 +19,14 @@ import {
   SessionRevokedReason,
   SystemRole,
   zEmail,
+  zCursorQuery,
   zPageQuery,
   zUuidV7,
 } from '@wayfare/contracts';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import {
+  decodeCursor,
+  encodeCursor,
   isUniqueConstraintViolation,
   OutboxService,
   parseRpcRequest,
@@ -33,11 +38,15 @@ import type { AccountContext, RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client';
 import { AccessService } from '../access/access.service';
+import { AccountLinksService } from '../account-links/account-links.service';
 import { permissionsOf, roleCodesOf } from '../access/domain/permissions-of';
 import type { RoleGrants } from '../access/domain/permissions-of';
 import { auditRecord } from '../audit/domain/audit-record';
 import type { AuditFacts } from '../audit/domain/audit-record';
 import { BillingPortService } from '../billing-port/billing-port.service';
+import { EMAIL_DELIVERY_VIEW_SELECT, toEmailDeliveryView } from '../email/email-delivery.mapper';
+import { EmailDispatcher } from '../email/email.module';
+import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { isActiveAccount } from '../users/domain/account-state';
@@ -103,6 +112,10 @@ const createFields = z.object({
 
 const updateFields = z.object({ userId: zUuidV7, fullName: zFullName.optional() });
 
+const deliveriesFields = z.object({ userId: zUuidV7, page: zCursorQuery });
+
+const checkFields = z.object({ userId: zUuidV7, email: zEmail });
+
 const setRolesFields = z.object({ userId: zUuidV7, roleIds: zRoleIds });
 
 const lockFields = z.object({
@@ -144,6 +157,9 @@ export class AdminUsersService {
     private readonly access: AccessService,
     private readonly sessions: SessionsService,
     private readonly billing: BillingPortService,
+    private readonly links: AccountLinksService,
+    private readonly email: EmailService,
+    private readonly dispatcher: EmailDispatcher,
   ) {}
 
   /**
@@ -273,9 +289,12 @@ export class AdminUsersService {
       where: { email: fields.email },
       select: { id: true },
     });
-    if (taken !== null) throw rpcError('EMAIL_TAKEN');
+    // An address a live revert reserves is taken, like one in use (rdm-spec I-9).
+    if (taken !== null || (await this.links.liveRevertFor(this.prisma, { email: fields.email }))) {
+      throw rpcError('EMAIL_TAKEN');
+    }
     try {
-      const row = await this.prisma.$transaction(async (tx) => {
+      const created = await this.prisma.$transaction(async (tx) => {
         const roles = await this.requestedRoles(tx, fields.roleIds);
         const actorCodes = await this.codesOf(tx, actor.userId);
         requireNone(
@@ -291,9 +310,30 @@ export class AdminUsersService {
         await this.audit(tx, actor, AuditAction.STAFF_USER_CREATED, user.id, now, {
           after: { roleCodes: roleCodesOf(grantsOf(roles)) },
         });
-        return this.target(tx, user.id);
+        const setup = await this.links.mint(tx, {
+          userId: user.id,
+          purpose: ActionTokenPurpose.ACCOUNT_SETUP,
+          targetEmail: fields.email,
+          origin: actor.origin,
+          now,
+        });
+        const actorRoles = await tx.userRole.findMany({
+          where: { userId: actor.userId },
+          select: { role: { select: { name: true } } },
+        });
+        const mail = await this.email.prepare(tx, {
+          template: EmailTemplate.ACCOUNT_SETUP,
+          eventId: setup.id,
+          recipient: { userId: user.id },
+          data: {
+            inviterRoleNames: actorRoles.map(({ role }) => role.name).toSorted(compareStrings),
+          },
+          links: { action: { path: 'setupAccount', token: setup.token } },
+        });
+        return { row: await this.target(tx, user.id), mail };
       });
-      return { user: toAdminUser(row, now) };
+      this.dispatcher.run([created.mail]);
+      return { user: toAdminUser(created.row, now) };
     } catch (error) {
       if (isUniqueConstraintViolation(error)) throw rpcError('EMAIL_TAKEN');
       throw error;
@@ -558,6 +598,68 @@ export class AdminUsersService {
       });
     });
     return {};
+  }
+
+  /** What was sent to an account, newest first — metadata only (rdm-spec I-13). */
+  async listEmailDeliveries(
+    request: identityGrpc.ListEmailDeliveriesRequest,
+    context: RequestContext,
+  ): Promise<identityGrpc.ListEmailDeliveriesResponse> {
+    requireAccountContext(context);
+    const fields = parseRpcRequest(deliveriesFields, request);
+    const after = fields.page.cursor === undefined ? undefined : decodeCursor(fields.page.cursor);
+    if (after === null) {
+      throw rpcError('VALIDATION_FAILED', {
+        issues: [{ path: '/page/cursor', code: 'invalid_format' }],
+      });
+    }
+    await this.target(this.prisma, fields.userId);
+    const rows = await this.prisma.emailDelivery.findMany({
+      where: {
+        recipientUserId: fields.userId,
+        ...(after === undefined ? {} : { id: { lt: after.id } }),
+      },
+      orderBy: { id: 'desc' },
+      take: fields.page.limit + 1,
+      select: EMAIL_DELIVERY_VIEW_SELECT,
+    });
+    const page = rows.slice(0, fields.page.limit);
+    const last = page.at(-1);
+    return {
+      deliveries: page.map(toEmailDeliveryView),
+      page:
+        rows.length > fields.page.limit && last !== undefined
+          ? { nextCursor: encodeCursor({ id: last.id }) }
+          : {},
+    };
+  }
+
+  /**
+   * Whether a claimed address received any of an account's mail, by keyed hash — without revealing
+   * the stored one. Every check is audited: it is also a guess (api-endpoints-plan §1.6).
+   */
+  async checkEmailDelivery(
+    request: identityGrpc.CheckEmailDeliveryRequest,
+    context: RequestContext,
+  ): Promise<identityGrpc.CheckEmailDeliveryResponse> {
+    const actor = requireAccountContext(context);
+    const fields = parseRpcRequest(checkFields, request);
+    const now = new Date();
+    const matches = await this.prisma.$transaction(async (tx) => {
+      await this.target(tx, fields.userId);
+      const found = await tx.emailDelivery.findFirst({
+        where: {
+          recipientUserId: fields.userId,
+          toEmailHash: this.email.addressHash(fields.email),
+        },
+        select: { id: true },
+      });
+      await this.audit(tx, actor, AuditAction.EMAIL_ADDRESS_CHECKED, fields.userId, now, {
+        after: { matches: found !== null },
+      });
+      return found !== null;
+    });
+    return { matches };
   }
 
   /** The addressed account; missing → `RESOURCE_NOT_FOUND`. */

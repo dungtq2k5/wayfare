@@ -9,9 +9,48 @@ import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { PageNumberMeta, PageNumberRequest } from "../common/page.pb";
+import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from "../common/page.pb";
 
 export const protobufPackage = "wayfare.identity";
+
+/** A transactional email template (rdm-spec I-13). */
+export enum EmailTemplate {
+  EMAIL_TEMPLATE_UNSPECIFIED = 0,
+  EMAIL_TEMPLATE_EMAIL_VERIFICATION = 1,
+  EMAIL_TEMPLATE_PASSWORD_RESET = 2,
+  EMAIL_TEMPLATE_ACCOUNT_SETUP = 3,
+  EMAIL_TEMPLATE_EMAIL_CHANGE = 4,
+  EMAIL_TEMPLATE_EMAIL_CHANGED_NOTICE = 5,
+  EMAIL_TEMPLATE_STAFF_INVITE = 6,
+  EMAIL_TEMPLATE_OWNER_REGISTRATION_OUTCOME = 7,
+  EMAIL_TEMPLATE_SUBMISSION_OUTCOME = 8,
+  EMAIL_TEMPLATE_PAYMENT_FAILED = 9,
+  EMAIL_TEMPLATE_ENTITLEMENTS_REDUCED = 10,
+  EMAIL_TEMPLATE_ACCOUNT_RECOVERY_NOTICE = 11,
+  EMAIL_TEMPLATE_VOUCHER_MOVED = 12,
+  EMAIL_TEMPLATE_VOUCHER_REFUNDED = 13,
+  UNRECOGNIZED = -1,
+}
+
+/** Where a send stands (rdm-spec I-13). SENT means only that the provider accepted it. */
+export enum EmailDeliveryStatus {
+  EMAIL_DELIVERY_STATUS_UNSPECIFIED = 0,
+  EMAIL_DELIVERY_STATUS_QUEUED = 1,
+  EMAIL_DELIVERY_STATUS_SENT = 2,
+  EMAIL_DELIVERY_STATUS_DELIVERED = 3,
+  EMAIL_DELIVERY_STATUS_BOUNCED = 4,
+  EMAIL_DELIVERY_STATUS_COMPLAINED = 5,
+  EMAIL_DELIVERY_STATUS_FAILED = 6,
+  UNRECOGNIZED = -1,
+}
+
+/** A bounce's kind (rdm-spec I-13). */
+export enum EmailBounceType {
+  EMAIL_BOUNCE_TYPE_UNSPECIFIED = 0,
+  EMAIL_BOUNCE_TYPE_HARD = 1,
+  EMAIL_BOUNCE_TYPE_SOFT = 2,
+  UNRECOGNIZED = -1,
+}
 
 export interface ListUsersRequest {
   page: PageNumberRequest | undefined;
@@ -163,6 +202,38 @@ export interface RevokeUserSessionsRequest {
 export interface RevokeUserSessionsResponse {
 }
 
+export interface ListEmailDeliveriesRequest {
+  userId: string;
+  page: PageRequest | undefined;
+}
+
+export interface ListEmailDeliveriesResponse {
+  deliveries: EmailDeliveryView[];
+  page: CursorPage | undefined;
+}
+
+/** One send, as support sees it: never a body, subject or link. */
+export interface EmailDeliveryView {
+  id: string;
+  template: EmailTemplate;
+  toEmailMasked?: string | undefined;
+  status: EmailDeliveryStatus;
+  /** UNSPECIFIED unless the status is BOUNCED. */
+  bounceType: EmailBounceType;
+  statusChangedAt: Timestamp | undefined;
+  createdAt: Timestamp | undefined;
+}
+
+export interface CheckEmailDeliveryRequest {
+  userId: string;
+  /** The claimed address. Never logged, echoed or stored. */
+  email: string;
+}
+
+export interface CheckEmailDeliveryResponse {
+  matches: boolean;
+}
+
 export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /**
@@ -190,6 +261,13 @@ export interface AdminUserServiceClient {
   restoreUser(request: RestoreUserRequest, metadata?: Metadata): Observable<RestoreUserResponse>;
 
   revokeUserSessions(request: RevokeUserSessionsRequest, metadata?: Metadata): Observable<RevokeUserSessionsResponse>;
+
+  listEmailDeliveries(
+    request: ListEmailDeliveriesRequest,
+    metadata?: Metadata,
+  ): Observable<ListEmailDeliveriesResponse>;
+
+  checkEmailDelivery(request: CheckEmailDeliveryRequest, metadata?: Metadata): Observable<CheckEmailDeliveryResponse>;
 }
 
 /**
@@ -247,6 +325,16 @@ export interface AdminUserServiceController {
     request: RevokeUserSessionsRequest,
     metadata?: Metadata,
   ): Promise<RevokeUserSessionsResponse> | Observable<RevokeUserSessionsResponse> | RevokeUserSessionsResponse;
+
+  listEmailDeliveries(
+    request: ListEmailDeliveriesRequest,
+    metadata?: Metadata,
+  ): Promise<ListEmailDeliveriesResponse> | Observable<ListEmailDeliveriesResponse> | ListEmailDeliveriesResponse;
+
+  checkEmailDelivery(
+    request: CheckEmailDeliveryRequest,
+    metadata?: Metadata,
+  ): Promise<CheckEmailDeliveryResponse> | Observable<CheckEmailDeliveryResponse> | CheckEmailDeliveryResponse;
 }
 
 export function AdminUserServiceControllerMethods() {
@@ -262,6 +350,8 @@ export function AdminUserServiceControllerMethods() {
       "deactivateUser",
       "restoreUser",
       "revokeUserSessions",
+      "listEmailDeliveries",
+      "checkEmailDelivery",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

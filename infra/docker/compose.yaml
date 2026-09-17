@@ -143,9 +143,11 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_TRACES_SAMPLER: parentbased_always_on
       OTEL_SERVICE_NAME: identity
+      SMTP_URL: smtp://mailpit:1025
     ports: ['3101:3101']
     depends_on:
       identity-db: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
       nats: { condition: service_healthy }
       redis: { condition: service_healthy }
     healthcheck:

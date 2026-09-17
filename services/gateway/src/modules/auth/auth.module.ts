@@ -21,5 +21,7 @@ import { AuthService } from './auth.service';
         ),
     },
   ],
+  // The password and address routes clear cookies too.
+  exports: [SessionResponder],
 })
 export class AuthModule {}

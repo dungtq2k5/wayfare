@@ -19,6 +19,44 @@ service AdminUserService {
   rpc DeactivateUser(DeactivateUserRequest) returns (DeactivateUserResponse);
   rpc RestoreUser(RestoreUserRequest) returns (RestoreUserResponse);
   rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (RevokeUserSessionsResponse);
+  rpc ListEmailDeliveries(ListEmailDeliveriesRequest) returns (ListEmailDeliveriesResponse);
+  rpc CheckEmailDelivery(CheckEmailDeliveryRequest) returns (CheckEmailDeliveryResponse);
+}
+
+// A transactional email template (rdm-spec I-13).
+enum EmailTemplate {
+  EMAIL_TEMPLATE_UNSPECIFIED = 0;
+  EMAIL_TEMPLATE_EMAIL_VERIFICATION = 1;
+  EMAIL_TEMPLATE_PASSWORD_RESET = 2;
+  EMAIL_TEMPLATE_ACCOUNT_SETUP = 3;
+  EMAIL_TEMPLATE_EMAIL_CHANGE = 4;
+  EMAIL_TEMPLATE_EMAIL_CHANGED_NOTICE = 5;
+  EMAIL_TEMPLATE_STAFF_INVITE = 6;
+  EMAIL_TEMPLATE_OWNER_REGISTRATION_OUTCOME = 7;
+  EMAIL_TEMPLATE_SUBMISSION_OUTCOME = 8;
+  EMAIL_TEMPLATE_PAYMENT_FAILED = 9;
+  EMAIL_TEMPLATE_ENTITLEMENTS_REDUCED = 10;
+  EMAIL_TEMPLATE_ACCOUNT_RECOVERY_NOTICE = 11;
+  EMAIL_TEMPLATE_VOUCHER_MOVED = 12;
+  EMAIL_TEMPLATE_VOUCHER_REFUNDED = 13;
+}
+
+// Where a send stands (rdm-spec I-13). SENT means only that the provider accepted it.
+enum EmailDeliveryStatus {
+  EMAIL_DELIVERY_STATUS_UNSPECIFIED = 0;
+  EMAIL_DELIVERY_STATUS_QUEUED = 1;
+  EMAIL_DELIVERY_STATUS_SENT = 2;
+  EMAIL_DELIVERY_STATUS_DELIVERED = 3;
+  EMAIL_DELIVERY_STATUS_BOUNCED = 4;
+  EMAIL_DELIVERY_STATUS_COMPLAINED = 5;
+  EMAIL_DELIVERY_STATUS_FAILED = 6;
+}
+
+// A bounce's kind (rdm-spec I-13).
+enum EmailBounceType {
+  EMAIL_BOUNCE_TYPE_UNSPECIFIED = 0;
+  EMAIL_BOUNCE_TYPE_HARD = 1;
+  EMAIL_BOUNCE_TYPE_SOFT = 2;
 }
 
 message ListUsersRequest {
@@ -163,3 +201,35 @@ message RevokeUserSessionsRequest {
 }
 
 message RevokeUserSessionsResponse {}
+
+message ListEmailDeliveriesRequest {
+  string user_id = 1;
+  wayfare.common.PageRequest page = 2;
+}
+
+message ListEmailDeliveriesResponse {
+  repeated EmailDeliveryView deliveries = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+// One send, as support sees it: never a body, subject or link.
+message EmailDeliveryView {
+  string id = 1;
+  EmailTemplate template = 2;
+  optional string to_email_masked = 3;
+  EmailDeliveryStatus status = 4;
+  // UNSPECIFIED unless the status is BOUNCED.
+  EmailBounceType bounce_type = 5;
+  google.protobuf.Timestamp status_changed_at = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CheckEmailDeliveryRequest {
+  string user_id = 1;
+  // The claimed address. Never logged, echoed or stored.
+  string email = 2;
+}
+
+message CheckEmailDeliveryResponse {
+  bool matches = 1;
+}

@@ -79,4 +79,18 @@ export class AdminUsersGrpcController implements identityGrpc.AdminUserServiceCo
   ): Promise<identityGrpc.RevokeUserSessionsResponse> {
     return this.users.revokeUserSessions(request, unpackCallerContext(metadata));
   }
+
+  listEmailDeliveries(
+    request: identityGrpc.ListEmailDeliveriesRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.ListEmailDeliveriesResponse> {
+    return this.users.listEmailDeliveries(request, unpackCallerContext(metadata));
+  }
+
+  checkEmailDelivery(
+    request: identityGrpc.CheckEmailDeliveryRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.CheckEmailDeliveryResponse> {
+    return this.users.checkEmailDelivery(request, unpackCallerContext(metadata));
+  }
 }

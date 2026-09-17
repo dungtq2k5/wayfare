@@ -22,6 +22,8 @@ export interface SessionAccount {
   readonly preferredLocale: string;
   readonly isEmailVerified: boolean;
   readonly ownerVerifiedAt: Date | null;
+  /** A hard bounce since the address was last verified (rdm-spec I-1). */
+  readonly emailBouncedAt: Date | null;
   readonly createdAt: Date;
 }
 
@@ -33,6 +35,7 @@ export const SESSION_ACCOUNT_SELECT = {
   preferredLocale: true,
   isEmailVerified: true,
   ownerVerifiedAt: true,
+  emailBouncedAt: true,
   createdAt: true,
 } as const satisfies Prisma.UserSelect;
 

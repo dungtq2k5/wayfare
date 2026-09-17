@@ -40,6 +40,11 @@ export const RATE_LIMITS = {
     keys: ['billingAccountId'],
     countFailuresOnly: true,
   },
+  // A signed-in person's current-password checks (PATCH /auth/password, POST /auth/email/change).
+  PASSWORD_CHECK: { limit: 10, windowMs: 15 * MINUTE_MS, keys: ['userId'] },
+  EMAIL_REQUEST: { limit: 5, windowMs: HOUR_MS, keys: ['userId'] },
+  // Each delivery check is a guess against the keyed hash; bounded per staff member.
+  EMAIL_CHECK: { limit: 30, windowMs: HOUR_MS, keys: ['userId'] },
   AUTHENTICATED: { limit: 600, windowMs: MINUTE_MS, keys: ['userId'] },
 } as const satisfies Record<string, RateLimitSpec>;
 

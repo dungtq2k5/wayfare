@@ -34,6 +34,7 @@ export enum AuditAction {
 
   // api-endpoints-plan §1.6
   STAFF_USER_CREATED = 'STAFF_USER_CREATED',
+  EMAIL_ADDRESS_CHECKED = 'EMAIL_ADDRESS_CHECKED',
   USER_UPDATED = 'USER_UPDATED',
   USER_ROLES_UPDATED = 'USER_ROLES_UPDATED',
   USER_LOCKED = 'USER_LOCKED',
@@ -219,6 +220,7 @@ export const AUDIT_ACTION_RESOURCE: Readonly<Record<AuditAction, AuditResourceTy
   [AuditAction.USER_DEACTIVATED]: AuditResourceType.USER,
   [AuditAction.USER_RESTORED]: AuditResourceType.USER,
   [AuditAction.USER_SESSIONS_REVOKED]: AuditResourceType.USER,
+  [AuditAction.EMAIL_ADDRESS_CHECKED]: AuditResourceType.USER,
   [AuditAction.ROLE_CREATED]: AuditResourceType.ROLE,
   [AuditAction.ROLE_UPDATED]: AuditResourceType.ROLE,
   [AuditAction.ROLE_PERMISSIONS_UPDATED]: AuditResourceType.ROLE,

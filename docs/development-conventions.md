@@ -710,14 +710,15 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 [ADR 0049](./decisions/0049-transactional-email-via-resend-metadata-only.md).
 
-- Every send goes through `EmailService.send(…)`, which **inserts the `email_deliveries` row first** — inside the caller's transaction when there is one — and sends **after the commit**. A row that already exists for the event is not sent again, unless it is still `QUEUED` without a provider id, in which case the redelivery re-sends it under the row id as the idempotency key. That row, not the provider, is the one-email-per-event guarantee.
+- Every send is two calls: **`EmailService.prepare(tx, …)`** inserts the `email_deliveries` row inside the caller's transaction (`INSERT … ON CONFLICT DO NOTHING` — a failed insert would abort the caller's transaction), and **`deliver(pending)`** sends after the commit. A request never awaits `deliver`: it hands the pending email to the in-process dispatcher, which the shutdown hooks drain, so no response waits on a provider. A row that already exists for the event is not sent again, unless it is still `QUEUED` without a provider id, in which case an event redelivery re-sends it under the row id as the idempotency key (Resend keeps keys 24 hours). That row, not the provider, is the one-email-per-event guarantee.
 - **A token email is never retried with the same token** (rdm-spec I-9): the token lives only in memory between minting and the send. The person repeats the request, which mints a new one.
 - **MUST NOT** store a rendered body, subject or link, and **MUST NOT** log them. Store the address only through `maskEmail()` and `keyedHash('email', …)`.
 - Status writes go through `advanceDeliveryStatus()`, which refuses a backwards move.
-- Templates carry **no tracking pixel and no tracked links**. Resend's open and click tracking are settings of the sending domain, not of a send, so identity reads them at boot (and `email:check-domain` on demand) and raises an alerting error if either is on.
+- Templates carry **no tracking pixel and no tracked links**. Resend's open and click tracking are settings of the sending domain, not of a send, and reading them needs a full-access key the running service must not hold. So the service holds a **sending-only** `RESEND_API_KEY`, and the deploy runs `email:check-domain` with a separate `RESEND_ADMIN_API_KEY`, failing the deploy when either setting is on.
+- **Links are passed to a template as built URLs**, never as tokens: no template's data carries a token field, so no template can interpolate one.
 - **`EMAIL_DELIVERY_MODE` is required, with no default.** `restricted` delivers only to `EMAIL_NONPROD_ALLOWLIST` and redirects everything else to `EMAIL_NONPROD_CATCHALL`; only production sets `open`. `NODE_ENV` cannot make this choice, because staging runs as production. Local development uses Nodemailer to the Compose mail catcher. **A staging email reaching a real owner is an incident.**
 - Emailed links carry the token in the URL **fragment**, never the path or the query string.
-- Security templates (password reset, email-change revert, account recovery) are never suppressed by an earlier bounce or complaint.
+- Security templates (verification, password reset, account setup, email change and its notice, account recovery) are never suppressed by an earlier bounce or complaint.
 
 ### 11.5 Providers
 
@@ -726,7 +727,8 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - Translation, speech, storage and the LLM are reached **only** through `TranslationProvider`, `SpeechProvider`, `StorageProvider` and `LlmProvider`. **MUST NOT** import a vendor SDK outside its adapter file.
 - An adapter records which provider answered on the task or ledger row it serves.
 - A provider fallback is configuration (`TTS_PROVIDER_ORDER`), not an `if` in a use case.
-- Every provider call has a timeout and a circuit breaker; a provider failing repeatedly is skipped for `PROVIDER_COOLDOWN_MS` rather than retried on every task.
+- Every provider call has a timeout and a circuit breaker; a provider failing repeatedly is skipped for `PROVIDER_COOLDOWN_MS` rather than retried on every task. Email sends are the exception to the breaker: they are user-initiated and never retried in a loop, so a timeout alone bounds them.
+- **A lint rule enforces the adapter boundary:** `no-restricted-imports` refuses each vendor SDK outside `services/*/src/providers/<kind>/`.
 
 ---
 

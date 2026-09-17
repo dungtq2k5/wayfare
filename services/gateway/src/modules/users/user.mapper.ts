@@ -14,6 +14,7 @@ export function toUserResponseDto(user: identityGrpc.SessionUser | undefined): U
     fullName: user.fullName ?? null,
     preferredLocale: user.preferredLocale,
     isEmailVerified: user.isEmailVerified,
+    emailBounced: user.emailBounced,
     createdAt: fromProtoTimestamp(user.createdAt, 'createdAt').toISOString(),
   };
 }

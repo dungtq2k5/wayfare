@@ -18,6 +18,12 @@ export const LOG_REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
   'res.headers["set-cookie"]',
+  // Request bodies that carry a claimed address or a link token (conventions §9.4).
+  'req.body.email',
+  'req.body.newEmail',
+  'req.body.token',
+  '*.newEmail',
+  '*.revertToken',
   '*.password',
   '*.newPassword',
   '*.currentPassword',

@@ -9,6 +9,8 @@ export const userResponseSchema = z.object({
   fullName: z.string().nullable(),
   preferredLocale: z.string(),
   isEmailVerified: z.boolean(),
+  /** A hard bounce was recorded since the address was last verified — the console's banner. */
+  emailBounced: z.boolean(),
   createdAt: z.iso.datetime({ offset: true }),
 });
 

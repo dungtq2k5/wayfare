@@ -7,6 +7,7 @@ import {
   toAdminUserResponseDto,
   toAdminUserViewResponse,
   toDeactivateUserRequest,
+  toEmailDeliveryResponseDto,
   toListUsersRequest,
   toLockUserRequest,
 } from './admin-user.mapper';
@@ -14,10 +15,14 @@ import type {
   AdminUserListItemResponse,
   AdminUserResultResponseDto,
   AdminUserViewResponse,
+  EmailDeliveryCheckResponseDto,
+  EmailDeliveryResponseDto,
 } from './dto/admin-user-response.dto';
 import type {
+  CheckEmailDeliveryDto,
   CreateStaffUserDto,
   DeactivateUserDto,
+  ListEmailDeliveriesQueryDto,
   ListUsersQueryDto,
   LockUserDto,
   SetUserRolesDto,
@@ -113,5 +118,40 @@ export class AdminUsersService {
 
   async revokeSessions(context: AccountContext, userId: string): Promise<void> {
     await this.identity.adminUsers.call('revokeUserSessions', { userId }, context);
+  }
+
+  async emailDeliveries(
+    context: AccountContext,
+    userId: string,
+    query: ListEmailDeliveriesQueryDto,
+  ): Promise<Paged<EmailDeliveryResponseDto>> {
+    const response = await this.identity.adminUsers.call(
+      'listEmailDeliveries',
+      {
+        userId,
+        page: {
+          limit: query.limit,
+          ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+        },
+      },
+      context,
+    );
+    return Paged.cursor(
+      response.deliveries.map(toEmailDeliveryResponseDto),
+      response.page?.nextCursor ?? null,
+    );
+  }
+
+  async checkEmailDelivery(
+    context: AccountContext,
+    userId: string,
+    body: CheckEmailDeliveryDto,
+  ): Promise<EmailDeliveryCheckResponseDto> {
+    const response = await this.identity.adminUsers.call(
+      'checkEmailDelivery',
+      { userId, email: body.email },
+      context,
+    );
+    return { matches: response.matches };
   }
 }

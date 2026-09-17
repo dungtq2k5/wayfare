@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // pnpm keys:dev — generates an Ed25519 signing pair for local development and CI (ADR 0043).
 // Writes JWT_PRIVATE_KEY and JWT_KEY_ID into services/identity/.env and JWT_PUBLIC_KEYS into
-// services/gateway/.env, replacing only those lines. Never for production keys.
-import { generateKeyPairSync } from 'node:crypto';
+// services/gateway/.env, replacing only those lines. EMAIL_HASH_KEY is written only when it is
+// absent or empty: a new key would stop every stored address hash from matching. Never for
+// production keys.
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -39,7 +41,14 @@ function setEnv(file, entries) {
   console.log(`✓ ${file}: ${Object.keys(entries).join(', ')}`);
 }
 
-setEnv('services/identity/.env', { JWT_PRIVATE_KEY: base64(privatePem), JWT_KEY_ID: keyId });
+const identityPath = resolve(root, 'services/identity/.env');
+const identityEnv = existsSync(identityPath) ? readFileSync(identityPath, 'utf8') : '';
+const hasHashKey = /^EMAIL_HASH_KEY=.+$/m.test(identityEnv);
+setEnv('services/identity/.env', {
+  JWT_PRIVATE_KEY: base64(privatePem),
+  JWT_KEY_ID: keyId,
+  ...(hasHashKey ? {} : { EMAIL_HASH_KEY: randomBytes(32).toString('base64') }),
+});
 // Single-quoted: the JSON holds double quotes, and both dotenv and node --env-file accept it.
 setEnv('services/gateway/.env', {
   JWT_PUBLIC_KEYS: `'${JSON.stringify({ [keyId]: base64(publicPem) })}'`,

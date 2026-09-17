@@ -18,6 +18,8 @@ const READ_ELSEWHERE: Readonly<Record<string, string>> = {
   NATS_URL_TEST: './test/setup/env.ts',
   BOOTSTRAP_SUPER_ADMIN_EMAIL: './src/scripts/bootstrap-super-admin.ts',
   BOOTSTRAP_SUPER_ADMIN_PASSWORD: './src/scripts/bootstrap-super-admin.ts',
+  RESEND_ADMIN_API_KEY: './src/scripts/email-check-domain.ts',
+  RESEND_DOMAIN_ID: './src/scripts/email-check-domain.ts',
   OTEL_EXPORTER_OTLP_ENDPOINT: 'packages/nest-common/src/observability/instrumentation.ts',
   OTEL_TRACES_SAMPLER: 'packages/nest-common/src/observability/instrumentation.ts',
   OTEL_SERVICE_NAME: 'packages/nest-common/src/observability/instrumentation.ts',
@@ -176,6 +178,7 @@ const SPEC = parseSpecNames(
     '| `OTEL_SERVICE_NAME` | all | x |',
     '| `DATABASE_URL_SHADOW` | each | x |',
     '| `BOOTSTRAP_SUPER_ADMIN_EMAIL`, `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | a script | x |',
+    '| `RESEND_ADMIN_API_KEY`, `RESEND_DOMAIN_ID` | a script | x |',
     '',
     '## 15. Next',
     '| `NOT_IN_SECTION` | x | x |',
@@ -187,6 +190,7 @@ const FILES: Record<string, string> = {
   'services/svc/test/setup/env.ts': 'process.env.NATS_URL_TEST',
   'services/svc/src/scripts/bootstrap-super-admin.ts':
     'BOOTSTRAP_SUPER_ADMIN_EMAIL, BOOTSTRAP_SUPER_ADMIN_PASSWORD',
+  'services/svc/src/scripts/email-check-domain.ts': 'RESEND_ADMIN_API_KEY, RESEND_DOMAIN_ID',
   'packages/nest-common/src/observability/instrumentation.ts':
     'OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_SAMPLER',
 };
@@ -199,6 +203,8 @@ const COMPLETE_EXAMPLE = [
   'NATS_URL_TEST=nats://x',
   'BOOTSTRAP_SUPER_ADMIN_EMAIL=',
   'BOOTSTRAP_SUPER_ADMIN_PASSWORD=',
+  'RESEND_ADMIN_API_KEY=',
+  'RESEND_DOMAIN_ID=',
   'OTEL_EXPORTER_OTLP_ENDPOINT=http://x',
   'OTEL_TRACES_SAMPLER=always_on',
   'OTEL_SERVICE_NAME=svc',

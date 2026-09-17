@@ -1,5 +1,9 @@
 {
-  "indexes": ["outbox_events_unpublished_idx"],
+  "indexes": [
+    "outbox_events_unpublished_idx",
+    "action_tokens_live_revert_idx",
+    "email_deliveries_one_per_event"
+  ],
   "constraints": [
     "users_email_lower_ck",
     "users_erased_implies_deleted_ck",

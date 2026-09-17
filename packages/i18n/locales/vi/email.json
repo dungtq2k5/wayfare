@@ -1,0 +1,108 @@
+{
+  "EMAIL_VERIFICATION": {
+    "subject": "Xác nhận địa chỉ email của bạn",
+    "preheader": "Một cú nhấp để xác nhận địa chỉ này cho tài khoản Wayfare.",
+    "body": [
+      "Hãy xác nhận địa chỉ này thuộc về tài khoản Wayfare của bạn.",
+      "Liên kết có hiệu lực trong 24 giờ. Nếu bạn không tạo tài khoản, hãy bỏ qua email này."
+    ],
+    "action": "Xác nhận địa chỉ"
+  },
+  "PASSWORD_RESET": {
+    "subject": "Đặt lại mật khẩu Wayfare",
+    "preheader": "Chọn mật khẩu mới cho tài khoản của bạn.",
+    "body": [
+      "Có người đã yêu cầu đặt lại mật khẩu cho tài khoản Wayfare dùng địa chỉ này.",
+      "Liên kết có hiệu lực trong một giờ và chỉ dùng được một lần. Nếu không phải bạn, hãy bỏ qua email này: mật khẩu của bạn vẫn giữ nguyên."
+    ],
+    "action": "Chọn mật khẩu mới"
+  },
+  "ACCOUNT_SETUP": {
+    "subject": "Tài khoản quản trị Wayfare của bạn đã sẵn sàng",
+    "preheader": "Chọn mật khẩu để bắt đầu dùng trang quản trị.",
+    "body": [
+      "Một thành viên Wayfare ({{inviterRoleNames}}) đã tạo tài khoản quản trị cho địa chỉ này.",
+      "Hãy chọn mật khẩu để hoàn tất. Liên kết có hiệu lực trong 72 giờ; sau đó, dùng \"Quên mật khẩu\" ở trang đăng nhập."
+    ],
+    "action": "Chọn mật khẩu"
+  },
+  "EMAIL_CHANGE": {
+    "subject": "Xác nhận địa chỉ email mới",
+    "preheader": "Xác nhận địa chỉ này để hoàn tất việc thay đổi.",
+    "body": [
+      "Tài khoản Wayfare của bạn yêu cầu dùng địa chỉ này từ nay.",
+      "Hãy xác nhận trong 24 giờ để hoàn tất. Nếu bạn không yêu cầu, hãy bỏ qua email này."
+    ],
+    "action": "Xác nhận địa chỉ mới"
+  },
+  "EMAIL_CHANGED_NOTICE": {
+    "subject": "Địa chỉ email Wayfare của bạn đã được thay đổi",
+    "preheader": "Nếu không phải bạn, bạn có thể hoàn tác trong bảy ngày.",
+    "body": [
+      "Địa chỉ email của tài khoản Wayfare đã được đổi thành {{newEmailMasked}}.",
+      "Yêu cầu đến từ {{requestIp}}.",
+      "Nếu không phải bạn, hãy hoàn tác trong bảy ngày. Chúng tôi sẽ đăng xuất mọi thiết bị và yêu cầu bạn chọn mật khẩu mới."
+    ],
+    "action": "Không phải tôi"
+  },
+  "STAFF_INVITE": {
+    "subject": "{{sellerName}} mời bạn tham gia Wayfare",
+    "preheader": "Chấp nhận lời mời để quét voucher cho {{sellerName}}.",
+    "body": [
+      "{{sellerName}} mời bạn hỗ trợ quét voucher trên Wayfare.",
+      "Lời mời có hiệu lực đến {{expiresAt}}."
+    ],
+    "action": "Chấp nhận lời mời"
+  },
+  "OWNER_REGISTRATION_OUTCOME": {
+    "subject": "Đơn đăng ký chủ cơ sở đã được xem xét",
+    "preheader": "Đã có kết quả cho đơn đăng ký của bạn.",
+    "body": ["Đơn đăng ký chủ cơ sở của bạn đã được xem xét: {{decision}}.", "{{decisionNote}}"],
+    "action": "Mở cổng chủ cơ sở"
+  },
+  "SUBMISSION_OUTCOME": {
+    "subject": "Nội dung bạn gửi đã được xem xét",
+    "preheader": "Đã có kết quả cho nội dung bạn gửi.",
+    "body": ["Nội dung bạn gửi đã được xem xét: {{decision}}.", "{{decisionNote}}"],
+    "action": "Mở cổng chủ cơ sở"
+  },
+  "PAYMENT_FAILED": {
+    "subject": "Thanh toán Wayfare không thành công",
+    "preheader": "Cập nhật phương thức thanh toán để giữ gói của bạn.",
+    "body": [
+      "Chúng tôi không thể thu phí từ phương thức thanh toán của bạn (lần {{attemptCount}}).",
+      "Chúng tôi sẽ thử lại vào {{nextAttemptAt}}. Hãy cập nhật phương thức thanh toán trong cổng chủ cơ sở trước thời điểm đó."
+    ]
+  },
+  "ENTITLEMENTS_REDUCED": {
+    "subject": "Gói Wayfare của bạn đã thay đổi",
+    "preheader": "Một số tính năng không còn trong gói của bạn.",
+    "body": ["Gói của bạn đã thay đổi và một số tính năng không còn được bao gồm."],
+    "action": "Xem thay đổi"
+  },
+  "ACCOUNT_RECOVERY_NOTICE": {
+    "subject": "Khôi phục tài khoản Wayfare của bạn",
+    "preheader": "Có người đang khôi phục quyền truy cập tài khoản của bạn.",
+    "body": [
+      "Yêu cầu khôi phục tài khoản Wayfare của bạn đã đến giai đoạn {{stage}}.",
+      "Nếu bạn không yêu cầu, hãy hủy ngay."
+    ],
+    "action": "Mở yêu cầu khôi phục",
+    "cancel": "Hủy yêu cầu khôi phục"
+  },
+  "VOUCHER_MOVED": {
+    "subject": "Voucher của bạn đã được chuyển vào tài khoản",
+    "preheader": "{{offerTitle}} đã có trong tài khoản Wayfare của bạn.",
+    "body": ["Voucher {{offerTitle}} của bạn đã có trong tài khoản Wayfare."],
+    "action": "Xem voucher của tôi"
+  },
+  "VOUCHER_REFUNDED": {
+    "subject": "Đơn mua voucher của bạn đã được hoàn tiền",
+    "preheader": "Khoản hoàn tiền đang được xử lý.",
+    "body": [
+      "{{voucherCount}} voucher trong đơn hàng của bạn đã được hoàn tiền ({{reason}}).",
+      "Tiền sẽ được hoàn về thẻ bạn đã dùng để thanh toán."
+    ],
+    "action": "Xem đơn hàng"
+  }
+}

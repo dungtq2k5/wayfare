@@ -25,3 +25,12 @@ ALTER TABLE legal_acceptances ADD CONSTRAINT legal_acceptances_party_ck
 -- sessions (rdm-spec I-3): a wrong client would send tokens down the wrong transport.
 ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_client_ck;
 ALTER TABLE sessions ADD CONSTRAINT sessions_client_ck CHECK (client IN ('CONSOLE', 'WEB', 'MOBILE'));
+
+-- action_tokens (rdm-spec I-9): the addresses a live revert reserves.
+CREATE INDEX IF NOT EXISTS action_tokens_live_revert_idx
+  ON action_tokens (target_email)
+  WHERE purpose = 'EMAIL_CHANGE_REVERT' AND used_at IS NULL AND invalidated_at IS NULL;
+
+-- email_deliveries (rdm-spec I-13): one email per event per recipient, a null recipient included.
+CREATE UNIQUE INDEX IF NOT EXISTS email_deliveries_one_per_event
+  ON email_deliveries (template, event_id, recipient_user_id) NULLS NOT DISTINCT;

@@ -689,7 +689,8 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | billing | the separate Connect endpoint |
 | `STRIPE_VOUCHER_PMC_ID` | billing | payment method configuration allowing instant methods only, for voucher checkout |
 | `VOUCHER_CODE_HASH_KEY` | billing | HMAC key for voucher short codes |
-| `RESEND_API_KEY` | identity | transactional email; **unset locally**, where Nodemailer → Mailpit is used |
+| `RESEND_API_KEY` | identity | transactional email — a **sending-only** key; **unset locally**, where Nodemailer → Mailpit is used |
+| `RESEND_ADMIN_API_KEY` | identity's `email:check-domain` deploy step only | a full-access key, used once per deploy to confirm the sending domain's open and click tracking are off; never given to the running service |
 | `RESEND_WEBHOOK_SECRET` | identity | delivery-webhook signature verification |
 | `EMAIL_HASH_KEY` | identity | HMAC key for addresses in delivery records |
 | `EMAIL_PROVIDER` | identity | `resend` (deployed) or `smtp` (local, Mailpit) |
@@ -697,7 +698,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `EMAIL_DELIVERY_MODE` | identity | `restricted` or `open`, required, no default — only production is `open` |
 | `EMAIL_NONPROD_ALLOWLIST` | identity | with `restricted`: addresses (or `*@domain`) that may receive mail |
 | `EMAIL_NONPROD_CATCHALL` | identity | with `restricted`: where every other mail goes |
-| `RESEND_DOMAIN_ID` | identity | the sending domain whose tracking settings are checked at boot |
+| `RESEND_DOMAIN_ID` | identity's `email:check-domain` deploy step only | the sending domain whose tracking settings the deploy checks |
 | `CONSOLE_URL`, `WEB_URL` | identity | bases for emailed links — the console for staff and owners, the web app for everyone else |
 | `SMTP_URL` | identity | local only: the Mailpit container |
 | `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing | Price IDs, never hardcoded |

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { newId } from '../common/ids';
 import { zAccountClaims, zDeviceClaims } from './auth-claims';
-import { normalizeEmail, zEmail } from './email';
+import { accountLink } from './account-links';
+import { maskEmail, normalizeEmail, zEmail } from './email';
 import { LEGAL_DOCUMENTS } from './enums';
 import { isCurrentLegalVersion, LEGAL_DOCUMENT_VERSIONS } from './legal';
 
@@ -63,5 +64,29 @@ describe('token claims', () => {
     expect(zDeviceClaims.safeParse({ ...registered, typ: 'user' }).success).toBe(false);
     expect(zAccountClaims.safeParse({ ...account, aud: 'elsewhere' }).success).toBe(false);
     expect(zAccountClaims.safeParse({ ...account, admin: true }).success).toBe(false);
+  });
+});
+
+describe('maskEmail', () => {
+  it.each([
+    ['anne@example.com', 'a***e@example.com'],
+    ['a@example.com', '*@example.com'],
+    ['ab@example.com', 'a*@example.com'],
+  ])('%s → %s', (address, masked) => {
+    expect(maskEmail(address)).toBe(masked);
+  });
+});
+
+describe('accountLink', () => {
+  it('puts the token in the fragment, encoded, and joins the base once', () => {
+    expect(accountLink('https://console.example.com/', 'resetPassword', 'a+b/c')).toBe(
+      'https://console.example.com/reset-password#token=a%2Bb%2Fc',
+    );
+    expect(accountLink('https://app.example.com/web', 'verifyEmail', 'tok')).toBe(
+      'https://app.example.com/web/verify-email#token=tok',
+    );
+    expect(accountLink('https://app.example.com', 'verifyEmail')).toBe(
+      'https://app.example.com/verify-email',
+    );
   });
 });

@@ -12,6 +12,7 @@ export function toSessionUser(user: SessionAccount): identityGrpc.SessionUser {
     ...(user.fullName === null ? {} : { fullName: user.fullName }),
     preferredLocale: user.preferredLocale,
     isEmailVerified: user.isEmailVerified,
+    emailBounced: user.emailBouncedAt !== null,
     createdAt: toProtoTimestamp(user.createdAt),
   };
 }

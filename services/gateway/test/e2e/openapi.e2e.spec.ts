@@ -51,6 +51,12 @@ const NO_SECURITY = new Set([
   'POST /api/v1/devices/token',
   'POST /api/v1/auth/register',
   'POST /api/v1/auth/login',
+  'POST /api/v1/auth/password/forgot',
+  'POST /api/v1/auth/password/reset/validate',
+  'POST /api/v1/auth/password/reset',
+  'POST /api/v1/auth/email/verify',
+  'POST /api/v1/auth/email/change/confirm',
+  'POST /api/v1/auth/email/change/revert',
 ]);
 const REFRESH_COOKIE = new Set(['POST /api/v1/auth/refresh', 'POST /api/v1/auth/logout']);
 const DEVICE_ROUTES = new Set([
@@ -62,7 +68,9 @@ const DEVICE_ROUTES = new Set([
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(33);
+    expect(names).toHaveLength(44);
+    // Provider webhooks are not client routes; they stay out of the document.
+    expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/health'))).toBe(false);
   });
 
@@ -92,12 +100,13 @@ describe('OpenAPI contract', () => {
     expect(document.components.schemas.AuditActionResponseDto).toEqual({ type: 'string' });
   });
 
-  it('gives every operation exactly one 2xx, with data unless it is a 204', () => {
+  it('gives every operation exactly one 2xx, with data unless it is a 204 or a 202', () => {
     for (const [name, operation] of operations()) {
       const success = Object.keys(operation.responses).filter((status) => status.startsWith('2'));
       expect(success, name).toHaveLength(1);
       const [status] = success;
-      if (status === '204') expect(operation.responses['204']?.content, name).toBeUndefined();
+      if (status === '204' || status === '202')
+        expect(operation.responses[status]?.content, name).toBeUndefined();
       else
         expect(
           operation.responses[status!]?.content?.['application/json']?.schema.properties,

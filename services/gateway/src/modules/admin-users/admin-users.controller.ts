@@ -17,6 +17,7 @@ import {
   ApiErrors,
   Ctx,
   NoStore,
+  RateLimit,
   RequirePermission,
   UsesUpstream,
 } from '@wayfare/nest-common';
@@ -31,10 +32,14 @@ import {
   AdminUserListItemResponseDto,
   AdminUserResultResponseDto,
   AdminUserViewResponseDto,
+  EmailDeliveryCheckResponseDto,
+  EmailDeliveryResponseDto,
 } from './dto/admin-user-response.dto';
 import {
+  CheckEmailDeliveryDto,
   CreateStaffUserDto,
   DeactivateUserDto,
+  ListEmailDeliveriesQueryDto,
   ListUsersQueryDto,
   LockUserDto,
   SetUserRolesDto,
@@ -204,5 +209,41 @@ export class AdminUsersController {
     @Param() params: UserIdParamDto,
   ): Promise<void> {
     await this.users.revokeSessions(context, params.id);
+  }
+
+  @Get(':id/email-deliveries')
+  @RequirePermission('user.read')
+  @NoStore()
+  @ApiOperation({
+    summary: 'What was sent to an account, newest first: template, masked address, status.',
+  })
+  @ApiEnvelope(EmailDeliveryResponseDto, { list: 'cursor' })
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(EmailDeliveryResponseDto)
+  emailDeliveries(
+    @Ctx() context: AccountContext,
+    @Param() params: UserIdParamDto,
+    @Query() query: ListEmailDeliveriesQueryDto,
+  ): Promise<Paged<EmailDeliveryResponseDto>> {
+    return this.users.emailDeliveries(context, params.id, query);
+  }
+
+  @Post(':id/email-deliveries/check')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('user.read')
+  @RateLimit('EMAIL_CHECK')
+  @NoStore()
+  @ApiOperation({
+    summary: "Whether a claimed address received any of the account's mail. Audited.",
+  })
+  @ApiEnvelope(EmailDeliveryCheckResponseDto)
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(EmailDeliveryCheckResponseDto)
+  checkEmailDelivery(
+    @Ctx() context: AccountContext,
+    @Param() params: UserIdParamDto,
+    @Body() body: CheckEmailDeliveryDto,
+  ): Promise<EmailDeliveryCheckResponseDto> {
+    return this.users.checkEmailDelivery(context, params.id, body);
   }
 }

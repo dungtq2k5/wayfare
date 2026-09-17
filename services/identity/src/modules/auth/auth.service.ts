@@ -37,7 +37,10 @@ import { z } from 'zod';
 import type { Prisma } from '../../../generated/prisma/client';
 import { AccessService } from '../access/access.service';
 import { auditRecord } from '../audit/domain/audit-record';
+import { AccountLinksService } from '../account-links/account-links.service';
 import { DevicesService } from '../devices/devices.service';
+import { EmailChangeService } from '../email-change/email-change.service';
+import { EmailDispatcher } from '../email/email.module';
 import { LegalService } from '../legal/legal.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SESSION_ACCOUNT_SELECT, SessionsService } from '../sessions/sessions.service';
@@ -95,11 +98,15 @@ export class AuthService {
     private readonly legal: LegalService,
     private readonly sessions: SessionsService,
     private readonly devices: DevicesService,
+    private readonly links: AccountLinksService,
+    private readonly emailChange: EmailChangeService,
+    private readonly dispatcher: EmailDispatcher,
   ) {}
 
   /**
    * Creates an account with the `USER` role and the terms acceptance, claims the calling device
-   * (lenient), and signs the person in. Sends nothing yet — email verification is not built.
+   * (lenient), signs the person in, and — after the commit — sends the verification link. An
+   * address reserved by a live revert is taken, like one in use (rdm-spec I-9).
    */
   async register(
     request: identityGrpc.RegisterRequest,
@@ -115,12 +122,14 @@ export class AuthService {
       where: { email: fields.email },
       select: { id: true },
     });
-    if (taken !== null) throw rpcError('EMAIL_TAKEN');
+    if (taken !== null || (await this.links.liveRevertFor(this.prisma, { email: fields.email }))) {
+      throw rpcError('EMAIL_TAKEN');
+    }
     const passwordHash = await this.tokens.hashPassword(fields.password);
     const now = new Date();
 
     try {
-      const session = await this.prisma.$transaction(async (tx) => {
+      const { session, verification } = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
             email: fields.email,
@@ -150,8 +159,18 @@ export class AuthService {
             now,
           }),
         );
-        return (await this.signIn(tx, user, client, context, now)).session;
+        const verification = await this.emailChange.prepareVerification(
+          tx,
+          user,
+          context.origin,
+          now,
+        );
+        return {
+          session: (await this.signIn(tx, user, client, context, now)).session,
+          verification,
+        };
       });
+      this.dispatcher.run([verification]);
       return { session: toSession(session) };
     } catch (error) {
       if (isUniqueConstraintViolation(error)) throw rpcError('EMAIL_TAKEN');

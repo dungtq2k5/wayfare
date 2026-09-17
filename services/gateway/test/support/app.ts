@@ -65,6 +65,9 @@ export class IdentityStub {
   readonly adminUsers = new StubCaller();
   readonly roles = new StubCaller();
   readonly audit = new StubCaller();
+  readonly passwords = new StubCaller();
+  readonly emailChange = new StubCaller();
+  readonly emailWebhooks = new StubCaller();
 
   onModuleInit(): void {}
 
@@ -76,6 +79,9 @@ export class IdentityStub {
       this.adminUsers,
       this.roles,
       this.audit,
+      this.passwords,
+      this.emailChange,
+      this.emailWebhooks,
     ]) {
       caller.calls.length = 0;
       caller.handlers = {};
@@ -177,6 +183,7 @@ export function stubSession(overrides: Partial<identityGrpc.Session> = {}): iden
       fullName: 'Ann',
       preferredLocale: 'en',
       isEmailVerified: false,
+      emailBounced: false,
       createdAt: toProtoTimestamp(at),
     },
     accessToken: 'access-token',

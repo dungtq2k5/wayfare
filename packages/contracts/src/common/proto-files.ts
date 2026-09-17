@@ -10,6 +10,9 @@ export const PROTO_FILES = {
     'wayfare/identity/admin_user.proto',
     'wayfare/identity/role.proto',
     'wayfare/identity/audit.proto',
+    'wayfare/identity/password.proto',
+    'wayfare/identity/email_change.proto',
+    'wayfare/identity/email_webhook.proto',
   ],
   health: ['grpc/health/v1/health.proto'],
 } as const;

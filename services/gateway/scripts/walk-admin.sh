@@ -6,38 +6,16 @@
 # Usage: services/gateway/scripts/walk-admin.sh
 #   BASE, BOOTSTRAP_SUPER_ADMIN_EMAIL and BOOTSTRAP_SUPER_ADMIN_PASSWORD may be overridden.
 #   The bootstrap account must be the only active SUPER_ADMIN (step 7 checks the last-admin rule).
+#   Staff set their passwords from the setup mails, read through Mailpit.
 set -euo pipefail
 
 BASE=${BASE:-http://localhost:3000/api/v1}
-root=$(cd "$(dirname "$0")/../../.." && pwd)
-identity_dir="$root/services/identity"
 export BOOTSTRAP_SUPER_ADMIN_EMAIL=${BOOTSTRAP_SUPER_ADMIN_EMAIL:-superadmin@wayfare.local}
 export BOOTSTRAP_SUPER_ADMIN_PASSWORD=${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-super admin pass 1}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-
-console=(-H 'x-wayfare-client: console' -H 'content-type: application/json')
-
-step() { printf '\n== %s\n' "$*"; }
-fail() { printf '✗ %s\n' "$*"; exit 1; }
-
-# call NAME EXPECTED_STATUS curl-args… — stores the body in $work/NAME.json and headers in $work/NAME.h
-call() {
-  local name=$1 want=$2
-  shift 2
-  local got
-  got=$(curl -sS -o "$work/$name.json" -D "$work/$name.h" -w '%{http_code}' "$@")
-  if [[ "$got" != "$want" ]]; then
-    printf '✗ %s: HTTP %s (wanted %s)\n' "$name" "$got" "$want"
-    cat "$work/$name.json"
-    echo
-    exit 1
-  fi
-  printf '✓ %s: HTTP %s\n' "$name" "$got"
-}
-
-json() { jq -r "$2" "$work/$1.json"; }
-cookie_value() { grep -i "^set-cookie: $2=" "$work/$1.h" | head -1 | sed -E "s/^[^=]*=([^;]*).*/\1/" | tr -d '\r'; }
+# shellcheck source=./walk-lib.sh
+source "$(dirname "$0")/walk-lib.sh"
 
 # The access and refresh cookies of a staff member, kept in $work/<who>.at and .rt.
 login() {
@@ -55,36 +33,24 @@ refresh() {
 }
 as() { echo "wf_at=$(cat "$work/$1.at")"; }
 
-# Waits up to 2 s for an access token to be refused.
-expect_refused() {
-  local who=$1 token=$2 status attempt
-  for attempt in 1 2 3 4 5 6 7 8 9 10; do
-    status=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/users/me" "${console[@]}" -b "wf_at=$token")
-    [[ $status == 401 ]] && break
-    sleep 0.2
-  done
-  [[ $status == 401 ]] || fail "$who's old access token still works after 2 s (HTTP $status)"
-  echo "✓ $who's old access token is refused after $((attempt * 200)) ms or less"
+# A new staff member chooses a password through the setup mail (api-endpoints-plan §1.6).
+set_up() {
+  local who=$1 email=$2 password=$3 token
+  token=$(mail_token "$email" 'console account is ready')
+  call "$who-setup-validate" 200 -X POST "$BASE/auth/password/reset/validate" "${console[@]}" \
+    -d "$(jq -nc --arg t "$token" '{token: $t}')"
+  [[ $(json "$who-setup-validate" .data.purpose) == ACCOUNT_SETUP ]] || fail "$who's link is not a setup link"
+  call "$who-setup" 204 -X POST "$BASE/auth/password/reset" "${console[@]}" \
+    -d "$(jq -nc --arg t "$token" --arg p "$password" '{token: $t, newPassword: $p}')"
 }
 
-# The walk's one shortcut until staff get their setup link: a password hashed by identity's own
-# helper (built), written straight into the database.
-set_password() {
-  local email=$1 password=$2 hash
-  hash=$(cd "$identity_dir" && node -e \
-    "require('./dist/src/modules/tokens/domain/password.js').hashPassword(process.argv[1]).then((h) => console.log(h))" \
-    "$password")
-  (cd "$root" && printf "UPDATE users SET password_hash = :'hash' WHERE email = :'email';\n" |
-    docker compose exec -T identity-db psql -q -v ON_ERROR_STOP=1 -v hash="$hash" -v email="$email" \
-      -U wayfare -d wayfare_identity) >/dev/null
-  echo "✓ password set for $email"
-}
+reset_local_state
 
 stamp=$(date +%s)
 staff_password='staff walk password'
 
 step '1. bootstrap, then log in as the SUPER_ADMIN (A)'
-(cd "$root" && pnpm --silent --filter @wayfare/identity bootstrap:super-admin) | tail -1
+(cd "$repo_root" && pnpm --silent --filter @wayfare/identity bootstrap:super-admin) | tail -1
 login a "$BOOTSTRAP_SUPER_ADMIN_EMAIL" "$BOOTSTRAP_SUPER_ADMIN_PASSWORD"
 call a-me 200 "$BASE/users/me" "${console[@]}" -b "$(as a)"
 a_id=$(json a-me .data.user.id)
@@ -106,7 +72,7 @@ call support 201 -X POST "$BASE/admin/roles" "${console[@]}" -b "$(as a)" \
 support=$(json support .data.role.id)
 echo "✓ code $(json support .data.role.code)"
 
-step '4. create B (Support) and C (ADMIN), set their passwords, log B in'
+step '4. create B (Support) and C (ADMIN); each sets a password from the setup mail; log B in'
 b_email="walk-b-$stamp@example.com"
 c_email="walk-c-$stamp@example.com"
 call create-b 201 -X POST "$BASE/admin/users" "${console[@]}" -b "$(as a)" \
@@ -115,8 +81,8 @@ b_id=$(json create-b .data.user.id)
 call create-c 201 -X POST "$BASE/admin/users" "${console[@]}" -b "$(as a)" \
   -d '{"email":"'"$c_email"'","fullName":"Walk C","roleIds":["'"$admin_role"'"]}'
 c_id=$(json create-c .data.user.id)
-set_password "$b_email" "$staff_password"
-set_password "$c_email" "$staff_password"
+set_up B "$b_email" "$staff_password"
+set_up C "$c_email" "$staff_password"
 login b "$b_email" "$staff_password"
 
 step '5. escalation: the permission check, a grant, a refresh, then the no-escalation rule'

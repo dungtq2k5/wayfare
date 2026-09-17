@@ -1,0 +1,108 @@
+{
+  "EMAIL_VERIFICATION": {
+    "subject": "Confirm your email address",
+    "preheader": "One click to confirm this address for your Wayfare account.",
+    "body": [
+      "Confirm that this address belongs to your Wayfare account.",
+      "The link works for 24 hours. If you did not create an account, ignore this email."
+    ],
+    "action": "Confirm my address"
+  },
+  "PASSWORD_RESET": {
+    "subject": "Reset your Wayfare password",
+    "preheader": "Choose a new password for your account.",
+    "body": [
+      "Someone asked to reset the password of the Wayfare account using this address.",
+      "The link works for one hour and only once. If it was not you, ignore this email: your password stays as it is."
+    ],
+    "action": "Choose a new password"
+  },
+  "ACCOUNT_SETUP": {
+    "subject": "Your Wayfare console account is ready",
+    "preheader": "Choose a password to start using the console.",
+    "body": [
+      "A Wayfare team member ({{inviterRoleNames}}) created a console account for this address.",
+      "Choose your password to finish setting it up. The link works for 72 hours; after that, use \"Forgot password\" on the sign-in page."
+    ],
+    "action": "Choose my password"
+  },
+  "EMAIL_CHANGE": {
+    "subject": "Confirm your new email address",
+    "preheader": "Confirm this address to finish changing it.",
+    "body": [
+      "Your Wayfare account asked to use this address from now on.",
+      "Confirm it within 24 hours to finish the change. If you did not ask for this, ignore this email."
+    ],
+    "action": "Confirm the new address"
+  },
+  "EMAIL_CHANGED_NOTICE": {
+    "subject": "Your Wayfare email address was changed",
+    "preheader": "If this was not you, you can undo it for seven days.",
+    "body": [
+      "The email address of your Wayfare account was changed to {{newEmailMasked}}.",
+      "The request came from {{requestIp}}.",
+      "If this was not you, undo the change within seven days. We will sign every device out and ask you to choose a new password."
+    ],
+    "action": "This wasn't me"
+  },
+  "STAFF_INVITE": {
+    "subject": "{{sellerName}} invited you to Wayfare",
+    "preheader": "Accept the invitation to redeem vouchers for {{sellerName}}.",
+    "body": [
+      "{{sellerName}} invited you to help redeem their vouchers on Wayfare.",
+      "The invitation is open until {{expiresAt}}."
+    ],
+    "action": "Accept the invitation"
+  },
+  "OWNER_REGISTRATION_OUTCOME": {
+    "subject": "Your owner registration was reviewed",
+    "preheader": "The decision on your application is ready.",
+    "body": ["Your owner registration was reviewed: {{decision}}.", "{{decisionNote}}"],
+    "action": "Open the owner portal"
+  },
+  "SUBMISSION_OUTCOME": {
+    "subject": "Your submission was reviewed",
+    "preheader": "The decision on your submission is ready.",
+    "body": ["Your submission was reviewed: {{decision}}.", "{{decisionNote}}"],
+    "action": "Open the owner portal"
+  },
+  "PAYMENT_FAILED": {
+    "subject": "Your Wayfare payment did not go through",
+    "preheader": "Update your payment method to keep your plan.",
+    "body": [
+      "We could not charge your payment method (attempt {{attemptCount}}).",
+      "We will try again on {{nextAttemptAt}}. Update your payment method in the owner portal before then."
+    ]
+  },
+  "ENTITLEMENTS_REDUCED": {
+    "subject": "Your Wayfare plan changed",
+    "preheader": "Some features of your plan are no longer included.",
+    "body": ["Your plan changed, and some of its features are no longer included."],
+    "action": "See what changed"
+  },
+  "ACCOUNT_RECOVERY_NOTICE": {
+    "subject": "Account recovery for your Wayfare account",
+    "preheader": "Someone is recovering access to your account.",
+    "body": [
+      "An account recovery for your Wayfare account reached the stage {{stage}}.",
+      "If you did not ask for this, cancel it now."
+    ],
+    "action": "Open the recovery",
+    "cancel": "Cancel this recovery"
+  },
+  "VOUCHER_MOVED": {
+    "subject": "Your voucher was moved to your account",
+    "preheader": "{{offerTitle}} is now in your Wayfare account.",
+    "body": ["Your voucher for {{offerTitle}} is now in your Wayfare account."],
+    "action": "See my vouchers"
+  },
+  "VOUCHER_REFUNDED": {
+    "subject": "Your voucher purchase was refunded",
+    "preheader": "Your refund is on its way.",
+    "body": [
+      "{{voucherCount}} voucher(s) from your order were refunded ({{reason}}).",
+      "The refund goes back to the card you paid with."
+    ],
+    "action": "See my orders"
+  }
+}

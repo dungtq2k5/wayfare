@@ -22,6 +22,8 @@ export const ACTION_TOKEN_TTL_MS: Readonly<Record<ActionTokenPurpose, number>> =
   [ActionTokenPurpose.EMAIL_VERIFICATION]: DAY_MS,
   [ActionTokenPurpose.EMAIL_CHANGE]: DAY_MS,
   [ActionTokenPurpose.EMAIL_CHANGE_REVERT]: EMAIL_CHANGE_REVERT_TTL_DAYS * DAY_MS,
+  // A welcome mail is often opened the next day.
+  [ActionTokenPurpose.ACCOUNT_SETUP]: 72 * HOUR_MS,
 };
 
 /** The wait between an approved recovery and its link (rdm-spec I-14, api-endpoints-plan §1.10). */

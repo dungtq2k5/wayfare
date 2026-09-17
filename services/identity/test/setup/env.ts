@@ -1,5 +1,6 @@
 // Integration and contract suites run against the paired _test database (ADR 0034) and a separate
 // NATS server: the service reads DATABASE_URL and NATS_URL, so both are repointed before anything connects.
+import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { generateTestSigningKeys } from '@wayfare/nest-common/testing';
 import { config } from 'dotenv';
@@ -16,3 +17,15 @@ process.env.NATS_URL = process.env.NATS_URL_TEST;
 const keys = generateTestSigningKeys();
 process.env.JWT_PRIVATE_KEY = keys.privateKey;
 process.env.JWT_KEY_ID = keys.keyId;
+// Email: SMTP to the local catcher in restricted mode, with a per-run hash key — never the .env one.
+Object.assign(process.env, {
+  EMAIL_PROVIDER: 'smtp',
+  SMTP_URL: process.env.SMTP_URL ?? 'smtp://localhost:1025',
+  EMAIL_FROM: 'Wayfare <no-reply@wayfare.local>',
+  EMAIL_DELIVERY_MODE: 'restricted',
+  EMAIL_NONPROD_ALLOWLIST: '*@example.com,*@wayfare.local',
+  EMAIL_NONPROD_CATCHALL: 'team@wayfare.local',
+  EMAIL_HASH_KEY: randomBytes(32).toString('base64'),
+  CONSOLE_URL: 'http://console.localhost',
+  WEB_URL: 'http://web.localhost',
+});

@@ -9,31 +9,13 @@ BASE=${BASE:-http://localhost:3000/api/v1}
 APP_VERSION=${APP_VERSION:-1.0.0}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+# shellcheck source=./walk-lib.sh
+source "$(dirname "$0")/walk-lib.sh"
 
 mobile=(-H 'x-wayfare-client: mobile' -H "x-wayfare-app-version: $APP_VERSION" -H 'content-type: application/json')
-console=(-H 'x-wayfare-client: console' -H 'content-type: application/json')
-
-step() { printf '\n== %s\n' "$*"; }
-fail() { printf '✗ %s\n' "$*"; exit 1; }
-
-# call NAME EXPECTED_STATUS curl-args… — stores the body in $work/NAME.json and headers in $work/NAME.h
-call() {
-  local name=$1 want=$2
-  shift 2
-  local got
-  got=$(curl -sS -o "$work/$name.json" -D "$work/$name.h" -w '%{http_code}' "$@")
-  if [[ "$got" != "$want" ]]; then
-    printf '✗ %s: HTTP %s (wanted %s)\n' "$name" "$got" "$want"
-    cat "$work/$name.json"
-    echo
-    exit 1
-  fi
-  printf '✓ %s: HTTP %s\n' "$name" "$got"
-}
-
-json() { jq -r "$2" "$work/$1.json"; }
-cookie_value() { grep -i "^set-cookie: $2=" "$work/$1.h" | head -1 | sed -E "s/^[^=]*=([^;]*).*/\1/" | tr -d '\r'; }
 claims() { cut -d. -f2 <<<"$1" | tr '_-' '/+' | base64 -d 2>/dev/null || true; }
+
+reset_local_state
 
 device_body='{"platform":"ANDROID","appVersion":"'"$APP_VERSION"'","contentLocale":"en","privacyPolicyVersion":"2026-09-01"}'
 

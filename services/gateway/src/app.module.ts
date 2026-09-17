@@ -20,8 +20,11 @@ import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DevicesModule } from './modules/devices/devices.module';
+import { EmailChangeModule } from './modules/email-change/email-change.module';
+import { EmailWebhooksModule } from './modules/email-webhooks/email-webhooks.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { REDIS, RedisLifecycle, RedisModule } from './modules/ops/redis.module';
+import { PasswordModule } from './modules/password/password.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -59,6 +62,9 @@ export class AppModule {
         AdminUsersModule,
         RolesModule,
         AuditLogsModule,
+        PasswordModule,
+        EmailChangeModule,
+        EmailWebhooksModule,
       ],
       providers: [
         {

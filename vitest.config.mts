@@ -32,6 +32,7 @@ const alias = [
     find: /^@wayfare\/contracts\/testing$/,
     replacement: root('./packages/contracts/src/testing/index.ts'),
   },
+  { find: /^@wayfare\/i18n$/, replacement: root('./packages/i18n/src/index.ts') },
   { find: /^@wayfare\/nest-common$/, replacement: root('./packages/nest-common/src/index.ts') },
   {
     find: /^@wayfare\/nest-common\/testing$/,
@@ -57,6 +58,7 @@ export default defineConfig({
     projects: [
       unit('contracts', './packages/contracts', ['src/**/*.spec.ts']),
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
+      unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
       unit('gateway', './services/gateway', ['src/**/*.spec.ts', 'test/e2e/**/*.spec.ts']),
       unit('config', './packages/config', ['markdownlint/**/*.spec.ts']),

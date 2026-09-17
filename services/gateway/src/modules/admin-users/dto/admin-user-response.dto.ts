@@ -1,4 +1,10 @@
-import { SessionClient, zUuidV7 } from '@wayfare/contracts';
+import {
+  EmailBounceType,
+  EmailDeliveryStatus,
+  EmailTemplate,
+  SessionClient,
+  zUuidV7,
+} from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -91,3 +97,24 @@ export const adminUserResultResponseSchema = z.object({ user: adminUserResponseS
 
 /** What `POST /admin/users`, `PATCH /admin/users/:id` and `PUT …/roles` return under `data`. */
 export class AdminUserResultResponseDto extends createZodDto(adminUserResultResponseSchema) {}
+
+/** One send, as support sees it — never a body, subject or link (rdm-spec I-13). */
+export const emailDeliveryResponseSchema = z.object({
+  id: zUuidV7,
+  template: z.enum(EmailTemplate),
+  toEmailMasked: z.string().nullable(),
+  /** `SENT` means only that the provider accepted it. */
+  status: z.enum(EmailDeliveryStatus),
+  bounceType: z.enum(EmailBounceType).nullable(),
+  statusChangedAt: zInstant,
+  createdAt: zInstant,
+});
+
+/** What `GET /admin/users/:id/email-deliveries` returns per item. */
+export class EmailDeliveryResponseDto extends createZodDto(emailDeliveryResponseSchema) {}
+
+/** `POST /admin/users/:id/email-deliveries/check`. */
+export const emailDeliveryCheckResponseSchema = z.object({ matches: z.boolean() });
+
+/** What the delivery check returns under `data`. */
+export class EmailDeliveryCheckResponseDto extends createZodDto(emailDeliveryCheckResponseSchema) {}

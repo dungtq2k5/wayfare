@@ -83,6 +83,7 @@ export const ERRORS = {
   // 403
   PERMISSION_DENIED: { ...forbidden, details: permissionDeniedDetails },
   ACCOUNT_LOCKED: forbidden,
+  CURRENT_PASSWORD_INCORRECT: forbidden,
   INVITATION_EMAIL_MISMATCH: forbidden,
   RECOVERY_SELF_APPROVAL: forbidden,
   EMAIL_NOT_VERIFIED: forbidden,

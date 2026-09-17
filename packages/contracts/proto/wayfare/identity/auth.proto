@@ -80,6 +80,8 @@ message SessionUser {
   string preferred_locale = 4;
   bool is_email_verified = 5;
   google.protobuf.Timestamp created_at = 6;
+  // A hard bounce was recorded since the address was last verified.
+  bool email_bounced = 7;
 }
 
 message RegisterResponse {

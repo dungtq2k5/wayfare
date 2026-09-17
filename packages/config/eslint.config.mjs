@@ -15,6 +15,15 @@ const TESTING_ENTRY_PATTERN = {
   message: 'Test helpers are for specs, test/ and scripts/ only (conventions §17).',
 };
 
+/** Vendor SDKs, imported only by their adapter file (conventions §11.5). */
+const VENDOR_SDK_PATHS = ['resend', 'nodemailer'].map((name) => ({
+  name,
+  message: `Only the provider adapter under src/providers/ imports ${name} (conventions §11.5).`,
+}));
+
+/** Where the provider adapters live (conventions §2.4). */
+const PROVIDER_ADAPTERS = ['services/*/src/providers/**'];
+
 /** Where the testing entry points may be imported. */
 const TESTING_ALLOWED = ['**/*.spec.ts', '**/test/**', '**/scripts/**'];
 
@@ -133,6 +142,15 @@ export function wayfareConfig({ tsconfigRootDir }) {
       files: ['**/*.ts'],
       ignores: TESTING_ALLOWED,
       rules: {
+        'no-restricted-imports': [
+          'error',
+          { paths: VENDOR_SDK_PATHS, patterns: [TESTING_ENTRY_PATTERN] },
+        ],
+      },
+    },
+    {
+      files: PROVIDER_ADAPTERS,
+      rules: {
         'no-restricted-imports': ['error', { patterns: [TESTING_ENTRY_PATTERN] }],
       },
     },
@@ -141,7 +159,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
       rules: {
         'no-restricted-imports': [
           'error',
-          { patterns: [PRISMA_CLIENT_PATTERN, TESTING_ENTRY_PATTERN] },
+          { paths: VENDOR_SDK_PATHS, patterns: [PRISMA_CLIENT_PATTERN, TESTING_ENTRY_PATTERN] },
         ],
       },
     },
@@ -179,6 +197,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
         'no-restricted-imports': [
           'error',
           {
+            paths: VENDOR_SDK_PATHS,
             patterns: [
               {
                 group: ['**/dto/**'],

@@ -1,3 +1,8 @@
+import {
+  emailBounceTypeProto,
+  emailDeliveryStatusProto,
+  emailTemplateProto,
+} from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import {
   fromOptionalProtoTimestamp,
@@ -8,6 +13,7 @@ import type {
   AdminUserListItemResponse,
   AdminUserResponseDto,
   AdminUserViewResponse,
+  EmailDeliveryResponseDto,
 } from './dto/admin-user-response.dto';
 import type { DeactivateUserDto, ListUsersQueryDto, LockUserDto } from './dto/admin-user.dto';
 
@@ -113,5 +119,25 @@ export function toDeactivateUserRequest(
     userId,
     reason: body.reason,
     refundUnredeemedVouchers: body.refundUnredeemedVouchers ?? false,
+  };
+}
+
+/** One send. An enum this build cannot read is a server fault; an unset bounce type is `null`. */
+export function toEmailDeliveryResponseDto(
+  delivery: identityGrpc.EmailDeliveryView,
+): EmailDeliveryResponseDto {
+  const template = emailTemplateProto.fromProto(delivery.template);
+  const status = emailDeliveryStatusProto.fromProto(delivery.status);
+  if (template === null || status === null) {
+    throw new Error('An email delivery carries an unknown enum value');
+  }
+  return {
+    id: delivery.id,
+    template,
+    toEmailMasked: delivery.toEmailMasked ?? null,
+    status,
+    bounceType: emailBounceTypeProto.fromProto(delivery.bounceType),
+    statusChangedAt: fromProtoTimestamp(delivery.statusChangedAt, 'statusChangedAt').toISOString(),
+    createdAt: fromProtoTimestamp(delivery.createdAt, 'createdAt').toISOString(),
   };
 }

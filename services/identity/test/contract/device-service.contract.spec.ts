@@ -30,6 +30,9 @@ let healthClient: InstanceType<ServiceClientConstructor>;
 let adminUserClient: InstanceType<ServiceClientConstructor>;
 let roleClient: InstanceType<ServiceClientConstructor>;
 let auditClient: InstanceType<ServiceClientConstructor>;
+let passwordClient: InstanceType<ServiceClientConstructor>;
+let emailChangeClient: InstanceType<ServiceClientConstructor>;
+let webhookClient: InstanceType<ServiceClientConstructor>;
 
 function unary<T>(
   client: InstanceType<ServiceClientConstructor>,
@@ -91,6 +94,9 @@ beforeAll(async () => {
   adminUserClient = client('AdminUserService');
   roleClient = client('RoleService');
   auditClient = client('AuditService');
+  passwordClient = client('PasswordService');
+  emailChangeClient = client('EmailChangeService');
+  webhookClient = client('EmailWebhookService');
   healthClient = new (health.Health as ServiceClientConstructor)(
     config.get('GRPC_URL', { infer: true }),
     credentials.createInsecure(),
@@ -105,6 +111,9 @@ afterAll(async () => {
   adminUserClient.close();
   roleClient.close();
   auditClient.close();
+  passwordClient.close();
+  emailChangeClient.close();
+  webhookClient.close();
   await app.close();
   restoreEnv();
 });
@@ -379,6 +388,72 @@ describe('wayfare.identity staff administration RPCs', () => {
       accountCaller(userId),
     );
     expect(actions).toContain('ROLE_CREATED');
+  });
+});
+
+describe('wayfare.identity email and link RPCs', () => {
+  const codeOf = (error: unknown) =>
+    (error as ServiceError).metadata.get('wf-error-code')[0] as string;
+
+  it('RequestPasswordReset answers empty for any address; a bad link token is TOKEN_EXPIRED', async () => {
+    expect(
+      await unary(
+        passwordClient,
+        'requestPasswordReset',
+        { email: 'nobody@example.com' },
+        caller(),
+      ),
+    ).toEqual({});
+    const validate = await unary(
+      passwordClient,
+      'validateResetToken',
+      { token: 'x' },
+      caller(),
+    ).catch((e: unknown) => e);
+    expect(codeOf(validate)).toBe('TOKEN_EXPIRED');
+    const verify = await unary(emailChangeClient, 'verifyEmail', { token: 'x' }, caller()).catch(
+      (e: unknown) => e,
+    );
+    expect(codeOf(verify)).toBe('TOKEN_EXPIRED');
+  });
+
+  it('ReceiveResendEvent carries the raw body as bytes, and an unverifiable one is refused', async () => {
+    const error = await unary(
+      webhookClient,
+      'receiveResendEvent',
+      {
+        rawBody: Buffer.from('{"type":"email.delivered"}'),
+        svixId: 'msg_1',
+        svixTimestamp: String(Math.floor(Date.now() / 1000)),
+        svixSignature: 'v1,bm9wZQ==',
+      },
+      caller(),
+    ).catch((e: unknown) => e);
+    expect((error as ServiceError).code).toBe(status.UNAUTHENTICATED);
+  });
+
+  it('CheckEmailDelivery and ListEmailDeliveries answer over the wire', async () => {
+    const prisma = app.get(PrismaService);
+    const role = await prisma.role.findUniqueOrThrow({ where: { code: 'ADMIN' } });
+    const admin = await prisma.user.create({
+      data: { email: `admin-${Date.now()}@example.com`, roles: { create: { roleId: role.id } } },
+    });
+    expect(
+      await unary(
+        adminUserClient,
+        'checkEmailDelivery',
+        { userId: admin.id, email: 'claimed@example.com' },
+        accountCaller(admin.id),
+      ),
+    ).toEqual({ matches: false });
+    expect(
+      await unary(
+        adminUserClient,
+        'listEmailDeliveries',
+        { userId: admin.id, page: { limit: 10 } },
+        accountCaller(admin.id),
+      ),
+    ).toEqual({ deliveries: [], page: {} });
   });
 });
 

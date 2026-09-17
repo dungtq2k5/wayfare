@@ -10,13 +10,18 @@ import {
 import { envSchema } from './config/env.schema';
 import type { IdentityConfig } from './config/env.schema';
 import { AccessModule } from './modules/access/access.module';
+import { AccountLinksModule } from './modules/account-links/account-links.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AuditConsumer } from './modules/audit/audit.consumer';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DevicesModule } from './modules/devices/devices.module';
+import { EmailChangeModule } from './modules/email-change/email-change.module';
+import { EmailWebhooksModule } from './modules/email-webhooks/email-webhooks.module';
+import { EmailModule } from './modules/email/email.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { CONSUMERS, EventSpine, OutboxModule } from './modules/outbox/outbox.module';
+import { PasswordModule } from './modules/password/password.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { RedisLifecycle, RedisModule } from './modules/redis/redis.module';
@@ -44,6 +49,11 @@ export class AppModule {
         RedisModule,
         OutboxModule,
         AuditModule,
+        EmailModule,
+        AccountLinksModule,
+        EmailChangeModule,
+        PasswordModule,
+        EmailWebhooksModule,
         SystemCatalogModule,
         TokensModule,
         AccessModule,
