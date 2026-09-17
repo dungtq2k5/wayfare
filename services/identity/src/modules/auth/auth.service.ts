@@ -10,7 +10,6 @@ import {
   MAX_PASSWORD_LENGTH,
   MAX_POLICY_VERSION_LENGTH,
   MAX_REFRESH_TOKEN_LENGTH,
-  MIN_PASSWORD_LENGTH,
   normalizeText,
   parseEnum,
   SessionClient,
@@ -30,9 +29,10 @@ import {
   OutboxService,
   parseRpcRequest,
   requireProtoEnum,
+  requireAccountContext,
   rpcError,
 } from '@wayfare/nest-common';
-import type { AccountContext, RequestContext } from '@wayfare/nest-common';
+import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import type { Prisma } from '../../../generated/prisma/client';
 import { AccessService } from '../access/access.service';
@@ -42,15 +42,15 @@ import { LegalService } from '../legal/legal.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SESSION_ACCOUNT_SELECT, SessionsService } from '../sessions/sessions.service';
 import type { OpenedSession, SessionAccount } from '../sessions/sessions.service';
+import { isPasswordTheEmail, zNewPassword } from '../tokens/domain/password';
 import { TokensService } from '../tokens/tokens.service';
+import { isLockActive } from '../users/domain/account-state';
 import { decideRefresh } from './domain/refresh-decision';
 import { toSession } from './session.mapper';
 
-const zPassword = z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH);
-
 const registerFields = z.object({
   email: zEmail,
-  password: zPassword,
+  password: zNewPassword,
   fullName: z
     .string()
     .transform(normalizeText)
@@ -84,11 +84,6 @@ const LOGIN_USER_SELECT_WITH_ERASURE = {
   erasedAt: true,
 } as const satisfies Prisma.UserSelect;
 
-/** True while a lock holds: indefinite, or not yet lapsed. */
-function isLockActive(user: { isLocked: boolean; lockedUntil: Date | null }, now: Date): boolean {
-  return user.isLocked && (user.lockedUntil === null || user.lockedUntil.getTime() > now.getTime());
-}
-
 /** Signing in and out, refresh rotation and revocation (api-endpoints-plan §1.2, rdm-spec I-1, I-3). */
 @Injectable()
 export class AuthService {
@@ -112,7 +107,7 @@ export class AuthService {
   ): Promise<identityGrpc.RegisterResponse> {
     const fields = parseRpcRequest(registerFields, request);
     const client = requireProtoEnum(sessionClientProto, request.client, '/client');
-    if (fields.password.toLowerCase() === fields.email) {
+    if (isPasswordTheEmail(fields.password, fields.email)) {
       throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/password', code: 'custom' }] });
     }
     this.legal.requireCurrent(LegalDocument.TERMS_OF_SERVICE, fields.termsVersion);
@@ -391,14 +386,14 @@ export class AuthService {
 
   /** Revokes every family and raises the token cutoff, so every access token dies within seconds. */
   async logoutAll(context: RequestContext): Promise<identityGrpc.LogoutAllResponse> {
-    const account = requireAccount(context);
+    const account = requireAccountContext(context);
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
-      const revoked = await this.sessions.revokeAll(
+      const revoked = await this.sessions.revokeAllForUser(
         tx,
         account.userId,
         SessionRevokedReason.LOGOUT_ALL,
-        now,
+        { bumpCutoff: true, now },
       );
       await this.outbox.add(
         tx,
@@ -418,7 +413,7 @@ export class AuthService {
 
   /** Claims the calling device for the signed-in account (strict: a revoked device is refused). */
   async claimDevice(context: RequestContext): Promise<identityGrpc.ClaimDeviceResponse> {
-    const account = requireAccount(context);
+    const account = requireAccountContext(context);
     const deviceId = deviceIdOf(context);
     if (deviceId === null) throw rpcError('UNAUTHENTICATED');
     const now = new Date();
@@ -486,7 +481,3 @@ export class AuthService {
 }
 
 /** The account a use case needs; anything else is `UNAUTHENTICATED`. */
-function requireAccount(context: RequestContext): AccountContext {
-  if (!isAccountContext(context)) throw rpcError('UNAUTHENTICATED');
-  return context;
-}

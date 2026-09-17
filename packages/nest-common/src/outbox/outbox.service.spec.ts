@@ -7,20 +7,28 @@ import {
   newId,
 } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
-import type { OutboxEventCreateData, OutboxTx } from '../prisma/helpers';
+import type { OutboxBatchTx, OutboxEventCreateData } from '../prisma/helpers';
 import { OutboxService } from './outbox.service';
 
-function fakeTx(): OutboxTx & { rows: OutboxEventCreateData[] } {
+function fakeTx(): OutboxBatchTx & { rows: OutboxEventCreateData[]; statements: number } {
   const rows: OutboxEventCreateData[] = [];
-  return {
+  const tx = {
     rows,
+    statements: 0,
     outboxEvent: {
-      create: (args) => {
+      create: (args: { data: OutboxEventCreateData }) => {
         rows.push(args.data);
+        tx.statements++;
         return Promise.resolve({ id: args.data.id });
+      },
+      createMany: (args: { data: OutboxEventCreateData[] }) => {
+        rows.push(...args.data);
+        tx.statements++;
+        return Promise.resolve({ count: args.data.length });
       },
     },
   };
+  return tx;
 }
 
 const deviceId = newId();
@@ -63,5 +71,23 @@ describe('OutboxService.add', () => {
     const tx = fakeTx();
     await new OutboxService().add(tx, AUDIT_RECORD, input);
     expect(tx.rows[0]!.traceParent).toBeNull();
+  });
+});
+
+describe('OutboxService.addMany', () => {
+  it('writes one statement per 100 events, in input order, each id its eventId', async () => {
+    const tx = fakeTx();
+    const inputs = Array.from({ length: 250 }, () => input);
+    const payloads = await new OutboxService().addMany(tx, AUDIT_RECORD, inputs);
+    expect(tx.statements).toBe(3);
+    expect(tx.rows).toHaveLength(250);
+    expect(payloads.map((payload) => payload.eventId)).toEqual(tx.rows.map((row) => row.id));
+  });
+
+  it('validates every payload before the first insert', async () => {
+    const tx = fakeTx();
+    const bad = { ...input, metadata: { after: { secretHash: 'x' } } };
+    await expect(new OutboxService().addMany(tx, AUDIT_RECORD, [input, bad])).rejects.toThrow();
+    expect(tx.rows).toHaveLength(0);
   });
 });

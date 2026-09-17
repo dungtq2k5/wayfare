@@ -10,6 +10,7 @@ import {
 import { envSchema } from './config/env.schema';
 import type { IdentityConfig } from './config/env.schema';
 import { AccessModule } from './modules/access/access.module';
+import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AuditConsumer } from './modules/audit/audit.consumer';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -21,6 +22,7 @@ import { PrismaService } from './modules/prisma/prisma.service';
 import { RedisLifecycle, RedisModule } from './modules/redis/redis.module';
 import { RevocationConsumer } from './modules/revocation/revocation.consumer';
 import { RevocationModule } from './modules/revocation/revocation.module';
+import { RolesModule } from './modules/roles/roles.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { SystemCatalogModule } from './modules/system-catalog/system-catalog.module';
 import { TokensModule } from './modules/tokens/tokens.module';
@@ -50,6 +52,8 @@ export class AppModule {
         DevicesModule,
         AuthModule,
         UsersModule,
+        AdminUsersModule,
+        RolesModule,
         RevocationModule,
         OpsModule.forRootAsync({
           grpcHealth: true,

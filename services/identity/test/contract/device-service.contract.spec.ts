@@ -27,6 +27,9 @@ let deviceClient: InstanceType<ServiceClientConstructor>;
 let authClient: InstanceType<ServiceClientConstructor>;
 let userClient: InstanceType<ServiceClientConstructor>;
 let healthClient: InstanceType<ServiceClientConstructor>;
+let adminUserClient: InstanceType<ServiceClientConstructor>;
+let roleClient: InstanceType<ServiceClientConstructor>;
+let auditClient: InstanceType<ServiceClientConstructor>;
 
 function unary<T>(
   client: InstanceType<ServiceClientConstructor>,
@@ -80,6 +83,14 @@ beforeAll(async () => {
     config.get('GRPC_URL', { infer: true }),
     credentials.createInsecure(),
   );
+  const client = (name: string) =>
+    new (identity[name] as ServiceClientConstructor)(
+      config.get('GRPC_URL', { infer: true }),
+      credentials.createInsecure(),
+    );
+  adminUserClient = client('AdminUserService');
+  roleClient = client('RoleService');
+  auditClient = client('AuditService');
   healthClient = new (health.Health as ServiceClientConstructor)(
     config.get('GRPC_URL', { infer: true }),
     credentials.createInsecure(),
@@ -91,6 +102,9 @@ afterAll(async () => {
   authClient.close();
   userClient.close();
   healthClient.close();
+  adminUserClient.close();
+  roleClient.close();
+  auditClient.close();
   await app.close();
   restoreEnv();
 });
@@ -246,6 +260,125 @@ describe('wayfare.identity device, auth and user RPCs', () => {
       caller(),
     ).catch((e: unknown) => e as ServiceError);
     expect((error as ServiceError).metadata.get('wf-error-details')[0]).toContain('/client');
+  });
+});
+
+/** A caller context acting as the given account. */
+function accountCaller(userId: string) {
+  return packCallerContext({
+    kind: 'account',
+    userId,
+    sessionId: userId,
+    deviceId: null,
+    permissions: [],
+    ownerVerified: false,
+    emailVerified: true,
+    origin: { ip: null, userAgent: null },
+  });
+}
+
+describe('wayfare.identity staff administration RPCs', () => {
+  async function superAdmin(): Promise<string> {
+    const prisma = app.get(PrismaService);
+    const role = await prisma.role.findUniqueOrThrow({ where: { code: 'SUPER_ADMIN' } });
+    const user = await prisma.user.create({
+      data: { email: `root-${Date.now()}@example.com`, roles: { create: { roleId: role.id } } },
+    });
+    return user.id;
+  }
+
+  it('an optional field arrives without a synthetic oneof key, so strict schemas accept it', async () => {
+    const userId = await superAdmin();
+    const response = await unary<{ user: { fullName: string } }>(
+      userClient,
+      'updateMe',
+      { fullName: 'Root' },
+      accountCaller(userId),
+    );
+    expect(response.user.fullName).toBe('Root');
+  });
+
+  it('AdminUserService: create, list with the oneof item, get, lock with an absent expiry', async () => {
+    const userId = await superAdmin();
+    const prisma = app.get(PrismaService);
+    const admin = await prisma.role.findUniqueOrThrow({ where: { code: 'ADMIN' } });
+    const created = await unary<{ user: { id: string; roles: { code: string }[] } }>(
+      adminUserClient,
+      'createStaffUser',
+      { email: 'staff@example.com', fullName: 'Staff', roleIds: [admin.id] },
+      accountCaller(userId),
+    );
+    expect(created.user.roles.map((role) => role.code)).toEqual(['ADMIN']);
+    const listed = await unary<{
+      users: { user?: { id: string }; erased?: unknown }[];
+      page: { total: number };
+    }>(
+      adminUserClient,
+      'listUsers',
+      { page: { page: 1, pageSize: 20, sort: 'email', q: 'staff' }, includeDeleted: false },
+      accountCaller(userId),
+    );
+    expect(listed.page.total).toBe(1);
+    expect(listed.users[0]?.user?.id).toBe(created.user.id);
+    await unary(
+      adminUserClient,
+      'lockUser',
+      { userId: created.user.id, reason: 'check' },
+      accountCaller(userId),
+    );
+    const detail = await unary<{ user: { user: { isLocked: boolean }; lockReason: string } }>(
+      adminUserClient,
+      'getUser',
+      { userId: created.user.id },
+      accountCaller(userId),
+    );
+    expect(detail.user).toMatchObject({ user: { isLocked: true }, lockReason: 'check' });
+  });
+
+  it('RoleService and AuditService answer over the wire, with details on a refusal', async () => {
+    const userId = await superAdmin();
+    const created = await unary<{ role: { code: string; id: string } }>(
+      roleClient,
+      'createRole',
+      { name: 'Support desk', permissionCodes: ['user.read'] },
+      accountCaller(userId),
+    );
+    expect(created.role.code).toBe('CUSTOM_SUPPORT_DESK');
+    const { groups } = await unary<{ groups: { group: string }[] }>(
+      roleClient,
+      'listPermissions',
+      {},
+      accountCaller(userId),
+    );
+    expect(groups[0]?.group).toBe('OWNER');
+    const error = await unary(
+      roleClient,
+      'createRole',
+      { name: 'Other', permissionCodes: ['legacy.unknown'] },
+      accountCaller(userId),
+    ).catch((e: unknown) => e as ServiceError);
+    expect((error as ServiceError).metadata.get('wf-error-code')).toEqual(['VALIDATION_FAILED']);
+
+    const now = Date.now();
+    const logs = await unary<{ entries: unknown[]; page: { nextCursor?: string } }>(
+      auditClient,
+      'listAuditLogs',
+      {
+        page: { limit: 10 },
+        from: { seconds: String(Math.floor(now / 1000) - 3600), nanos: 0 },
+        to: { seconds: String(Math.floor(now / 1000) + 60), nanos: 0 },
+      },
+      accountCaller(userId),
+    );
+    expect(logs.entries).toEqual([]);
+    expect(logs.page.nextCursor).toBeUndefined();
+    const { actions } = await unary<{ actions: string[] }>(
+      auditClient,
+      'listAuditActions',
+      {},
+      accountCaller(userId),
+    );
+    expect(actions).toContain('ROLE_CREATED');
   });
 });
 

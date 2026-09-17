@@ -1,6 +1,8 @@
 import { Metadata } from '@grpc/grpc-js';
 import { isUuidV7 } from '@wayfare/contracts';
-import type { RequestContext, RequestOrigin } from '../context/request-context';
+import { isAccountContext } from '../context/request-context';
+import type { AccountContext, RequestContext, RequestOrigin } from '../context/request-context';
+import { rpcError } from '../errors/rpc-error';
 
 const KEYS = {
   kind: 'wf-caller-kind',
@@ -79,4 +81,13 @@ export function unpackCallerContext(metadata: Metadata | undefined): RequestCont
     default:
       throw new InvalidCallerContextError(`unknown kind ${String(kind)}`);
   }
+}
+
+/**
+ * The caller as an account, for an RPC that serves accounts only; anything else is
+ * `UNAUTHENTICATED` — the gateway's marker should have refused it first.
+ */
+export function requireAccountContext(context: RequestContext): AccountContext {
+  if (!isAccountContext(context)) throw rpcError('UNAUTHENTICATED');
+  return context;
 }

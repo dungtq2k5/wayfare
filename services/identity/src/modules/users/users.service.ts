@@ -11,12 +11,12 @@ import { legalDocumentProto, legalPartyProto } from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import {
   deviceIdOf,
-  isAccountContext,
   parseRpcRequest,
   requireProtoEnum,
+  requireAccountContext,
   rpcError,
 } from '@wayfare/nest-common';
-import type { AccountContext, RequestContext } from '@wayfare/nest-common';
+import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import type { Prisma } from '../../../generated/prisma/client';
 import { AccessService } from '../access/access.service';
@@ -53,7 +53,7 @@ export class UsersService {
 
   /** The console's bootstrap read — from the database, not the token. */
   async getMe(context: RequestContext): Promise<identityGrpc.GetMeResponse> {
-    const account = requireAccount(context);
+    const account = requireAccountContext(context);
     return this.prisma.$transaction(async (tx) => {
       const user = await this.liveUser(tx, account.userId);
       const { roles, permissions } = await this.access.accessOf(tx, user.id);
@@ -71,7 +71,7 @@ export class UsersService {
     request: identityGrpc.UpdateMeRequest,
     context: RequestContext,
   ): Promise<identityGrpc.UpdateMeResponse> {
-    const account = requireAccount(context);
+    const account = requireAccountContext(context);
     const fields = parseRpcRequest(updateMeFields, request);
     const user = await this.prisma.$transaction(async (tx) => {
       await this.liveUser(tx, account.userId);
@@ -93,7 +93,7 @@ export class UsersService {
   async listLegalAcceptances(
     context: RequestContext,
   ): Promise<identityGrpc.ListLegalAcceptancesResponse> {
-    const account = requireAccount(context);
+    const account = requireAccountContext(context);
     const parties: LegalPartyRef[] = [{ party: LegalParty.USER, userId: account.userId }];
     if (account.deviceId !== null)
       parties.push({ party: LegalParty.DEVICE, deviceId: account.deviceId });
@@ -115,7 +115,7 @@ export class UsersService {
     const { version } = parseRpcRequest(acceptanceFields, request);
     const view = await this.prisma.$transaction(async (tx) => {
       if (party === LegalParty.USER) {
-        const account = requireAccount(context);
+        const account = requireAccountContext(context);
         return this.legal.record(
           tx,
           { party, userId: account.userId },
@@ -141,9 +141,4 @@ export class UsersService {
     if (user === null) throw rpcError('UNAUTHENTICATED');
     return user;
   }
-}
-
-function requireAccount(context: RequestContext): AccountContext {
-  if (!isAccountContext(context)) throw rpcError('UNAUTHENTICATED');
-  return context;
 }

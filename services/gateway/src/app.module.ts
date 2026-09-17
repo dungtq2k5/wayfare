@@ -16,10 +16,13 @@ import {
 import type { Redis } from 'ioredis';
 import { envSchema } from './config/env.schema';
 import type { GatewayConfig } from './config/env.schema';
+import { AdminUsersModule } from './modules/admin-users/admin-users.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { REDIS, RedisLifecycle, RedisModule } from './modules/ops/redis.module';
+import { RolesModule } from './modules/roles/roles.module';
 import { UsersModule } from './modules/users/users.module';
 
 /** The gateway — the only public HTTP surface. No database, no business logic (conventions §2.2). */
@@ -53,6 +56,9 @@ export class AppModule {
         DevicesModule,
         AuthModule,
         UsersModule,
+        AdminUsersModule,
+        RolesModule,
+        AuditLogsModule,
       ],
       providers: [
         {

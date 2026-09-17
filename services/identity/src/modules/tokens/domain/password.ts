@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@wayfare/contracts';
 import { argon2id, hash, verify } from 'argon2';
+import { z } from 'zod';
 
 /**
  * Password hashing with argon2id at the OWASP Password Storage Cheat Sheet (2023) baseline:
@@ -35,4 +37,12 @@ let dummyHash: Promise<string> | null = null;
 export function dummyPasswordHash(): Promise<string> {
   dummyHash ??= hashPassword(randomBytes(32).toString('base64url'));
   return dummyHash;
+}
+
+/** A new password's length rule (conventions §9.1). */
+export const zNewPassword = z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH);
+
+/** True when a new password is the account's own address — refused wherever a password is set. */
+export function isPasswordTheEmail(password: string, normalizedEmail: string): boolean {
+  return password.toLowerCase() === normalizedEmail;
 }

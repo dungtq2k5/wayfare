@@ -16,6 +16,8 @@ const READ_ELSEWHERE: Readonly<Record<string, string>> = {
   DATABASE_URL_TEST: './prisma.config.ts',
   DATABASE_URL_SHADOW: './prisma.config.ts',
   NATS_URL_TEST: './test/setup/env.ts',
+  BOOTSTRAP_SUPER_ADMIN_EMAIL: './src/scripts/bootstrap-super-admin.ts',
+  BOOTSTRAP_SUPER_ADMIN_PASSWORD: './src/scripts/bootstrap-super-admin.ts',
   OTEL_EXPORTER_OTLP_ENDPOINT: 'packages/nest-common/src/observability/instrumentation.ts',
   OTEL_TRACES_SAMPLER: 'packages/nest-common/src/observability/instrumentation.ts',
   OTEL_SERVICE_NAME: 'packages/nest-common/src/observability/instrumentation.ts',
@@ -173,6 +175,7 @@ const SPEC = parseSpecNames(
     '| `OTEL_TRACES_SAMPLER` | all | x |',
     '| `OTEL_SERVICE_NAME` | all | x |',
     '| `DATABASE_URL_SHADOW` | each | x |',
+    '| `BOOTSTRAP_SUPER_ADMIN_EMAIL`, `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | a script | x |',
     '',
     '## 15. Next',
     '| `NOT_IN_SECTION` | x | x |',
@@ -182,6 +185,8 @@ const SPEC = parseSpecNames(
 const FILES: Record<string, string> = {
   'services/svc/prisma.config.ts': "env('DATABASE_URL_TEST'); env('DATABASE_URL_SHADOW')",
   'services/svc/test/setup/env.ts': 'process.env.NATS_URL_TEST',
+  'services/svc/src/scripts/bootstrap-super-admin.ts':
+    'BOOTSTRAP_SUPER_ADMIN_EMAIL, BOOTSTRAP_SUPER_ADMIN_PASSWORD',
   'packages/nest-common/src/observability/instrumentation.ts':
     'OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_SAMPLER',
 };
@@ -192,6 +197,8 @@ const COMPLETE_EXAMPLE = [
   'DATABASE_URL_TEST=postgresql://x',
   'DATABASE_URL_SHADOW=postgresql://x',
   'NATS_URL_TEST=nats://x',
+  'BOOTSTRAP_SUPER_ADMIN_EMAIL=',
+  'BOOTSTRAP_SUPER_ADMIN_PASSWORD=',
   'OTEL_EXPORTER_OTLP_ENDPOINT=http://x',
   'OTEL_TRACES_SAMPLER=always_on',
   'OTEL_SERVICE_NAME=svc',

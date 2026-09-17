@@ -12,7 +12,7 @@ export const TOKEN_AUDIENCE = 'wayfare-gateway';
  * A permission code's shape (conventions §15). Tokens carry codes by pattern, not by membership of
  * `PERMISSION_CODES`: a newer identity's new code must not invalidate a token at an older gateway.
  */
-const zPermissionCodeShape = z.string().regex(/^[a-z_]+(\.[a-z_]+)+$/);
+export const zPermissionCodeShape = z.string().regex(/^[a-z_]+(\.[a-z_]+)+$/);
 
 const registered = {
   iss: z.literal(TOKEN_ISSUER),

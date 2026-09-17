@@ -1,8 +1,13 @@
 // Small builders shared by the identity integration suites.
 import { LEGAL_DOCUMENT_VERSIONS } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
-import type { RequestContext } from '@wayfare/nest-common';
-import { buildAnonymousContext, buildDeviceContext } from '@wayfare/nest-common/testing';
+import type { AccountContext, RequestContext } from '@wayfare/nest-common';
+import {
+  buildAccountContext,
+  buildAnonymousContext,
+  buildDeviceContext,
+} from '@wayfare/nest-common/testing';
+import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import type { identityServices } from './services';
 
 type Services = ReturnType<typeof identityServices>;
@@ -75,4 +80,52 @@ export async function errorCodeOf(promise: Promise<unknown>): Promise<string> {
   const rpc = error as { getError?: () => { metadata: { get(key: string): unknown[] } } };
   if (typeof rpc.getError !== 'function') throw error;
   return String(rpc.getError().metadata.get('wf-error-code')[0]);
+}
+
+/** A failed call's code and details. */
+export async function errorOf(
+  promise: Promise<unknown>,
+): Promise<{ code: string; details: unknown }> {
+  const error = await promise.then(
+    () => {
+      throw new Error('expected the call to fail');
+    },
+    (e: unknown) => e,
+  );
+  const rpc = error as { getError?: () => { metadata: { get(key: string): unknown[] } } };
+  if (typeof rpc.getError !== 'function') throw error;
+  const metadata = rpc.getError().metadata;
+  const details = metadata.get('wf-error-details')[0];
+  return {
+    code: String(metadata.get('wf-error-code')[0]),
+    details: typeof details === 'string' ? (JSON.parse(details) as unknown) : undefined,
+  };
+}
+
+/** A staff account holding the given roles (by code), with a context acting as it. */
+export async function staffAccount(
+  prisma: PrismaService,
+  roleCodes: readonly string[],
+  data: {
+    email?: string;
+    fullName?: string | null;
+    deletedAt?: Date;
+    erasedAt?: Date;
+    isLocked?: boolean;
+    lockedUntil?: Date;
+    ownerVerifiedAt?: Date;
+    lastLoginAt?: Date;
+    passwordHash?: string;
+  } = {},
+): Promise<{ id: string; context: AccountContext }> {
+  const user = await prisma.user.create({
+    data: { ...data, email: data.email ?? freshEmail() },
+    select: { id: true },
+  });
+  const roles = await prisma.role.findMany({ where: { code: { in: [...roleCodes] } } });
+  if (roles.length !== roleCodes.length) throw new Error(`unknown role in ${roleCodes.join()}`);
+  await prisma.userRole.createMany({
+    data: roles.map((role) => ({ userId: user.id, roleId: role.id })),
+  });
+  return { id: user.id, context: buildAccountContext({ userId: user.id }) };
 }

@@ -127,6 +127,7 @@ A table belongs to the service that owns its domain in rdm-spec §1.1, **whether
 | A Nest guard, interceptor or decorator shared by services | `packages/nest-common/src/<kind>/` |
 | A React component used by `web` and `console` | `packages/ui/src/` |
 | An i18n message | `packages/i18n/locales/<locale>/<namespace>.json` |
+| A provider adapter (the one file that imports a vendor SDK) | `services/<svc>/src/providers/<kind>/<vendor>.<kind>-provider.ts` — outside `modules/` |
 | SQL Prisma cannot express | `services/<svc>/prisma/sql/schema-objects.sql` ([ADR 0045](./decisions/0045-schema-objects-prisma-cannot-express-live-in-committed-sql.md)) |
 | A seed | `services/<svc>/prisma/seed/<scope>.seed.ts` |
 
@@ -294,6 +295,7 @@ As defined in api-endpoints-plan §0.4. A global interceptor wraps success as `{
 - **Responses** are validated in development and test (a response that does not match its schema is a failing test), and stripped to the schema in production so a mapper cannot leak an extra column.
 - Query and path values arrive as strings. Use `z.coerce.number()` / the shared `zBooleanParam` — never `Boolean(value)`, which reads `"false"` as `true`.
 - **Nullable and optional are different.** A response field is `.nullable()` (key always present) — never `.optional()` — so clients and the generated types have a stable key set. A request field is `.optional()` only when absence genuinely means "leave unchanged".
+- **A union-shaped body** (a list whose rows are `{ erased: false, … } | { erased: true, … }`, or a bare string array) keeps the real zod union as the schema that validates and is documented (OpenAPI renders it as `oneOf`); its DTO class, which cannot extend a union, is typed with the widened shape, and the precise union is exported as a type alias for callers.
 - **A PATCH schema MUST NOT default fields.** A default on a PATCH writes the default over the stored value on every unrelated update.
 
 ### 5.3 Auth markers and the guard chain
@@ -327,7 +329,7 @@ Tokens are verified in `requestContextMiddleware` (§4.1); guards only judge wha
 
 ### 5.5 Lists
 
-- Cursor lists take `zCursorQuery` and return `Paged.cursor(items, nextCursor)`. The cursor is an opaque base64url of `{ id }`, made and read only by `encodeCursor` / `decodeCursor` — **clients MUST NOT parse it**, and servers MAY change its content. A cursor that does not decode is `400`.
+- Cursor lists take `zCursorQuery` and return `Paged.cursor(items, nextCursor)`. The cursor is an opaque base64url of `{ id }` — plus the sort key when a list is not ordered by `id` alone (the audit log orders by `occurred_at`, then `id`) — made and read only by `encodeCursor` / `decodeCursor` — **clients MUST NOT parse it**, and servers MAY change its content. A cursor that does not decode is `400`.
 - Page lists take `zPageQuery({ sort, defaultSort, search? })`, whose **sort allowlist** is per route and whose default must be in it (checked when the schema is built). An unlisted sort field is `400`, never passed into an `orderBy`. The free-text `q` exists **only** when the route passes `search: true` and actually filters on it — a route advertising a search it ignores tells the caller "no other matches exist".
 - A list's `limit` is capped at 100 by the shared schema. A route needing more is an export, not a list.
 
@@ -365,6 +367,8 @@ Every route **MUST** declare its response with **`@ApiEnvelope(Dto, { status?, l
 - **Enum members are prefixed with the enum name** (`PLACE_STATUS_ACTIVE`) and the zero member is `…_UNSPECIFIED`. Protobuf enum values share one namespace per package.
 - **Every RPC has its own request and response message** (`Login` → `LoginRequest` / `LoginResponse`), even when two would be identical — `buf lint` requires it, and it keeps one RPC's response free to grow. A shape several responses share is its own message, nested inside them (`LoginResponse { Session session = 1; }`).
 
+- **The proto loader runs with `oneofs: false`** (`GRPC_LOADER_OPTIONS` in nest-common). With `oneofs: true`, every proto3 `optional` field arrives with a synthetic `_fieldName` key, which the strict request schemas reject — a failure only a real gRPC round trip shows, so the contract suites include one.
+
 ### 6.2 Calling a peer
 
 Every service→service call goes through `BaseGrpcClient.call()` from `packages/nest-common` — clients `extends BaseGrpcClient` — which:
@@ -393,6 +397,7 @@ return res.users;
 - **`int64` fields are strings in TypeScript** (ts-proto `forceLong=string`, matching how the proto loader decodes them). The mapper converts at the boundary — `Number(value)` after a safe-integer check for counts and milliseconds, never arithmetic on the string.
 - Protobuf has no `null`. An absent optional field arrives as `undefined` and **MUST** be converted to `null` in the mapper, field by field, so response shapes stay stable.
 - **A proto enum crosses the wire only through its bridge.** Each domain enum carried in a `.proto` file has one `protoEnumBridge` instance in `@wayfare/contracts/grpc`, named `<camelDomainEnum>Proto` (`platformProto`). The bridge pairs each domain **value** with the proto member `<ENUM_NAME>_<VALUE>` (`'IOS'` ⇄ `PLATFORM_IOS`, §15), requires every domain member's key to equal its value, and throws when the module loads if either side has a member the other lacks. So a new value added on one side only fails every test that imports it, and the service will not boot. **MUST NOT** hand-write a proto↔domain table; an enum whose sides are not 1:1 by name gets a hand-written mapper whose docblock says why.
+- **One stated exception: the audit log's `action`, `actor.type` and `resource.type` cross as strings.** A stored row may carry an action the vocabulary has since retired, and must still be readable; the gateway validates `resourceType` and `actorType` against their enums and treats `action` as `^[A-Z][A-Z0-9_]*$`, at most 64 characters.
 - An `…_UNSPECIFIED` enum value arriving in a request **MUST** be rejected as `INVALID_ARGUMENT`, never defaulted to a real member. For a required field, the mapper calls `requireProtoEnum(bridge, value, '/field')` from `@wayfare/nest-common`, which throws `VALIDATION_FAILED` with that path.
 - An `UNRECOGNIZED` value (a newer peer sent a member this build does not know — it may arrive as `-1` or as its raw number) is treated as unspecified and logged, never crashes. `bridge.fromProto` returns `null` for both. A response field the gateway reads handles that `null`; it is not a client error.
 - Money crosses the wire as `{ amount_minor: int64, currency: string }` — the `Money` message — never a bare integer field.
@@ -705,11 +710,13 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 [ADR 0049](./decisions/0049-transactional-email-via-resend-metadata-only.md).
 
-- Every send goes through `EmailService.send(template, recipient, eventId)`, which **inserts the `email_deliveries` row first** and skips the send if the row already exists for that event. That row, not the provider, is the one-email-per-event guarantee.
+- Every send goes through `EmailService.send(…)`, which **inserts the `email_deliveries` row first** — inside the caller's transaction when there is one — and sends **after the commit**. A row that already exists for the event is not sent again, unless it is still `QUEUED` without a provider id, in which case the redelivery re-sends it under the row id as the idempotency key. That row, not the provider, is the one-email-per-event guarantee.
+- **A token email is never retried with the same token** (rdm-spec I-9): the token lives only in memory between minting and the send. The person repeats the request, which mints a new one.
 - **MUST NOT** store a rendered body, subject or link, and **MUST NOT** log them. Store the address only through `maskEmail()` and `keyedHash('email', …)`.
 - Status writes go through `advanceDeliveryStatus()`, which refuses a backwards move.
-- Templates carry **no tracking pixel and no tracked links**; the Resend adapter sends with tracking off and a test asserts it.
-- Outside production the adapter delivers only to `EMAIL_NONPROD_ALLOWLIST` and redirects everything else to the team catch-all; local development uses Nodemailer to the Compose mail catcher. **A staging email reaching a real owner is an incident.**
+- Templates carry **no tracking pixel and no tracked links**. Resend's open and click tracking are settings of the sending domain, not of a send, so identity reads them at boot (and `email:check-domain` on demand) and raises an alerting error if either is on.
+- **`EMAIL_DELIVERY_MODE` is required, with no default.** `restricted` delivers only to `EMAIL_NONPROD_ALLOWLIST` and redirects everything else to `EMAIL_NONPROD_CATCHALL`; only production sets `open`. `NODE_ENV` cannot make this choice, because staging runs as production. Local development uses Nodemailer to the Compose mail catcher. **A staging email reaching a real owner is an incident.**
+- Emailed links carry the token in the URL **fragment**, never the path or the query string.
 - Security templates (password reset, email-change revert, account recovery) are never suppressed by an earlier bounce or complaint.
 
 ### 11.5 Providers

@@ -53,3 +53,24 @@ export const quotaExhaustedDetails = z.object({ resetsAt: zInstant }).strict();
 export const legalVersionOutdatedDetails = z
   .object({ document: z.enum(LegalDocument), currentVersion: z.string().min(1) })
   .strict();
+
+/** `OWNER_HAS_LIVE_VOUCHERS`: what billing still owes buyers (api-endpoints-plan §1.6). */
+export const ownerHasLiveVouchersDetails = z
+  .object({
+    issuedVoucherCount: z.number().int().min(0),
+    openCheckoutCount: z.number().int().min(0),
+  })
+  .strict();
+
+/** `ROLE_IN_USE`: how many accounts, deactivated ones included, still hold the role. */
+export const roleInUseDetails = z.object({ holders: z.number().int().min(1) }).strict();
+
+/** `ROLE_TOO_WIDE_TO_EDIT`: the role's live holders, and the most one change may touch. */
+export const roleTooWideDetails = z
+  .object({ holders: z.number().int().min(0), limit: z.number().int().min(0) })
+  .strict();
+
+/** `PERMISSION_RETIRED`: the retired codes the request named, sorted. */
+export const permissionRetiredDetails = z
+  .object({ codes: z.array(z.string().min(1)).min(1) })
+  .strict();

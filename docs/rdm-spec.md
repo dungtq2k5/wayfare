@@ -348,7 +348,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **is_locked** | BOOLEAN | NOT NULL, false | Authoritative. A locked account cannot sign in or refresh. |
 | **locked_until** | TIMESTAMPTZ(3) | Nullable | When a temporary lock lapses. NULL with `is_locked = true` means indefinite. `CHECK (locked_until IS NULL OR is_locked)`. |
 | **lock_reason** | VARCHAR(255) | Nullable | Shown to staff, never to the user. |
-| **tokens_valid_after** | TIMESTAMPTZ(3) | Nullable | **Access tokens issued before this instant are rejected** by the gateway, which reads it from Redis on every authenticated request. identity publishes every bump as `identity.session.revoked`, and its own consumer writes the Redis value — only ever raising it — so a failed cache write is retried rather than lost; a cache miss is answered from this column. Bumped on lock, password change, role change and owner verification. It is how a 30-minute stateless access token becomes revocable in seconds without a per-request database read. NULL means no cutoff. |
+| **tokens_valid_after** | TIMESTAMPTZ(3) | Nullable | **Access tokens issued before this instant are rejected** by the gateway, which reads it from Redis on every authenticated request. identity publishes every bump as `identity.session.revoked`, and its own consumer writes the Redis value — only ever raising it — so a failed cache write is retried rather than lost; a cache miss is answered from this column. Bumped on lock, deactivation, forced sign-out, password change, role change and owner verification. **A role change bumps it without revoking sessions** — the next refresh re-reads the permissions — while lock, deactivation and forced sign-out also revoke every session. It is how a 30-minute stateless access token becomes revocable in seconds without a per-request database read. NULL means no cutoff. |
 | **credentials_changed_at** | TIMESTAMPTZ(3) | Nullable | Stamped on every email change, password reset and completed account recovery. **Drives the payout-change cooldown** ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)): for `PAYOUT_CHANGE_COOLDOWN_DAYS` (7) after it, changing payout routing is refused. A password *change* by a signed-in user who knows the current password does not stamp it — only flows that bypass the current credential do. |
 | **email_bounced_at** | TIMESTAMPTZ(3) | Nullable | Set by the first **hard bounce** recorded in I-13; cleared when an address is (re-)verified. While set, an owner sees a console banner. A spam complaint never sets it ([ADR 0049](./decisions/0049-transactional-email-via-resend-metadata-only.md)). |
 | **last_login_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -425,7 +425,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Hard-deleted, and refused while assigned** — `user_roles.role_id` is `RESTRICT`, so the database refuses what the service's `409` explains.
-- `SUPER_ADMIN` is bootstrapped by a seed script from environment variables and is never assignable over HTTP.
+- `SUPER_ADMIN` is bootstrapped by `pnpm --filter @wayfare/identity bootstrap:super-admin` from `BOOTSTRAP_SUPER_ADMIN_EMAIL` and `BOOTSTRAP_SUPER_ADMIN_PASSWORD`, and is never assignable over HTTP. The script is idempotent and never overwrites an existing password. **There is always at least one active holder** — not deactivated and not currently locked; the last one cannot lose the role, be locked or be deactivated.
+- **A custom role's `code`** is generated from its name as `CUSTOM_<NAME>` (with a numeric suffix on a collision) and **never changes**, because audit rows cite it. A rename changes `name` only.
+- **Changing a role's permissions bumps `tokens_valid_after` for every live holder**, and is refused above `MAX_ROLE_HOLDERS_PER_CHANGE` (500) holders — a role that wide is split instead.
 
 #### Table I-5: permissions
 
@@ -497,10 +499,10 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE, Indexed | — |
-| **purpose** | VARCHAR(32) | NOT NULL | `PASSWORD_RESET \| EMAIL_VERIFICATION \| EMAIL_CHANGE \| EMAIL_CHANGE_REVERT` |
+| **purpose** | VARCHAR(32) | NOT NULL | `PASSWORD_RESET \| EMAIL_VERIFICATION \| EMAIL_CHANGE \| EMAIL_CHANGE_REVERT \| ACCOUNT_SETUP` — `ACCOUNT_SETUP` is a new staff account's first-password link. |
 | **token_hash** | CHAR(64) | NOT NULL, **UNIQUE** | SHA-256, looked up by value. |
 | **target_email** | VARCHAR(254) | Nullable | The address the link was sent to. **Binding the token to the address** is what makes email change safe: `users.email` is written only when the token for that exact address is consumed. Required for `EMAIL_VERIFICATION`, `EMAIL_CHANGE` and `EMAIL_CHANGE_REVERT` — for a revert token it holds the **old** address the link restores. |
-| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | 1 h for reset, 24 h for verification and email change, **7 d** (`EMAIL_CHANGE_REVERT_TTL_DAYS`) for a revert — a victim may not notice for days. |
+| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | 1 h for reset, 24 h for verification and email change, **72 h** for account setup (a welcome mail is often opened the next day), **7 d** (`EMAIL_CHANGE_REVERT_TTL_DAYS`) for a revert — a victim may not notice for days. |
 | **used_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **invalidated_at** | TIMESTAMPTZ(3) | Nullable | Set on every older outstanding token of the same purpose when a new one is issued. Separate from `used_at` so "consumed" and "superseded" stay distinguishable. |
 | **ip** | VARCHAR(45) | Nullable | Where the request came from — included in the email so a victim can recognise an attack. |
@@ -509,7 +511,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - Valid iff `used_at IS NULL AND invalidated_at IS NULL AND expires_at > now()`.
 - **Why one table rather than one per purpose:** all three are 256-bit link tokens with the same threat model and the same lookup. If a *numeric* code a human types is ever added, it gets its own table — a six-digit code needs an attempt counter and a slow KDF, and sharing a table would let a guessable code be accepted where a link token is expected.
-- Consuming a `PASSWORD_RESET` revokes every session and stamps `users.credentials_changed_at`.
+- Consuming a `PASSWORD_RESET` revokes every session and stamps `users.credentials_changed_at`. Consuming an `ACCOUNT_SETUP` sets the first password and `is_email_verified`, and stamps nothing — no existing credential was bypassed.
+- **The plaintext token exists only in the email that carries it.** A send that fails is never retried with the same token; the person asks again, which mints a new one and invalidates the old.
 - **A live `EMAIL_CHANGE_REVERT` token reserves its `target_email`**: registering or changing to that address is refused, so an attacker cannot block the revert by claiming the old address. It also blocks, on its user, account erasure, another email change, payout-routing changes and staff invitations. Found through the index `(target_email) WHERE purpose = 'EMAIL_CHANGE_REVERT' AND used_at IS NULL AND invalidated_at IS NULL`.
 - **Consuming a revert** restores the address, revokes every session, bumps `tokens_valid_after`, invalidates outstanding `EMAIL_CHANGE` tokens and issues a `PASSWORD_RESET` — the password is treated as compromised ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)).
 
@@ -553,7 +556,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **user_agent** | VARCHAR(512) | Nullable | — |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Receipt time. |
 
-- **Indexes:** `(resource_type, resource_id, occurred_at DESC)`, `(actor_user_id, occurred_at DESC)`, `(action, occurred_at DESC)`.
+- **Indexes:** `(resource_type, resource_id, occurred_at DESC)`, `(actor_user_id, occurred_at DESC)`, `(action, occurred_at DESC)`, and `(occurred_at DESC, id DESC)` for the unfiltered console list, which pages on both.
 - **Never updated, never soft-deleted.** Pruned after `AUDIT_RETENTION_DAYS` (730).
 - Lives in `identity` because every audited actor is a user or device `identity` owns, and the console reads audit history beside the user it concerns.
 
@@ -582,9 +585,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | Field | Type | Constraints / Default | Description & business logic |
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Also sent to the provider as the idempotency key and as a message tag, so a webhook maps back without storing the address. |
-| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| VOUCHER_MOVED \| VOUCHER_REFUNDED` |
+| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| ACCOUNT_SETUP \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| VOUCHER_MOVED \| VOUCHER_REFUNDED` |
 | **recipient_user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | NULL only for a staff invite to someone with no account. |
-| **event_id** | UUID | NOT NULL | The triggering outbox event. |
+| **event_id** | UUID | NOT NULL | The triggering outbox event — or, for an email carrying an action token, that token's id (I-9). |
 | **to_email_masked** | VARCHAR(254) | Nullable | `a***e@example.com`. Shows support *which* address it went to — which differs from `users.email` after a change. NULL after erasure. |
 | **to_email_hash** | CHAR(64) | Nullable | HMAC-SHA-256 of the normalized address under `EMAIL_HASH_KEY`. Support checks a claim by hashing the claimed address with the same key. **Keyed**, so a leaked table cannot be matched against a list of known addresses. NULL after erasure. |
 | **provider** | VARCHAR(16) | NOT NULL | `RESEND \| NODEMAILER` |
@@ -595,7 +598,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **Never holds the body, the subject or any link.** Links carry single-use tokens; a table of them is a table of account-takeover keys.
-- **Unique:** `(template, event_id, recipient_user_id)` — one email per triggering event per recipient. A redelivered event or retried job finds the row and does not send again. This, not the provider, is the guarantee.
+- **Unique:** `(template, event_id, recipient_user_id)`, `NULLS NOT DISTINCT` — one email per triggering event per recipient, including a staff invite to an address with no account. A redelivered event or retried job finds the row and does not send again. This, not the provider, is the guarantee. A row still `QUEUED` with no `provider_message_id` (a send interrupted before the provider answered) may be re-sent by the event's redelivery, under the row id as the provider's idempotency key.
 - **Status only moves forward.** Rank `QUEUED` 0, `SENT` 1, `DELIVERED` 2, `COMPLAINED` 3; `BOUNCED` and `FAILED` are terminal. A webhook update applies only if it moves rank forward or reaches a terminal status from a non-terminal one — so a late `delivered` never overwrites `BOUNCED`, and `COMPLAINED` may follow `DELIVERED`. A "delivery delayed" report changes nothing. **`SENT` means only that the provider accepted it**; support must never read it as delivered.
 - A **hard** bounce stamps `users.email_bounced_at` if unset. A complaint does not.
 - Pruned after `EMAIL_DELIVERY_RETENTION_DAYS` (400), matching `billing_events`.
@@ -1684,7 +1687,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | identity | `legal_acceptances_party_ck` | CHECK | a user or a device accepted |
 | identity | `sessions_client_ck` | CHECK | `client` is `CONSOLE`, `WEB` or `MOBILE` — a wrong value would send tokens down the wrong transport (§2.4) |
 | identity | `action_tokens_live_revert_idx` | partial index | reserved addresses during a revert window |
-| identity | `email_deliveries_one_per_event` | unique | one email per event per recipient |
+| identity | `email_deliveries_one_per_event` | unique, `NULLS NOT DISTINCT` | one email per event per recipient |
 | identity | `account_recoveries_one_live` | partial unique | one live recovery per owner |
 | identity | `account_recoveries_evidence_ck` | CHECK | ≥ 2 checks, including the phone callback |
 | identity | `account_recoveries_four_eyes_ck` | CHECK | approver differs from opener |

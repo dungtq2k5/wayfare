@@ -220,5 +220,7 @@ model AuditLog {
   @@index([resourceType, resourceId, occurredAt(sort: Desc)])
   @@index([actorUserId, occurredAt(sort: Desc)])
   @@index([action, occurredAt(sort: Desc)])
+  /// The unfiltered console list, which pages on both (rdm-spec I-11).
+  @@index([occurredAt(sort: Desc), id(sort: Desc)])
   @@map("audit_logs")
 }

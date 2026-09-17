@@ -666,6 +666,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `NATS_URL` | all services | JetStream event bus |
 | `JWT_PRIVATE_KEY` | identity | Ed25519 signing key, a base64-encoded PKCS#8 PEM — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Required in every environment; `pnpm keys:dev` generates a local pair |
 | `JWT_KEY_ID` | identity | The `kid` written into every token header |
+| `BOOTSTRAP_SUPER_ADMIN_EMAIL`, `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | identity's `bootstrap:super-admin` script only | The first `SUPER_ADMIN` (rdm-spec I-4). Set for the one run, then removed; never read by the running service |
 | `GLOBAL_PREFIX` | gateway | `api`. Combined with Nest URI versioning to give `/api/v1/…`; never hard-coded elsewhere |
 | `PORT` | gateway | Public HTTP port |
 | `CORS_ORIGINS` | gateway | Comma-separated allowlist; never `*` with credentials |
@@ -691,7 +692,13 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `RESEND_API_KEY` | identity | transactional email; **unset locally**, where Nodemailer → Mailpit is used |
 | `RESEND_WEBHOOK_SECRET` | identity | delivery-webhook signature verification |
 | `EMAIL_HASH_KEY` | identity | HMAC key for addresses in delivery records |
-| `EMAIL_NONPROD_ALLOWLIST` | identity | staging only: addresses that may receive mail; everything else goes to the team catch-all |
+| `EMAIL_PROVIDER` | identity | `resend` (deployed) or `smtp` (local, Mailpit) |
+| `EMAIL_FROM` | identity | `Name <address>` on every transactional mail |
+| `EMAIL_DELIVERY_MODE` | identity | `restricted` or `open`, required, no default — only production is `open` |
+| `EMAIL_NONPROD_ALLOWLIST` | identity | with `restricted`: addresses (or `*@domain`) that may receive mail |
+| `EMAIL_NONPROD_CATCHALL` | identity | with `restricted`: where every other mail goes |
+| `RESEND_DOMAIN_ID` | identity | the sending domain whose tracking settings are checked at boot |
+| `CONSOLE_URL`, `WEB_URL` | identity | bases for emailed links — the console for staff and owners, the web app for everyone else |
 | `SMTP_URL` | identity | local only: the Mailpit container |
 | `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing | Price IDs, never hardcoded |
 | `GEMINI_API_KEY` | ai | never reaches a client |

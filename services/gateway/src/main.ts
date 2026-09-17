@@ -24,6 +24,8 @@ async function bootstrap(): Promise<void> {
   const metrics = await startMetricsServer(config.get('METRICS_PORT', { infer: true })); // before the public listener
   shutdown.add(() => new Promise<void>((resolve) => metrics.close(() => resolve())));
   await app.listen(config.get('PORT', { infer: true }));
+  // TODO Log an exposed endpoint for the sever, also for another services with Nestjs logger.
+  // TODO Log Swagger exposed endpoint.
 }
 
 void bootstrap().catch((error: unknown) => {

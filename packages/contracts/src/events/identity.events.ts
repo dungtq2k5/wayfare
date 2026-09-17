@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { zUuidV7 } from '../common/ids';
-import { SessionRevokedReason } from '../identity/enums';
 import { MAX_FAMILIES_PER_EVENT } from '../identity/limits';
+import { TokenRevocationReason } from '../identity/revocation';
 import { defineEvent, eventSchema, zEventInstant } from './event-definition';
 
 /** `identity.device.claimed` — a signed-in user claimed an anonymous device. */
@@ -60,8 +60,9 @@ export const IDENTITY_OWNER_VERIFIED = defineEvent({
 
 /**
  * `identity.session.revoked` — sessions ended or the account's token cutoff moved (rdm-spec I-1,
- * I-3). `familyIds: null` means every family; a larger set is published as several events.
- * identity's own consumer writes it to Redis for the gateway.
+ * I-3). `familyIds: null` means every family — or none, for `PERMISSIONS_CHANGED`, a cutoff bump
+ * that revokes no session; the cutoff rejects every older token either way. A larger set is
+ * published as several events. identity's own consumer writes it to Redis for the gateway.
  */
 export const IDENTITY_SESSION_REVOKED = defineEvent({
   subject: 'identity.session.revoked',
@@ -71,7 +72,7 @@ export const IDENTITY_SESSION_REVOKED = defineEvent({
     userId: zUuidV7,
     familyIds: z.array(zUuidV7).min(1).max(MAX_FAMILIES_PER_EVENT).nullable(),
     tokensValidAfter: zEventInstant.nullable(),
-    reason: z.enum(SessionRevokedReason),
+    reason: z.enum(TokenRevocationReason),
   }),
   aggregateId: (payload) => payload.userId,
 });

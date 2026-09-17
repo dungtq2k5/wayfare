@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+// Staff administration of accounts — api-endpoints-plan §1.6, rdm-spec I-1, I-4, I-6.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/common/page.proto";
+
+// Lists, creates, locks, deactivates and signs out accounts. The caller travels as metadata; the
+// gateway checks the route's permission, identity checks the rules it alone can know.
+service AdminUserService {
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc CreateStaffUser(CreateStaffUserRequest) returns (CreateStaffUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc SetUserRoles(SetUserRolesRequest) returns (SetUserRolesResponse);
+  rpc LockUser(LockUserRequest) returns (LockUserResponse);
+  rpc UnlockUser(UnlockUserRequest) returns (UnlockUserResponse);
+  rpc DeactivateUser(DeactivateUserRequest) returns (DeactivateUserResponse);
+  rpc RestoreUser(RestoreUserRequest) returns (RestoreUserResponse);
+  rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (RevokeUserSessionsResponse);
+}
+
+message ListUsersRequest {
+  wayfare.common.PageNumberRequest page = 1;
+  optional string role_id = 2;
+  // Currently locked: set and not lapsed.
+  optional bool is_locked = 3;
+  optional bool owner_verified = 4;
+  bool include_deleted = 5;
+}
+
+message ListUsersResponse {
+  repeated AdminUserListItem users = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+// One list row: a live account, or an erased placeholder.
+message AdminUserListItem {
+  oneof kind {
+    AdminUser user = 1;
+    ErasedUser erased = 2;
+  }
+}
+
+// A role as an account's row shows it.
+message AdminUserRole {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+}
+
+// An account that has not been erased.
+message AdminUser {
+  string id = 1;
+  string email = 2;
+  optional string full_name = 3;
+  repeated AdminUserRole roles = 4;
+  // Currently locked: set and not lapsed.
+  bool is_locked = 5;
+  google.protobuf.Timestamp locked_until = 6;
+  bool owner_verified = 7;
+  bool is_email_verified = 8;
+  google.protobuf.Timestamp last_login_at = 9;
+  google.protobuf.Timestamp deleted_at = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+// An erased account: only its id and when (ADR 0048).
+message ErasedUser {
+  string id = 1;
+  google.protobuf.Timestamp erased_at = 2;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  oneof kind {
+    AdminUserDetail user = 1;
+    ErasedUser erased = 2;
+  }
+}
+
+// The detail view of a live account.
+message AdminUserDetail {
+  AdminUser user = 1;
+  // Devices the account has claimed.
+  int32 devices_count = 2;
+  SessionSummary sessions = 3;
+  // Staff-only (rdm-spec I-1).
+  optional string lock_reason = 4;
+}
+
+// Live session families, by client.
+message SessionSummary {
+  int32 live = 1;
+  int32 console = 2;
+  int32 web = 3;
+  int32 mobile = 4;
+}
+
+message CreateStaffUserRequest {
+  string email = 1;
+  string full_name = 2;
+  repeated string role_ids = 3;
+}
+
+message CreateStaffUserResponse {
+  AdminUser user = 1;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  optional string full_name = 2;
+}
+
+message UpdateUserResponse {
+  AdminUser user = 1;
+}
+
+message SetUserRolesRequest {
+  string user_id = 1;
+  repeated string role_ids = 2;
+}
+
+message SetUserRolesResponse {
+  AdminUser user = 1;
+}
+
+message LockUserRequest {
+  string user_id = 1;
+  string reason = 2;
+  // Absent: an indefinite lock.
+  google.protobuf.Timestamp locked_until = 3;
+}
+
+message LockUserResponse {}
+
+message UnlockUserRequest {
+  string user_id = 1;
+}
+
+message UnlockUserResponse {}
+
+message DeactivateUserRequest {
+  string user_id = 1;
+  string reason = 2;
+  bool refund_unredeemed_vouchers = 3;
+}
+
+message DeactivateUserResponse {}
+
+message RestoreUserRequest {
+  string user_id = 1;
+}
+
+message RestoreUserResponse {}
+
+message RevokeUserSessionsRequest {
+  string user_id = 1;
+}
+
+message RevokeUserSessionsResponse {}

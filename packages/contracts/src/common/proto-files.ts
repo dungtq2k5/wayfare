@@ -7,6 +7,9 @@ export const PROTO_FILES = {
     'wayfare/identity/device.proto',
     'wayfare/identity/auth.proto',
     'wayfare/identity/user.proto',
+    'wayfare/identity/admin_user.proto',
+    'wayfare/identity/role.proto',
+    'wayfare/identity/audit.proto',
   ],
   health: ['grpc/health/v1/health.proto'],
 } as const;

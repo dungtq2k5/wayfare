@@ -21,7 +21,9 @@ export const GRPC_LOADER_OPTIONS: Options = Object.freeze({
   enums: Number,
   // Fills defaults for ordinary fields; proto3 `optional` fields stay absent when unset.
   defaults: true,
-  oneofs: true,
+  // No virtual oneof properties: with them, every `optional` field arrives beside a synthetic
+  // `_field` key, which a strict request schema refuses and ts-proto's types do not declare.
+  oneofs: false,
   includeDirs: [PROTO_ROOT],
 });
 

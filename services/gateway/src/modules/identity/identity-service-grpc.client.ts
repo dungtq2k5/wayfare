@@ -16,16 +16,25 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
   readonly devices: GrpcServiceCaller<identityGrpc.DeviceServiceClient>;
   readonly auth: GrpcServiceCaller<identityGrpc.AuthServiceClient>;
   readonly users: GrpcServiceCaller<identityGrpc.UserServiceClient>;
+  readonly adminUsers: GrpcServiceCaller<identityGrpc.AdminUserServiceClient>;
+  readonly roles: GrpcServiceCaller<identityGrpc.RoleServiceClient>;
+  readonly audit: GrpcServiceCaller<identityGrpc.AuditServiceClient>;
 
   constructor(@Inject(IDENTITY_GRPC) grpc: ClientGrpc) {
     this.devices = new GrpcServiceCaller(grpc, identityGrpc.DEVICE_SERVICE_NAME);
     this.auth = new GrpcServiceCaller(grpc, identityGrpc.AUTH_SERVICE_NAME);
     this.users = new GrpcServiceCaller(grpc, identityGrpc.USER_SERVICE_NAME);
+    this.adminUsers = new GrpcServiceCaller(grpc, identityGrpc.ADMIN_USER_SERVICE_NAME);
+    this.roles = new GrpcServiceCaller(grpc, identityGrpc.ROLE_SERVICE_NAME);
+    this.audit = new GrpcServiceCaller(grpc, identityGrpc.AUDIT_SERVICE_NAME);
   }
 
   onModuleInit(): void {
     this.devices.init();
     this.auth.init();
     this.users.init();
+    this.adminUsers.init();
+    this.roles.init();
+    this.audit.init();
   }
 }

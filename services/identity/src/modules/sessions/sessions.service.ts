@@ -6,6 +6,7 @@ import {
   REFRESH_TOKEN_TTL_MS,
   SessionClient,
   SessionRevokedReason,
+  TokenRevocationReason,
 } from '@wayfare/contracts';
 import { generateToken, hashToken, OutboxService } from '@wayfare/nest-common';
 import type { RequestOrigin } from '@wayfare/nest-common';
@@ -51,6 +52,32 @@ export interface SessionLineage {
   readonly client: SessionClient;
   readonly deviceId: string | null;
   readonly expiresAt: Date;
+}
+
+/**
+ * `SessionsService.bumpCutoff` without the service — for scripts, which hold no signing key. The
+ * events are written in batches.
+ */
+export async function bumpTokenCutoff(
+  tx: Prisma.TransactionClient,
+  outbox: Pick<OutboxService, 'addMany'>,
+  userIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) return;
+  await tx.user.updateMany({ where: { id: { in: unique } }, data: { tokensValidAfter: now } });
+  await outbox.addMany(
+    tx,
+    IDENTITY_SESSION_REVOKED,
+    unique.map((userId) => ({
+      occurredAt: now.toISOString(),
+      userId,
+      familyIds: null,
+      tokensValidAfter: now.toISOString(),
+      reason: TokenRevocationReason.PERMISSIONS_CHANGED,
+    })),
+  );
 }
 
 /**
@@ -176,16 +203,20 @@ export class SessionsService {
   }
 
   /**
-   * Revokes every live family and raises the token cutoff to `now` — nothing issued before it is
-   * accepted any more. Publishes one event with `familyIds: null`. Returns the families revoked.
+   * Revokes every live family of a user. With `bumpCutoff`, also raises the token cutoff to `now`
+   * — nothing issued before it is accepted any more — and publishes one event with
+   * `familyIds: null`; without it, publishes the revoked families in chunks of
+   * `MAX_FAMILIES_PER_EVENT`. Returns how many families were live.
    */
-  async revokeAll(
+  async revokeAllForUser(
     tx: Prisma.TransactionClient,
     userId: string,
     reason: SessionRevokedReason,
-    now: Date,
+    options: { readonly bumpCutoff: boolean; readonly now: Date },
   ): Promise<number> {
+    const { bumpCutoff, now } = options;
     const families = await this.liveFamilies(tx, userId, now);
+    if (!bumpCutoff) return this.revokeFamilies(tx, userId, families, reason, now);
     await tx.session.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: now, revokedReason: reason },
@@ -203,6 +234,14 @@ export class SessionsService {
       reason,
     });
     return families.length;
+  }
+
+  /**
+   * Raises the token cutoff of many users to `now` without revoking a session: their next refresh
+   * re-reads the permissions (rdm-spec I-1). One `PERMISSIONS_CHANGED` event per user.
+   */
+  bumpCutoff(tx: Prisma.TransactionClient, userIds: readonly string[], now: Date): Promise<void> {
+    return bumpTokenCutoff(tx, this.outbox, userIds, now);
   }
 
   /** Revokes every live session on one device, per user, each with its event. */

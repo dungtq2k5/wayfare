@@ -62,11 +62,21 @@ export class IdentityStub {
   readonly devices = new StubCaller();
   readonly auth = new StubCaller();
   readonly users = new StubCaller();
+  readonly adminUsers = new StubCaller();
+  readonly roles = new StubCaller();
+  readonly audit = new StubCaller();
 
   onModuleInit(): void {}
 
   reset(): void {
-    for (const caller of [this.devices, this.auth, this.users]) {
+    for (const caller of [
+      this.devices,
+      this.auth,
+      this.users,
+      this.adminUsers,
+      this.roles,
+      this.audit,
+    ]) {
       caller.calls.length = 0;
       caller.handlers = {};
     }

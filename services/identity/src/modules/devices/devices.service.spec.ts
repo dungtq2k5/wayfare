@@ -45,7 +45,7 @@ function setup() {
     legalAcceptance: { create: vi.fn().mockResolvedValue({ acceptedAt: new Date() }) },
   };
   const prisma = { $transaction: vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)) };
-  const outbox = { add: vi.fn().mockResolvedValue({}) };
+  const outbox = { add: vi.fn().mockResolvedValue({}), addMany: vi.fn().mockResolvedValue([]) };
   const service = new DevicesService(
     prisma as unknown as PrismaService,
     outbox,

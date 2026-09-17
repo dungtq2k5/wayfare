@@ -61,8 +61,17 @@ describe('cursors', () => {
     expect(decodeCursor(cursor)).toEqual({ id });
   });
 
+  it('round-trips a sort key beside the id', () => {
+    const id = newId();
+    const key = '2026-09-17T12:00:00.000Z';
+    expect(decodeCursor(encodeCursor({ id, key }))).toEqual({ id, key });
+    expect(decodeCursor(encodeCursor({ id }))).toEqual({ id });
+  });
+
   it.each([
     'not base64!',
+    Buffer.from(JSON.stringify({ id: newId(), k: 5 })).toString('base64url'),
+    Buffer.from(JSON.stringify({ id: newId(), k: 'x'.repeat(65) })).toString('base64url'),
     Buffer.from('not json').toString('base64url'),
     Buffer.from(JSON.stringify({ id: '0d5f2c1e-8b2a-4f3e-9c1d-2a3b4c5d6e7f' })).toString(
       'base64url',

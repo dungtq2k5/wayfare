@@ -36,11 +36,9 @@ export interface PageQueryOptions<Field extends string> {
   readonly search?: true;
 }
 
-/**
- * A page list's query (conventions §5.5): `page`, `pageSize`, `sort` from the allowlist as `field`
- * or `-field`, and `q` only when the route searches. An unlisted sort is a 400, never an `orderBy`.
- */
-export function zPageQuery<Field extends string>(options: PageQueryOptions<Field>) {
+const searchShape = { q: z.string().trim().min(1).max(MAX_SEARCH_LENGTH).optional() };
+
+function pageShape<Field extends string>(options: PageQueryOptions<Field>) {
   const allowed: readonly string[] = options.sort;
   const fieldOf = (value: string): string => (value.startsWith('-') ? value.slice(1) : value);
   if (!allowed.includes(fieldOf(options.defaultSort))) {
@@ -51,12 +49,27 @@ export function zPageQuery<Field extends string>(options: PageQueryOptions<Field
     .refine((value) => allowed.includes(fieldOf(value)), { message: 'Unsupported sort field' })
     .default(options.defaultSort)
     .transform((value) => value as Field | `-${Field}`);
-  const base = {
+  return {
     page: z.coerce.number().int().min(1).default(1),
     pageSize: zLimit,
     sort,
   };
+}
+
+/**
+ * A page list's query (conventions §5.5): `page`, `pageSize`, `sort` from the allowlist as `field`
+ * or `-field`, and `q` only when the route searches. An unlisted sort is a 400, never an `orderBy`.
+ * Routes add their filters with `.extend`.
+ */
+export function zPageQuery<Field extends string>(
+  options: PageQueryOptions<Field> & { readonly search: true },
+): z.ZodObject<ReturnType<typeof pageShape<Field>> & typeof searchShape, z.core.$strict>;
+export function zPageQuery<Field extends string>(
+  options: PageQueryOptions<Field>,
+): z.ZodObject<ReturnType<typeof pageShape<Field>>, z.core.$strict>;
+export function zPageQuery<Field extends string>(options: PageQueryOptions<Field>) {
+  const shape = pageShape(options);
   return options.search
-    ? z.object({ ...base, q: z.string().trim().min(1).max(MAX_SEARCH_LENGTH).optional() }).strict()
-    : z.object(base).strict();
+    ? z.object({ ...shape, ...searchShape }).strict()
+    : z.object(shape).strict();
 }

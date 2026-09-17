@@ -28,6 +28,13 @@ export interface OutboxTx {
   };
 }
 
+/** An `OutboxTx` that can also insert many rows in one statement. */
+export interface OutboxBatchTx extends OutboxTx {
+  outboxEvent: OutboxTx['outboxEvent'] & {
+    createMany(args: { data: OutboxEventCreateData[] }): PromiseLike<unknown>;
+  };
+}
+
 /** Raw-SQL access used by the relay and the job recorder — physical column names only. */
 export interface RawSqlTx {
   $queryRaw<T = unknown>(query: TemplateStringsArray, ...values: unknown[]): PromiseLike<T>;

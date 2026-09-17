@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+// The audit log — api-endpoints-plan §1.8, rdm-spec I-11.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/common/page.proto";
+
+// Reads the audit log. The caller travels as metadata.
+//
+// `action`, `actor.type` and `resource.type` are strings, not enums: a stored row may carry an
+// action the vocabulary has since retired, and must stay readable (conventions §6.3).
+service AuditService {
+  rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
+  rpc ListAuditActions(ListAuditActionsRequest) returns (ListAuditActionsResponse);
+}
+
+message ListAuditLogsRequest {
+  wayfare.common.PageRequest page = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  optional string actor_user_id = 4;
+  optional string action = 5;
+  optional string resource_type = 6;
+  optional string resource_id = 7;
+}
+
+message ListAuditLogsResponse {
+  repeated AuditLogEntry entries = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+// One audit row.
+message AuditLogEntry {
+  string id = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  string service = 3;
+  AuditLogActor actor = 4;
+  string action = 5;
+  AuditLogResource resource = 6;
+  // `{ before?, after?, reason? }` as stored, JSON-encoded.
+  string metadata_json = 7;
+  optional string ip = 8;
+  optional string user_agent = 9;
+}
+
+message AuditLogActor {
+  string type = 1;
+  optional string user_id = 2;
+  optional string device_id = 3;
+}
+
+message AuditLogResource {
+  string type = 1;
+  optional string id = 2;
+}
+
+message ListAuditActionsRequest {}
+
+message ListAuditActionsResponse {
+  repeated string actions = 1;
+}

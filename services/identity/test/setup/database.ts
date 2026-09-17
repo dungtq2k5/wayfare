@@ -31,10 +31,16 @@ export function testPrisma(): PrismaService {
   return new PrismaService(testConfig());
 }
 
+/** A code the specs give a retired catalogue row; never in `PERMISSION_CODES`. */
+export const RETIRED_TEST_CODE = 'legacy.test_only';
+
 /** Empties every identity table between specs (conventions §17.2). */
 export async function truncateAll(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
     // The catalogue (roles, permissions, role_permissions) is synced once by global-setup and kept.
     'TRUNCATE users, user_roles, sessions, legal_acceptances, devices, outbox_events, audit_logs RESTART IDENTITY CASCADE',
   );
+  // …except what the specs add to it: custom roles and the retired test code.
+  await prisma.$executeRaw`DELETE FROM roles WHERE code LIKE 'CUSTOM\_%'`;
+  await prisma.$executeRaw`DELETE FROM permissions WHERE code = ${RETIRED_TEST_CODE}`;
 }

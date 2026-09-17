@@ -5,11 +5,15 @@ import {
   invalidStateDetails,
   legalVersionOutdatedDetails,
   limitDetails,
+  ownerHasLiveVouchersDetails,
   permissionDeniedDetails,
+  permissionRetiredDetails,
   priceBelowMinimumDetails,
   quotaExhaustedDetails,
   resourceNotFoundDetails,
   retryAfterDetails,
+  roleInUseDetails,
+  roleTooWideDetails,
   validationFailedDetails,
   voucherNotRedeemableDetails,
 } from './details';
@@ -84,6 +88,9 @@ export const ERRORS = {
   EMAIL_NOT_VERIFIED: forbidden,
   CONSENT_REQUIRED: forbidden,
   ANALYTICS_LEVEL_INSUFFICIENT: forbidden,
+  SUPER_ADMIN_NOT_ASSIGNABLE: forbidden,
+  SELF_ACTION_FORBIDDEN: forbidden,
+  SYSTEM_ROLE_READ_ONLY: forbidden,
 
   // 404 — one not-found code; `details.resource` says which.
   ROUTE_NOT_FOUND: notFound,
@@ -95,13 +102,16 @@ export const ERRORS = {
   SHORT_CODE_COLLISION: exists,
   SUBSCRIPTION_EXISTS: exists,
   REGISTRATION_ALREADY_PENDING: exists,
+  ROLE_NAME_TAKEN: exists,
   INVALID_STATE: { ...conflict, details: invalidStateDetails },
   EMAIL_CHANGE_REVERT_PENDING: conflict,
   PAYOUT_CHANGES_COOLING_DOWN: { ...conflict, details: coolingDownDetails },
   BUYER_HAS_PENDING_ORDER: conflict,
   OWNER_HAS_ACTIVE_OBLIGATIONS: conflict,
-  OWNER_HAS_LIVE_VOUCHERS: conflict,
-  ROLE_IN_USE: conflict,
+  OWNER_HAS_LIVE_VOUCHERS: { ...conflict, details: ownerHasLiveVouchersDetails },
+  ROLE_IN_USE: { ...conflict, details: roleInUseDetails },
+  LAST_SUPER_ADMIN: conflict,
+  ROLE_TOO_WIDE_TO_EDIT: { ...conflict, details: roleTooWideDetails },
   PLACE_LIMIT_REACHED: { ...conflict, details: limitDetails },
   PHOTO_LIMIT_REACHED: { ...conflict, details: limitDetails },
   MENU_LIMIT_REACHED: { ...conflict, details: limitDetails },
@@ -131,6 +141,7 @@ export const ERRORS = {
   LOCATION_OUTSIDE_AREAS: unprocessable,
   PRICE_BELOW_MINIMUM: { ...unprocessable, details: priceBelowMinimumDetails },
   RECOVERY_EVIDENCE_INSUFFICIENT: unprocessable,
+  PERMISSION_RETIRED: { ...unprocessable, details: permissionRetiredDetails },
 
   // 426
   APP_VERSION_UNSUPPORTED: {

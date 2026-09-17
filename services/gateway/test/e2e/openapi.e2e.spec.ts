@@ -62,7 +62,7 @@ const DEVICE_ROUTES = new Set([
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(15);
+    expect(names).toHaveLength(33);
     expect(names.some((name) => name.includes('/health'))).toBe(false);
   });
 
@@ -78,6 +78,19 @@ describe('OpenAPI contract', () => {
       expect(document.components.schemas.RegisterDeviceResponseDto).toBeDefined();
     },
   );
+
+  it('documents the erasable account rows as a union discriminated on `erased`', () => {
+    for (const name of ['AdminUserListItemResponseDto', 'AdminUserViewResponseDto']) {
+      const schema = document.components.schemas[name] as {
+        oneOf: { properties: { erased: { enum: boolean[] } } }[];
+      };
+      expect(
+        schema.oneOf.map((variant) => variant.properties.erased.enum),
+        name,
+      ).toEqual([[false], [true]]);
+    }
+    expect(document.components.schemas.AuditActionResponseDto).toEqual({ type: 'string' });
+  });
 
   it('gives every operation exactly one 2xx, with data unless it is a 204', () => {
     for (const [name, operation] of operations()) {

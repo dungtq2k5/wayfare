@@ -70,3 +70,30 @@ export const MAX_FAMILIES_PER_EVENT = 100;
 export const TOKEN_TYPES = { device: 'device', user: 'user' } as const;
 /** An access token's type. */
 export type TokenType = (typeof TOKEN_TYPES)[keyof typeof TOKEN_TYPES];
+
+/** Upper bound of a lock's reason — it is stored in `users.lock_reason` (rdm-spec I-1). */
+export const MAX_LOCK_REASON_LENGTH = 255;
+
+/** Upper bound of an admin action's reason kept only in the audit row (rdm-spec I-11). */
+export const MAX_ADMIN_REASON_LENGTH = 500;
+
+/** Upper bound of `roles.name` (rdm-spec I-4). */
+export const MAX_ROLE_NAME_LENGTH = 80;
+
+/** Upper bound of `roles.description` (rdm-spec I-4). */
+export const MAX_ROLE_DESCRIPTION_LENGTH = 255;
+
+/** Upper bound of `roles.code` (rdm-spec I-4). */
+export const MAX_ROLE_CODE_LENGTH = 32;
+
+/** Most roles one account may hold. */
+export const MAX_ROLES_PER_USER = 20;
+
+/** Most live holders a role-permission change may touch (rdm-spec I-4). */
+export const MAX_ROLE_HOLDERS_PER_CHANGE = 500;
+
+/** Upper bound of an audit action filter (rdm-spec I-11 `action`). */
+export const MAX_AUDIT_ACTION_LENGTH = 64;
+
+/** How far ahead a lock may expire. */
+export const MAX_LOCK_DURATION_MS = 366 * DAY_MS;

@@ -7,7 +7,7 @@ import type { GatewayConfig } from '../../config/env.schema';
 import { IDENTITY_GRPC, IdentityServiceGrpcClient } from './identity-service-grpc.client';
 import { IdentityService } from './identity.service';
 
-/** The one connection to identity, shared by the devices, auth and users routes. */
+/** The one connection to identity, shared by every route identity backs. */
 @Module({
   imports: [
     ClientsModule.registerAsync([

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { dummyPasswordHash, hashPassword, verifyPassword } from './password';
+import {
+  dummyPasswordHash,
+  hashPassword,
+  isPasswordTheEmail,
+  verifyPassword,
+  zNewPassword,
+} from './password';
 
 describe('password helpers', () => {
   it('hashes with argon2id and verifies', async () => {
@@ -19,5 +25,18 @@ describe('password helpers', () => {
 
   it('treats a malformed hash as a mismatch', async () => {
     expect(await verifyPassword('not-a-hash', 'x')).toBe(false);
+  });
+});
+
+describe('new password rules', () => {
+  it('bounds the length', () => {
+    expect(zNewPassword.safeParse('a'.repeat(9)).success).toBe(false);
+    expect(zNewPassword.safeParse('a'.repeat(10)).success).toBe(true);
+    expect(zNewPassword.safeParse('a'.repeat(129)).success).toBe(false);
+  });
+
+  it('refuses the address itself, in any case', () => {
+    expect(isPasswordTheEmail('Ann@Example.com', 'ann@example.com')).toBe(true);
+    expect(isPasswordTheEmail('ann@example.co', 'ann@example.com')).toBe(false);
   });
 });
