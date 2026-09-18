@@ -8,7 +8,7 @@ import { signJws } from './jws';
 import { generateEncodedSigningKeys, zPrivateKeyEnv, zPublicKeysEnv } from './keys';
 import { CUTOFF_REJECT_ALL, revokedFamilyKey, tokenCutoffKey } from './redis-keys';
 import { createRequestContextMiddleware } from './request-context.middleware';
-import type { TokenCutoffSource } from './request-context.middleware';
+import type { TokenCutoffSource } from './account-token-verifier';
 
 const keys = generateEncodedSigningKeys('k1');
 const privateKey = zPrivateKeyEnv.parse(keys.privateKey);

@@ -1,0 +1,194 @@
+// narration — rdm-spec §3.3. It produces localizations and audio; catalog serves them (ADR 0040).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma" // outside src/ — ADR 0056's entryFile depends on it
+  moduleFormat = "cjs" // ADR 0058; never rely on inference
+}
+
+datasource db {
+  provider = "postgresql" // no url here — it lives in prisma.config.ts
+}
+
+/// A unit of work an admin can watch, pause, resume and cancel — rdm-spec N-1. The durable record;
+/// BullMQ only executes it (ADR 0019).
+model SynthesisJob {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  targetType          String    @map("target_type") @db.VarChar(16)
+  /// NULL only for UI_BUNDLE.
+  targetId            String?   @map("target_id") @db.Uuid
+  trigger             String    @db.VarChar(24)
+  sourceContentHash   String    @map("source_content_hash") @db.Char(64)
+  /// Never empty; no column default.
+  requestedLangs      String[]  @map("requested_langs") @db.VarChar(16)
+  includeAudio        Boolean   @map("include_audio")
+  priority            Int       @db.SmallInt
+  status              String    @db.VarChar(24)
+  totalTasks          Int       @map("total_tasks") @db.SmallInt
+  completedTasks      Int       @default(0) @map("completed_tasks") @db.SmallInt
+  failedTasks         Int       @default(0) @map("failed_tasks") @db.SmallInt
+  requestedByUserId   String?   @map("requested_by_user_id") @db.Uuid
+  requestedByDeviceId String?   @map("requested_by_device_id") @db.Uuid
+  heartbeatAt         DateTime? @map("heartbeat_at") @db.Timestamptz(3)
+  startedAt           DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt          DateTime? @map("finished_at") @db.Timestamptz(3)
+  cancelledById       String?   @map("cancelled_by_id") @db.Uuid
+  /// Redacted; never a provider response body.
+  errorSummary        String?   @map("error_summary") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tasks SynthesisTask[]
+
+  @@index([targetType, targetId, createdAt(sort: Desc)], map: "synthesis_jobs_target_idx")
+  @@map("synthesis_jobs")
+}
+
+/// One language of one job — rdm-spec N-2. The row counts its own attempts.
+model SynthesisTask {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  jobId               String    @map("job_id") @db.Uuid
+  targetType          String    @map("target_type") @db.VarChar(16)
+  targetId            String?   @map("target_id") @db.Uuid
+  lang                String    @db.VarChar(16)
+  sourceContentHash   String    @map("source_content_hash") @db.Char(64)
+  stage               String    @db.VarChar(16)
+  status              String    @db.VarChar(16)
+  attempts            Int       @default(0) @db.SmallInt
+  translationProvider String?   @map("translation_provider") @db.VarChar(32)
+  speechProvider      String?   @map("speech_provider") @db.VarChar(32)
+  voiceId             String?   @map("voice_id") @db.VarChar(64)
+  cacheKey            String?   @map("cache_key") @db.Char(64)
+  audioAssetId        String?   @map("audio_asset_id") @db.Uuid
+  coalescedIntoTaskId String?   @map("coalesced_into_task_id") @db.Uuid
+  /// Redacted.
+  lastError           String?   @map("last_error") @db.Text
+  startedAt           DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt          DateTime? @map("finished_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  job           SynthesisJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  audioAsset    AudioAsset?     @relation(fields: [audioAssetId], references: [id], onDelete: SetNull)
+  coalescedInto SynthesisTask?  @relation("Coalesced", fields: [coalescedIntoTaskId], references: [id], onDelete: SetNull)
+  followers     SynthesisTask[] @relation("Coalesced")
+
+  @@unique([jobId, lang], map: "synthesis_tasks_job_lang_key")
+  @@index([coalescedIntoTaskId], map: "synthesis_tasks_coalesced_into_idx")
+  @@map("synthesis_tasks")
+}
+
+/// A synthesized file — rdm-spec N-3. Content-addressed and immutable.
+model AudioAsset {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  cacheKey         String   @unique(map: "audio_assets_cache_key_key") @map("cache_key") @db.Char(64)
+  lang             String   @db.VarChar(16)
+  voiceId          String   @map("voice_id") @db.VarChar(64)
+  provider         String   @db.VarChar(32)
+  format           String   @db.VarChar(32)
+  objectPath       String   @unique(map: "audio_assets_object_path_key") @map("object_path") @db.VarChar(512)
+  sha256           String   @db.Char(64)
+  bytes            Int
+  durationMs       Int      @map("duration_ms")
+  ssmlChars        Int      @map("ssml_chars")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastReferencedAt DateTime @default(now()) @map("last_referenced_at") @db.Timestamptz(3)
+
+  tasks SynthesisTask[]
+
+  @@index([lastReferencedAt], map: "audio_assets_last_referenced_idx")
+  @@map("audio_assets")
+}
+
+/// A machine translation, reused across providers — rdm-spec N-4.
+model TranslationCache {
+  cacheKey       String   @id @map("cache_key") @db.Char(64)
+  sourceLang     String   @map("source_lang") @db.VarChar(16)
+  targetLang     String   @map("target_lang") @db.VarChar(16)
+  translatedText String   @map("translated_text") @db.Text
+  provider       String   @db.VarChar(32)
+  sourceChars    Int      @map("source_chars")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt     DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
+
+  @@index([lastUsedAt], map: "translation_cache_last_used_idx")
+  @@map("translation_cache")
+}
+
+/// The pronunciation dictionary — rdm-spec N-5. Read by the pipeline; its routes come later.
+model PronunciationEntry {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  term            String   @db.VarChar(120)
+  /// NULL = every non-vi language.
+  targetLang      String?  @map("target_lang") @db.VarChar(16)
+  replacementType String   @map("replacement_type") @db.VarChar(16)
+  replacement     String   @db.VarChar(255)
+  alphabet        String?  @db.VarChar(16)
+  note            String?  @db.VarChar(255)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdById     String   @map("created_by_id") @db.Uuid
+  updatedById     String   @map("updated_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("pronunciation_entries")
+}
+
+/// A staff correction of a machine translation — rdm-spec N-7. Read by the pipeline.
+model LocalizationOverride {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  targetType        String   @map("target_type") @db.VarChar(16)
+  targetId          String   @map("target_id") @db.Uuid
+  lang              String   @db.VarChar(16)
+  sourceContentHash String   @map("source_content_hash") @db.Char(64)
+  name              String   @db.VarChar(160)
+  description       String?  @db.Text
+  status            String   @db.VarChar(16)
+  editedById        String   @map("edited_by_id") @db.Uuid
+  revertedById      String?  @map("reverted_by_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("localization_overrides")
+}
+
+/// rdm-spec §2.10.
+model OutboxEvent {
+  /// Also the event's eventId and the JetStream Nats-Msg-Id.
+  id          String    @id @default(uuid(7)) @db.Uuid
+  subject     String    @db.VarChar(128)
+  payload     Json      @db.JsonB
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  /// W3C traceparent of the request that wrote the row.
+  traceParent String?   @map("trace_parent") @db.VarChar(55)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error") @db.Text
+
+  @@map("outbox_events")
+}
+
+/// rdm-spec §2.11 — written in the same transaction as the handler's effect.
+model ProcessedEvent {
+  consumer    String   @db.VarChar(64)
+  eventId     String   @map("event_id") @db.Uuid
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+
+  @@id([consumer, eventId])
+  @@map("processed_events")
+}
+
+/// rdm-spec §2.12.
+model JobRun {
+  jobName             String    @id @map("job_name") @db.VarChar(64)
+  lastStartedAt       DateTime? @map("last_started_at") @db.Timestamptz(3)
+  lastSucceededAt     DateTime? @map("last_succeeded_at") @db.Timestamptz(3)
+  lastFailedAt        DateTime? @map("last_failed_at") @db.Timestamptz(3)
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastDurationMs      Int?      @map("last_duration_ms")
+  lastError           String?   @map("last_error") @db.Text
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("job_runs")
+}

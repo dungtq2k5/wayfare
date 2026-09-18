@@ -1,4 +1,4 @@
-import type { RevocationStore } from '../auth/request-context.middleware';
+import type { RevocationStore } from '../auth/account-token-verifier';
 
 /**
  * An in-memory stand-in for the two Redis scripts and `MGET` — the semantics the specs rely on,

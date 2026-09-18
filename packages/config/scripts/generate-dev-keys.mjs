@@ -4,7 +4,8 @@
 // services/gateway/.env, replacing only those lines. EMAIL_HASH_KEY is written only when it is
 // absent or empty: a new key would stop every stored address hash from matching. catalog gets a
 // throwaway service-account key to sign upload URLs against the storage emulator (architecture
-// §3.6), written once to services/catalog/.keys/ and named by GOOGLE_APPLICATION_CREDENTIALS.
+// §3.6), written once to services/catalog/.keys/ and named by GOOGLE_APPLICATION_CREDENTIALS in
+// catalog's and narration's .env.
 // Never for production keys.
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -73,4 +74,6 @@ if (!existsSync(gcsKeyPath)) {
   writeFileSync(gcsKeyPath, `${JSON.stringify(key, null, 2)}\n`, { mode: 0o600 });
   console.log('✓ services/catalog/.keys/gcs-dev.json');
 }
+// narration writes audio to the same bucket, with the same throwaway key.
 setEnv('services/catalog/.env', { GOOGLE_APPLICATION_CREDENTIALS: gcsKeyPath });
+setEnv('services/narration/.env', { GOOGLE_APPLICATION_CREDENTIALS: gcsKeyPath });

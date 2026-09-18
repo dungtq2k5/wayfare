@@ -170,6 +170,14 @@ export function applyWayfareOpenApi(document: OpenAPIObject): OpenAPIObject {
                   description: envelope.description ?? 'Success',
                   content: { 'application/json': { schema: successSchema(envelope) } },
                 };
+        for (const alternative of envelope.alternatives ?? []) {
+          responses[String(alternative.status)] = {
+            description: alternative.description ?? 'Success',
+            content: {
+              'application/json': { schema: successSchema({ model: alternative.model }) },
+            },
+          };
+        }
       }
 
       const hasInput =

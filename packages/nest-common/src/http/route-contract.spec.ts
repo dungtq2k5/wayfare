@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { OpsModule } from '../health/ops.module';
 import { Auth, RequirePermission } from './auth.decorators';
 import { STAFF_MEMBERSHIP_RESOLVER } from './auth.guard';
-import { PublicCache } from './public-cache.decorator';
+import { PrivateCache, PublicCache } from './public-cache.decorator';
 import { RouteContractCheck, RouteContractError } from './route-contract';
 
 @Controller('ok')
@@ -23,11 +23,13 @@ class BadController {
   @Get('both') @Auth('USER') @RequirePermission('place.read') both() {}
   @Get('staff') @Auth('STAFF') staff() {}
   @Get('cached') @RequirePermission('place.read') @PublicCache(60) cached() {}
+  @Get('private') @Auth('PUBLIC') @PrivateCache(2) privatelyCached() {}
 }
 
 @Controller('cached')
 class PublicCacheController {
   @Get() @Auth('PUBLIC') @PublicCache(300) list() {}
+  @Get('mine') @Auth('DEVICE') @PrivateCache(2) mine() {}
 }
 
 @Auth('USER')
@@ -66,6 +68,9 @@ describe('route contract', () => {
     );
     expect((error as Error).message).toContain(
       'BadController.cached is publicly cached but not PUBLIC',
+    );
+    expect((error as Error).message).toContain(
+      'BadController.privatelyCached is privately cached but PUBLIC',
     );
   });
 

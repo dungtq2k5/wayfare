@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+// Tourist narration — api-endpoints-plan §4.1.
+package wayfare.narration;
+
+import "wayfare/catalog/place_types.proto";
+
+// On-demand audio and its status. The device travels as metadata.
+service NarrationService {
+  rpc RequestOnDemand(RequestOnDemandRequest) returns (RequestOnDemandResponse);
+  rpc GetNarrationStatus(GetNarrationStatusRequest) returns (GetNarrationStatusResponse);
+}
+
+// What an on-demand request found.
+enum OnDemandStatus {
+  ON_DEMAND_STATUS_UNSPECIFIED = 0;
+  ON_DEMAND_STATUS_READY = 1;
+  ON_DEMAND_STATUS_PENDING = 2;
+  ON_DEMAND_STATUS_UNAVAILABLE = 3;
+}
+
+// A served narration file.
+message NarrationAudio {
+  string url = 1;
+  string sha256 = 2;
+  int32 bytes = 3;
+  int32 duration_ms = 4;
+}
+
+message RequestOnDemandRequest {
+  string place_id = 1;
+  // The requested tag, as sent.
+  string lang = 2;
+}
+
+message RequestOnDemandResponse {
+  OnDemandStatus status = 1;
+  // READY only.
+  NarrationAudio audio = 2;
+  // PENDING only.
+  optional string job_id = 3;
+  int32 retry_after_ms = 4;
+}
+
+message GetNarrationStatusRequest {
+  string place_id = 1;
+  string lang = 2;
+}
+
+message GetNarrationStatusResponse {
+  bool text_ready = 1;
+  // Absent while no text exists.
+  optional wayfare.catalog.AudioStatus audio_status = 2;
+  NarrationAudio audio = 3;
+  bool stale = 4;
+}

@@ -21,14 +21,15 @@ import { LocalizationFailedConsumer } from './modules/localization-failed/locali
 import { LocalizationFailedModule } from './modules/localization-failed/localization-failed.module';
 import { LocalizationReadyConsumer } from './modules/localization-ready/localization-ready.consumer';
 import { LocalizationReadyModule } from './modules/localization-ready/localization-ready.module';
+import { LocalizationSourcesModule } from './modules/localization-sources/localization-sources.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { PlaceQueriesModule } from './modules/place-queries/place-queries.module';
 import { PlacesModule } from './modules/places/places.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { UploadsModule } from './modules/uploads/uploads.module';
-import { STORAGE_PROVIDER } from './providers/storage/storage-provider';
-import type { StorageProvider } from './providers/storage/storage-provider';
+import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
+import type { StorageProvider } from '@wayfare/nest-common/storage';
 
 const ROOT = packageRoot(__dirname);
 
@@ -58,6 +59,7 @@ export class AppModule {
         PlaceQueriesModule,
         LocalizationReadyModule,
         LocalizationFailedModule,
+        LocalizationSourcesModule,
         SchedulerModule.forRootAsync({
           imports: [JobsModule],
           inject: [ConfigService, PrismaService, PendingUploadsReapJob, PhotoObjectsCleanupJob],

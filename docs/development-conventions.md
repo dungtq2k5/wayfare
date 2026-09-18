@@ -127,7 +127,7 @@ A table belongs to the service that owns its domain in rdm-spec §1.1, **whether
 | A Nest guard, interceptor or decorator shared by services | `packages/nest-common/src/<kind>/` |
 | A React component used by `web` and `console` | `packages/ui/src/` |
 | An i18n message | `packages/i18n/locales/<locale>/<namespace>.json` |
-| A provider adapter (the one file that imports a vendor SDK) | `services/<svc>/src/providers/<kind>/<vendor>.<kind>-provider.ts` — outside `modules/` |
+| A provider adapter (the one file that imports a vendor SDK) | `services/<svc>/src/providers/<kind>/<vendor>.<kind>-provider.ts` — outside `modules/`; an adapter two services use lives in `packages/nest-common/src/providers/<kind>/`, exported from its own subpath (`@wayfare/nest-common/<kind>`) so services that do not use it never load its SDK |
 | SQL Prisma cannot express | `services/<svc>/prisma/sql/schema-objects.sql` ([ADR 0045](./decisions/0045-schema-objects-prisma-cannot-express-live-in-committed-sql.md)) |
 | A seed | `services/<svc>/prisma/seed/<scope>.seed.ts` |
 
@@ -284,7 +284,7 @@ As defined in api-endpoints-plan §0.4. A global interceptor wraps success as `{
 - A non-list response that needs `meta` (a composed route's `meta.degraded`) returns `WithMeta.of(data, meta)`; `Paged` is its list-shaped subclass.
 - **`@SkipEnvelope()`** (nest-common) exempts a controller or handler from the envelope. It is for **ops routes only** — `/health`, `/health/ready`, `/version` — which are unwrapped on every service (api-endpoints-plan §13). An API route **MUST NOT** use it: clients branch on the envelope's shape.
 
-- **Conditional reads** go through nest-common's `@ETagged()` helper: the handler returns its value with a version, the helper sets `ETag`, and a matching `If-None-Match` answers `304` with no body, bypassing the envelope and response validation. **Public cache headers** (`@PublicCache(seconds)`) are allowed only on anonymous, account-independent reads (`/categories`, `/areas`); every other route is `private, no-store` or unset.
+- **Conditional reads** go through nest-common's `@ETagged()` helper: the handler returns its value with a version, the helper sets `ETag`, and a matching `If-None-Match` answers `304` with no body, bypassing the envelope and response validation. **Public cache headers** (`@PublicCache(seconds)`) are allowed only on anonymous, account-independent reads (`/categories`, `/areas`); `@PrivateCache(seconds)` sets a short private cache on a device read (the narration status) and is refused on a `PUBLIC` route; every other route is `private, no-store` or unset.
 - Handlers **MUST** return raw data, or `{ data, meta }` via the `Paged` helper. Returning `{ data }` yourself double-wraps.
 - Every thrown error **MUST** carry an `ErrorCode` from `packages/contracts`. A new code is added there, with its `details` schema, and to the client i18n bundle in the same PR.
 - **MUST NOT** put a user-facing sentence in `message`. It is English, for developers, and replaced with a generic string in production.
@@ -353,7 +353,7 @@ app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
 The generated document is passed through nestjs-zod's **`cleanupOpenApiDoc`** before it is served, so zod-derived schemas render correctly for Swagger UI and Orval.
 
-Every route **MUST** declare its response with **`@ApiEnvelope(Dto, { status?, list? })`**, which documents the body as the wire carries it — `{ data }`, or `{ data, meta }` with the shared `CursorMeta` / `PageMeta` components. `@ZodResponse` documents the bare DTO and is not used on gateway routes; `@ZodSerializerDto` still validates. Every route also declares the error codes only it can return (`@ApiErrors('PLACE_LIMIT_REACHED', …)`); the codes every route shares (`INTERNAL`, `CLIENT_HEADER_REQUIRED`, `RATE_LIMITED` when throttled, the marker's auth codes, and the upstream codes on controllers marked `@UsesUpstream()`) are added automatically. An OpenAPI contract test checks every operation. **Provider webhooks and redirect routes (`/q/:code`) are left out of the document** (`@ApiExcludeController()`): they are not client routes, and Orval must not generate a caller for them. A `@SkipEnvelope()` route that returns a non-JSON body (the QR SVG) documents its one `200` with its media type and no envelope. A `202` or `204` carries no body, and is documented without one. Orval generates the clients from this spec; an undeclared response is an untyped client, and an undeclared error code is a client that shows "Something went wrong" for a condition it could have explained.
+Every route **MUST** declare its response with **`@ApiEnvelope(Dto, { status?, list? })`**, which documents the body as the wire carries it — `{ data }`, or `{ data, meta }` with the shared `CursorMeta` / `PageMeta` components. A route with two success shapes (on-demand narration's `200` and `202`) lists the second with the `alternatives` option. `@ZodResponse` documents the bare DTO and is not used on gateway routes; `@ZodSerializerDto` still validates. Every route also declares the error codes only it can return (`@ApiErrors('PLACE_LIMIT_REACHED', …)`); the codes every route shares (`INTERNAL`, `CLIENT_HEADER_REQUIRED`, `RATE_LIMITED` when throttled, the marker's auth codes, and the upstream codes on controllers marked `@UsesUpstream()`) are added automatically. An OpenAPI contract test checks every operation. **Provider webhooks and redirect routes (`/q/:code`) are left out of the document** (`@ApiExcludeController()`): they are not client routes, and Orval must not generate a caller for them. A `@SkipEnvelope()` route that returns a non-JSON body (the QR SVG) documents its one `200` with its media type and no envelope. A `202` or `204` carries no body, and is documented without one. Orval generates the clients from this spec; an undeclared response is an untyped client, and an undeclared error code is a client that shows "Something went wrong" for a condition it could have explained.
 
 ---
 
@@ -473,6 +473,7 @@ Every durable consumer is a `JetStreamConsumer` subclass registered in the servi
 - **The wiring is nest-common's `JobsModule`**: it registers each service's repeatable jobs by stable id, runs one worker per service, and closes both on shutdown. A job is a `<subject>-<verb>.job.ts` class whose plain method takes `now`; tests call that method and never start a worker.
 - A job's durable state lives in **our** table (N-1 for synthesis); BullMQ is the executor. A monitor reads our table, never BullMQ's Redis keys.
 - A scheduled job is a **BullMQ repeatable job with a stable `jobId`**, never `@Cron`. `@Cron` fires once per replica.
+- **A work queue** (nest-common `WorkQueue`) keeps no finished jobs and never retries by itself: the row counts attempts and re-adds with a backoff delay. BullMQ silently ignores an add whose id it still holds, and a job cannot be removed while it runs, so a re-add first removes any job with the same id, and **each retry gets its own item id** (the failing attempt is still active when its retry is added).
 - A scheduled job **MUST** be a plain method taking an explicit window or `now` (`sweep(now = new Date())`), so a test runs it without waiting and a backfill runs it for any range.
 - **A job that races the request path writes conditionally.** A sweep clearing expired locks updates `WHERE id = $1 AND is_locked = true` and acts only when the count is 1 — the login path's lazy unlock may have got there first, and both firing at once must produce one audit row, not two.
 - A scheduled job **MUST** record itself in `job_runs` via `JobRunRecorder.track()` (rdm-spec §2.12), and **MUST** appear in the service's `SCHEDULED_JOBS` constant — the list health is judged against. A job that never runs writes nothing, so absence can only be detected against an expected list.
@@ -482,7 +483,7 @@ Every durable consumer is a `JetStreamConsumer` subclass registered in the servi
 
 [ADR 0020](./decisions/0020-websocket-is-the-only-realtime-transport.md).
 
-- Only the gateway runs a socket server. Other services emit through `@socket.io/redis-emitter` via `SocketEmitter.toRoom(room, event, payload)`, with event names from `SOCKET_EVENTS`.
+- Only the gateway runs a socket server. Other services emit through `@socket.io/redis-emitter` via nest-common's `SocketEmitter.toRoom(room, event, payload)`, with event names from `SOCKET_EVENTS` and payloads validated by `SOCKET_PAYLOADS`. The emitter must write to the same Redis as the gateway's adapter, or its frames reach no one.
 - **A socket frame is never the only record of something.** Anything a user must not miss is written to a table and a durable event first; the frame is the fast path. A dropped connection must lose nothing but latency.
 - **MUST NOT** accept a mutation over the socket. Rooms are joined by the server after re-authorizing, never by a client naming a room.
 - Clients **MUST** wait for `connection:ready` before emitting.
@@ -731,10 +732,11 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 - Translation, speech, storage and the LLM are reached **only** through `TranslationProvider`, `SpeechProvider`, `StorageProvider` and `LlmProvider`. **MUST NOT** import a vendor SDK outside its adapter file.
 - An adapter records which provider answered on the task or ledger row it serves.
-- A provider fallback is configuration (`TTS_PROVIDER_ORDER`), not an `if` in a use case.
+- A provider fallback is configuration (`TTS_PROVIDER_ORDER`, `TRANSLATION_PROVIDER_ORDER`), not an `if` in a use case. A timeout, a network error, a 5xx, a 429 or an empty result fails over to the next provider; a refusal of the input itself (text too long) fails the task without failing over, because the next provider would refuse it too.
 - Every provider call has a timeout and a circuit breaker; a provider failing repeatedly is skipped for `PROVIDER_COOLDOWN_MS` rather than retried on every task. Email sends are the exception to the breaker: they are user-initiated and never retried in a loop, so a timeout alone bounds them.
 - **Media processing runs bounded:** `sharp` with `limitInputPixels` (`MAX_UPLOAD_PIXELS`), one image at a time per process, so a small file that declares a huge canvas cannot exhaust memory.
-- **A lint rule enforces the adapter boundary:** `no-restricted-imports` refuses each vendor SDK — `resend`, `nodemailer`, `@google-cloud/storage`, `sharp`, and each later provider — outside `services/*/src/providers/<kind>/`.
+- **Each speech provider declares its output `format` and its input limit in bytes;** the pipeline splits long SSML to fit and records the format on the asset. **Each adapter maps Wayfare's language codes to its own** (`zh-Hans` → `zh-CN`, Mandarin voices `cmn-CN`), and an unmapped language is unsupported, never guessed.
+- **A lint rule enforces the adapter boundary:** `no-restricted-imports` refuses each vendor SDK — `resend`, `nodemailer`, `@google-cloud/storage`, `sharp`, the Google translation and speech SDKs, the free-route packages, and each later provider — outside `services/*/src/providers/<kind>/` and `packages/nest-common/src/providers/<kind>/`.
 
 ---
 
@@ -843,8 +845,8 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 | :---- | :---- | :---- |
 | File | `kebab-case.<role>.ts` | `place-lifecycle.ts`, `owner.guard.ts` |
 | Service module files | `<module>-grpc.controller.ts`, `<module>.service.ts`, `<module>.consumer.ts`, `<entity>.mapper.ts`, `domain/<rule>.ts` — no repository | `places-grpc.controller.ts` |
-| Gateway module files | `<module>.controller.ts`, `<module>.service.ts`, `<entity>.mapper.ts` | `places.controller.ts` |
-| Gateway peer client | `<peer>-service-grpc.client.ts` | `catalog-service-grpc.client.ts` |
+| Gateway module files | `<module>.controller.ts`, `<module>.service.ts`, `<entity>.mapper.ts`, and `<module>.gateway.ts` for a socket gateway (the gateway service only) | `places.controller.ts`, `events.gateway.ts` |
+| Peer client (gateway or backend service) | `<peer>-service-grpc.client.ts`, one `<Peer>ServiceGrpcClient` class | `catalog-service-grpc.client.ts` |
 | Request / response DTO files | `dto/<entity>.dto.ts` / `dto/<entity>-response.dto.ts` | `dto/place-response.dto.ts` |
 | Scheduled job | `<subject>-<verb>.job.ts`, job name `<subject>-<verb>` | `owner-pii-redact.job.ts` |
 | Seed | `<scope>.seed.ts` | `pilot-d1.seed.ts` |
@@ -962,7 +964,7 @@ Rules for writing one:
 | Guard | Rule it enforces |
 | :---- | :---- |
 | `adr-structure.spec.ts` | Every ADR matches `docs/decisions/TEMPLATE.md`: file name, title number, status line, sections, mutual `Supersedes` / `Superseded by`, and a row in `docs/README.md` |
-| `archive-references.spec.ts` | Nothing tracked cites the git-ignored archive, by path, by relative link, as "doc NN", or by a working doc's decision label in parentheses (`(D10)`) — cite the ADR or spec section instead |
+| `archive-references.spec.ts` | Nothing tracked cites the git-ignored archive, by path, by relative link, as "doc NN", or by a working doc's decision label in parentheses (a D-number in round brackets) — cite the ADR or spec section instead |
 | `dto-naming.spec.ts` | §15 DTO names: `…ResponseDto` only in `*-response.dto.ts`, built with `createZodDto`, inside `dto/` |
 | `mapper-naming.spec.ts` | §15 mapper names, checked against the real target and source types |
 | `module-files.spec.ts` | Every file under `services/*/src/modules/` has a known role for its kind of service, with the matching class name; `domain/` files stay free of Nest and Prisma; no `*.repository.ts` ([ADR 0054](./decisions/0054-services-use-prisma-directly-without-a-repository-layer.md)) |

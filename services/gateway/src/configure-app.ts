@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { APP_VERSION_HEADER } from '@wayfare/contracts';
 import {
+  AccountTokenVerifier,
   createRequestContextMiddleware,
   ErrorFilter,
   ETagInterceptor,
@@ -14,8 +15,6 @@ import {
 } from '@wayfare/nest-common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import type { Env as GatewayEnv, GatewayConfig } from './config/env.schema';
-import { IdentityService } from './modules/identity/identity.service';
-import { REDIS } from './modules/ops/redis.module';
 
 /** Routes outside the global prefix: probes and the printed QR URL (ADR 0057). */
 export const UNPREFIXED_ROUTES = [
@@ -38,13 +37,7 @@ export function configureApp(app: NestExpressApplication, config: GatewayConfig)
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.use(securityHeaders()); // strict CSP everywhere, Swagger UI's policy under /docs only
   // Resolves the caller once — tokens verified, revocation checked — before any guard (conventions §4.1).
-  app.use(
-    createRequestContextMiddleware({
-      publicKeys: read('JWT_PUBLIC_KEYS'),
-      redis: app.get(REDIS),
-      cutoffSource: app.get(IdentityService),
-    }),
-  );
+  app.use(createRequestContextMiddleware(app.get(AccountTokenVerifier)));
   app.enableCors({
     origin: read('CORS_ORIGINS'),
     credentials: true,

@@ -4,7 +4,7 @@ import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { effectiveAuth } from './auth-rules';
 import { STAFF_MEMBERSHIP_RESOLVER } from './auth.guard';
-import { PUBLIC_CACHE } from './public-cache.decorator';
+import { PRIVATE_CACHE, PUBLIC_CACHE } from './public-cache.decorator';
 import type { StaffMembershipResolver } from './auth.guard';
 
 /** Thrown at boot for an HTTP route that breaks the auth contract (conventions §5.3). */
@@ -18,7 +18,7 @@ export class RouteContractError extends Error {
 /**
  * Deny-by-default at boot (conventions §5.3): every HTTP handler carries exactly one auth rule, a
  * `STAFF` route needs a registered membership resolver, and only a `PUBLIC` route may be publicly
- * cached (conventions §5.1). Runs inside `app.init()` and `listen()`,
+ * cached, and a `PUBLIC` route never privately (conventions §5.1). Runs inside `app.init()` and `listen()`,
  * before the port opens.
  */
 @Injectable()
@@ -59,6 +59,9 @@ export class RouteContractCheck implements OnApplicationBootstrap {
         const isPublic = auth.kind === 'marker' && auth.rule.marker === 'PUBLIC';
         if (Reflect.getMetadata(PUBLIC_CACHE, handler) !== undefined && !isPublic) {
           problems.push(`${where} is publicly cached but not PUBLIC`);
+        }
+        if (Reflect.getMetadata(PRIVATE_CACHE, handler) !== undefined && isPublic) {
+          problems.push(`${where} is privately cached but PUBLIC`);
         }
       }
     }

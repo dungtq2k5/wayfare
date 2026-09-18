@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+// What narration reads before localizing — api-endpoints-plan §12.2, rdm-spec §1.5, C-4.
+// Internal: never routed, called with a system context.
+package wayfare.catalog;
+
+import "wayfare/catalog/place_types.proto";
+import "wayfare/common/localization.proto";
+
+// catalog's service-to-service reads. A tourist route never reaches it.
+service PlaceService {
+  // The target's source text as it is now, and its localizations' state.
+  rpc GetLocalizationSource(GetLocalizationSourceRequest) returns (GetLocalizationSourceResponse);
+}
+
+message GetLocalizationSourceRequest {
+  wayfare.common.LocalizationTargetType target_type = 1;
+  string target_id = 2;
+}
+
+// Exactly one of the three.
+message GetLocalizationSourceResponse {
+  oneof result {
+    LocalizationSourcePlace place = 1;
+    LocalizationSourceMenuItem menu_item = 2;
+    // The target never existed, or a menu item was deleted. A deleted Place is a `place`.
+    LocalizationSourceNotFound not_found = 3;
+  }
+}
+
+message LocalizationSourcePlace {
+  PlaceKind kind = 1;
+  PlaceStatus status = 2;
+  bool deleted = 3;
+  string content_hash = 4;
+  string name_vi = 5;
+  string description_vi = 6;
+  optional string owner_user_id = 7;
+  repeated LocalizationState localizations = 8;
+}
+
+// One language's row (rdm-spec C-4): its text's version and its audio, as an object path.
+message LocalizationState {
+  string lang = 1;
+  string source_content_hash = 2;
+  TranslationSource translation_source = 3;
+  AudioStatus audio_status = 4;
+  optional string audio_source_content_hash = 5;
+  optional string audio_object_path = 6;
+  optional string audio_sha256 = 7;
+  optional int32 audio_bytes = 8;
+  optional int32 audio_duration_ms = 9;
+}
+
+message LocalizationSourceMenuItem {
+  string place_id = 1;
+  string content_hash = 2;
+  string name_vi = 3;
+  optional string description_vi = 4;
+}
+
+message LocalizationSourceNotFound {}

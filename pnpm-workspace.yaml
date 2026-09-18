@@ -21,6 +21,8 @@ ignoredBuiltDependencies:
   # BullMQ's optional msgpack accelerator; its script only rebuilds when no prebuild matches, and
   # msgpackr falls back to plain JavaScript.
   - msgpackr-extract
+  # The free speech route; its only script is a `preinstall` that checks the package manager.
+  - msedge-tts
   # Only prints a version check; the runtime needs nothing it builds.
   - protobufjs
   # Install-time telemetry pulled in by swagger-ui-dist; never wanted.

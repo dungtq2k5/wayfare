@@ -82,7 +82,10 @@ export class LocalizationsService {
     }
   }
 
-  /** `narration.localization.failed` — a final failure marks the current row's audio `FAILED`. */
+  /**
+   * `narration.localization.failed` — a final failure marks the current row's audio `FAILED`. One
+   * that arrives before the row exists throws, so the runner redelivers it.
+   */
   async applyFailed(payload: Failed): Promise<void> {
     if (payload.targetType !== LocalizationTargetType.PLACE || !payload.final) return;
     await withSyncWrite(this.prisma, async (tx) => {
@@ -98,7 +101,19 @@ export class LocalizationsService {
           AND l.audio_status <> ${AudioStatus.FAILED}
           AND NOT (l.audio_status = ${AudioStatus.READY}
                    AND l.audio_source_content_hash = p.content_hash)`;
-      if (changed > 0) await bumpSyncVersion(tx, payload.targetId);
+      if (changed > 0) {
+        await bumpSyncVersion(tx, payload.targetId);
+        return;
+      }
+      // Its text's event may still be on its way (the relay's order is best-effort): redeliver
+      // until the row exists, rather than lose the failure.
+      const [state] = await tx.$queryRaw<{ place: boolean; row: boolean }[]>`
+        SELECT EXISTS (SELECT 1 FROM places WHERE id = ${payload.targetId}::uuid) AS place,
+               EXISTS (SELECT 1 FROM place_localizations
+                       WHERE place_id = ${payload.targetId}::uuid AND lang = ${payload.lang}) AS row`;
+      if (state?.place === true && !state.row) {
+        throw new Error('the failure arrived before its localization; redelivering');
+      }
     });
   }
 

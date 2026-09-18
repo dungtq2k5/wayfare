@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+// What a localization is of — shared by catalog and narration (rdm-spec N-1).
+package wayfare.common;
+
+// What a synthesis job localizes (rdm-spec N-1 `target_type`).
+enum LocalizationTargetType {
+  LOCALIZATION_TARGET_TYPE_UNSPECIFIED = 0;
+  LOCALIZATION_TARGET_TYPE_PLACE = 1;
+  LOCALIZATION_TARGET_TYPE_MENU_ITEM = 2;
+  LOCALIZATION_TARGET_TYPE_TOUR = 3;
+  LOCALIZATION_TARGET_TYPE_VOUCHER_OFFER = 4;
+  LOCALIZATION_TARGET_TYPE_UI_BUNDLE = 5;
+}

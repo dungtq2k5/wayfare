@@ -1,6 +1,6 @@
 import { Storage } from '@google-cloud/storage';
 import type { Bucket } from '@google-cloud/storage';
-import type { ReadinessCheck } from '@wayfare/nest-common';
+import type { ReadinessCheck } from '../../health/readiness';
 import type { SignedUpload, StorageProvider, StoredObject } from './storage-provider';
 
 /** How the GCS client is built (architecture §3.6). */

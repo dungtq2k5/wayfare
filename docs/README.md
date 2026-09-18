@@ -203,7 +203,7 @@ The same rule covers `archive/`: it is git-ignored scratch, and nothing durable 
 - **Every table delimiter cell is `:----`.** A custom rule enforces it, and `pnpm lint:md --fix` rewrites a row that is wrong.
 - **Every code fence names a language.** Use `text` for diagrams, trees and state machines.
 - **Every doc opens with a `#` heading.**
-- **Nothing tracked may cite the archive**, by path, by relative link, as "doc NN", or by a working doc's decision label such as `(D10)`. `packages/config/guards/archive-references.spec.ts` fails CI on all three forms.
+- **Nothing tracked may cite the archive**, by path, by relative link, as "doc NN", or by a working doc's decision label written in parentheses (a D-number in round brackets). `packages/config/guards/archive-references.spec.ts` fails CI on all four forms.
 
 ---
 

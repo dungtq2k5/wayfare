@@ -97,6 +97,7 @@ export const ERRORS = {
   ROUTE_NOT_FOUND: notFound,
   RESOURCE_NOT_FOUND: { ...notFound, details: resourceNotFoundDetails },
   PLACE_UNAVAILABLE: notFound,
+  LOCALIZATION_TARGET_UNAVAILABLE: notFound,
 
   // 409
   EMAIL_TAKEN: exists,
@@ -122,6 +123,7 @@ export const ERRORS = {
   PLACE_HAS_LIVE_VOUCHERS: conflict,
   PLACE_IN_ACTIVE_TOUR: conflict,
   UPLOAD_NOT_READY: conflict,
+  SYNTHESIS_JOB_NOT_ACTIVE: conflict,
   DIFF_UNAVAILABLE: conflict,
   LANGUAGE_NOT_ENTITLED: conflict,
   LOCALIZATION_SOURCE_CHANGED: conflict,

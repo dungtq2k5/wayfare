@@ -7,6 +7,7 @@ import { shutdownTracing } from '@wayfare/nest-common/instrumentation';
 import { AppModule } from './app.module';
 import type { GatewayConfig } from './config/env.schema';
 import { configureApp } from './configure-app';
+import { RedisIoAdapter } from './redis-io.adapter';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(), {
@@ -21,6 +22,10 @@ async function bootstrap(): Promise<void> {
 
   const shutdown = app.get(ShutdownRegistry);
   shutdown.add(shutdownTracing); // registered first, so it runs last and flushes every span
+  // The socket's Redis connections are open before the adapter serves a handshake (conventions §7.4).
+  const io = new RedisIoAdapter(app, config.get('CORS_ORIGINS', { infer: true }));
+  shutdown.add(await io.connect(config.get('REDIS_URL', { infer: true })));
+  app.useWebSocketAdapter(io);
   const metrics = await startMetricsServer(config.get('METRICS_PORT', { infer: true })); // before the public listener
   shutdown.add(() => new Promise<void>((resolve) => metrics.close(() => resolve())));
   await app.listen(config.get('PORT', { infer: true }));

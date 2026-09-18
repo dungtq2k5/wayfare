@@ -3,3 +3,4 @@
 export * from './fixtures';
 export * from './identity-rpc-fixtures';
 export * from './catalog-fixtures';
+export * from './narration-fixtures';

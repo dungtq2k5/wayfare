@@ -18,7 +18,10 @@ import type { GatewayConfig } from '../../src/config/env.schema';
 import { configureApp } from '../../src/configure-app';
 import { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
 import { IdentityServiceGrpcClient } from '../../src/modules/identity/identity-service-grpc.client';
+import { NarrationServiceGrpcClient } from '../../src/modules/narration-client/narration-service-grpc.client';
+import { SOCKET_REVALIDATE_INTERVAL } from '../../src/modules/events/events.gateway';
 import { REDIS } from '../../src/modules/ops/redis.module';
+import { RedisIoAdapter } from '../../src/redis-io.adapter';
 
 const keys = generateTestSigningKeys('e2e-key');
 const privateKey = zPrivateKeyEnv.parse(keys.privateKey);
@@ -35,6 +38,7 @@ export function e2eEnv(overrides: Record<string, string> = {}): Record<string, s
     SWAGGER_ENABLED: 'true',
     IDENTITY_GRPC_URL: 'localhost:1',
     CATALOG_GRPC_URL: 'localhost:2',
+    NARRATION_GRPC_URL: 'localhost:3',
     PUBLIC_QR_BASE_URL: 'https://go.wayfare.test',
     PUBLIC_LINK_BASE_URL: 'https://wayfare.test',
     JWT_PUBLIC_KEYS: keys.publicKeys,
@@ -112,6 +116,21 @@ export class CatalogStub {
   }
 }
 
+/** narration, stubbed the same way. */
+export class NarrationStub {
+  readonly narration = new StubCaller();
+  readonly synthesisAdmin = new StubCaller();
+
+  onModuleInit(): void {}
+
+  reset(): void {
+    for (const caller of [this.narration, this.synthesisAdmin]) {
+      caller.calls.length = 0;
+      caller.handlers = {};
+    }
+  }
+}
+
 /** The fake Redis, with the readiness surface the ops module uses. */
 export class E2eRedis extends FakeRedis {
   healthy = true;
@@ -128,17 +147,22 @@ export interface E2eApp {
   readonly app: NestExpressApplication;
   readonly identity: IdentityStub;
   readonly catalog: CatalogStub;
+  readonly narration: NarrationStub;
   readonly redis: E2eRedis;
   readonly config: GatewayConfig;
 }
 
 /** Boots the gateway exactly as `main.ts` configures it. */
-export async function bootGateway(overrides: Record<string, string> = {}): Promise<E2eApp> {
+export async function bootGateway(
+  overrides: Record<string, string> = {},
+  options: { sockets?: { revalidateMs: number } } = {},
+): Promise<E2eApp> {
   // The config module writes validated values back into process.env: restored once the app is built.
   const restoreEnv = snapshotProcessEnv();
   const identity = new IdentityStub();
   identity.reset();
   const catalog = new CatalogStub();
+  const narration = new NarrationStub();
   const redis = new E2eRedis();
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule.forRoot({ env: e2eEnv(overrides) })],
@@ -147,8 +171,12 @@ export async function bootGateway(overrides: Record<string, string> = {}): Promi
     .useValue(identity)
     .overrideProvider(CatalogServiceGrpcClient)
     .useValue(catalog)
+    .overrideProvider(NarrationServiceGrpcClient)
+    .useValue(narration)
     .overrideProvider(REDIS)
     .useValue(redis)
+    .overrideProvider(SOCKET_REVALIDATE_INTERVAL)
+    .useValue(options.sockets?.revalidateMs ?? 60_000)
     .compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({
     rawBody: true,
@@ -156,9 +184,15 @@ export async function bootGateway(overrides: Record<string, string> = {}): Promi
   });
   const config = app.get<GatewayConfig>(ConfigService);
   configureApp(app, config);
-  await app.init();
+  if (options.sockets === undefined) {
+    await app.init();
+  } else {
+    // The socket needs a real listener; its adapter runs without Redis (a single replica).
+    app.useWebSocketAdapter(new RedisIoAdapter(app, config.get('CORS_ORIGINS', { infer: true })));
+    await app.listen(0, '127.0.0.1');
+  }
   restoreEnv();
-  return { app, identity, catalog, redis, config };
+  return { app, identity, catalog, narration, redis, config };
 }
 
 const now = () => new Date();

@@ -58,6 +58,18 @@ export interface EnvelopeDoc {
    */
   readonly mediaType?: string;
   readonly description?: string;
+  /**
+   * Other success answers of the same route, each `{ data }` with its own status and model — a
+   * route that answers `200` when the work is done and `202` while it is pending.
+   */
+  readonly alternatives?: readonly SuccessAlternative[];
+}
+
+/** One more documented success status of a route. */
+export interface SuccessAlternative {
+  readonly status: number;
+  readonly model: abstract new (...args: never[]) => unknown;
+  readonly description?: string;
 }
 
 /** Stores the route-specific error codes; the automatic ones are added by the post-pass. */

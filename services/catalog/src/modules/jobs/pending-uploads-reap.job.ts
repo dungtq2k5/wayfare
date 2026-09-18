@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PENDING_UPLOAD_TTL_DAYS } from '@wayfare/contracts';
 import type { ScheduledJob } from '@wayfare/nest-common';
-import { STORAGE_PROVIDER } from '../../providers/storage/storage-provider';
-import type { StorageProvider } from '../../providers/storage/storage-provider';
+import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
+import type { StorageProvider } from '@wayfare/nest-common/storage';
 import { PrismaService } from '../prisma/prisma.service';
 import { originalPath, variantPath } from '../uploads/uploads.service';
 

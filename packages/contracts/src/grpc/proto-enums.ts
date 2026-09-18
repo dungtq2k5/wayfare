@@ -33,7 +33,23 @@ import {
 } from '../generated/wayfare/catalog/place_types.pb';
 import { UploadPurpose as ProtoUploadPurpose } from '../generated/wayfare/catalog/upload.pb';
 import { MenuCurrency } from '../money/display-price';
-import { TranslationSource } from '../narration/enums';
+import {
+  LocalizationTargetType,
+  SynthesisJobStatus,
+  SynthesisStage,
+  SynthesisTaskStatus,
+  SynthesisTrigger,
+  TranslationSource,
+} from '../narration/enums';
+import { OnDemandStatus } from '../narration/schemas';
+import { LocalizationTargetType as ProtoLocalizationTargetType } from '../generated/wayfare/common/localization.pb';
+import { OnDemandStatus as ProtoOnDemandStatus } from '../generated/wayfare/narration/narration.pb';
+import {
+  SynthesisJobStatus as ProtoSynthesisJobStatus,
+  SynthesisStage as ProtoSynthesisStage,
+  SynthesisTaskStatus as ProtoSynthesisTaskStatus,
+  SynthesisTrigger as ProtoSynthesisTrigger,
+} from '../generated/wayfare/narration/synthesis_admin.pb';
 import { ActionTokenPurpose, LegalDocument, Platform } from '../identity/enums';
 import { EmailBounceType, EmailDeliveryStatus, EmailTemplate } from '../notifications/types';
 import { LegalParty } from '../identity/legal';
@@ -129,6 +145,48 @@ export const menuCurrencyProto = protoEnumBridge('MenuCurrency', MenuCurrency, P
 /** `ContentTier` ⇄ `wayfare.catalog.ContentTier`. */
 export const contentTierProto = protoEnumBridge('ContentTier', ContentTier, ProtoContentTier);
 
+/** `LocalizationTargetType` ⇄ `wayfare.common.LocalizationTargetType`. */
+export const localizationTargetTypeProto = protoEnumBridge(
+  'LocalizationTargetType',
+  LocalizationTargetType,
+  ProtoLocalizationTargetType,
+);
+
+/** `SynthesisTrigger` ⇄ `wayfare.narration.SynthesisTrigger`. */
+export const synthesisTriggerProto = protoEnumBridge(
+  'SynthesisTrigger',
+  SynthesisTrigger,
+  ProtoSynthesisTrigger,
+);
+
+/** `SynthesisJobStatus` ⇄ `wayfare.narration.SynthesisJobStatus`. */
+export const synthesisJobStatusProto = protoEnumBridge(
+  'SynthesisJobStatus',
+  SynthesisJobStatus,
+  ProtoSynthesisJobStatus,
+);
+
+/** `SynthesisStage` ⇄ `wayfare.narration.SynthesisStage`. */
+export const synthesisStageProto = protoEnumBridge(
+  'SynthesisStage',
+  SynthesisStage,
+  ProtoSynthesisStage,
+);
+
+/** `SynthesisTaskStatus` ⇄ `wayfare.narration.SynthesisTaskStatus`. */
+export const synthesisTaskStatusProto = protoEnumBridge(
+  'SynthesisTaskStatus',
+  SynthesisTaskStatus,
+  ProtoSynthesisTaskStatus,
+);
+
+/** `OnDemandStatus` ⇄ `wayfare.narration.OnDemandStatus`. */
+export const onDemandStatusProto = protoEnumBridge(
+  'OnDemandStatus',
+  OnDemandStatus,
+  ProtoOnDemandStatus,
+);
+
 /** Every bridge, so one spec can round-trip them all. Each new proto enum adds its line here. */
 export const PROTO_ENUM_BRIDGES = [
   platformProto,
@@ -148,4 +206,10 @@ export const PROTO_ENUM_BRIDGES = [
   uploadPurposeProto,
   menuCurrencyProto,
   contentTierProto,
+  localizationTargetTypeProto,
+  synthesisTriggerProto,
+  synthesisJobStatusProto,
+  synthesisStageProto,
+  synthesisTaskStatusProto,
+  onDemandStatusProto,
 ] as const;

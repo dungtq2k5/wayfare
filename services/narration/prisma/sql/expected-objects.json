@@ -1,0 +1,16 @@
+{
+  "indexes": [
+    "outbox_events_unpublished_idx",
+    "synthesis_jobs_live_status_idx",
+    "synthesis_tasks_one_active",
+    "pronunciation_term_lang_key",
+    "pronunciation_term_all_key",
+    "localization_overrides_one_active"
+  ],
+  "constraints": [
+    "synthesis_jobs_target_ck",
+    "synthesis_jobs_langs_nonempty_ck",
+    "pronunciation_alphabet_ck",
+    "localization_overrides_not_vi_ck"
+  ]
+}

@@ -16,6 +16,7 @@ import {
 import type { Redis } from 'ioredis';
 import { envSchema } from './config/env.schema';
 import type { GatewayConfig } from './config/env.schema';
+import { AdminNarrationModule } from './modules/admin-narration/admin-narration.module';
 import { AdminPlacesModule } from './modules/admin-places/admin-places.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AreasModule } from './modules/areas/areas.module';
@@ -26,7 +27,10 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { EmailChangeModule } from './modules/email-change/email-change.module';
 import { EmailWebhooksModule } from './modules/email-webhooks/email-webhooks.module';
+import { EventsModule } from './modules/events/events.module';
 import { IdentityModule } from './modules/identity/identity.module';
+import { NarrationClientModule } from './modules/narration-client/narration-client.module';
+import { NarrationModule } from './modules/narration/narration.module';
 import { REDIS, RedisLifecycle, RedisModule } from './modules/ops/redis.module';
 import { PasswordModule } from './modules/password/password.module';
 import { PlacesModule } from './modules/places/places.module';
@@ -74,6 +78,10 @@ export class AppModule {
         EmailChangeModule,
         EmailWebhooksModule,
         CatalogModule,
+        NarrationClientModule,
+        NarrationModule,
+        AdminNarrationModule,
+        EventsModule,
         SyncModule,
         PlacesModule,
         QrModule,

@@ -15,6 +15,7 @@ import { applyWayfareOpenApi } from './openapi-post-pass';
 class ThingDto extends createZodDto(z.object({ id: z.string() })) {}
 class ThingBodyDto extends createZodDto(z.object({ name: z.string() })) {}
 class ThingMetaDto extends createZodDto(z.object({ complete: z.boolean() })) {}
+class PendingThingDto extends createZodDto(z.object({ jobId: z.string() })) {}
 
 @UsesUpstream()
 @Controller('things')
@@ -58,6 +59,12 @@ class ThingsController {
   @Auth('USER')
   @ApiEnvelope(null, { status: 200, mediaType: 'image/svg+xml' })
   picture() {}
+
+  @HttpCode(200)
+  @Post('maybe')
+  @Auth('DEVICE')
+  @ApiEnvelope(ThingDto, { alternatives: [{ status: 202, model: PendingThingDto }] })
+  maybe() {}
 
   @Delete()
   @Auth('SIGNATURE')
@@ -179,5 +186,17 @@ describe('OpenAPI post-pass', () => {
       description: 'Success',
       content: { 'image/svg+xml': { schema: { type: 'string' } } },
     });
+  });
+
+  it('documents a second success status with its own model', () => {
+    expect(
+      Object.keys(op('/things/maybe', 'post').responses).filter((status) => status.startsWith('2')),
+    ).toEqual(['200', '202']);
+    expect(schemaOf('/things/maybe', 'post', '202')).toEqual({
+      type: 'object',
+      required: ['data'],
+      properties: { data: { $ref: '#/components/schemas/PendingThingDto' } },
+    });
+    expect(document.components?.schemas?.PendingThingDto).toBeDefined();
   });
 });

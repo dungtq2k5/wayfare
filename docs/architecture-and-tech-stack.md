@@ -29,7 +29,7 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
   - *Why:* orchestrates the task graph and caches outputs (Prisma client generation, `tsc` builds, test runs) so unchanged packages are never rebuilt. In CI, `turbo run build --filter=...[origin/main]` builds only what the PR actually touched.
 - **Containerization:** **Docker & Docker Compose**
   - *Why:* one `docker compose up` boots every service's Postgres, plus NATS, Redis and the GCS emulator. Environment parity is not a nice-to-have on a distributed team — it is the difference between "works on my machine" and a working demo.
-- **Pinned majors:** NestJS **11**, Prisma **7**, TypeScript **5.9**, ESLint **9**, Vitest **4** (verified: Nest 11.2.5, Prisma 7.10.0, TypeScript 5.9.3). **`@nestjs/config` is pinned at 4.0.4:** 12.x ships ES modules only, which the CommonJS services ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)) do not load, and moving to it is an upgrade decision like any other major. A newer major (Nest 12, Prisma 8, TypeScript 7) is an upgrade decision, never a side effect of `pnpm add`.
+- **Pinned majors:** NestJS **11**, Prisma **7**, TypeScript **5.9**, ESLint **9**, Vitest **4** (verified: Nest 11.2.5, Prisma 7.10.0, TypeScript 5.9.3). **`@nestjs/config` is pinned at 4.0.4:** 12.x ships ES modules only, which the CommonJS services ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)) do not load, and moving to it is an upgrade decision like any other major. A newer major (Nest 12, Prisma 8, TypeScript 7) is an upgrade decision, never a side effect of `pnpm add`. **`@nestjs/websockets` and `@nestjs/platform-socket.io` are pinned at 11.2.5** for the same reason (12.x is ES modules only), and **every Nest service depends on `@nestjs/websockets` at that version**, not only the gateway: otherwise pnpm resolves a second copy of `@nestjs/core` and `@nestjs/microservices` for the services without it, and errors thrown from nest-common stop mapping to gRPC codes.
 - **Build tool (backend):** **SWC** via the Nest CLI builder, with `typeCheck: true`, for every service **except the gateway**, which builds with `tsc`. 📌 [ADR 0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md). Vitest uses `unplugin-swc` so tests get the decorator metadata Nest's DI needs.
   - ⚠️ Gotcha: under SWC, type-only imports must be written `import type`, or they can turn into runtime `require`s and a circular-import crash at boot.
 - **Build tool (web):** **Vite 7.x** with `vite-plugin-pwa`
@@ -102,7 +102,7 @@ wayfare/
 - **Background jobs:** **BullMQ** (Redis-backed) 📌 [ADR 0019](./decisions/0019-bullmq-for-in-service-work.md) for TTS generation, translation warmup, media cleanup and analytics rollups.
   - *Why over a plain JetStream consumer:* we need retries with backoff, concurrency limits, progress reporting, pause/resume/cancel, and a dashboard — that is precisely the Admin Console's TTS job monitor, and BullMQ gives all of it for free.
   - The division of labour: **JetStream carries facts between services** ("this description changed"); **BullMQ runs work inside one service** ("synthesise these 5 audio files, report progress, let an admin cancel").
-- **Live progress to the UI:** **WebSockets** — `@nestjs/websockets` with **socket.io** and **`@socket.io/redis-adapter`**. 📌 [ADR 0020](./decisions/0020-websocket-is-the-only-realtime-transport.md).
+- **Live progress to the UI:** **WebSockets** — `@nestjs/websockets` with **socket.io** and **`@socket.io/redis-adapter`**; other services emit through **`@socket.io/redis-emitter`** (verified: its frames reach a client through redis-adapter 8.3 on `ioredis`, although the emitter was last published in January 2023). 📌 [ADR 0020](./decisions/0020-websocket-is-the-only-realtime-transport.md).
   - *Why:* one real-time transport for everything — TTS job progress, owner review notifications, and anything live added later — rather than SSE for one thing and WebSockets for the next.
   - ⚠️ Gotcha: the Redis adapter is **not optional** the moment you run more than one replica. Without it, a job-progress broadcast only reaches clients connected to the same instance, and the bug looks like "progress bars randomly don't update".
   - ⚠️ Gotcha: socket.io defaults to an HTTP long-poll handshake before upgrading, which breaks or thrashes behind some load balancers. Either configure sticky sessions or force `transports: ['websocket']`.
@@ -492,8 +492,13 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 
 - **Content translation (server-side):** a `TranslationProvider` interface with **two** implementations.
 - **Text-to-speech (server-side):** a `SpeechProvider` interface with **two** implementations.
-  - Free tier: an **Edge TTS** client giving access to Microsoft neural voices. ⚠️ Verify the exact published package at install time — candidates include `edge-tts-universal`, `msedge-tts` and `node-edge-tts`, and this corner of npm churns.
+  - Free tier: an **Edge TTS** client giving access to Microsoft neural voices — **`msedge-tts`**, pinned exactly. ⚠️ This corner of npm churns: re-check the package (CommonJS, no native build, published within six months) whenever it is upgraded; `edge-tts-universal` and `node-edge-tts` failed that check.
   - Paid fallback: **Google Cloud TTS** (already in our ecosystem) or **Azure Speech**, configured and smoke-tested from day one.
+- **What ships first:** a deterministic **fake** of each interface (the local and test default — a translation is `[<lang>] text`, a synthesis is valid silent MP3), **Google Cloud Translation v3 and Text-to-Speech** as the paid providers, and the free routes as the second implementation once a package passes the install-time criteria (CommonJS, no native build, recently published), smoke-tested by hand and never in CI.
+- **The free translation route** is **`google-translate-api-x`**, pinned exactly, under the same criteria.
+- ⚠️ **The Google voice ids in the registry are unconfirmed:** no Google project exists yet, so they have not been checked with `listVoices` or synthesized. Check them before a Google order is deployed.
+- **Long texts are split** at sentence boundaries into chunks under each provider's input limit (Google Text-to-Speech takes 5 000 bytes per request) and joined into one MP3; each provider declares its own output format.
+- **A language with no pinned voice is text-only:** its text is published, and its audio is reported failed (`NO_VOICE`), so the device's on-device voice covers it. The registry starts with the five launch languages.
 - ⚠️ **Gotcha, and read this twice.** The free Edge-TTS and Google-Translate-wrapper route talks to **undocumented internal endpoints**. They are not products, have no SLA, and can rate-limit or break with no notice. Two consequences, both structural:
   1. **Provider interfaces from commit one.** Never call a translation or TTS library directly from a service; call the interface. Swapping providers must be a DI change, not a refactor.
   2. **Pre-generate and store.** Audio lives in GCS with a content hash. A provider outage then affects *authoring* only — tourists keep hearing cached audio, and the tier-3 on-device fallback covers the rest.
@@ -664,7 +669,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | :---- | :---- | :---- |
 | `DATABASE_URL` | each service | Its **own** Postgres. `postgresql://…/wayfare_<service>?schema=public` |
 | `DATABASE_URL_TEST` | each service | Same server, `wayfare_<service>_test`. Derivable from the above |
-| `REDIS_URL` | all services | rate-limit counters, revocation state, cache, BullMQ, WebSocket adapter |
+| `REDIS_URL` | all services | rate-limit counters, revocation state, cache, BullMQ, WebSocket adapter; the gateway and every service that emits socket frames must point at the same Redis |
 | `NATS_URL` | all services | JetStream event bus |
 | `JWT_PRIVATE_KEY` | identity | Ed25519 signing key, a base64-encoded PKCS#8 PEM — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Required in every environment; `pnpm keys:dev` generates a local pair |
 | `JWT_KEY_ID` | identity | The `kid` written into every token header |
@@ -683,8 +688,9 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `PRISMA_DB` | Prisma CLI only | `working` (default) or `test` — picks the URL in `prisma.config.ts`; unknown values throw. The shadow database is never a target; its URL is `shadowDatabaseUrl` in the same file |
 | `JWT_PUBLIC_KEYS` | gateway (and any verifier) | JSON `{ "<kid>": "<base64 SPKI PEM>" }`; two entries during a key rotation. Verification only — refresh tokens and device secrets are opaque and hashed, so they need no key |
 | `PII_ENCRYPTION_KEY` | identity | 32 bytes, AES-256-GCM, versioned for rotation |
-| `GCS_BUCKET_MEDIA`, `GCS_BUCKET_AUDIO`, `GCS_BUCKET_TILES` | catalog, narration | separate buckets; tiles and audio have different cache policies |
-| `GOOGLE_APPLICATION_CREDENTIALS` | catalog, narration | service-account key path; Secret Manager in staging |
+| `GCS_BUCKET_MEDIA` | catalog, narration | the media bucket: uploads, photos, and narration audio under `audio/` — photos and audio share one immutable cache policy |
+| `GCS_BUCKET_TILES` | catalog | map packs and tiles, with their own cache policy (not used yet) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | catalog, narration | service-account key path; Secret Manager in staging. Locally `pnpm keys:dev` writes the same throwaway key path into both services' `.env` |
 | `STORAGE_EMULATOR_HOST` | catalog, narration | points at `fake-gcs-server` locally; **unset** in staging |
 | `STRIPE_SECRET_KEY` | billing | ⚠️ restricted key (`rk_`), least privilege |
 | `STRIPE_WEBHOOK_SECRET` | billing | signature verification |
@@ -706,18 +712,22 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing | Price IDs, never hardcoded |
 | `GEMINI_API_KEY` | ai | never reaches a client |
 | `PROXYPAL_*` | ai | LLM gateway config |
-| `TTS_PROVIDER`, `TRANSLATION_PROVIDER` | narration | selects the provider implementation |
-| `GOOGLE_TTS_CREDENTIALS` / `AZURE_SPEECH_KEY` | narration | paid fallback provider |
+| `TTS_PROVIDER_ORDER`, `TRANSLATION_PROVIDER_ORDER` | narration | the providers to try, in order (`fake` locally; e.g. `google,free` deployed) |
+| `GOOGLE_CLOUD_PROJECT` | narration | the project for Google Translation and Text-to-Speech; credentials come from ADC — a key file locally, the service identity in Cloud Run |
+| `CATALOG_GRPC_URL` | narration | catalog's gRPC address, for `GetLocalizationSource` |
+| `SYNTHESIS_CONCURRENCY` | narration | optional; tasks run at once per process, 1 to `MAX_CONCURRENT_TTS_JOBS` (the default) |
+| `FAKE_PROVIDER_FAILURES` | narration | local and test only: `translation`, `speech` or both — the fake of that kind fails every call; refused in production, as is `fake` in a provider order |
 | `MAP_PACK_DATA_DIR` | catalog | base directory for the path-traversal guard |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally (OTLP) |
 | `OTEL_SDK_DISABLED` | all services | `true` turns tracing off; the test config sets it. Read by the OTel bootstrap in `nest-common`, not by the env schema |
 | `OTEL_TRACES_SAMPLER` | all services | `parentbased_always_on` locally and in staging. Set in the environment, never in code, so switching to a ratio later needs no deploy |
 | `MIN_SUPPORTED_APP_VERSION` | gateway | Semver; a mobile build below it gets `426 APP_VERSION_UNSUPPORTED`. `0.0.0` by default. Configuration, not a constant, so a floor moves without a client release |
 | `CATALOG_GRPC_URL` | gateway | catalog's gRPC address |
+| `NARRATION_GRPC_URL` | gateway | narration's gRPC address |
 | `PUBLIC_QR_BASE_URL` | gateway, catalog's QR rendering | the host printed on every QR sticker (`https://go.wayfare.app`), mapped to the gateway; **it can never change** once stickers exist |
-| `GCS_API_ENDPOINT` | catalog | local only: the fake-gcs origin |
+| `GCS_API_ENDPOINT` | catalog, narration | local only: the fake-gcs origin |
 | `PUBLIC_LINK_BASE_URL` | gateway | the universal-link host `/q/:code` redirects to (`https://wayfare.app` in production) |
-| `GCS_PUBLIC_BASE_URL` | catalog | where clients fetch media — photos and narration audio alike — the CDN in front of the media bucket; the emulator locally |
+| `GCS_PUBLIC_BASE_URL` | catalog, narration | where clients fetch media — photos and narration audio alike — the CDN in front of the media bucket; the emulator locally |
 | `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
 | `OPS_PORT` | backend services | The HTTP port for `/health*` and `/version`. The gateway has none — its ops routes are on `PORT` |
 | `METRICS_PORT` | every service | The separate internal `/metrics` port |

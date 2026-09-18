@@ -2,8 +2,10 @@
 // @nestjs/microservices and @grpc/grpc-js, which clients never load.
 export * as identityGrpc from './identity';
 export * as catalogGrpc from './catalog';
+export * as narrationGrpc from './narration';
 export * as healthGrpc from '../generated/grpc/health/v1/health.pb';
 export * as commonGrpc from '../generated/wayfare/common/page.pb';
 export * as geoGrpc from '../generated/wayfare/common/geo.pb';
+export * as localizationGrpc from '../generated/wayfare/common/localization.pb';
 export * as timestampGrpc from '../generated/google/protobuf/timestamp.pb';
 export * from './proto-enums';

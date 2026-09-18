@@ -14,7 +14,11 @@ export const REFRESH_COOKIE = 'wf_rt';
 
 /** Reads one cookie from the raw header — the gateway needs two, not a parser middleware. */
 export function readCookie(request: Request, name: string): string | null {
-  const header = request.header('cookie');
+  return cookieFromHeader(request.header('cookie'), name);
+}
+
+/** One cookie from a raw `Cookie` header — also a socket handshake's (api-endpoints-plan §9). */
+export function cookieFromHeader(header: string | undefined, name: string): string | null {
   if (header === undefined) return null;
   for (const part of header.split(';')) {
     const separator = part.indexOf('=');

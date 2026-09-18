@@ -1,4 +1,4 @@
-import { AudioStatus, PlaceKind, zPhotoVariants } from '@wayfare/contracts';
+import { PlaceKind, zPhotoVariants } from '@wayfare/contracts';
 import type { CategoryAppliesTo, GeoPoint, MenuCurrency } from '@wayfare/contracts';
 import {
   categoryAppliesToProto,
@@ -7,7 +7,7 @@ import {
   placeKindProto,
 } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
-import { resolveContentTier } from '@wayfare/core';
+import { resolveContentTier, servedAudio } from '@wayfare/core';
 import type { Prisma } from '../../../generated/prisma/client';
 import { mediaUrl } from '../places/domain/media-url';
 import {
@@ -17,8 +17,7 @@ import {
   toPhotoView,
 } from '../places/place.mapper';
 
-// Widened: statuses and kinds are read from the database as plain strings.
-const READY: string = AudioStatus.READY;
+// Widened: kinds are read from the database as plain strings.
 const VENUE: string = PlaceKind.VENUE;
 
 /** A localization as the tourist read uses it (rdm-spec C-4). */
@@ -157,26 +156,22 @@ export function toPlaceLocalization(
     source: { name: row.nameVi, description: row.descriptionVi, contentHash: row.contentHash },
   });
   const served = resolved.localization;
-  const audioReady =
-    served !== null &&
-    served.audioStatus === READY &&
-    served.audioSourceContentHash === served.sourceContentHash &&
-    served.audioObjectPath !== null &&
-    served.audioSha256 !== null;
+  const audio = served === null ? null : servedAudio(served);
   return {
     lang: resolved.lang,
     name: resolved.name,
     description: resolved.description ?? '',
     contentTier: contentTierProto.toProto(resolved.tier),
     stale: resolved.stale,
-    audio: audioReady
-      ? {
-          url: mediaUrl(mediaBase, served.audioObjectPath!),
-          sha256: served.audioSha256!,
-          bytes: served.audioBytes ?? 0,
-          durationMs: served.audioDurationMs ?? 0,
-        }
-      : undefined,
+    audio:
+      audio === null
+        ? undefined
+        : {
+            url: mediaUrl(mediaBase, audio.objectPath),
+            sha256: audio.sha256,
+            bytes: audio.bytes,
+            durationMs: audio.durationMs,
+          },
   };
 }
 

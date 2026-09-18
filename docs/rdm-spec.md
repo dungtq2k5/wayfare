@@ -1004,6 +1004,10 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Indexes:** `(target_type, target_id, created_at DESC)`; partial `(status) WHERE status IN ('QUEUED','RUNNING','PAUSED')`.
 - **A newer job for the same target supersedes an older one.** When a job is created for a target with a different `source_content_hash`, every non-terminal older job for that target becomes `SUPERSEDED` and its queued tasks are cancelled, in the same transaction. Otherwise an owner who edits twice in a minute pays for both, and the slower one can finish last and publish stale audio.
+- **Superseding and coalescing happen in the job's creating transaction:** the older jobs' queued tasks are cancelled there, and a task whose `(target, lang, hash)` is already active is inserted as `COALESCED`. Every path that makes a task active — creation, retry, resume — first takes a transaction-scoped advisory lock on that key, then queues the task or coalesces it; the partial unique index is the backstop. The BullMQ jobs are added or removed after the commit, and a periodic recovery (at boot too) re-adds any `QUEUED` task of an unpaused job that lost its BullMQ job.
+- **A job's counts and status are recomputed with the job row locked** (`FOR UPDATE`): two of its tasks finishing at once would otherwise each count the other as running and leave the job `RUNNING` with every task done. The recovery sweep also re-counts stale jobs.
+- **An event for text catalog no longer holds creates no job,** so a late event cannot supersede current work.
+- **A coalesced task never outlives the task it follows.** When that task is cancelled, or its job is paused, the oldest follower of a live, unpaused job is promoted to `QUEUED` in the same transaction and the others are repointed at it; a paused job's own task becomes a follower. When the task succeeds or fails finally, its followers end the same way.
 - **This row is the durable record; BullMQ is the executor** ([ADR 0019](./decisions/0019-bullmq-for-in-service-work.md)). The admin monitor reads this table plus live progress over WebSocket, never BullMQ's Redis keys.
 - Terminal jobs are pruned after `JOB_RETENTION_DAYS` (14).
 
@@ -1019,9 +1023,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **target_id** | UUID | Nullable | Denormalized from the job. |
 | **lang** | VARCHAR(16) | NOT NULL | — |
 | **source_content_hash** | CHAR(64) | NOT NULL | Denormalized from the job. |
-| **stage** | VARCHAR(16) | NOT NULL | `TRANSLATE \| PRONOUNCE \| SYNTHESIZE \| STORE \| PUBLISH` — the step the task is in or failed at. |
+| **stage** | VARCHAR(16) | NOT NULL | `TRANSLATE \| PRONOUNCE \| SYNTHESIZE \| STORE \| PUBLISH` — the step the task is in or failed at. A retry resumes here; earlier stages' outputs come back from N-3 and N-4 as cache hits. |
 | **status** | VARCHAR(16) | NOT NULL | `QUEUED \| RUNNING \| SUCCEEDED \| FAILED \| CANCELLED \| COALESCED` |
-| **attempts** | SMALLINT | NOT NULL, 0 | — |
+| **attempts** | SMALLINT | NOT NULL, 0 | The only retry counter: the BullMQ queue keeps no finished jobs and never retries by itself; a failed attempt below the limit re-adds the task with a backoff delay. |
 | **translation_provider** | VARCHAR(32) | Nullable | The implementation that actually answered ([ADR 0033](./decisions/0033-translation-and-tts-behind-provider-interfaces.md)). Recorded per task, because "which provider produced this bad translation" is unanswerable after a fallback otherwise. |
 | **speech_provider** | VARCHAR(32) | Nullable | — |
 | **voice_id** | VARCHAR(64) | Nullable | — |
@@ -1048,7 +1052,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **lang** | VARCHAR(16) | NOT NULL | — |
 | **voice_id** | VARCHAR(64) | NOT NULL | — |
 | **provider** | VARCHAR(32) | NOT NULL | — |
-| **format** | VARCHAR(32) | NOT NULL | e.g. `mp3_24khz_48kbps_mono`. Part of the key because the same words at a different bitrate are a different file. |
+| **format** | VARCHAR(32) | NOT NULL | Declared by the provider that answered, e.g. `mp3_24khz_48kbps_mono` (Edge) or `mp3_24khz_32kbps_mono` (Google). Part of the key because the same words at a different bitrate are a different file. A cache lookup computes the key for each configured provider, in order, and takes the first that exists. |
 | **object_path** | VARCHAR(512) | NOT NULL, **UNIQUE** | `audio/<cache_key>.mp3`. |
 | **sha256** | CHAR(64) | NOT NULL | File hash (not the cache key). |
 | **bytes** | INT | NOT NULL | — |
@@ -1057,6 +1061,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **last_referenced_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Bumped whenever a `narration.localization.ready` event names this asset. |
 
+- **Long texts are synthesized in chunks.** The final SSML is split at sentence boundaries into chunks under the provider's input limit (Google's is 5 000 bytes), synthesized in order and joined into one file; the key is still over the whole final SSML, and `duration_ms` is the joined file's.
 - **Never updated** except `last_referenced_at`. A cache hit is a lookup on `cache_key`, which is what makes five languages affordable.
 - **Garbage collection:** an asset whose `last_referenced_at` is older than `AUDIO_ASSET_RETENTION_DAYS` (180) is deleted — object first, row second. 180 days comfortably exceeds any offline pack a client could still be verifying.
 
@@ -1727,6 +1732,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | catalog | `map_packs_zoom_ck` | CHECK | — |
 | catalog | `place_opening_hours_one_of_ck`, `…_times_ck`, `…_weekday_ck` | CHECK | §C-16 |
 | narration | `synthesis_jobs_target_ck`, `synthesis_jobs_langs_nonempty_ck` | CHECK | — |
+| narration | `synthesis_jobs_live_status_idx` | partial index | `(status) WHERE status IN ('QUEUED','RUNNING','PAUSED')` (N-1) |
 | narration | `synthesis_tasks_one_active` | partial unique | coalescing (N-2) |
 | narration | `pronunciation_term_lang_key`, `pronunciation_term_all_key` | partial unique | one entry per term/language |
 | narration | `pronunciation_alphabet_ck` | CHECK | phoneme ⇔ alphabet |

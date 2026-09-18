@@ -1,53 +1,20 @@
-import type { KeyObject } from 'node:crypto';
-import { CLIENT_HEADER, TOKEN_TYPES, zAccountClaims, zDeviceClaims } from '@wayfare/contracts';
+import { CLIENT_HEADER } from '@wayfare/contracts';
 import type { AccountClaims, DeviceClaims } from '@wayfare/contracts';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { RequestContext, RequestOrigin } from '../context/request-context';
 import { setAuthState } from '../http/request-context';
 import type { AuthError } from '../http/request-context';
 import { ACCESS_COOKIE, readCookie } from '../http/session-cookies';
-import { verifyJws } from './jws';
-import {
-  CUTOFF_REJECT_ALL,
-  raiseTokenCutoff,
-  revokedFamilyKey,
-  tokenCutoffKey,
-} from './redis-keys';
-import type { RedisScripting } from './redis-keys';
+import { AccountTokenVerifier } from './account-token-verifier';
+import type { AccountTokenVerifierDeps } from './account-token-verifier';
 
-/** Where the middleware reads a user's token cutoff when Redis has none (api-endpoints-plan §12.2). */
-export interface TokenCutoffSource {
-  /** The user's cutoff in ms (0 = none), or 'not-found'. Throws when identity cannot answer. */
-  getCutoff(userId: string): Promise<number | 'not-found'>;
-}
-
-/** The Redis surface the revocation check needs — satisfied by an ioredis client. */
-export interface RevocationStore extends RedisScripting {
-  mget(...keys: string[]): Promise<(string | null)[]>;
-}
-
-/** What the middleware is built from. */
-export interface RequestContextDeps {
-  readonly publicKeys: ReadonlyMap<string, KeyObject>;
-  readonly redis: RevocationStore;
-  readonly cutoffSource: TokenCutoffSource;
-  /** The miss-fill deadline — 500 ms in production. */
-  readonly cutoffTimeoutMs?: number;
-  readonly now?: () => Date;
-}
-
-/** The deadline for a cutoff read on a cache miss. */
-export const CUTOFF_LOOKUP_TIMEOUT_MS = 500;
+/** What the middleware is built from: the verifier, or what to build one from. */
+export type RequestContextDeps = AccountTokenVerifierDeps;
 
 type AccountStatus =
   | { readonly kind: 'none' }
   | { readonly kind: 'valid'; readonly claims: AccountClaims }
   | { readonly kind: 'rejected'; readonly error: AuthError };
-
-type Verified =
-  | { readonly type: 'account'; readonly claims: AccountClaims }
-  | { readonly type: 'device'; readonly claims: DeviceClaims }
-  | null;
 
 function bearerOf(request: Request): string | null {
   const header = request.header('authorization');
@@ -58,22 +25,6 @@ function bearerOf(request: Request): string | null {
 
 function originOf(request: Request): RequestOrigin {
   return { ip: request.ip ?? null, userAgent: request.header('user-agent')?.slice(0, 512) ?? null };
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
-  });
 }
 
 /**
@@ -91,49 +42,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  *
  * Device tokens are not revocation-checked: devices have no sessions (rdm-spec I-3).
  */
-export function createRequestContextMiddleware(deps: RequestContextDeps): RequestHandler {
-  const now = deps.now ?? (() => new Date());
-  const timeoutMs = deps.cutoffTimeoutMs ?? CUTOFF_LOOKUP_TIMEOUT_MS;
-
-  function verify(token: string): Verified {
-    const result = verifyJws(token, { publicKeys: deps.publicKeys, now: now() });
-    if (!result.ok) return null;
-    if (result.claims.typ === TOKEN_TYPES.user) {
-      const claims = zAccountClaims.safeParse(result.claims);
-      return claims.success ? { type: 'account', claims: claims.data } : null;
-    }
-    if (result.claims.typ === TOKEN_TYPES.device) {
-      const claims = zDeviceClaims.safeParse(result.claims);
-      return claims.success ? { type: 'device', claims: claims.data } : null;
-    }
-    return null;
-  }
-
-  async function checkRevocation(claims: AccountClaims): Promise<AccountStatus> {
-    try {
-      const [storedCutoff, familyMarker] = await deps.redis.mget(
-        tokenCutoffKey(claims.sub),
-        revokedFamilyKey(claims.sid),
-      );
-      let cutoff: number;
-      if (storedCutoff === null || storedCutoff === undefined) {
-        const answer = await withTimeout(deps.cutoffSource.getCutoff(claims.sub), timeoutMs);
-        // Through the raise-only script: a stale fill never lowers a cutoff the consumer wrote meanwhile.
-        cutoff = await raiseTokenCutoff(
-          deps.redis,
-          claims.sub,
-          answer === 'not-found' ? CUTOFF_REJECT_ALL : answer,
-        );
-      } else {
-        cutoff = Number(storedCutoff);
-      }
-      const revoked =
-        claims.iatMs < cutoff || (familyMarker !== null && familyMarker !== undefined);
-      return revoked ? { kind: 'rejected', error: 'revoked' } : { kind: 'valid', claims };
-    } catch {
-      return { kind: 'rejected', error: 'unverifiable' };
-    }
-  }
+export function createRequestContextMiddleware(
+  source: AccountTokenVerifier | RequestContextDeps,
+): RequestHandler {
+  const verifier =
+    source instanceof AccountTokenVerifier ? source : new AccountTokenVerifier(source);
 
   async function resolve(
     request: Request,
@@ -150,7 +63,7 @@ export function createRequestContextMiddleware(deps: RequestContextDeps): Reques
 
     for (const token of [cookie, bearer]) {
       if (token === null) continue;
-      const verified = token === '' ? null : verify(token);
+      const verified = token === '' ? null : verifier.verify(token);
       if (verified === null) {
         // A bad cookie is a bad account token; a bad bearer is whatever it claimed to be.
         if (token === cookie || client === 'mobile') {
@@ -164,7 +77,7 @@ export function createRequestContextMiddleware(deps: RequestContextDeps): Reques
         account = { kind: 'valid', claims: verified.claims };
       }
     }
-    if (account.kind === 'valid') account = await checkRevocation(account.claims);
+    if (account.kind === 'valid') account = await verifier.check(account.claims);
 
     if (account.kind === 'valid') {
       const { claims } = account;

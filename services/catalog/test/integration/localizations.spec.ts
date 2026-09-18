@@ -248,6 +248,18 @@ describe('narration.localization.failed', () => {
     });
   });
 
+  it('redelivers a final failure that arrives before its text', async () => {
+    const { id, contentHash } = await processing();
+    await expect(failed(id, 'ja', true)).rejects.toThrow(/before its localization/);
+    await apply(
+      ready({ placeId: id, lang: 'ja', sourceContentHash: contentHash, audioContentHash: null }),
+    );
+    await failed(id, 'ja', true);
+    expect(await row(id, 'ja')).toMatchObject({ audioStatus: 'FAILED' });
+    // An unknown Place is acknowledged: there is nothing to wait for.
+    await expect(failed(newId(), 'ja', true)).resolves.toBeUndefined();
+  });
+
   it('replaces old audio for a current text with FAILED, dropping the file', async () => {
     const { id, contentHash } = await processing();
     await apply(ready({ placeId: id, lang: 'ko', sourceContentHash: OLD }));

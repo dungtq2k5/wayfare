@@ -36,6 +36,10 @@ const alias = [
   { find: /^@wayfare\/i18n$/, replacement: root('./packages/i18n/src/index.ts') },
   { find: /^@wayfare\/nest-common$/, replacement: root('./packages/nest-common/src/index.ts') },
   {
+    find: /^@wayfare\/nest-common\/storage$/,
+    replacement: root('./packages/nest-common/src/providers/storage/index.ts'),
+  },
+  {
     find: /^@wayfare\/nest-common\/testing$/,
     replacement: root('./packages/nest-common/src/testing/index.ts'),
   },
@@ -70,6 +74,7 @@ export default defineConfig({
       unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
       unit('catalog', './services/catalog', ['src/**/*.spec.ts']),
+      unit('narration', './services/narration', ['src/**/*.spec.ts']),
       unit('gateway', './services/gateway', ['src/**/*.spec.ts', 'test/e2e/**/*.spec.ts']),
       unit('config', './packages/config', ['markdownlint/**/*.spec.ts']),
       // Repo-wide rules as tests (conventions §17.4); also a named step in pr.yml.
@@ -97,6 +102,23 @@ export default defineConfig({
         test: {
           name: 'integration:catalog',
           root: root('./services/catalog'),
+          include: ['test/integration/**/*.spec.ts'],
+          environment: 'node',
+          globalSetup: ['test/setup/global-setup.ts'],
+          setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],
+          env: { OTEL_SDK_DISABLED: 'true' },
+          // One database: suites run serially (conventions §17.2).
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
+        },
+      },
+      {
+        plugins: [swcPlugin()],
+        resolve: { alias },
+        test: {
+          name: 'integration:narration',
+          root: root('./services/narration'),
           include: ['test/integration/**/*.spec.ts'],
           environment: 'node',
           globalSetup: ['test/setup/global-setup.ts'],

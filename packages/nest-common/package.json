@@ -21,6 +21,10 @@
       "types": "./dist/prisma/schema.d.ts",
       "default": "./dist/prisma/schema.js"
     },
+    "./storage": {
+      "types": "./dist/providers/storage/index.d.ts",
+      "default": "./dist/providers/storage/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
@@ -38,12 +42,14 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@google-cloud/storage": "8.1.0",
     "@nats-io/jetstream": "^3.4.0",
     "@nats-io/transport-node": "^3.4.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.80.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
     "@opentelemetry/sdk-node": "^0.222.0",
+    "@socket.io/redis-emitter": "5.1.0",
     "@wayfare/contracts": "workspace:*",
     "bullmq": "6.3.6",
     "dotenv": "^17.4.2",
@@ -62,6 +68,7 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/microservices": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
+    "@nestjs/websockets": "^11.0.0",
     "ioredis": "^5.0.0",
     "nestjs-zod": "^5.0.0",
     "reflect-metadata": "^0.2.0",
@@ -78,6 +85,7 @@
     "@nestjs/platform-express": "11.2.5",
     "@nestjs/swagger": "11.4.7",
     "@nestjs/testing": "11.2.5",
+    "@nestjs/websockets": "11.2.5",
     "@types/express": "^5.0.0",
     "@types/supertest": "^6.0.0",
     "ioredis": "^5.11.1",

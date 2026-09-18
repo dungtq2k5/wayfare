@@ -69,7 +69,12 @@ const DEVICE_ROUTES = new Set([
   'GET /api/v1/places/nearby',
   'GET /api/v1/places/{id}',
   'GET /api/v1/places/by-code/{publicCode}',
+  'POST /api/v1/narration/on-demand',
+  'GET /api/v1/narration/places/{placeId}/status',
 ]);
+
+/** Routes with a second documented success: done (200) or pending (202). */
+const TWO_SUCCESSES = new Map([['POST /api/v1/narration/on-demand', ['200', '202']]]);
 
 /** Public reads a CDN may hold. */
 const PUBLIC_READS = new Set(['GET /api/v1/categories', 'GET /api/v1/areas']);
@@ -80,7 +85,7 @@ const NON_JSON = new Map([['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml']]
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(65);
+    expect(names).toHaveLength(76);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/q/'))).toBe(false);
@@ -116,6 +121,17 @@ describe('OpenAPI contract', () => {
   it('gives every operation exactly one 2xx, with data unless it is a 204 or a 202', () => {
     for (const [name, operation] of operations()) {
       const success = Object.keys(operation.responses).filter((status) => status.startsWith('2'));
+      const alternatives = TWO_SUCCESSES.get(name);
+      if (alternatives !== undefined) {
+        expect(success, name).toEqual(alternatives);
+        for (const status of alternatives) {
+          expect(
+            operation.responses[status]?.content?.['application/json']?.schema.properties,
+            `${name} ${status}`,
+          ).toHaveProperty('data');
+        }
+        continue;
+      }
       expect(success, name).toHaveLength(1);
       const [status] = success;
       const mediaType = NON_JSON.get(name);

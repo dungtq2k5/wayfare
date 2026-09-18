@@ -9,8 +9,8 @@ import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { SyncService } from '../../src/modules/sync/sync.service';
 import { UploadsService } from '../../src/modules/uploads/uploads.service';
 import { SharpImageProcessor } from '../../src/providers/image/sharp.image-processor';
-import { GcsStorageProvider } from '../../src/providers/storage/gcs.storage-provider';
-import type { StorageProvider } from '../../src/providers/storage/storage-provider';
+import { GcsStorageProvider } from '@wayfare/nest-common/storage';
+import type { StorageProvider } from '@wayfare/nest-common/storage';
 import { testConfig } from './database';
 
 /** The emulator's test bucket, as the services see it. */

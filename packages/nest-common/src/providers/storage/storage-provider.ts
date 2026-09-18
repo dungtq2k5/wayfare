@@ -1,4 +1,4 @@
-import type { ReadinessCheck } from '@wayfare/nest-common';
+import type { ReadinessCheck } from '../../health/readiness';
 
 /** Injection token for the media `StorageProvider`. */
 export const STORAGE_PROVIDER = Symbol('STORAGE_PROVIDER');

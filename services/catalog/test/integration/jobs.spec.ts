@@ -1,6 +1,6 @@
 import { compareStrings, newId } from '@wayfare/contracts';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import type { StorageProvider } from '../../src/providers/storage/storage-provider';
+import type { StorageProvider } from '@wayfare/nest-common/storage';
 import { testPrisma, truncateAll } from '../setup/database';
 import { confirmedUpload } from '../setup/fixtures';
 import { catalogServices, testStorage } from '../setup/services';

@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import type { CatalogConfig } from '../../config/env.schema';
 import { IMAGE_PROCESSOR } from '../../providers/image/image-processor';
 import { SharpImageProcessor } from '../../providers/image/sharp.image-processor';
-import { GcsStorageProvider } from '../../providers/storage/gcs.storage-provider';
-import { STORAGE_PROVIDER } from '../../providers/storage/storage-provider';
+import { GcsStorageProvider } from '@wayfare/nest-common/storage';
+import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
 import { UploadsGrpcController } from './uploads-grpc.controller';
 import { UploadsService } from './uploads.service';
 

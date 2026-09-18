@@ -16,13 +16,22 @@ const TESTING_ENTRY_PATTERN = {
 };
 
 /** Vendor SDKs, imported only by their adapter file (conventions §11.5). */
-const VENDOR_SDK_PATHS = ['resend', 'nodemailer'].map((name) => ({
+const VENDOR_SDK_PATHS = [
+  'resend',
+  'nodemailer',
+  '@google-cloud/storage',
+  'sharp',
+  '@google-cloud/translate',
+  '@google-cloud/text-to-speech',
+  'msedge-tts',
+  'google-translate-api-x',
+].map((name) => ({
   name,
   message: `Only the provider adapter under src/providers/ imports ${name} (conventions §11.5).`,
 }));
 
 /** Where the provider adapters live (conventions §2.4). */
-const PROVIDER_ADAPTERS = ['services/*/src/providers/**'];
+const PROVIDER_ADAPTERS = ['services/*/src/providers/**', 'packages/nest-common/src/providers/**'];
 
 /** Where the testing entry points may be imported. */
 const TESTING_ALLOWED = ['**/*.spec.ts', '**/test/**', '**/scripts/**'];

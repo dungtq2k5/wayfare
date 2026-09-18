@@ -1,0 +1,28 @@
+import { Inject, Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
+import type { ClientGrpc } from '@nestjs/microservices';
+import { narrationGrpc } from '@wayfare/contracts/grpc';
+import { GrpcServiceCaller } from '@wayfare/nest-common';
+
+/** Injection token for narration's gRPC connection. */
+export const NARRATION_GRPC = Symbol('NARRATION_GRPC');
+
+/**
+ * narration as the gateway calls it: one caller per stub (conventions §6.2). Returns proto types
+ * only; the deadline, caller metadata and down-versus-slow mapping live in each caller.
+ */
+@Injectable()
+export class NarrationServiceGrpcClient implements OnModuleInit {
+  readonly narration: GrpcServiceCaller<narrationGrpc.NarrationServiceClient>;
+  readonly synthesisAdmin: GrpcServiceCaller<narrationGrpc.SynthesisAdminServiceClient>;
+
+  constructor(@Inject(NARRATION_GRPC) grpc: ClientGrpc) {
+    this.narration = new GrpcServiceCaller(grpc, narrationGrpc.NARRATION_SERVICE_NAME);
+    this.synthesisAdmin = new GrpcServiceCaller(grpc, narrationGrpc.SYNTHESIS_ADMIN_SERVICE_NAME);
+  }
+
+  onModuleInit(): void {
+    this.narration.init();
+    this.synthesisAdmin.init();
+  }
+}

@@ -205,6 +205,48 @@ services:
       timeout: 3s
       retries: 30
 
+  narration:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: narration
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@narration-db:5432/wayfare_narration?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:50053
+      OPS_PORT: '3103'
+      METRICS_PORT: '9103'
+      CATALOG_GRPC_URL: catalog:50052
+      GCS_BUCKET_MEDIA: wayfare-media-local
+      GCS_API_ENDPOINT: http://fake-gcs:4443
+      GCS_PUBLIC_BASE_URL: http://localhost:4443/wayfare-media-local
+      # The throwaway key `pnpm keys:dev` writes, shared with catalog.
+      GOOGLE_APPLICATION_CREDENTIALS: /keys/gcs-dev.json
+      TRANSLATION_PROVIDER_ORDER: fake
+      TTS_PROVIDER_ORDER: fake
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: narration
+    volumes:
+      - ../../services/catalog/.keys:/keys:ro
+    ports: ['3103:3103']
+    depends_on:
+      narration-db: { condition: service_healthy }
+      fake-gcs: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3103/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
   gateway:
     profiles: [apps]
     build:
@@ -225,6 +267,7 @@ services:
       SWAGGER_ENABLED: 'true'
       IDENTITY_GRPC_URL: identity:50051
       CATALOG_GRPC_URL: catalog:50052
+      NARRATION_GRPC_URL: narration:50053
       PUBLIC_QR_BASE_URL: http://localhost:3000
       PUBLIC_LINK_BASE_URL: http://localhost:5174
       REDIS_URL: redis://redis:6379
@@ -237,6 +280,7 @@ services:
       redis: { condition: service_healthy }
       identity: { condition: service_healthy }
       catalog: { condition: service_healthy }
+      narration: { condition: service_healthy }
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health/ready']
       interval: 5s

@@ -122,9 +122,9 @@ export function checkModuleFile(file: string, text: string): string[] {
     return roleOnly(exactlyOne(file, facts.classes, `${pascalCase(module)}GrpcController`));
   }
 
+  // A peer client: the gateway's, or a backend service's for an internal RPC (api-endpoints-plan §12.2).
   const clientStem = stem('-service-grpc.client.ts');
   if (clientStem !== null) {
-    if (kind !== 'gateway') return onlyIn('gateway', 'peer client');
     return roleOnly(exactlyOne(file, facts.classes, `${pascalCase(clientStem)}ServiceGrpcClient`));
   }
 
@@ -134,6 +134,14 @@ export function checkModuleFile(file: string, text: string): string[] {
     if (controllerStem !== module)
       return [`${file}: an HTTP controller is named ${module}.controller.ts`];
     return roleOnly(exactlyOne(file, facts.classes, `${pascalCase(module)}Controller`));
+  }
+
+  // The gateway's socket entry point (api-endpoints-plan §9, ADR 0020).
+  const socketStem = stem('.gateway.ts');
+  if (socketStem !== null) {
+    if (kind !== 'gateway') return onlyIn('gateway', 'socket gateway');
+    if (socketStem !== module) return [`${file}: a socket gateway is named ${module}.gateway.ts`];
+    return roleOnly(exactlyOne(file, facts.classes, `${pascalCase(module)}Gateway`));
   }
 
   const consumerStem = stem('.consumer.ts');
@@ -228,6 +236,18 @@ describe('module files', () => {
         /places\.service\.ts/,
       ],
       ['a deeper file', `${backend}/utils/strings.ts`, '', /only dto\/ and domain\//],
+      [
+        'a socket gateway in a backend',
+        `${backend}/places.gateway.ts`,
+        'export class PlacesGateway {}',
+        /belongs in the gateway/,
+      ],
+      [
+        'a socket gateway named after another module',
+        'services/gateway/src/modules/events/sockets.gateway.ts',
+        'export class SocketsGateway {}',
+        /events\.gateway\.ts/,
+      ],
       ['a spec without a known source', `${backend}/helpers.spec.ts`, '', /no known role/],
     ];
     for (const [label, file, text, expected] of cases) {
@@ -258,6 +278,11 @@ describe('module files', () => {
         'export const IDENTITY_GRPC = Symbol();\nexport class IdentityServiceGrpcClient {}',
       ],
       ['services/gateway/src/modules/devices/dto/device-response.dto.ts', ''],
+      [
+        'services/narration/src/modules/catalog/catalog-service-grpc.client.ts',
+        'export class CatalogServiceGrpcClient {}',
+      ],
+      ['services/gateway/src/modules/events/events.gateway.ts', 'export class EventsGateway {}'],
     ];
     for (const [file, text] of accepted) expect(checkModuleFile(file, text), file).toEqual([]);
   });
