@@ -39,3 +39,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS email_deliveries_one_per_event
 CREATE INDEX IF NOT EXISTS notifications_unread_idx
   ON notifications (recipient_user_id, created_at DESC)
   WHERE read_at IS NULL;
+
+-- owner_registrations (rdm-spec I-8): one open application per person.
+CREATE UNIQUE INDEX IF NOT EXISTS owner_registrations_one_pending
+  ON owner_registrations (user_id)
+  WHERE status = 'PENDING';
+
+-- A decision has its review time, and only a decision has one.
+ALTER TABLE owner_registrations DROP CONSTRAINT IF EXISTS owner_registrations_reviewed_ck;
+ALTER TABLE owner_registrations ADD CONSTRAINT owner_registrations_reviewed_ck
+  CHECK ((status IN ('APPROVED', 'REJECTED')) = (reviewed_at IS NOT NULL));

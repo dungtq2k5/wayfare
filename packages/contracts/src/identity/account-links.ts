@@ -8,6 +8,8 @@ export const ACCOUNT_LINK_PATHS = {
   setupAccount: '/setup-account',
   confirmEmailChange: '/confirm-email-change',
   revertEmailChange: '/revert-email-change',
+  /** The owner's application status; opened without a token. */
+  ownerRegistration: '/owner/registration',
 } as const;
 
 /** A page an emailed link may open. */

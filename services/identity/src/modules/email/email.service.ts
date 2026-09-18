@@ -44,6 +44,11 @@ export interface EmailInput<T extends EmailTemplate> {
   readonly recipient: EmailRecipient;
   readonly data: EmailTemplateData<T>;
   readonly links: { readonly [K in EmailTemplateLinkSlot<T>]: EmailLink };
+  /**
+   * Which app the links open. Defaults to the recipient's: the console for staff and owners, the
+   * web app for everyone else. A console-only page (the owner application) names the console.
+   */
+  readonly linkApp?: 'console' | 'web';
 }
 
 /**
@@ -144,7 +149,12 @@ export class EmailService {
       locale: recipient.locale,
       data: input.data,
       links: input.links,
-      linkBase: recipient.linkBase,
+      linkBase:
+        input.linkApp === undefined
+          ? recipient.linkBase
+          : input.linkApp === 'console'
+            ? this.consoleUrl
+            : this.webUrl,
     };
   }
 

@@ -19,13 +19,30 @@ export function toUserResponseDto(user: identityGrpc.SessionUser | undefined): U
   };
 }
 
-/** `GET /users/me`. */
+/** `GET /users/me`. An unset message field may arrive as `null` from the proto loader. */
 export function toMeResponseDto(response: identityGrpc.GetMeResponse): MeResponseDto {
+  const owner = response.owner ?? null;
+  const pending = owner?.pendingRegistration ?? null;
   return {
     user: toUserResponseDto(response.user),
     roles: [...response.roles],
     permissions: [...response.permissions],
     ownerVerified: response.ownerVerified,
+    owner:
+      owner === null
+        ? null
+        : {
+            pendingRegistration:
+              pending === null
+                ? null
+                : {
+                    id: pending.id,
+                    submittedAt: fromProtoTimestamp(
+                      pending.submittedAt,
+                      'owner.pendingRegistration.submittedAt',
+                    ).toISOString(),
+                  },
+          },
   };
 }
 

@@ -23,6 +23,7 @@ const valid = {
   EMAIL_NONPROD_ALLOWLIST: '*@example.com, Team@Wayfare.local',
   EMAIL_NONPROD_CATCHALL: 'team@wayfare.local',
   EMAIL_HASH_KEY: Buffer.alloc(32, 7).toString('base64'),
+  PII_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
   SMTP_URL: 'smtp://localhost:1025',
   CONSOLE_URL: 'http://localhost:5173',
   WEB_URL: 'http://localhost:5174',
@@ -58,6 +59,7 @@ describe('email configuration', () => {
     const config = parse(valid);
     expect(config.EMAIL_NONPROD_ALLOWLIST).toEqual(['*@example.com', 'team@wayfare.local']);
     expect(config.EMAIL_HASH_KEY).toHaveLength(32);
+    expect(config.PII_ENCRYPTION_KEY).toHaveLength(32);
     expect(config.RESEND_API_KEY).toBeUndefined();
   });
 
@@ -107,6 +109,9 @@ describe('email configuration', () => {
     expect(() => parse({ ...valid, EMAIL_HASH_KEY: Buffer.alloc(8).toString('base64') })).toThrow(
       /EMAIL_HASH_KEY/,
     );
+    expect(() =>
+      parse({ ...valid, PII_ENCRYPTION_KEY: Buffer.alloc(48).toString('base64') }),
+    ).toThrow(/PII_ENCRYPTION_KEY/);
     expect(() => parse({ ...valid, EMAIL_FROM: 'no-reply@wayfare.local' })).toThrow(/EMAIL_FROM/);
     const { WEB_URL: _omitted, ...rest } = valid;
     expect(() => parse(rest)).toThrow(/WEB_URL/);

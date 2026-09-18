@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+// Owner verification — api-endpoints-plan §1.4, §1.5, rdm-spec I-8.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/common/page.proto";
+
+// Where an application stands (rdm-spec I-8).
+enum OwnerRegistrationStatus {
+  OWNER_REGISTRATION_STATUS_UNSPECIFIED = 0;
+  OWNER_REGISTRATION_STATUS_PENDING = 1;
+  OWNER_REGISTRATION_STATUS_APPROVED = 2;
+  OWNER_REGISTRATION_STATUS_REJECTED = 3;
+  OWNER_REGISTRATION_STATUS_WITHDRAWN = 4;
+}
+
+// The caller's own applications. The caller travels as metadata.
+service OwnerService {
+  rpc SubmitRegistration(SubmitRegistrationRequest) returns (SubmitRegistrationResponse);
+  rpc ListMyRegistrations(ListMyRegistrationsRequest) returns (ListMyRegistrationsResponse);
+  rpc WithdrawRegistration(WithdrawRegistrationRequest) returns (WithdrawRegistrationResponse);
+}
+
+// The review queue. The gateway checks the route's permission; identity checks the rules it alone
+// can know — a reviewer's own application, a deactivated applicant.
+service OwnerReviewService {
+  rpc ListRegistrations(ListRegistrationsRequest) returns (ListRegistrationsResponse);
+  rpc GetRegistration(GetRegistrationRequest) returns (GetRegistrationResponse);
+  rpc RevealNationalId(RevealNationalIdRequest) returns (RevealNationalIdResponse);
+  rpc ApproveRegistration(ApproveRegistrationRequest) returns (ApproveRegistrationResponse);
+  rpc RejectRegistration(RejectRegistrationRequest) returns (RejectRegistrationResponse);
+}
+
+// An application as its applicant sees it. There is no staff note here, by construction.
+message OwnerRegistration {
+  string id = 1;
+  OwnerRegistrationStatus status = 2;
+  string business_name = 3;
+  string business_address = 4;
+  optional string business_registration_no = 5;
+  string contact_name = 6;
+  string contact_phone = 7;
+  // Absent once redacted.
+  optional string national_id_last4 = 8;
+  optional string applicant_note = 9;
+  optional string decision_note = 10;
+  google.protobuf.Timestamp submitted_at = 11;
+  google.protobuf.Timestamp reviewed_at = 12;
+}
+
+// Who applied, as a queue row shows it.
+message RegistrationApplicantRef {
+  string id = 1;
+  string email = 2;
+  optional string full_name = 3;
+}
+
+// A queue row: the application with its staff fields.
+message OwnerRegistrationAdminItem {
+  OwnerRegistration registration = 1;
+  optional string internal_note = 2;
+  optional string reviewed_by_id = 3;
+  bool pii_redacted = 4;
+  RegistrationApplicantRef applicant = 5;
+}
+
+// The applicant's account, as the review detail shows it.
+message RegistrationApplicant {
+  string id = 1;
+  string email = 2;
+  optional string full_name = 3;
+  google.protobuf.Timestamp created_at = 4;
+  bool email_verified = 5;
+  bool owner_verified = 6;
+  // Locked right now: a lapsed lock reads false.
+  bool is_locked = 7;
+  bool deactivated = 8;
+}
+
+// Another application by the same person: status and dates only.
+message PriorRegistration {
+  string id = 1;
+  OwnerRegistrationStatus status = 2;
+  google.protobuf.Timestamp submitted_at = 3;
+  google.protobuf.Timestamp reviewed_at = 4;
+}
+
+// The review detail.
+message OwnerRegistrationAdmin {
+  OwnerRegistration registration = 1;
+  optional string internal_note = 2;
+  optional string reviewed_by_id = 3;
+  bool pii_redacted = 4;
+  RegistrationApplicant applicant = 5;
+  repeated PriorRegistration prior_applications = 6;
+}
+
+message SubmitRegistrationRequest {
+  string business_name = 1;
+  string business_address = 2;
+  optional string business_registration_no = 3;
+  string contact_name = 4;
+  string contact_phone = 5;
+  // The 12-digit CCCD. Encrypted before the row is written; never echoed.
+  string national_id = 6;
+  optional string applicant_note = 7;
+  string owner_agreement_version = 8;
+}
+
+message SubmitRegistrationResponse {
+  OwnerRegistration registration = 1;
+}
+
+message ListMyRegistrationsRequest {}
+
+message ListMyRegistrationsResponse {
+  repeated OwnerRegistration registrations = 1;
+}
+
+message WithdrawRegistrationRequest {
+  string registration_id = 1;
+}
+
+message WithdrawRegistrationResponse {
+  OwnerRegistration registration = 1;
+}
+
+message ListRegistrationsRequest {
+  wayfare.common.PageNumberRequest page = 1;
+  OwnerRegistrationStatus status = 2;
+}
+
+message ListRegistrationsResponse {
+  repeated OwnerRegistrationAdminItem registrations = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+message GetRegistrationRequest {
+  string registration_id = 1;
+}
+
+message GetRegistrationResponse {
+  OwnerRegistrationAdmin registration = 1;
+}
+
+message RevealNationalIdRequest {
+  string registration_id = 1;
+}
+
+message RevealNationalIdResponse {
+  string national_id = 1;
+}
+
+message ApproveRegistrationRequest {
+  string registration_id = 1;
+  optional string decision_note = 2;
+  optional string internal_note = 3;
+}
+
+message ApproveRegistrationResponse {
+  OwnerRegistrationAdmin registration = 1;
+}
+
+message RejectRegistrationRequest {
+  string registration_id = 1;
+  string decision_note = 2;
+  optional string internal_note = 3;
+}
+
+message RejectRegistrationResponse {
+  OwnerRegistrationAdmin registration = 1;
+}

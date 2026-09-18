@@ -14,6 +14,8 @@ import { EmailDispatcher } from '../../src/modules/email/email.module';
 import { EmailService } from '../../src/modules/email/email.service';
 import { LegalService } from '../../src/modules/legal/legal.service';
 import { NotificationsService } from '../../src/modules/notifications/notifications.service';
+import { OwnerRegistrationsService } from '../../src/modules/owner-registrations/owner-registrations.service';
+import { OwnerReviewService } from '../../src/modules/owner-review/owner-review.service';
 import { PasswordService } from '../../src/modules/password/password.service';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { RolesService } from '../../src/modules/roles/roles.service';
@@ -73,7 +75,8 @@ export function identityServices(
     emailChange,
     dispatcher,
   );
-  const users = new UsersService(prisma, access, legal, devices);
+  const registrations = new OwnerRegistrationsService(prisma, outbox, legal, config);
+  const users = new UsersService(prisma, access, legal, devices, registrations);
   const billing = options.billing ?? new BillingPortService();
   const adminUsers = new AdminUsersService(
     prisma,
@@ -93,6 +96,17 @@ export function identityServices(
     options.roleHoldersLimit ?? MAX_ROLE_HOLDERS_PER_CHANGE,
   );
   const frames = new FrameRecorder();
+  const notifications = new NotificationsService(prisma, frames);
+  const ownerReview = new OwnerReviewService(
+    prisma,
+    outbox,
+    access,
+    sessions,
+    notifications,
+    email,
+    dispatcher,
+    config,
+  );
   return {
     config,
     tokens,
@@ -111,7 +125,9 @@ export function identityServices(
     emailChange,
     passwords,
     frames,
-    notifications: new NotificationsService(prisma, frames),
+    notifications,
+    registrations,
+    ownerReview,
   };
 }
 

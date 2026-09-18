@@ -35,16 +35,18 @@ model User {
   deletedById          String?   @map("deleted_by_id") @db.Uuid
   erasedAt             DateTime? @map("erased_at") @db.Timestamptz(3)
 
-  deletedBy        User?             @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
-  deletedUsers     User[]            @relation("UserDeletedBy")
-  devices          Device[]
-  sessions         Session[]
-  roles            UserRole[]
-  legalAcceptances LegalAcceptance[]
-  auditLogs        AuditLog[]
-  actionTokens     ActionToken[]
-  emailDeliveries  EmailDelivery[]
-  notifications    Notification[]
+  deletedBy                  User?               @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedUsers               User[]              @relation("UserDeletedBy")
+  devices                    Device[]
+  sessions                   Session[]
+  roles                      UserRole[]
+  legalAcceptances           LegalAcceptance[]
+  auditLogs                  AuditLog[]
+  actionTokens               ActionToken[]
+  emailDeliveries            EmailDelivery[]
+  notifications              Notification[]
+  ownerRegistrations         OwnerRegistration[] @relation("OwnerRegistrationApplicant")
+  reviewedOwnerRegistrations OwnerRegistration[] @relation("OwnerRegistrationReviewer")
 
   @@index([deletedAt])
   @@map("users")
@@ -294,6 +296,43 @@ model Notification {
   @@unique([recipientUserId, eventId], map: "notifications_recipient_event_key")
   @@index([expiresAt], map: "notifications_expires_idx")
   @@map("notifications")
+}
+
+/// rdm-spec I-8 — one application to become a verified venue owner.
+/// The partial unique `owner_registrations_one_pending` and `owner_registrations_reviewed_ck` live in
+/// prisma/sql/schema-objects.sql.
+model OwnerRegistration {
+  id                     String    @id @default(uuid(7)) @db.Uuid
+  userId                 String    @map("user_id") @db.Uuid
+  /// OwnerRegistrationStatus in `@wayfare/contracts`; set by the create path, never defaulted.
+  status                 String    @db.VarChar(16)
+  businessName           String    @map("business_name") @db.VarChar(160)
+  businessAddress        String    @map("business_address") @db.VarChar(255)
+  businessRegistrationNo String?   @map("business_registration_no") @db.VarChar(32)
+  contactName            String    @map("contact_name") @db.VarChar(120)
+  /// E.164.
+  contactPhone           String    @map("contact_phone") @db.VarChar(20)
+  /// `v1:` + AES-256-GCM. NULL after redaction. Never indexed, never logged.
+  nationalIdCiphertext   String?   @map("national_id_ciphertext")
+  nationalIdLast4        String?   @map("national_id_last4") @db.Char(4)
+  applicantNote          String?   @map("applicant_note")
+  submittedAt            DateTime  @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  reviewedAt             DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  reviewedById           String?   @map("reviewed_by_id") @db.Uuid
+  /// Shown to the applicant.
+  decisionNote           String?   @map("decision_note")
+  /// Staff only; never serialized to an owner route.
+  internalNote           String?   @map("internal_note")
+  piiRedactedAt          DateTime? @map("pii_redacted_at") @db.Timestamptz(3)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User  @relation("OwnerRegistrationApplicant", fields: [userId], references: [id], onDelete: Restrict)
+  reviewedBy User? @relation("OwnerRegistrationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status, submittedAt])
+  @@map("owner_registrations")
 }
 
 /// rdm-spec §2.12 — one row per scheduled job.

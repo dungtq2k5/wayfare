@@ -69,6 +69,12 @@ expect_refused() {
   echo "✓ $who's old access token is refused after $((attempt * 200)) ms or less"
 }
 
+# identity_sql SQL — runs SQL against the local identity database and prints the bare result.
+identity_sql() {
+  (cd "$repo_root" && docker compose exec -T identity-db \
+    psql -U wayfare -d wayfare_identity -At -v ON_ERROR_STOP=1 -c "$1")
+}
+
 # catalog_sql SQL — runs SQL against the local catalog database and prints the bare result.
 catalog_sql() {
   (cd "$repo_root" && docker compose exec -T catalog-db \

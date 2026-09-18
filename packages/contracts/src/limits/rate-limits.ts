@@ -45,6 +45,8 @@ export const RATE_LIMITS = {
   EMAIL_REQUEST: { limit: 5, windowMs: HOUR_MS, keys: ['userId'] },
   // Each delivery check is a guess against the keyed hash; bounded per staff member.
   EMAIL_CHECK: { limit: 30, windowMs: HOUR_MS, keys: ['userId'] },
+  // National ID reveals, on top of each one's audit row: bounds what one staff session can read.
+  PII_REVEAL: { limit: 20, windowMs: HOUR_MS, keys: ['userId'] },
   AUTHENTICATED: { limit: 600, windowMs: MINUTE_MS, keys: ['userId'] },
 } as const satisfies Record<string, RateLimitSpec>;
 

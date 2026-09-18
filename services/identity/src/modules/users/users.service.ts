@@ -22,6 +22,7 @@ import type { Prisma } from '../../../generated/prisma/client';
 import { AccessService } from '../access/access.service';
 import { DevicesService } from '../devices/devices.service';
 import { LegalService } from '../legal/legal.service';
+import { OwnerRegistrationsService } from '../owner-registrations/owner-registrations.service';
 import type { LegalPartyRef } from '../legal/legal.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SESSION_ACCOUNT_SELECT } from '../sessions/sessions.service';
@@ -49,19 +50,27 @@ export class UsersService {
     private readonly access: AccessService,
     private readonly legal: LegalService,
     private readonly devices: DevicesService,
+    private readonly registrations: OwnerRegistrationsService,
   ) {}
 
-  /** The console's bootstrap read — from the database, not the token. */
+  /**
+   * The console's bootstrap read — from the database, not the token. `owner` is there for a verified
+   * owner or an applicant, with the open application when there is one.
+   */
   async getMe(context: RequestContext): Promise<identityGrpc.GetMeResponse> {
     const account = requireAccountContext(context);
     return this.prisma.$transaction(async (tx) => {
       const user = await this.liveUser(tx, account.userId);
       const { roles, permissions } = await this.access.accessOf(tx, user.id);
+      const ownerVerified = user.ownerVerifiedAt !== null;
+      const pendingRegistration = await this.registrations.pendingFor(tx, user.id);
       return {
         user: toSessionUser(user),
         roles,
         permissions,
-        ownerVerified: user.ownerVerifiedAt !== null,
+        ownerVerified,
+        owner:
+          ownerVerified || pendingRegistration !== undefined ? { pendingRegistration } : undefined,
       };
     });
   }

@@ -99,3 +99,18 @@ export const MAX_AUDIT_ACTION_LENGTH = 64;
 
 /** How far ahead a lock may expire. */
 export const MAX_LOCK_DURATION_MS = 366 * DAY_MS;
+
+/** Upper bound of `owner_registrations.business_name` (rdm-spec I-8). */
+export const MAX_BUSINESS_NAME_LENGTH = 160;
+
+/** Upper bound of `owner_registrations.business_address` (rdm-spec I-8). */
+export const MAX_BUSINESS_ADDRESS_LENGTH = 255;
+
+/** Upper bound of `owner_registrations.business_registration_no` (rdm-spec I-8). */
+export const MAX_BUSINESS_REGISTRATION_NO_LENGTH = 32;
+
+/** Upper bound of `owner_registrations.contact_name` (rdm-spec I-8). */
+export const MAX_CONTACT_NAME_LENGTH = 120;
+
+/** Upper bound of an applicant's or a reviewer's staff-only note on an owner registration. */
+export const MAX_REGISTRATION_NOTE_LENGTH = 2000;

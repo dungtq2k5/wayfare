@@ -30,8 +30,11 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PlaceStatusConsumer } from './modules/place-status/place-status.consumer';
 import { PlaceStatusModule } from './modules/place-status/place-status.module';
 import { NotificationsPruneJob } from './modules/scheduled/notifications-prune.job';
+import { OwnerPiiRedactJob } from './modules/scheduled/owner-pii-redact.job';
 import { ScheduledModule } from './modules/scheduled/scheduled.module';
 import { LegalModule } from './modules/legal/legal.module';
+import { OwnerRegistrationsModule } from './modules/owner-registrations/owner-registrations.module';
+import { OwnerReviewModule } from './modules/owner-review/owner-review.module';
 import { CONSUMERS, EventSpine, OutboxModule } from './modules/outbox/outbox.module';
 import { PasswordModule } from './modules/password/password.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
@@ -88,18 +91,21 @@ export class AppModule {
         NotificationsModule,
         NotificationCreateModule,
         PlaceStatusModule,
+        OwnerRegistrationsModule,
+        OwnerReviewModule,
         SchedulerModule.forRootAsync({
           imports: [ScheduledModule],
-          inject: [ConfigService, PrismaService, NotificationsPruneJob],
+          inject: [ConfigService, PrismaService, NotificationsPruneJob, OwnerPiiRedactJob],
           useFactory: (
             config: IdentityConfig,
             prisma: PrismaService,
             prune: NotificationsPruneJob,
+            redact: OwnerPiiRedactJob,
           ) => ({
             service: 'identity',
             redisUrl: config.get('REDIS_URL', { infer: true }),
             db: prisma,
-            jobs: [prune],
+            jobs: [prune, redact],
             enabled: options.jobs ?? true,
           }),
         }),

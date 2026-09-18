@@ -1,4 +1,4 @@
-import { zUuidV7 } from '@wayfare/contracts';
+import { zPendingRegistration, zUuidV7 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -23,6 +23,8 @@ export const meResponseSchema = z.object({
   roles: z.array(z.string()),
   permissions: z.array(z.string()),
   ownerVerified: z.boolean(),
+  /** For a verified owner or an applicant; `null` for everyone else. */
+  owner: z.object({ pendingRegistration: zPendingRegistration.nullable() }).nullable(),
 });
 
 /** What `GET /users/me` returns under `data`. */

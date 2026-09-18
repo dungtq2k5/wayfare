@@ -137,8 +137,9 @@ export const ERRORS = {
   TRANSLATION_NOT_READY: conflict,
   LEGAL_VERSION_OUTDATED: { ...conflict, details: legalVersionOutdatedDetails },
 
-  // 410 — every single-use link, spent or expired.
+  // 410 — every single-use link, spent or expired; a national ID after its redaction.
   TOKEN_EXPIRED: gone,
+  NATIONAL_ID_REDACTED: gone,
 
   // 422
   IDEMPOTENCY_KEY_REUSED: unprocessable,

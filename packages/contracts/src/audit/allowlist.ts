@@ -28,10 +28,15 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<AuditAction, AuditMetadat
   [AuditAction.EMAIL_CHANGE_REVERTED]: { after: ['revokedFamilies'] },
   [AuditAction.DEVICE_CLAIMED]: { before: ['previouslyClaimed'] },
   [AuditAction.USER_ERASED]: {},
-  [AuditAction.OWNER_REGISTRATION_SUBMITTED]: {},
-  [AuditAction.OWNER_REGISTRATION_WITHDRAWN]: {},
-  [AuditAction.OWNER_REGISTRATION_APPROVED]: {},
-  [AuditAction.OWNER_REGISTRATION_REJECTED]: {},
+  [AuditAction.OWNER_REGISTRATION_SUBMITTED]: { after: ['status'] },
+  [AuditAction.OWNER_REGISTRATION_WITHDRAWN]: { before: ['status'] },
+  // Whether each note was written, never its text.
+  [AuditAction.OWNER_REGISTRATION_APPROVED]: {
+    after: ['status', 'hasDecisionNote', 'hasInternalNote'],
+  },
+  [AuditAction.OWNER_REGISTRATION_REJECTED]: {
+    after: ['status', 'hasDecisionNote', 'hasInternalNote'],
+  },
   [AuditAction.OWNER_NATIONAL_ID_REVEALED]: {},
   [AuditAction.OWNER_PII_REDACTED]: {},
   [AuditAction.STAFF_USER_CREATED]: { after: ['roleCodes'] },

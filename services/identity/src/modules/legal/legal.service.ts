@@ -58,6 +58,27 @@ export class LegalService {
     return { party: who.party, document, version, acceptedAt: row.acceptedAt, current: true };
   }
 
+  /**
+   * Records the account's acceptance of the current `version` unless it already has one — an
+   * application that carries its agreement needs no second request (rdm-spec I-12).
+   */
+  async acceptIfMissing(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    document: LegalDocument,
+    version: string,
+    ip: string | null,
+  ): Promise<boolean> {
+    this.requireCurrent(document, version);
+    const existing = await tx.legalAcceptance.findFirst({
+      where: { userId, document, version },
+      select: { id: true },
+    });
+    if (existing !== null) return false;
+    await this.record(tx, { party: LegalParty.USER, userId }, document, version, ip);
+    return true;
+  }
+
   /** The newest acceptance per document for each given party. Different parties are never merged. */
   async latest(
     tx: Prisma.TransactionClient,

@@ -38,6 +38,20 @@ export interface GetMeResponse {
   roles: string[];
   permissions: string[];
   ownerVerified: boolean;
+  /** Present for a verified owner or an applicant; billing's summary joins it later. */
+  owner: OwnerSummary | undefined;
+}
+
+/** The owner part of `GetMe` (api-endpoints-plan §1.3). */
+export interface OwnerSummary {
+  /** The caller's open application, when there is one. */
+  pendingRegistration: PendingRegistration | undefined;
+}
+
+/** An open application: which, and since when. */
+export interface PendingRegistration {
+  id: string;
+  submittedAt: Timestamp | undefined;
 }
 
 export interface UpdateMeRequest {

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // pnpm keys:dev — generates an Ed25519 signing pair for local development and CI (ADR 0043).
 // Writes JWT_PRIVATE_KEY and JWT_KEY_ID into services/identity/.env and JWT_PUBLIC_KEYS into
-// services/gateway/.env, replacing only those lines. EMAIL_HASH_KEY is written only when it is
-// absent or empty: a new key would stop every stored address hash from matching. catalog gets a
+// services/gateway/.env, replacing only those lines. EMAIL_HASH_KEY and PII_ENCRYPTION_KEY are
+// written only when absent or empty: a new key would stop every stored address hash from matching,
+// and would make every stored national ID undecryptable. catalog gets a
 // throwaway service-account key to sign upload URLs against the storage emulator (architecture
 // §3.6), written once to services/catalog/.keys/ and named by GOOGLE_APPLICATION_CREDENTIALS in
 // catalog's and narration's .env.
@@ -47,10 +48,12 @@ function setEnv(file, entries) {
 const identityPath = resolve(root, 'services/identity/.env');
 const identityEnv = existsSync(identityPath) ? readFileSync(identityPath, 'utf8') : '';
 const hasHashKey = /^EMAIL_HASH_KEY=.+$/m.test(identityEnv);
+const hasPiiKey = /^PII_ENCRYPTION_KEY=.+$/m.test(identityEnv);
 setEnv('services/identity/.env', {
   JWT_PRIVATE_KEY: base64(privatePem),
   JWT_KEY_ID: keyId,
   ...(hasHashKey ? {} : { EMAIL_HASH_KEY: randomBytes(32).toString('base64') }),
+  ...(hasPiiKey ? {} : { PII_ENCRYPTION_KEY: randomBytes(32).toString('base64') }),
 });
 // Single-quoted: the JSON holds double quotes, and both dotenv and node --env-file accept it.
 setEnv('services/gateway/.env', {

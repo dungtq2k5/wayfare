@@ -36,6 +36,20 @@ message GetMeResponse {
   repeated string roles = 2;
   repeated string permissions = 3;
   bool owner_verified = 4;
+  // Present for a verified owner or an applicant; billing's summary joins it later.
+  OwnerSummary owner = 5;
+}
+
+// The owner part of `GetMe` (api-endpoints-plan §1.3).
+message OwnerSummary {
+  // The caller's open application, when there is one.
+  PendingRegistration pending_registration = 1;
+}
+
+// An open application: which, and since when.
+message PendingRegistration {
+  string id = 1;
+  google.protobuf.Timestamp submitted_at = 2;
 }
 
 message UpdateMeRequest {

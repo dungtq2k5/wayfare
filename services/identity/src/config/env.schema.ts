@@ -26,6 +26,19 @@ const zHashKey = z
     return key;
   });
 
+/** `PII_ENCRYPTION_KEY`: exactly 32 bytes, base64 — the AES-256-GCM key behind `v1:` values. */
+const zPiiKey = z
+  .string()
+  .min(1, 'Required — run `pnpm keys:dev` locally')
+  .transform((value, ctx) => {
+    const key = Buffer.from(value, 'base64');
+    if (key.length !== 32) {
+      ctx.addIssue({ code: 'custom', message: 'Must be exactly 32 bytes, base64-encoded' });
+      return z.NEVER;
+    }
+    return key;
+  });
+
 /** identity's environment, parsed once at boot (conventions §13). */
 export const envSchema = z
   .object({
@@ -58,6 +71,7 @@ export const envSchema = z
     ),
     EMAIL_NONPROD_CATCHALL: optional(zEmail),
     EMAIL_HASH_KEY: zHashKey,
+    PII_ENCRYPTION_KEY: zPiiKey,
     // A sending-only key; the tracking check runs as a deploy step with its own key.
     RESEND_API_KEY: optional(z.string().min(1)),
     RESEND_WEBHOOK_SECRET: optional(z.string().startsWith('whsec_')),

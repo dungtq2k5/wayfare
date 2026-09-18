@@ -38,7 +38,7 @@ export const RETIRED_TEST_CODE = 'legacy.test_only';
 export async function truncateAll(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
     // The catalogue (roles, permissions, role_permissions) is synced once by global-setup and kept.
-    'TRUNCATE users, user_roles, sessions, legal_acceptances, devices, outbox_events, audit_logs, action_tokens, email_deliveries, notifications, job_runs RESTART IDENTITY CASCADE',
+    'TRUNCATE users, user_roles, sessions, legal_acceptances, devices, outbox_events, audit_logs, action_tokens, email_deliveries, notifications, job_runs, owner_registrations RESTART IDENTITY CASCADE',
   );
   // …except what the specs add to it: custom roles and the retired test code.
   await prisma.$executeRaw`DELETE FROM roles WHERE code LIKE 'CUSTOM\_%'`;

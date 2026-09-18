@@ -41,6 +41,7 @@ const tokens = new TokensService(
     EMAIL_FROM: 'Wayfare <no-reply@wayfare.local>',
     EMAIL_DELIVERY_MODE: 'open',
     EMAIL_HASH_KEY: Buffer.alloc(32).toString('base64'),
+    PII_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
     CONSOLE_URL: 'http://console.localhost',
     WEB_URL: 'http://web.localhost',
   }),

@@ -78,6 +78,8 @@ export class IdentityStub {
   readonly emailChange = new StubCaller();
   readonly emailWebhooks = new StubCaller();
   readonly notifications = new StubCaller();
+  readonly owner = new StubCaller();
+  readonly ownerReview = new StubCaller();
 
   onModuleInit(): void {}
 
@@ -93,6 +95,8 @@ export class IdentityStub {
       this.emailChange,
       this.emailWebhooks,
       this.notifications,
+      this.owner,
+      this.ownerReview,
     ]) {
       caller.calls.length = 0;
       caller.handlers = {};

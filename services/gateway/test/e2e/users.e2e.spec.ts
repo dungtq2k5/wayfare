@@ -53,6 +53,38 @@ describe('/users/me', () => {
     expect(res.headers['cache-control']).toBe('private, no-store');
   });
 
+  it("carries an applicant's open application, and null for everyone else", async () => {
+    const plain = await request(server())
+      .get('/api/v1/users/me')
+      .set('X-Wayfare-Client', 'console')
+      .set('Cookie', cookie());
+    expect(plain.body.data.owner).toBeNull();
+    const { user } = stubSession();
+    gateway.identity.users.handlers.getMe = () =>
+      Promise.resolve({
+        user,
+        roles: ['USER'],
+        permissions: [],
+        ownerVerified: false,
+        owner: {
+          pendingRegistration: {
+            id: '01990000-0000-7000-8000-0000000000aa',
+            submittedAt: toProtoTimestamp(new Date('2026-09-18T08:00:00.000Z')),
+          },
+        },
+      });
+    const res = await request(server())
+      .get('/api/v1/users/me')
+      .set('X-Wayfare-Client', 'console')
+      .set('Cookie', cookie());
+    expect(res.body.data.owner).toEqual({
+      pendingRegistration: {
+        id: '01990000-0000-7000-8000-0000000000aa',
+        submittedAt: '2026-09-18T08:00:00.000Z',
+      },
+    });
+  });
+
   it('refuses anonymous callers', async () => {
     const res = await request(server()).get('/api/v1/users/me').set('X-Wayfare-Client', 'console');
     expect(res.status).toBe(401);

@@ -4,5 +4,6 @@ export * from './email';
 export * from './enums';
 export * from './legal';
 export * from './limits';
+export * from './owner-registration';
 export * from './revocation';
 export * from './role-code';

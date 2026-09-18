@@ -65,4 +65,32 @@ describe('identity schema objects (rdm-spec §5)', () => {
     );
     expect(message).toContain('sessions_client_ck');
   });
+
+  it('owner_registrations_one_pending refuses a second open application', async () => {
+    const userId = await insertUser();
+    const insert = (status: string) => prisma.$executeRaw`
+      INSERT INTO owner_registrations
+        (id, user_id, status, business_name, business_address, contact_name, contact_phone)
+      VALUES (${newId()}::uuid, ${userId}::uuid, ${status}, 'Quán', 'Q1', 'An', '+84901234567')`;
+    await insert('PENDING');
+    await insert('WITHDRAWN');
+    expect(await violated(() => insert('PENDING'))).toContain('owner_registrations_one_pending');
+  });
+
+  it('owner_registrations_reviewed_ck ties a review time to a decision', async () => {
+    const userId = await insertUser();
+    const insert = (status: string, reviewedAt: Date | null) => prisma.$executeRaw`
+      INSERT INTO owner_registrations
+        (id, user_id, status, business_name, business_address, contact_name, contact_phone,
+         reviewed_at)
+      VALUES (${newId()}::uuid, ${userId}::uuid, ${status}, 'Quán', 'Q1', 'An', '+84901234567',
+              ${reviewedAt})`;
+    expect(await violated(() => insert('APPROVED', null))).toContain(
+      'owner_registrations_reviewed_ck',
+    );
+    expect(await violated(() => insert('WITHDRAWN', new Date()))).toContain(
+      'owner_registrations_reviewed_ck',
+    );
+    await insert('REJECTED', new Date());
+  });
 });

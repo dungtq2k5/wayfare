@@ -238,7 +238,7 @@ describe('wayfare.identity device, auth and user RPCs', () => {
     );
     expect(cutoff.tokensValidAfterMs).toBeUndefined();
 
-    const me = await unary<{ roles: string[]; ownerVerified: boolean }>(
+    const me = await unary<{ roles: string[]; ownerVerified: boolean; owner: unknown }>(
       userClient,
       'getMe',
       {},
@@ -258,6 +258,8 @@ describe('wayfare.identity device, auth and user RPCs', () => {
       roles: ['USER'],
       permissions: [],
       ownerVerified: false,
+      // Neither an owner nor an applicant: the message field travels unset.
+      owner: null,
     });
   });
 

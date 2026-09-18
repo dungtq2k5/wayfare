@@ -140,6 +140,7 @@ Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, 
 | Current-password checks (`PATCH /auth/password`, `POST /auth/email/change`) | userId | 10 / 15 min (`PASSWORD_CHECK`) |
 | Verification email re-sends | userId | 5 / hour (`EMAIL_REQUEST`) |
 | Delivery address checks (`POST /admin/users/:id/email-deliveries/check`) | userId | 30 / hour (`EMAIL_CHECK`) |
+| National ID reveals (`POST /admin/owner-registrations/:id/national-id/reveal`) | userId | 20 / hour (`PII_REVEAL`) — on top of the audit row, so a stolen staff session cannot read the whole queue |
 | Everything else authenticated | userId | 600 / min |
 
 ### 0.10 Versioning
@@ -210,7 +211,7 @@ A new version is never used for an additive change. Within v1: fields are added,
 
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
-| POST | `/owner/registration` ✎ | Apply. `{ businessName, businessAddress, businessRegistrationNo?, contactName, contactPhone, nationalId, applicantNote?, ownerAgreementVersion }`. The national ID is encrypted before the row is written and never echoed. Requires the current `OWNER_AGREEMENT` acceptance. `409 REGISTRATION_ALREADY_PENDING`. | USER+EMAIL |
+| POST | `/owner/registration` ✎ | Apply. `{ businessName, businessAddress, businessRegistrationNo?, contactName, contactPhone, nationalId, applicantNote?, ownerAgreementVersion }`. The national ID is a 12-digit CCCD, encrypted before the row is written and never echoed. `ownerAgreementVersion` must be the current `OWNER_AGREEMENT` version (`409 LEGAL_VERSION_OUTDATED`), and the same transaction records the acceptance if the account has none for it. `409 REGISTRATION_ALREADY_PENDING`; `409 INVALID_STATE` for an account that is already an owner. | USER+EMAIL |
 | GET | `/owner/registration` | The caller's applications, newest first: status, `decisionNote`, `nationalIdLast4`. **Never `internal_note`.** | USER |
 | POST | `/owner/registration/:id/withdraw` ✎ | `PENDING` → `WITHDRAWN`. | USER |
 
@@ -220,8 +221,8 @@ A new version is never used for an additive change. Within v1: fields are added,
 | :---- | :---- | :---- | :---- |
 | GET | `/admin/owner-registrations` | Queue. `?status=&q=` (business or contact name), page style. Oldest `PENDING` first by default. | perm:`owner_registration.read` |
 | GET | `/admin/owner-registrations/:id` | Detail with applicant account summary and prior applications. National ID shown as last 4 only. | perm:`owner_registration.read` |
-| POST | `/admin/owner-registrations/:id/national-id/reveal` ✎ | Decrypt and return the full national ID **once**, with `Cache-Control: no-store`. `POST`, not `GET`, because it has a side effect (the audit row) and must never be prefetched. `410` after redaction. | perm:`owner_registration.pii.read` |
-| POST | `/admin/owner-registrations/:id/approve` ✎ | `{ decisionNote?, internalNote? }`. The approval transaction in rdm-spec I-8. | perm:`owner_registration.review` |
+| POST | `/admin/owner-registrations/:id/national-id/reveal` ✎ | Decrypt and return the full national ID **once**, with `Cache-Control: no-store`. `POST`, not `GET`, because it has a side effect (the audit row) and must never be prefetched. `410 NATIONAL_ID_REDACTED` after redaction. Rate class `PII_REVEAL` (§0.9). | perm:`owner_registration.pii.read` |
+| POST | `/admin/owner-registrations/:id/approve` ✎ | `{ decisionNote?, internalNote? }`. The approval transaction in rdm-spec I-8. `409 INVALID_STATE` when the application is no longer `PENDING` or the applicant has been deactivated; `403 PERMISSION_DENIED` for a reviewer's own application (also on reject). | perm:`owner_registration.review` |
 | POST | `/admin/owner-registrations/:id/reject` ✎ | `{ decisionNote, internalNote? }` — `decisionNote` required. | perm:`owner_registration.review` |
 
 *Audit actions:* `OWNER_REGISTRATION_SUBMITTED`, `OWNER_REGISTRATION_WITHDRAWN`, `OWNER_REGISTRATION_APPROVED`, `OWNER_REGISTRATION_REJECTED`, `OWNER_NATIONAL_ID_REVEALED`, `OWNER_PII_REDACTED` (job).

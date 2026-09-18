@@ -33,6 +33,8 @@ import { NarrationClientModule } from './modules/narration-client/narration-clie
 import { NarrationModule } from './modules/narration/narration.module';
 import { REDIS, RedisLifecycle, RedisModule } from './modules/ops/redis.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OwnerRegistrationModule } from './modules/owner-registration/owner-registration.module';
+import { AdminOwnerRegistrationsModule } from './modules/admin-owner-registrations/admin-owner-registrations.module';
 import { PasswordModule } from './modules/password/password.module';
 import { PlacesModule } from './modules/places/places.module';
 import { QrModule } from './modules/qr/qr.module';
@@ -79,6 +81,8 @@ export class AppModule {
         EmailChangeModule,
         EmailWebhooksModule,
         NotificationsModule,
+        OwnerRegistrationModule,
+        AdminOwnerRegistrationsModule,
         CatalogModule,
         NarrationClientModule,
         NarrationModule,
