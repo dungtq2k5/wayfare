@@ -150,6 +150,40 @@ export class UploadsService {
   }
 
   /**
+   * The development seed's way in (ADR 0002): what a browser's signed `PUT` would have stored is
+   * written directly, then confirmed by the same path — sniffed, converted, original deleted.
+   * Never reachable over gRPC. Returns the confirmed upload's id and its original's hash.
+   */
+  async importOriginal(
+    context: RequestContext,
+    file: { readonly bytes: Buffer; readonly contentType: string },
+  ): Promise<{ uploadId: string; sha256: string }> {
+    const actor = requireAccountContext(context);
+    const contentType = UPLOAD_CONTENT_TYPES.find((type) => type === file.contentType);
+    if (contentType === undefined) throw new Error(`not an upload type: ${file.contentType}`);
+    if (file.bytes.length > MAX_UPLOAD_BYTES) throw rpcError('UPLOAD_TOO_LARGE');
+    const id = newId();
+    await this.prisma.pendingUpload.create({
+      data: {
+        id,
+        purpose: UploadPurpose.PLACE_PHOTO,
+        uploaderUserId: actor.userId,
+        objectPath: originalPath(id),
+        declaredContentType: contentType,
+        maxBytes: MAX_UPLOAD_BYTES,
+        expiresAt: new Date(Date.now() + UPLOAD_URL_TTL_MS),
+      },
+      select: { id: true },
+    });
+    await this.storage.upload(originalPath(id), file.bytes, {
+      contentType,
+      cacheControl: 'private, no-store',
+    });
+    await this.confirmUpload({ uploadId: id }, context);
+    return { uploadId: id, sha256: sha256(file.bytes) };
+  }
+
+  /**
    * Checks what arrived and converts it (rdm-spec C-12): present, within the size limit, the
    * declared type by its magic bytes, within the pixel limit; then three stripped WebP variants,
    * and the original — the only copy of the phone's EXIF — deleted. Idempotent once confirmed.
@@ -162,7 +196,7 @@ export class UploadsService {
     const { uploadId } = parseRpcRequest(confirmFields, request);
     const upload = await this.prisma.pendingUpload.findUnique({ where: { id: uploadId } });
     // Someone else's upload is indistinguishable from a missing one.
-    if (upload === null || upload.uploaderUserId !== actor.userId) {
+    if (upload?.uploaderUserId !== actor.userId) {
       throw rpcError('UPLOAD_NOT_READY');
     }
     if (upload.confirmedAt !== null) {

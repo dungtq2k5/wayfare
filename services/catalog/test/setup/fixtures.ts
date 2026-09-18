@@ -2,7 +2,6 @@
 import { createHash } from 'node:crypto';
 import {
   AudioStatus,
-  CategoryAppliesTo,
   newId,
   PlaceKind,
   PlaceStatus,
@@ -17,7 +16,7 @@ import { buildAccountContext, buildDeviceContext } from '@wayfare/nest-common/te
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { placeContentHash } from '../../src/modules/places/places.service';
 import { bumpSyncVersion } from '../../src/modules/sync/sync.service';
-import { insertArea, insertCategory } from './database';
+import { insertArea, seededCategory } from './database';
 
 /** A staff account allowed every place route. */
 export function staff(overrides: Partial<Omit<AccountContext, 'kind'>> = {}): AccountContext {
@@ -50,15 +49,16 @@ export async function errorOf(
   };
 }
 
-/** An area and two categories: one for any Place, one for Venues only. */
+/**
+ * A fixture area and the seeded categories the suites use: `MARKET` and `LANDMARK` (any Place),
+ * `RESTAURANT` (Venues only). The area is the test's own, never the pilot geometry.
+ */
 export async function taxonomy(prisma: PrismaService) {
   const area = await insertArea(prisma);
-  const any = await insertCategory(prisma, { code: 'MARKET' });
-  const venueOnly = await insertCategory(prisma, {
-    code: 'RESTAURANT',
-    appliesTo: CategoryAppliesTo.VENUE,
-  });
-  return { area, any, venueOnly };
+  const any = await seededCategory(prisma, 'MARKET');
+  const landmark = await seededCategory(prisma, 'LANDMARK');
+  const venueOnly = await seededCategory(prisma, 'RESTAURANT');
+  return { area, any, landmark, venueOnly };
 }
 
 /** A proto `PlaceContent`. */

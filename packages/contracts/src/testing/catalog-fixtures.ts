@@ -1,5 +1,6 @@
 // Catalog shapes for tests: the pilot geometry, RPC messages for stubbed peers in the gateway
 // suites, and `narration.localization.ready` payloads for the gate (rdm-spec §1.6).
+import { systemCategory } from '../catalog/categories';
 import { newId } from '../common/ids';
 import { LocalizationTargetType, TranslationSource } from '../narration/enums';
 import type { GeoPoint } from '../catalog/schemas';
@@ -77,14 +78,17 @@ export function photoVariantViewsFixture(): PhotoVariantViews {
   };
 }
 
+/** The seeded category the fixtures use (rdm-spec C-2). */
+const MARKET = systemCategory('MARKET')!;
+
 /** A category as `ListCategories` returns it. */
 export function categoryFixture(overrides: Partial<Category> = {}): Category {
   return {
     id: CATALOG_FIXTURE_IDS.category,
-    code: 'MARKET',
+    code: MARKET.code,
     appliesTo: ProtoCategoryAppliesTo.CATEGORY_APPLIES_TO_ANY,
-    icon: 'market',
-    sortOrder: 0,
+    icon: MARKET.icon,
+    sortOrder: MARKET.sortOrder,
     ...overrides,
   };
 }

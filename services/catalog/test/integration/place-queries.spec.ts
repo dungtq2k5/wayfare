@@ -1,10 +1,16 @@
-import { businessDay, newId, PlaceKind, PlaceStatus } from '@wayfare/contracts';
+import { businessDay, newId, PlaceKind, PlaceStatus, SYSTEM_CATEGORIES } from '@wayfare/contracts';
 import { catalogGrpc } from '@wayfare/contracts/grpc';
 import { FIXTURE_INSIDE } from '@wayfare/contracts/testing';
 import { buildAnonymousContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { NEARBY_CANDIDATE_CAP } from '../../src/modules/place-queries/place-queries.service';
-import { insertArea, insertCategory, testPrisma, truncateAll } from '../setup/database';
+import {
+  insertArea,
+  insertCategory,
+  seededCategory,
+  testPrisma,
+  truncateAll,
+} from '../setup/database';
 import {
   confirmedUpload,
   createRequest,
@@ -90,7 +96,7 @@ describe('NearbyPlaces', () => {
     const kept = await live({ location: east(50) });
     await live({ location: east(60), status: PlaceStatus.PROCESSING });
     await live({ location: east(70), deleted: true });
-    const other = await insertCategory(prisma, { code: 'TEMPLE' });
+    const other = await seededCategory(prisma, 'TEMPLE');
     const temple = await insertPlace(prisma, {
       areaId: tax.area.id,
       categoryId: other.id,
@@ -252,10 +258,15 @@ describe('GetPlace, GetPlaceByCode, ResolvePublicCode', () => {
 
 describe('ListCategories and ListAreas', () => {
   it('lists active categories in order', async () => {
-    await insertCategory(prisma, { code: 'HIDDEN', isActive: false });
+    await insertCategory(prisma, { code: 'TEST_HIDDEN', isActive: false });
+    await prisma.category.update({ where: { code: 'CAFE' }, data: { isActive: false } });
     const { categories } = await queries.listCategories({}, buildAnonymousContext());
-    expect(categories.map((category) => category.code)).toEqual(['MARKET', 'RESTAURANT']);
-    expect(categories[1]!.appliesTo).toBe(catalogGrpc.CategoryAppliesTo.CATEGORY_APPLIES_TO_VENUE);
+    expect(categories.map((category) => category.code)).toEqual(
+      SYSTEM_CATEGORIES.map((entry) => entry.code).filter((code) => code !== 'CAFE'),
+    );
+    expect(categories.find((category) => category.code === 'RESTAURANT')!.appliesTo).toBe(
+      catalogGrpc.CategoryAppliesTo.CATEGORY_APPLIES_TO_VENUE,
+    );
   });
 
   it('lists active areas with GeoJSON and the shared dataset version', async () => {

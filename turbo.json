@@ -40,6 +40,16 @@
     },
     "db:drift": {
       "cache": false
+    },
+    "seed:dev": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "passThroughEnv": ["NODE_ENV", "SEED_ACCOUNT_PASSWORD"]
+    },
+    "@wayfare/catalog#seed:dev": {
+      "dependsOn": ["build", "@wayfare/identity#seed:dev"],
+      "cache": false,
+      "passThroughEnv": ["NODE_ENV", "SEED_ACCOUNT_PASSWORD"]
     }
   }
 }

@@ -3,9 +3,13 @@
 # catalog, gateway, fake-gcs, NATS), started from the repository root's compose file.
 # Uses http://localhost only: curl never sends a Secure cookie to 127.0.0.1.
 #
+# narration must be STOPPED: this walk plays narration's part itself, asserting the gate before
+# publishing hand-made `ready` events, and a running pipeline would deliver real ones first.
+#
 # Usage: services/gateway/scripts/walk-catalog.sh
-#   BASE, ROOT and the BOOTSTRAP_SUPER_ADMIN_* variables may be overridden. The category and the
-#   area are inserted here until the pilot seed exists; the sync lag makes some steps wait ~6 s.
+#   BASE, ROOT, NARRATION_OPS and the BOOTSTRAP_SUPER_ADMIN_* variables may be overridden. Step 0
+#   runs `pnpm seed:dev`; the Place is created in the seeded pilot area and deleted at the end. The
+#   sync lag makes some steps wait ~6 s.
 set -euo pipefail
 
 ROOT=${ROOT:-http://localhost:3000}
@@ -15,8 +19,9 @@ BUCKET=${BUCKET:-wayfare-media-local}
 APP_VERSION=${APP_VERSION:-1.0.0}
 export BOOTSTRAP_SUPER_ADMIN_EMAIL=${BOOTSTRAP_SUPER_ADMIN_EMAIL:-superadmin@wayfare.local}
 export BOOTSTRAP_SUPER_ADMIN_PASSWORD=${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-super admin pass 1}
+NARRATION_OPS=${NARRATION_OPS:-http://localhost:3103}
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+trap 'forget_places; rm -rf "$work"' EXIT
 # shellcheck source=./walk-lib.sh
 source "$(dirname "$0")/walk-lib.sh"
 
@@ -75,7 +80,12 @@ make_photo() {
 reset_local_state
 stamp=$(date +%s)
 
-step '0. sign in, register a device, and insert the pilot category and area'
+step '0. narration stopped; seed; sign in and register a device'
+if curl -sS -o /dev/null -m 2 "$NARRATION_OPS/health" 2>/dev/null; then
+  fail "narration answers at $NARRATION_OPS — stop it first: this walk publishes narration's events itself"
+fi
+echo '✓ narration is stopped'
+seed_dev
 (cd "$repo_root" && pnpm --silent --filter @wayfare/identity bootstrap:super-admin) | tail -1
 call admin-login 200 -X POST "$BASE/auth/login" "${console[@]}" \
   -d "$(body --arg e "$BOOTSTRAP_SUPER_ADMIN_EMAIL" --arg p "$BOOTSTRAP_SUPER_ADMIN_PASSWORD" '{email: $e, password: $p}')"
@@ -83,18 +93,9 @@ cookie_value admin-login wf_at >"$work/admin.at"
 call device-register 201 -X POST "$BASE/devices" "${mobile[@]}" \
   -d '{"platform":"ANDROID","appVersion":"'"$APP_VERSION"'","contentLocale":"en","privacyPolicyVersion":"2026-09-01"}'
 json device-register .data.accessToken >"$work/device.token"
-catalog_sql "INSERT INTO categories (id, code, applies_to, icon, sort_order)
-  VALUES ('01990000-0000-7000-8000-00000000c001', 'LANDMARK', 'ANY', 'landmark', 0)
-  ON CONFLICT (code) DO UPDATE SET is_active = true" >/dev/null
-# Retire any area an earlier walk left, so the Place can only land in this one.
-catalog_sql "UPDATE areas SET is_active = false WHERE code LIKE 'walk-%'" >/dev/null
-# Ids come from the application (rdm-spec §2.1).
-area_id=$(catalog_node 'process.stdout.write(require("@wayfare/contracts").newId())')
-catalog_sql "INSERT INTO areas (id, code, name_vi, boundary, center, default_zoom, is_active)
-  VALUES ('$area_id', 'walk-$stamp', 'Khu thử',
-    ST_GeogFromText('POLYGON((106.69 10.765, 106.71 10.765, 106.71 10.78, 106.69 10.78, 106.69 10.765))'),
-    ST_SetSRID(ST_MakePoint(106.7, 10.7725), 4326)::geography, 15, true)" >/dev/null
-echo "✓ area $area_id"
+area_id=$(pilot_area_id)
+read -r walk_lat walk_lng < <(walk_location 0)
+echo "✓ pilot area $area_id; this run's Place at $walk_lat, $walk_lng"
 
 step '1. the public reads'
 call categories 200 "$BASE/categories" "${web[@]}"
@@ -123,11 +124,12 @@ echo '✓ the original is deleted'
 
 step '3. create an Editorial Place with the photo, hours and requestActivation → PROCESSING'
 call create 201 -X POST "$BASE/admin/places" "${console[@]}" -b "$(admin)" -d "$(body \
-  --arg name "Nhà hát Thành phố $stamp" --arg upload "$upload_1" '{
+  --arg name "Điểm thử $stamp" --arg upload "$upload_1" \
+  --argjson lat "$walk_lat" --argjson lng "$walk_lng" '{
     nameVi: $name,
-    descriptionVi: "Nhà hát xây năm 1900, theo phong cách Pháp.",
+    descriptionVi: "Một điểm thử của bài đi bộ, xóa khi bài kết thúc.",
     categoryCode: "LANDMARK",
-    location: {lat: 10.7766, lng: 106.7031},
+    location: {lat: $lat, lng: $lng},
     addressVi: "7 Công Trường Lam Sơn",
     triggerRadiusM: 40,
     narrationPriority: 70,
@@ -136,10 +138,11 @@ call create 201 -X POST "$BASE/admin/places" "${console[@]}" -b "$(admin)" -d "$
     requestActivation: true
   }')"
 place_id=$(json create .data.place.id)
+remember_place "$place_id"
 code=$(json create .data.place.publicCode)
 hash=$(json create .data.place.contentHash)
 [[ $(json create .data.place.status) == PROCESSING ]] || fail 'the Place is not PROCESSING'
-[[ $(json create .data.place.areaId) == "$area_id" ]] || fail 'the Place is not in the walk area'
+[[ $(json create .data.place.areaId) == "$area_id" ]] || fail 'the Place is not in the pilot area'
 echo "✓ Place $place_id, code $code"
 
 step '4. activate → the gate says what is missing'
@@ -205,7 +208,8 @@ call photos 200 -X PUT "$BASE/admin/places/$place_id/photos" "${console[@]}" -b 
 echo "✓ syncVersion $version_before → $(json photos .data.place.syncVersion)"
 
 step '9. nearby, the sticker, the QR redirect and the detail by code'
-call nearby 200 "$BASE/places/nearby?lat=10.7765&lng=106.7030&radiusM=500&lang=en" "${mobile[@]}" -H "$(device)"
+# The largest limit: the walk's Place must not drop out behind the pilot corpus.
+call nearby 200 "$BASE/places/nearby?lat=$walk_lat&lng=$walk_lng&radiusM=500&limit=50&lang=en" "${mobile[@]}" -H "$(device)"
 [[ $(json nearby "[.data[] | select(.id == \"$place_id\")] | .[0].walkingEtaMinutes") =~ ^[0-9]+$ ]] ||
   fail 'the Place is not nearby, or has no walking ETA'
 call qr-svg 200 "$BASE/admin/places/$place_id/qr" "${console[@]}" -b "$(admin)"
@@ -242,5 +246,11 @@ call by-code-gone 404 "$BASE/places/by-code/$code?lang=en" "${mobile[@]}" -H "$(
 call restore 200 -X POST "$BASE/admin/places/$place_id/restore" "${console[@]}" -b "$(admin)"
 [[ $(json restore .data.place.status) == ACTIVE ]] || fail 'the restored Place is not ACTIVE'
 call by-code-back 200 "$BASE/places/by-code/$code?lang=en" "${mobile[@]}" -H "$(device)"
+
+step '11. delete the walk Place again, leaving no test Place on the map'
+forget_places
+[[ $(catalog_sql "SELECT count(*) FROM places WHERE id = '$place_id' AND deleted_at IS NULL") == 0 ]] ||
+  fail 'the walk Place is still live'
+echo '✓ the walk Place is deleted'
 
 printf '\n✓ catalog walk complete\n'

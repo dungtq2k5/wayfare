@@ -14,6 +14,7 @@ import {
 } from '@wayfare/nest-common';
 import { envSchema } from './config/env.schema';
 import type { CatalogConfig } from './config/env.schema';
+import { AreasModule } from './modules/areas/areas.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PendingUploadsReapJob } from './modules/jobs/pending-uploads-reap.job';
 import { PhotoObjectsCleanupJob } from './modules/jobs/photo-objects-cleanup.job';
@@ -27,6 +28,7 @@ import { PlaceQueriesModule } from './modules/place-queries/place-queries.module
 import { PlacesModule } from './modules/places/places.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
+import { SystemCatalogModule } from './modules/system-catalog/system-catalog.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
@@ -54,6 +56,8 @@ export class AppModule {
         createLoggerModuleAsync(),
         PrismaModule,
         OutboxModule,
+        SystemCatalogModule,
+        AreasModule,
         UploadsModule,
         PlacesModule,
         PlaceQueriesModule,

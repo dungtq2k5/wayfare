@@ -278,7 +278,7 @@ describe('GET /categories and /areas', () => {
         code: 'MARKET',
         appliesTo: 'ANY',
         icon: 'market',
-        sortOrder: 0,
+        sortOrder: 40,
       },
     ]);
     const areas = await request(server()).get('/api/v1/areas').set('X-Wayfare-Client', 'web');

@@ -181,6 +181,7 @@ const deactivateFields = z.object({
 
 const qrFields = z.object({
   placeId: zUuidV7,
+  // FIXME Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.
   qrBaseUrl: z.url({ protocol: /^https?$/ }).transform((value) => value.replace(/\/+$/, '')),
 });
 
@@ -355,10 +356,15 @@ export class PlacesService {
     return { place: await this.view(this.prisma, placeId) };
   }
 
-  /** Creates an Editorial Place (api-endpoints-plan §3.5). Venues come from approved submissions. */
+  /**
+   * Creates an Editorial Place (api-endpoints-plan §3.5). Venues come from approved submissions.
+   * `fixed` is the development seed's committed id and code (ADR 0002), never reachable over gRPC:
+   * a committed code is tried once, and a collision is `SHORT_CODE_COLLISION`, never a new code.
+   */
   async createEditorialPlace(
     request: catalogGrpc.CreateEditorialPlaceRequest,
     context: RequestContext,
+    fixed: { readonly id?: string; readonly publicCode?: string } = {},
   ): Promise<catalogGrpc.CreateEditorialPlaceResponse> {
     const actor = requireAccountContext(context);
     const fields = parseRpcRequest(createFields, request);
@@ -370,7 +376,7 @@ export class PlacesService {
     const place = await withSyncWrite(this.prisma, async (tx) => {
       const category = await this.requireCategory(tx, text.categoryCode, PlaceKind.EDITORIAL);
       const area = await this.requireCoveringArea(tx, text.location);
-      const id = newId();
+      const id = fixed.id ?? newId();
       const status = fields.requestActivation ? PlaceStatus.PROCESSING : PlaceStatus.DRAFT;
       const hash = placeContentHash(text.nameVi, text.descriptionVi);
       const publicCode = await this.insertPlace(tx, {
@@ -385,6 +391,7 @@ export class PlacesService {
         status,
         activationRequestedAt: fields.requestActivation ? now : null,
         createdById: actor.userId,
+        publicCode: fixed.publicCode,
       });
       await this.addPhotos(
         tx,
@@ -989,7 +996,7 @@ export class PlacesService {
       where: { code },
       select: { id: true, appliesTo: true, isActive: true },
     });
-    if (category === null || !category.isActive) {
+    if (!category?.isActive) {
       throw rpcError('RESOURCE_NOT_FOUND', { resource: 'CATEGORY' });
     }
     const appliesTo: string = category.appliesTo;
@@ -1033,11 +1040,14 @@ export class PlacesService {
       status: PlaceStatus;
       activationRequestedAt: Date | null;
       createdById: string;
+      /** A committed code: one attempt, no random fallback. */
+      publicCode?: string;
     },
   ): Promise<string> {
     const { text } = place;
-    for (let attempt = 0; attempt < PUBLIC_CODE_ATTEMPTS; attempt++) {
-      const code = publicCodeFrom(randomBytes(PUBLIC_CODE_ENTROPY_BYTES));
+    const attempts = place.publicCode === undefined ? PUBLIC_CODE_ATTEMPTS : 1;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const code = place.publicCode ?? publicCodeFrom(randomBytes(PUBLIC_CODE_ENTROPY_BYTES));
       // longitude first
       const inserted = await tx.$queryRaw<{ id: string }[]>`
         INSERT INTO places (

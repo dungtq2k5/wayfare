@@ -1,0 +1,383 @@
+[
+  {
+    "slug": "cho-ben-thanh",
+    "id": "01a0b373-d3eb-73c0-bd63-b96a868ab216",
+    "publicCode": "QK4V1TCX",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "MARKET",
+    "nameVi": "Chợ Bến Thành",
+    "descriptionVi": "Chợ Bến Thành là một trong những biểu tượng quen thuộc nhất của Sài Gòn. Tòa nhà chợ hiện nay được xây dựng vào đầu thế kỷ hai mươi, trong thời Pháp thuộc, và đã trở thành điểm hẹn của người dân lẫn du khách suốt hơn một trăm năm. Ở cửa chính phía nam là tháp đồng hồ, hình ảnh thường xuất hiện trên bưu thiếp và ảnh lưu niệm về thành phố. Bên trong, các gian hàng được chia theo từng khu: vải vóc, quần áo, đồ lưu niệm, hàng khô, trái cây và đặc sản các vùng miền. Khu ẩm thực giữa chợ phục vụ nhiều món ăn quen thuộc của người Nam Bộ. Chợ thường đông nhất vào buổi sáng. Khi mua sắm, bạn nên hỏi giá trước và trả giá nhẹ nhàng, lịch sự, vì đó là nét quen thuộc của chợ truyền thống.",
+    "addressVi": "Công trường Quách Thị Trang, Phường Bến Thành",
+    "location": {
+      "lat": 10.7725301,
+      "lng": 106.6980365
+    },
+    "triggerRadiusM": 40,
+    "narrationPriority": 70,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "pho-di-bo-nguyen-hue",
+    "id": "01a0b373-d3eb-73c0-bd63-bf84794a5ab2",
+    "publicCode": "NQ22ZQXK",
+    "review": "DRAFT",
+    "locationSource": "APPROXIMATE",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Phố đi bộ Nguyễn Huệ",
+    "descriptionVi": "Phố đi bộ Nguyễn Huệ là quảng trường dài giữa trung tâm thành phố, được cải tạo từ đại lộ Nguyễn Huệ và mở cửa cho người đi bộ từ năm 2015. Một đầu phố là trụ sở Ủy ban nhân dân Thành phố và tượng đài Chủ tịch Hồ Chí Minh, đầu còn lại hướng về phía sông Sài Gòn. Hai bên đường là khách sạn, cửa hàng và những tòa nhà cũ có quán cà phê nhỏ trên nhiều tầng. Vào buổi tối và cuối tuần, nơi đây đông vui với gia đình, bạn trẻ và du khách đi dạo, chụp ảnh hay xem các nhóm biểu diễn đường phố. Phố cũng là nơi tổ chức nhiều sự kiện lớn của thành phố, đặc biệt là đường hoa dịp Tết Nguyên đán. Đây là điểm dừng dễ chịu để nghỉ chân và cảm nhận nhịp sống sôi động của Sài Gòn.",
+    "location": {
+      "lat": 10.7749,
+      "lng": 106.7029
+    },
+    "triggerRadiusM": 40,
+    "narrationPriority": 50,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "nha-hat-thanh-pho",
+    "id": "01a0b373-d3eb-73c0-bd63-c2b2aa0e873b",
+    "publicCode": "GP7R4MY3",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Nhà hát Thành phố",
+    "descriptionVi": "Nhà hát Thành phố nằm trên Công trường Lam Sơn, ở đầu đường Đồng Khởi. Công trình được người Pháp xây dựng và hoàn thành vào khoảng năm 1900, mang phong cách kiến trúc Pháp cuối thế kỷ mười chín với mặt tiền nhiều phù điêu, tượng trang trí và mái vòm cong ở lối vào. Qua hơn một thế kỷ, tòa nhà đã được sử dụng vào nhiều mục đích khác nhau trước khi trở lại vai trò nhà hát. Ngày nay, đây là nơi biểu diễn nghệ thuật: hòa nhạc, múa, kịch và các chương trình văn hóa dành cho cả người dân lẫn du khách. Quảng trường phía trước là nơi nhiều người dừng chân chụp ảnh, nhất là vào buổi tối khi mặt tiền được chiếu sáng. Nếu có thời gian, bạn có thể tìm xem lịch biểu diễn để thưởng thức một đêm nghệ thuật trong không gian cổ kính này.",
+    "addressVi": "7 Công trường Lam Sơn, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7767437,
+      "lng": 106.7032488
+    },
+    "triggerRadiusM": 35,
+    "narrationPriority": 70,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "nha-tho-duc-ba",
+    "id": "01a0b373-d3eb-73c0-bd63-c5ccd93ec6da",
+    "publicCode": "SCT7J6K3",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "CHURCH",
+    "nameVi": "Nhà thờ Chính tòa Đức Bà Sài Gòn",
+    "descriptionVi": "Nhà thờ Chính tòa Đức Bà Sài Gòn là một trong những công trình kiến trúc nổi tiếng nhất của thành phố. Nhà thờ được xây dựng dưới thời Pháp thuộc và hoàn thành vào năm 1880. Công trình mang phong cách Roman kết hợp Gothic, với hai tháp chuông cao vút và tường gạch đỏ để trần, không trát vữa, giữ màu sắc đặc trưng qua nhiều thập kỷ. Năm 1959, tượng Đức Mẹ Hòa Bình bằng đá được đặt ở khu vườn phía trước nhà thờ. Năm 1962, nhà thờ được Tòa Thánh nâng lên hàng Vương cung Thánh đường. Quảng trường Công xã Paris trước mặt là nơi người dân thường ngồi nghỉ, uống cà phê và ngắm nhìn công trình. Khi vào bên trong, bạn nên ăn mặc lịch sự và giữ yên lặng, vì đây vẫn là nơi cử hành thánh lễ của giáo dân.",
+    "addressVi": "Công trường Công xã Paris, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7797687,
+      "lng": 106.6990427
+    },
+    "triggerRadiusM": 40,
+    "narrationPriority": 80,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "buu-dien-trung-tam",
+    "id": "01a0b373-d3eb-73c0-bd63-c8e4f0cc2555",
+    "publicCode": "EHFZVTBV",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Bưu điện Trung tâm Sài Gòn",
+    "descriptionVi": "Bưu điện Trung tâm Sài Gòn nằm ngay cạnh Nhà thờ Đức Bà, trên Công trường Công xã Paris. Tòa nhà được người Pháp xây dựng vào cuối thế kỷ mười chín và đến nay vẫn hoạt động như một bưu điện thực thụ. Mặt tiền màu vàng với cửa vòm và đồng hồ lớn là hình ảnh quen thuộc với du khách. Bên trong là sảnh rộng có mái vòm cao, khung sắt và những dãy ghế gỗ dài. Trên tường có các tấm bản đồ cổ vẽ khu vực Sài Gòn và vùng xung quanh, còn ở cuối sảnh là chân dung Chủ tịch Hồ Chí Minh. Nhiều người ghé đây để gửi bưu thiếp cho người thân, mua tem hay quà lưu niệm. Nếu muốn một kỷ niệm nhỏ, bạn có thể viết một tấm bưu thiếp và gửi đi ngay tại quầy, từ một trong những bưu điện đẹp nhất Việt Nam.",
+    "addressVi": "2 Công trường Công xã Paris, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7799557,
+      "lng": 106.6999921
+    },
+    "triggerRadiusM": 30,
+    "narrationPriority": 75,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "dinh-doc-lap",
+    "id": "01a0b373-d3eb-73c0-bd63-cced234c6f11",
+    "publicCode": "FKYRQVBJ",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Dinh Độc Lập",
+    "descriptionVi": "Dinh Độc Lập là di tích lịch sử gắn với nhiều dấu mốc quan trọng của đất nước. Trên khu đất này trước đây là Dinh Norodom, được xây dựng thời Pháp thuộc. Tòa dinh hiện nay do kiến trúc sư Ngô Viết Thụ thiết kế, khởi công năm 1962 và khánh thành năm 1966. Kiến trúc kết hợp phong cách hiện đại với những đường nét truyền thống Việt Nam, như tấm rèm hoa đá ở mặt tiền. Trưa ngày 30 tháng 4 năm 1975, xe tăng của Quân Giải phóng tiến vào cổng dinh, đánh dấu ngày thống nhất đất nước. Ngày nay, du khách có thể tham quan các phòng họp, phòng khánh tiết, khu làm việc và tầng hầm với hệ thống thông tin cũ. Khuôn viên rộng với bãi cỏ và hàng cây xanh cũng là nơi dạo bộ dễ chịu. Dinh Độc Lập được xếp hạng di tích quốc gia đặc biệt.",
+    "addressVi": "135 Nam Kỳ Khởi Nghĩa, Phường Bến Thành",
+    "location": {
+      "lat": 10.7770348,
+      "lng": 106.695488
+    },
+    "triggerRadiusM": 60,
+    "narrationPriority": 80,
+    "openingHours": [
+      {
+        "weekday": 1,
+        "opensAt": "07:00",
+        "closesAt": "18:00",
+        "isClosed": false
+      },
+      {
+        "weekday": 2,
+        "opensAt": "07:00",
+        "closesAt": "18:00",
+        "isClosed": false
+      },
+      {
+        "weekday": 3,
+        "opensAt": "07:00",
+        "closesAt": "18:00",
+        "isClosed": false
+      },
+      {
+        "weekday": 4,
+        "opensAt": "07:00",
+        "closesAt": "18:00",
+        "isClosed": false
+      },
+      {
+        "weekday": 5,
+        "opensAt": "07:00",
+        "closesAt": "18:00",
+        "isClosed": false
+      },
+      {
+        "weekday": 6,
+        "opensAt": "07:00",
+        "closesAt": "18:00",
+        "isClosed": false
+      },
+      {
+        "weekday": 7,
+        "opensAt": "07:00",
+        "closesAt": "18:00",
+        "isClosed": false
+      }
+    ],
+    "photos": []
+  },
+  {
+    "slug": "duong-sach",
+    "id": "01a0b373-d3eb-73c0-bd63-d2f850ad0736",
+    "publicCode": "85G952T5",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Đường sách Nguyễn Văn Bình",
+    "descriptionVi": "Đường sách Nguyễn Văn Bình là con đường ngắn nằm bên hông Bưu điện Trung tâm, được dành riêng cho sách và văn hóa đọc từ năm 2016. Dọc hai bên đường là các gian hàng của nhiều nhà xuất bản và nhà sách, bày bán sách văn học, lịch sử, thiếu nhi, sách ngoại văn và cả sách cũ. Xen giữa là những quán cà phê sách nhỏ, nơi bạn có thể ngồi dưới bóng cây, đọc vài trang và nghỉ chân sau khi tham quan khu vực trung tâm. Con đường thường xuyên có các buổi giao lưu tác giả, ra mắt sách và hoạt động dành cho trẻ em, nhất là vào cuối tuần. Không gian yên tĩnh, rợp bóng cây nằm ngay giữa khu phố nhộn nhịp khiến nơi đây trở thành điểm dừng chân được nhiều người yêu thích. Đây cũng là nơi tốt để tìm một cuốn sách về Việt Nam làm quà.",
+    "location": {
+      "lat": 10.7805735,
+      "lng": 106.6996948
+    },
+    "triggerRadiusM": 30,
+    "narrationPriority": 55,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "bitexco",
+    "id": "01a0b373-d3eb-73c0-bd63-d64868afe56d",
+    "publicCode": "4QG86XAG",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "VIEWPOINT",
+    "nameVi": "Tháp Tài chính Bitexco",
+    "descriptionVi": "Tháp Tài chính Bitexco là một trong những tòa nhà chọc trời dễ nhận biết nhất của Thành phố Hồ Chí Minh. Tòa tháp khánh thành năm 2010, cao khoảng 262 mét với 68 tầng. Hình dáng tòa nhà được lấy cảm hứng từ búp sen, loài hoa gắn bó với văn hóa Việt Nam. Điểm đặc biệt là sân đỗ trực thăng nhô ra từ thân tháp ở những tầng cao, tạo nên hình ảnh rất riêng trên đường chân trời thành phố. Tòa nhà có văn phòng, khu mua sắm và nhà hàng, cùng đài quan sát trên cao, nơi du khách có thể ngắm toàn cảnh trung tâm thành phố, dòng sông Sài Gòn và những khu đô thị mới bên kia sông. Thời điểm đẹp để lên cao là lúc hoàng hôn, khi thành phố bắt đầu lên đèn. Từ chân tòa nhà, bạn có thể đi bộ ra bờ sông chỉ trong vài phút.",
+    "addressVi": "2 Hải Triều, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7718634,
+      "lng": 106.7044633
+    },
+    "triggerRadiusM": 35,
+    "narrationPriority": 50,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "ubnd-thanh-pho",
+    "id": "01a0b373-d3eb-73c0-bd63-d892edea3514",
+    "publicCode": "3FTAX9DY",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Trụ sở Ủy ban nhân dân Thành phố",
+    "descriptionVi": "Trụ sở Ủy ban nhân dân Thành phố Hồ Chí Minh nằm ở đầu phố đi bộ Nguyễn Huệ. Tòa nhà được người Pháp xây dựng vào đầu thế kỷ hai mươi để làm tòa thị chính của Sài Gòn, và mang phong cách kiến trúc Pháp cổ điển với mặt tiền màu vàng kem, tháp đồng hồ ở giữa và nhiều chi tiết trang trí công phu. Đến nay, đây vẫn là nơi làm việc của chính quyền thành phố, nên du khách thường không vào bên trong mà ngắm công trình từ quảng trường phía trước. Phía trước tòa nhà là tượng đài Chủ tịch Hồ Chí Minh và một khoảng sân rộng, nơi nhiều người dừng lại chụp ảnh. Công trình đẹp nhất vào buổi tối, khi hệ thống đèn chiếu sáng làm nổi bật từng đường nét kiến trúc. Hãy đứng lùi ra giữa phố đi bộ để có góc nhìn trọn vẹn nhất.",
+    "addressVi": "86 Lê Thánh Tôn, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7765867,
+      "lng": 106.7009177
+    },
+    "triggerRadiusM": 35,
+    "narrationPriority": 70,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "tuong-dai-bac-ho",
+    "id": "01a0b373-d3eb-73c0-bd63-de8f88b69839",
+    "publicCode": "KNM09J26",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Tượng đài Chủ tịch Hồ Chí Minh",
+    "descriptionVi": "Tượng đài Chủ tịch Hồ Chí Minh được đặt ở đầu phố đi bộ Nguyễn Huệ, ngay trước trụ sở Ủy ban nhân dân Thành phố, và được khánh thành vào năm 2015. Bức tượng bằng đồng khắc họa Chủ tịch Hồ Chí Minh trong tư thế đứng, tay giơ lên chào, gương mặt hiền hòa hướng về phía dòng người trên quảng trường. Tượng đặt trên bệ đá cao, xung quanh là khoảng sân rộng với hoa và cây xanh được chăm sóc cẩn thận. Đây là nơi người dân thường đến dâng hoa vào những ngày lễ lớn và cũng là điểm chụp ảnh quen thuộc của nhiều gia đình, du khách. Khi đến đây, bạn nên giữ thái độ trang nghiêm và không leo lên khu vực bệ tượng. Từ vị trí này, bạn có thể nhìn dọc cả tuyến phố đi bộ về phía sông Sài Gòn, đặc biệt đẹp khi phố lên đèn vào buổi tối.",
+    "location": {
+      "lat": 10.7760329,
+      "lng": 106.701538
+    },
+    "triggerRadiusM": 25,
+    "narrationPriority": 65,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "khach-san-continental",
+    "id": "01a0b373-d3eb-73c0-bd63-e122fb9c0e3b",
+    "publicCode": "KN9YS68K",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Khách sạn Continental",
+    "descriptionVi": "Khách sạn Continental nằm ở góc đường Đồng Khởi, đối diện Nhà hát Thành phố, và là một trong những khách sạn lâu đời nhất của Sài Gòn. Khách sạn được xây dựng vào cuối thế kỷ mười chín, thời Pháp thuộc, với lối kiến trúc châu Âu gồm những ô cửa cao, ban công và hành lang rộng. Qua nhiều thập kỷ, nơi đây từng đón tiếp nhiều nhà văn, nhà báo và khách quốc tế, nên thường xuất hiện trong các câu chuyện về Sài Gòn xưa. Khu vực quanh khách sạn, gồm Nhà hát, đường Đồng Khởi và phố đi bộ Nguyễn Huệ, tạo thành một cụm di sản kiến trúc thời Pháp nằm gần nhau, rất thuận tiện để khám phá bằng cách đi bộ. Dù không lưu trú, bạn vẫn có thể dừng lại ngắm mặt tiền và hình dung không khí của thành phố hơn một thế kỷ trước.",
+    "addressVi": "132-134 Đồng Khởi, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7770648,
+      "lng": 106.7028032
+    },
+    "triggerRadiusM": 25,
+    "narrationPriority": 45,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "khach-san-rex",
+    "id": "01a0b373-d3eb-73c0-bd63-e71deea47c1f",
+    "publicCode": "Q9Q63NW8",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Khách sạn Rex",
+    "descriptionVi": "Khách sạn Rex nằm ở góc đường Nguyễn Huệ và Lê Lợi, ngay cạnh phố đi bộ. Tòa nhà có lịch sử từ thời Pháp thuộc và đã được sử dụng vào nhiều mục đích khác nhau trước khi trở thành khách sạn. Trong những năm chiến tranh, nơi đây là địa điểm quen thuộc của giới báo chí nước ngoài, và cái tên Rex đã đi vào nhiều hồi ký, phóng sự về Sài Gòn thời kỳ đó. Ngày nay, khách sạn dễ nhận ra với biểu tượng vương miện trên nóc và khu sân thượng nhìn xuống ngã tư sầm uất. Từ vị trí này, bạn có thể thấy trụ sở Ủy ban nhân dân Thành phố, tượng đài Chủ tịch Hồ Chí Minh và dòng người trên phố đi bộ Nguyễn Huệ. Đây là một điểm dừng chân tiện lợi khi dạo quanh khu trung tâm, nhất là vào buổi tối khi đường phố rực rỡ ánh đèn.",
+    "addressVi": "141 Nguyễn Huệ, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7755811,
+      "lng": 106.7010667
+    },
+    "triggerRadiusM": 25,
+    "narrationPriority": 45,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "chung-cu-42-nguyen-hue",
+    "id": "01a0b373-d3eb-73c0-bd63-e8a7b83df7f8",
+    "publicCode": "S1GAM6Y4",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Chung cư 42 Nguyễn Huệ",
+    "descriptionVi": "Chung cư 42 Nguyễn Huệ là một tòa chung cư cũ nằm trên phố đi bộ Nguyễn Huệ, gần phía sông Sài Gòn. Tòa nhà được xây dựng từ nhiều thập kỷ trước và từng là nơi ở của nhiều hộ gia đình. Theo thời gian, rất nhiều căn hộ đã được chuyển thành quán cà phê, cửa hàng thời trang, tiệm quà lưu niệm và cửa hàng nhỏ, mỗi nơi một phong cách riêng. Những ban công nhìn ra phố đi bộ trở thành chỗ ngồi được nhiều bạn trẻ và du khách yêu thích để ngắm dòng người bên dưới. Mặt tiền tòa nhà với các biển hiệu nhiều màu sắc tạo nên hình ảnh rất riêng, thường xuất hiện trong ảnh chụp về phố đi bộ. Để lên các tầng, bạn có thể đi thang máy hoặc thang bộ; một số thang máy có thu phí nhỏ. Đây là nơi thú vị để khám phá cách một tòa nhà cũ được thổi sức sống mới.",
+    "addressVi": "42 Nguyễn Huệ, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7740557,
+      "lng": 106.7041347
+    },
+    "triggerRadiusM": 25,
+    "narrationPriority": 40,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "bao-tang-thanh-pho",
+    "id": "01a0b373-d3eb-73c0-bd63-ef387b028764",
+    "publicCode": "DMMX3ZYS",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "MUSEUM",
+    "nameVi": "Bảo tàng Thành phố Hồ Chí Minh",
+    "descriptionVi": "Bảo tàng Thành phố Hồ Chí Minh nằm trên đường Lý Tự Trọng, trong một tòa nhà được người Pháp xây dựng vào cuối thế kỷ mười chín. Công trình có phong cách kiến trúc cổ điển châu Âu, với mặt tiền cân đối, hàng cột và cầu thang lớn dẫn lên sảnh chính. Tòa nhà từng được dùng làm dinh thự và nơi làm việc của chính quyền qua nhiều giai đoạn, trong đó có thời gian được gọi là Dinh Gia Long. Ngày nay, bảo tàng trưng bày các hiện vật và tư liệu về lịch sử, văn hóa và đời sống của vùng đất Sài Gòn, từ những ngành nghề truyền thống đến các giai đoạn đấu tranh của thành phố. Khuôn viên rợp bóng cây và kiến trúc đẹp khiến nơi đây cũng là điểm chụp ảnh cưới quen thuộc. Hãy dành khoảng một đến hai giờ để tham quan các phòng trưng bày và khu vườn.",
+    "addressVi": "65 Lý Tự Trọng, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7759106,
+      "lng": 106.6996214
+    },
+    "triggerRadiusM": 40,
+    "narrationPriority": 60,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "bao-tang-my-thuat",
+    "id": "01a0b373-d3eb-73c0-bd63-f05c661753a2",
+    "publicCode": "59RR29RM",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "MUSEUM",
+    "nameVi": "Bảo tàng Mỹ thuật Thành phố Hồ Chí Minh",
+    "descriptionVi": "Bảo tàng Mỹ thuật Thành phố Hồ Chí Minh nằm trên đường Phó Đức Chính, không xa chợ Bến Thành. Bảo tàng đặt trong một tòa nhà được xây dựng vào đầu thế kỷ hai mươi, vốn là dinh thự của một gia đình thương gia nổi tiếng ở Sài Gòn xưa. Kiến trúc tòa nhà kết hợp phong cách châu Âu với các chi tiết trang trí phương Đông, nổi bật với những ô cửa kính màu, sàn gạch hoa và cầu thang rộng. Các phòng trưng bày giới thiệu tranh và tượng của nhiều thế hệ họa sĩ Việt Nam, từ các tác phẩm sơn mài, sơn dầu, lụa đến điêu khắc, cùng một số cổ vật và mỹ thuật ứng dụng. Ngoài giá trị nghệ thuật, chính tòa nhà cũng là một điểm tham quan hấp dẫn với những góc chụp ảnh đẹp. Nếu yêu thích hội họa, bạn nên dành ít nhất một giờ để khám phá các tầng trưng bày.",
+    "addressVi": "97A Phó Đức Chính, Phường Bến Thành",
+    "location": {
+      "lat": 10.769596,
+      "lng": 106.69927
+    },
+    "triggerRadiusM": 40,
+    "narrationPriority": 60,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "cong-vien-30-4",
+    "id": "01a0b373-d3eb-73c0-bd63-f4b2b1dc8b7a",
+    "publicCode": "M9F4E5ZV",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "PARK",
+    "nameVi": "Công viên 30/4",
+    "descriptionVi": "Công viên 30/4 là khoảng xanh rộng nằm giữa Dinh Độc Lập và Nhà thờ Đức Bà, ngay trong khu trung tâm thành phố. Công viên có nhiều hàng cây cổ thụ tỏa bóng mát, lối đi lát gạch và những bãi cỏ được chăm sóc cẩn thận. Buổi sáng sớm, người dân quanh khu vực đến đây tập thể dục, đi bộ hay chơi cầu lông. Vào buổi chiều và tối, công viên là chỗ ngồi nghỉ quen thuộc của các bạn trẻ, sinh viên và du khách sau một ngày dạo quanh trung tâm. Từ công viên, bạn có thể nhìn thấy mặt tiền Dinh Độc Lập ở một phía và hai tháp chuông của Nhà thờ Đức Bà ở phía còn lại. Đây là nơi lý tưởng để dừng chân, uống một ly nước và nghỉ ngơi dưới bóng cây trước khi tiếp tục hành trình khám phá các di tích gần đó.",
+    "location": {
+      "lat": 10.778917,
+      "lng": 106.696586
+    },
+    "triggerRadiusM": 45,
+    "narrationPriority": 40,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "tuong-dai-tran-hung-dao",
+    "id": "01a0b373-d3eb-73c0-bd63-f8f1efdd793c",
+    "publicCode": "8EDDG4JB",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "LANDMARK",
+    "nameVi": "Tượng đài Trần Hưng Đạo",
+    "descriptionVi": "Tượng đài Trần Hưng Đạo nằm ở công trường Mê Linh, gần bờ sông Sài Gòn. Bức tượng tôn vinh Hưng Đạo Đại Vương Trần Quốc Tuấn, vị tướng tài của nhà Trần, người đã lãnh đạo quân dân Đại Việt đánh thắng quân xâm lược Nguyên Mông vào thế kỷ mười ba. Tượng khắc họa ông trong tư thế đứng uy nghiêm, một tay chỉ về phía dòng sông, gợi nhớ những trận thủy chiến nổi tiếng trong lịch sử. Người Việt kính trọng ông như một vị anh hùng dân tộc, và ở nhiều nơi ông còn được thờ phụng với danh xưng Đức Thánh Trần. Khu vực xung quanh là một quảng trường nhỏ với cây xanh và bồn hoa, gần các khách sạn lớn ven sông. Từ đây, bạn có thể đi bộ vài phút để ra bến Bạch Đằng và ngắm cảnh sông nước của thành phố.",
+    "addressVi": "Công trường Mê Linh, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7752864,
+      "lng": 106.706468
+    },
+    "triggerRadiusM": 30,
+    "narrationPriority": 50,
+    "openingHours": [],
+    "photos": []
+  },
+  {
+    "slug": "ben-bach-dang",
+    "id": "01a0b373-d3eb-73c0-bd63-fe3cddec9d44",
+    "publicCode": "2G5EPCKE",
+    "review": "DRAFT",
+    "locationSource": "OSM",
+    "categoryCode": "VIEWPOINT",
+    "nameVi": "Bến Bạch Đằng",
+    "descriptionVi": "Bến Bạch Đằng là khu công viên ven sông Sài Gòn, trải dài dọc đường Tôn Đức Thắng. Nơi đây có lối đi dạo rộng, hàng cây xanh và ghế đá, là chỗ lý tưởng để ngắm dòng sông, những con tàu qua lại và khu đô thị mới bên kia bờ. Từ bến, bạn có thể đi tàu buýt đường sông hoặc các tàu du lịch để ngắm thành phố từ mặt nước, một trải nghiệm rất khác so với việc di chuyển trên đường phố đông đúc. Vào buổi chiều muộn, khi gió sông mát hơn, nhiều gia đình và bạn trẻ đến đây đi dạo, chụp ảnh và chờ ngắm hoàng hôn. Buổi tối, ánh đèn từ các tòa nhà cao tầng phản chiếu trên mặt nước tạo nên khung cảnh rất đẹp. Bến Bạch Đằng nằm cuối phố đi bộ Nguyễn Huệ, nên bạn có thể kết hợp hai điểm này trong cùng một chuyến dạo bộ.",
+    "addressVi": "Tôn Đức Thắng, Phường Sài Gòn",
+    "location": {
+      "lat": 10.7722753,
+      "lng": 106.7066166
+    },
+    "triggerRadiusM": 45,
+    "narrationPriority": 50,
+    "openingHours": [],
+    "photos": []
+  }
+]

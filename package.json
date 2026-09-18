@@ -22,6 +22,7 @@
     "db:objects": "turbo run db:objects --concurrency=1",
     "db:verify": "turbo run db:verify --concurrency=1",
     "db:drift": "turbo run db:drift --concurrency=1",
+    "seed:dev": "turbo run seed:dev --concurrency=1",
     "keys:dev": "node packages/config/scripts/generate-dev-keys.mjs",
     "proto:generate": "pnpm --filter @wayfare/contracts proto:generate",
     "proto:lint": "pnpm --filter @wayfare/contracts proto:lint",

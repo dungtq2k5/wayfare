@@ -4,7 +4,7 @@
 import { compareStrings, NARRATION_LOCALIZATION_READY } from '@wayfare/contracts';
 import { localizationReadyFixture } from '@wayfare/contracts/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { insertArea, insertCategory, testPrisma, truncateAll } from '../setup/database';
+import { insertArea, testPrisma, truncateAll } from '../setup/database';
 import { contentInput, createRequest, device, staff, updateRequest } from '../setup/fixtures';
 import { catalogServices } from '../setup/services';
 
@@ -40,7 +40,6 @@ beforeAll(async () => {
   await truncateAll(prisma);
   const west = await insertArea(prisma, { code: 'west' });
   const east = await insertArea(prisma, { code: 'east', ring: EAST_RING });
-  await insertCategory(prisma, { code: 'MARKET' });
   areas = { west: west.id, east: east.id };
 });
 afterAll(() => prisma.$disconnect());

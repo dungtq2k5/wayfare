@@ -5,8 +5,9 @@
 # Uses http://localhost only: curl never sends a Secure cookie to 127.0.0.1.
 #
 # Usage: pnpm --filter @wayfare/narration build && services/gateway/scripts/walk-narration.sh
-#   BASE, ROOT, NARRATION_OPS and the BOOTSTRAP_SUPER_ADMIN_* variables may be overridden. The
-#   failing-provider steps wait for retries, so the whole walk takes about two minutes.
+#   BASE, ROOT, NARRATION_OPS and the BOOTSTRAP_SUPER_ADMIN_* variables may be overridden. Step 0
+#   runs `pnpm seed:dev`; the walk's Places are created in the seeded pilot area and deleted at the
+#   end. The failing-provider steps wait for retries, so the whole walk takes about two minutes.
 set -euo pipefail
 
 ROOT=${ROOT:-http://localhost:3000}
@@ -19,8 +20,11 @@ work=$(mktemp -d)
 narration_pid=''
 socket_pids=()
 cleanup() {
+  forget_places
   for pid in "${socket_pids[@]}"; do kill "$pid" 2>/dev/null || true; done
   [[ -n $narration_pid ]] && kill "$narration_pid" 2>/dev/null || true
+  # Waited for: a process still writing into $work would make the removal fail.
+  wait 2>/dev/null || true
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -102,21 +106,25 @@ attempts_above() { [[ $(sum_attempts "$1") -gt $2 ]]; }
 has_any_job() { [[ -n $(newest_job "$1") ]]; }
 answered() { [[ $(cat "$work"/od-*.status 2>/dev/null | wc -l) -eq $1 ]]; }
 
-# create_place KEY NAME DESCRIPTION — an Editorial Place with requestActivation; the answer is
-# $work/create-KEY.json.
+# create_place KEY INDEX NAME DESCRIPTION — an Editorial Place with requestActivation, at this
+# run's INDEX-th walk point; the answer is $work/create-KEY.json, and the Place is deleted at the end.
 create_place() {
+  local lat lng
+  read -r lat lng < <(walk_location "$2")
   call "create-$1" 201 -X POST "$BASE/admin/places" "${console[@]}" -b "$(admin)" -d "$(body \
-    --arg name "$2" --arg description "$3" '{
+    --arg name "$3" --arg description "$4" --argjson lat "$lat" --argjson lng "$lng" '{
       nameVi: $name, descriptionVi: $description, categoryCode: "LANDMARK",
-      location: {lat: 10.7766, lng: 106.7031}, triggerRadiusM: 40, narrationPriority: 70,
+      location: {lat: $lat, lng: $lng}, triggerRadiusM: 40, narrationPriority: 70,
       photos: [], openingHours: [], requestActivation: true
     }')"
+  remember_place "$(json "create-$1" .data.place.id)"
 }
 
 reset_local_state
 stamp=$(date +%s)
 
-step '0. sign in, register a device and a plain account, insert the category and the area'
+step '0. seed; sign in, register a device and a plain account'
+seed_dev
 (cd "$repo_root" && pnpm --silent --filter @wayfare/identity bootstrap:super-admin) | tail -1
 call admin-login 200 -X POST "$BASE/auth/login" "${console[@]}" \
   -d "$(body --arg e "$BOOTSTRAP_SUPER_ADMIN_EMAIL" --arg p "$BOOTSTRAP_SUPER_ADMIN_PASSWORD" '{email: $e, password: $p}')"
@@ -127,16 +135,8 @@ cookie_value plain-register wf_at >"$work/plain.at"
 call device-register 201 -X POST "$BASE/devices" "${mobile[@]}" \
   -d '{"platform":"ANDROID","appVersion":"'"$APP_VERSION"'","contentLocale":"en","privacyPolicyVersion":"2026-09-01"}'
 json device-register .data.accessToken >"$work/device.token"
-catalog_sql "INSERT INTO categories (id, code, applies_to, icon, sort_order)
-  VALUES ('01990000-0000-7000-8000-00000000c001', 'LANDMARK', 'ANY', 'landmark', 0)
-  ON CONFLICT (code) DO UPDATE SET is_active = true" >/dev/null
-catalog_sql "UPDATE areas SET is_active = false WHERE code LIKE 'walk-%'" >/dev/null
-area_id=$(catalog_node 'process.stdout.write(require("@wayfare/contracts").newId())')
-catalog_sql "INSERT INTO areas (id, code, name_vi, boundary, center, default_zoom, is_active)
-  VALUES ('$area_id', 'walk-$stamp', 'Khu thử',
-    ST_GeogFromText('POLYGON((106.69 10.765, 106.71 10.765, 106.71 10.78, 106.69 10.78, 106.69 10.765))'),
-    ST_SetSRID(ST_MakePoint(106.7, 10.7725), 4326)::geography, 15, true)" >/dev/null
-echo "✓ area $area_id"
+area_id=$(pilot_area_id)
+echo "✓ pilot area $area_id"
 start_narration
 
 step '1. a monitor socket as the super admin'
@@ -144,7 +144,7 @@ socket monitor "$(cat "$work/admin.at")"
 wait_for 'the monitor received connection:ready' 5 saw monitor connection:ready
 
 step '2. an Editorial Place with requestActivation'
-create_place theatre "Nhà hát $stamp" 'Nhà hát xây năm 1900. Theo phong cách Pháp.'
+create_place theatre 1 "Nhà hát thử $stamp" 'Nhà hát xây năm 1900. Theo phong cách Pháp.'
 place_id=$(json create-theatre .data.place.id)
 hash=$(json create-theatre .data.place.contentHash)
 echo "✓ Place $place_id"
@@ -238,7 +238,7 @@ echo '✓ fr: textReady, audioStatus FAILED (no voice)'
 
 step '8. pause, resume, cancel and retry with one worker and a failing speech provider'
 start_narration SYNTHESIS_CONCURRENCY=1 FAKE_PROVIDER_FAILURES=speech
-create_place post-office "Bưu điện $stamp" 'Bưu điện xây năm 1886. Mái vòm bằng thép.'
+create_place post-office 2 "Bưu điện thử $stamp" 'Bưu điện xây năm 1886. Mái vòm bằng thép.'
 second_id=$(json create-post-office .data.place.id)
 wait_for 'a job for the second Place' 10 has_any_job "$second_id"
 job_p=$(newest_job "$second_id")
@@ -273,5 +273,11 @@ wait_for 'the retried job COMPLETED' 30 job_is "$job_r" COMPLETED
 echo '✓ retry-failed re-ran the failed task'
 call providers 200 "$BASE/admin/narration/providers" "${console[@]}" -b "$(admin)"
 [[ $(json providers '[.data[] | select(.scope == "process")] | length') -ge 2 ]] || fail 'providers are not reported'
+
+step '9. delete the walk Places again, leaving no test Place on the map'
+forget_places
+[[ $(catalog_sql "SELECT count(*) FROM places WHERE id IN ('$place_id', '$second_id') AND deleted_at IS NULL") == 0 ]] ||
+  fail 'a walk Place is still live'
+echo '✓ the walk Places are deleted'
 
 printf '\n✓ narration walk complete\n'

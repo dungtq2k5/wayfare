@@ -576,7 +576,7 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 📌 [ADR 0034](./decisions/0034-vitest-is-the-only-test-runner.md) (topology in §3.1): every service's Postgres container holds a second database, `wayfare_<service>_test`, created by the container init script. Tests read `DATABASE_URL_TEST`, which differs from `DATABASE_URL` only in the database name — so it is derivable, not separately configured, and there is no way to accidentally point a test suite at development data.
 
 - **Migrate once, truncate between specs.** Run `prisma migrate deploy` against the test database in a global setup hook, then `TRUNCATE ... RESTART IDENTITY CASCADE` between specs. Re-migrating per spec is slow enough that you will feel it on every run.
-- **Seed from the committed seed scripts** (`product-overview.md` §12.1), so tests and local development share one realistic corpus instead of drifting apart.
+- **Seed from the committed seed scripts** (`product-overview.md` §12.1), so tests and local development share one realistic corpus instead of drifting apart. The integration global setup runs each service's system seed (roles, permissions, categories); suites build their own small fixtures on top — catalog's use a fixture area, so a test never depends on the pilot geometry — and the pilot corpus has its own integration test.
 - ⚠️ **Gotcha — concurrent CI jobs.** If two CI jobs run against the same `_test` database, you get tests that pass locally and flake in CI, which is miserable to debug. Give each job its own database created from a template:
 
   ```sql
@@ -673,6 +673,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `NATS_URL` | all services | JetStream event bus |
 | `JWT_PRIVATE_KEY` | identity | Ed25519 signing key, a base64-encoded PKCS#8 PEM — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Required in every environment; `pnpm keys:dev` generates a local pair |
 | `JWT_KEY_ID` | identity | The `kid` written into every token header |
+| `SEED_ACCOUNT_PASSWORD` | identity's `seed:dev` script only | The password of the local development accounts (`moderator@wayfare.test`, `tourist@wayfare.test`); unset, they are not created. Never set in a deployed environment |
 | `BOOTSTRAP_SUPER_ADMIN_EMAIL`, `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | identity's `bootstrap:super-admin` script only | The first `SUPER_ADMIN` (rdm-spec I-4). Set for the one run, then removed; never read by the running service |
 | `GLOBAL_PREFIX` | gateway | `api`. Combined with Nest URI versioning to give `/api/v1/…`; never hard-coded elsewhere |
 | `PORT` | gateway | Public HTTP port |

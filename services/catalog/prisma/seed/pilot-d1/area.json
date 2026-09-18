@@ -1,0 +1,23 @@
+{
+  "id": "01a0b373-d3eb-73c0-bd64-001fdcfca699",
+  "code": "hcmc-d1-core",
+  "nameVi": "Trung tâm Quận 1",
+  "boundary": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [106.6925, 10.768],
+        [106.709, 10.768],
+        [106.709, 10.7845],
+        [106.6925, 10.7845],
+        [106.6925, 10.768]
+      ]
+    ]
+  },
+  "center": {
+    "lat": 10.7765,
+    "lng": 106.7005
+  },
+  "defaultZoom": 16,
+  "sortOrder": 0
+}

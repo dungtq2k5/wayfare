@@ -16,6 +16,7 @@
     "db:setup": "pnpm db:deploy && PRISMA_DB=test pnpm db:deploy",
     "db:objects": "prisma db execute --file prisma/sql/schema-objects.sql",
     "db:seed:system": "node dist/src/scripts/seed-system-catalog.js",
+    "seed:dev": "node dist/prisma/seed/dev-accounts.seed.js",
     "email:check-domain": "turbo run build --filter=@wayfare/identity --output-logs=errors-only && node dist/src/scripts/email-check-domain.js",
     "bootstrap:super-admin": "turbo run build --filter=@wayfare/identity --output-logs=errors-only && node dist/src/scripts/bootstrap-super-admin.js",
     "db:verify": "wayfare-db-verify",

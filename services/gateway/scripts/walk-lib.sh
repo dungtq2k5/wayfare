@@ -104,3 +104,38 @@ catalog_node() {
   shift
   (cd "$repo_root/services/catalog" && node -e "$script" "$@")
 }
+
+# seed_dev — `pnpm seed:dev` (idempotent: a few seconds when nothing changed); its report is kept
+# in $work/seed.log and the walk stops if it fails.
+seed_dev() {
+  (cd "$repo_root" && pnpm --silent seed:dev >"$work/seed.log" 2>&1) || {
+    tail -30 "$work/seed.log"
+    fail 'pnpm seed:dev failed'
+  }
+  echo "✓ pnpm seed:dev — $(grep -Eo '[0-9]+ Places — .*' "$work/seed.log" | tail -1)"
+}
+
+# The seeded pilot area's id, from the committed corpus.
+pilot_area_id() { jq -r .id "$repo_root/services/catalog/prisma/seed/pilot-d1/area.json"; }
+
+# walk_location INDEX — a point for this run's INDEX-th Place: a strip along the pilot area's
+# northern edge, at least 300 m from every corpus Place, offset by the run's stamp so runs never
+# stack their Places on one spot. Prints `lat lng` (with a decimal point, whatever the locale).
+walk_location() {
+  LC_ALL=C awk -v stamp="$stamp" -v i="$1" \
+    'BEGIN { printf "%.6f %.6f\n", 10.7835 - 0.0002 * i, 106.6940 + (stamp % 140) * 0.0001 }'
+}
+
+# remember_place ID — a Place this walk created, deleted again by forget_places.
+remember_place() { echo "$1" >>"$work/walk-places"; }
+
+# forget_places — deletes every Place this walk created (a walk leaves no test Place on the demo
+# map). Best-effort: it also runs from the EXIT trap after a failure.
+forget_places() {
+  [[ -f $work/walk-places && -f $work/admin.at ]] || return 0
+  local id
+  while read -r id; do
+    curl -sS -o /dev/null -X DELETE "$BASE/admin/places/$id" "${console[@]}" -b "wf_at=$(cat "$work/admin.at")" || true
+  done <"$work/walk-places"
+  rm -f "$work/walk-places"
+}

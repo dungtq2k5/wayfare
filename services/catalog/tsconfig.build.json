@@ -4,6 +4,6 @@
     "outDir": "dist",
     "declaration": false
   },
-  "include": ["src", "generated"],
+  "include": ["src", "generated", "prisma/seed"],
   "exclude": ["**/*.spec.ts", "test", "scripts"]
 }

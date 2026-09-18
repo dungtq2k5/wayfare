@@ -692,6 +692,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
+- **The initial codes are system rows:** `SYSTEM_CATEGORIES` in `packages/contracts` (code, `applies_to`, icon, order) is inserted by catalog's `db:seed:system` in every environment, insert-only — a missing code is added, an existing row is never changed or deactivated by it. Admins own every change afterwards.
 - Hard-delete refused while any Place references it (`RESTRICT`). Deactivate instead.
 
 #### Table C-3: areas
@@ -711,6 +712,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
+- **An area is content, not a system row:** the pilot area is created by the development seed locally and in tests, and through the admin route in a deployed environment.
 - Areas may not overlap. Checked in the service with `ST_Intersects` on write — a Place inside two areas would belong to two offline packs and be downloaded twice.
 
 #### Table C-4: place_localizations

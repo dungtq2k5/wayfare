@@ -34,7 +34,7 @@ const VENDOR_SDK_PATHS = [
 const PROVIDER_ADAPTERS = ['services/*/src/providers/**', 'packages/nest-common/src/providers/**'];
 
 /** Where the testing entry points may be imported. */
-const TESTING_ALLOWED = ['**/*.spec.ts', '**/test/**', '**/scripts/**'];
+const TESTING_ALLOWED = ['**/*.spec.ts', '**/test/**', '**/scripts/**', '**/prisma/seed/**'];
 
 const PROCESS_ENV_ALLOWED = [
   '**/instrumentation.ts',
@@ -42,6 +42,7 @@ const PROCESS_ENV_ALLOWED = [
   '**/vitest.config.mts',
   '**/test/setup/**',
   '**/scripts/**',
+  '**/prisma/seed/**',
 ];
 
 /**

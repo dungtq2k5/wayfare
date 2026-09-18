@@ -73,7 +73,7 @@ export default defineConfig({
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
       unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
-      unit('catalog', './services/catalog', ['src/**/*.spec.ts']),
+      unit('catalog', './services/catalog', ['src/**/*.spec.ts', 'prisma/seed/**/*.spec.ts']),
       unit('narration', './services/narration', ['src/**/*.spec.ts']),
       unit('gateway', './services/gateway', ['src/**/*.spec.ts', 'test/e2e/**/*.spec.ts']),
       unit('config', './packages/config', ['markdownlint/**/*.spec.ts']),
