@@ -528,7 +528,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **recipient_user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE | — |
-| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN` |
+| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN \| PLACE_NARRATION_FAILED` |
 | **data** | JSONB | NOT NULL | Typed by `type` (`NotificationData` union). Ids and short values only — e.g. `{ placeId, placeName, decisionNote }`. |
 | **event_id** | UUID | NOT NULL | The producer's outbox event id. |
 | **read_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -537,7 +537,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **No `title` or `body` column, deliberately.** The client renders the text from `type` + `data` through its UI i18n bundle, so a notification follows the reader's *current* language, and changing the wording is a bundle change rather than a data migration over every stored row. Emails are rendered at send time for the same reason.
 - **Unique:** `(recipient_user_id, event_id)` — the consumer upserts on it, so a JetStream redelivery never produces a second bell entry.
-- **Index:** partial `(recipient_user_id, created_at DESC) WHERE read_at IS NULL` — the unread count on every console page load.
+- **Index:** `notifications_unread_idx`, partial `(recipient_user_id, created_at DESC) WHERE read_at IS NULL` — the unread count on every console page load.
+- **A missing or erased recipient is skipped,** and the event acknowledged: an erased account gains no new personal data. A deactivated account, which can be restored, still receives rows.
 
 #### Table I-11: audit_logs
 
@@ -1703,6 +1704,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | Service | Object | Kind | Holds |
 | :---- | :---- | :---- | :---- |
 | identity | `users_email_lower_ck` | CHECK | email is normalized |
+| identity | `notifications_unread_idx` | partial index | `(recipient_user_id, created_at DESC) WHERE read_at IS NULL` — the unread count (I-10) |
 | identity | `users_erased_implies_deleted_ck` | CHECK | erasure implies soft delete |
 | identity | `users_locked_until_ck` | CHECK | an expiry needs a lock |
 | identity | `owner_registrations_one_pending` | partial unique | one open application per user |

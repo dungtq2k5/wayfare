@@ -68,6 +68,8 @@ export const CATALOG_PLACE_STATUS_CHANGED = defineEvent({
     reason: z.enum(PlaceInactiveReason).nullable(),
     deleted: z.boolean(),
     ownerUserId: zUuidV7.optional(),
+    /** This transaction set `published_at`: the Place's first publication, not a return after an edit. */
+    firstPublication: z.boolean(),
   }),
   aggregateId: (payload) => payload.placeId,
 });

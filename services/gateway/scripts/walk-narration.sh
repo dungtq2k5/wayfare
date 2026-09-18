@@ -18,7 +18,6 @@ export BOOTSTRAP_SUPER_ADMIN_EMAIL=${BOOTSTRAP_SUPER_ADMIN_EMAIL:-superadmin@way
 export BOOTSTRAP_SUPER_ADMIN_PASSWORD=${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-super admin pass 1}
 work=$(mktemp -d)
 narration_pid=''
-socket_pids=()
 cleanup() {
   forget_places
   for pid in "${socket_pids[@]}"; do kill "$pid" 2>/dev/null || true; done
@@ -63,27 +62,6 @@ start_narration() {
   fail 'narration did not become ready in 10 s'
 }
 
-# socket NAME TOKEN [JOB_ID] — a console socket recording its frames to $work/NAME.frames.
-socket() {
-  (cd "$repo_root/services/gateway" && TOKEN=$2 WS_URL="$ROOT/ws" exec \
-    node scripts/walk-socket.mjs "$work/$1.frames" ${3:+"$3"}) &
-  socket_pids+=($!)
-}
-
-# frames NAME JQ — the recorded frames of a socket, filtered.
-frames() { [[ -f $work/$1.frames ]] && jq -s "$2" "$work/$1.frames" || echo '[]'; }
-
-# wait_for WHAT SECONDS COMMAND… — polls COMMAND until it succeeds.
-wait_for() {
-  local what=$1 seconds=$2 attempt
-  shift 2
-  for attempt in $(seq 1 $((seconds * 5))); do
-    "$@" >/dev/null 2>&1 && { echo "✓ $what"; return; }
-    sleep 0.2
-  done
-  fail "$what: not within $seconds s"
-}
-
 place_status() { curl -sS "$BASE/admin/places/$1" "${console[@]}" -b "$(admin)" | jq -r .data.status; }
 is_active() { [[ $(place_status "$1") == ACTIVE ]]; }
 job_status() { narration_sql "SELECT status FROM synthesis_jobs WHERE id = '$1'"; }
@@ -100,7 +78,6 @@ max_attempts() { narration_sql "SELECT COALESCE(max(attempts), 0) FROM synthesis
 sum_attempts() { narration_sql "SELECT COALESCE(sum(attempts), 0) FROM synthesis_tasks WHERE job_id = '$1'"; }
 
 # Conditions for wait_for, re-evaluated on every poll.
-saw() { [[ $(frames "$1" "[.[] | select(.event == \"$2\")] | length") -ge 1 ]]; }
 retried() { [[ $(max_attempts "$1") -ge 1 ]]; }
 attempts_above() { [[ $(sum_attempts "$1") -gt $2 ]]; }
 has_any_job() { [[ -n $(newest_job "$1") ]]; }

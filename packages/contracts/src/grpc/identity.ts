@@ -6,6 +6,7 @@ export * from '../generated/wayfare/identity/auth.pb';
 export * from '../generated/wayfare/identity/device.pb';
 export * from '../generated/wayfare/identity/email_change.pb';
 export * from '../generated/wayfare/identity/email_webhook.pb';
+export * from '../generated/wayfare/identity/notification.pb';
 export * from '../generated/wayfare/identity/password.pb';
 export * from '../generated/wayfare/identity/role.pb';
 export * from '../generated/wayfare/identity/user.pb';

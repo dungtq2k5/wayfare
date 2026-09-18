@@ -13,6 +13,7 @@ export const PROTO_FILES = {
     'wayfare/identity/password.proto',
     'wayfare/identity/email_change.proto',
     'wayfare/identity/email_webhook.proto',
+    'wayfare/identity/notification.proto',
   ],
   catalog: [
     'wayfare/catalog/place_types.proto',

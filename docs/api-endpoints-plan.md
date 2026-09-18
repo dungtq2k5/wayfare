@@ -261,8 +261,10 @@ A new version is never used for an additive change. Within v1: fields are added,
 | :---- | :---- | :---- | :---- |
 | GET | `/notifications` | Feed, cursor style, `?unreadOnly=`. Each item is `{ id, type, data, readAt, createdAt }` — **the client renders text from `type`** (rdm-spec I-10). | USER |
 | GET | `/notifications/unread-count` | `{ count }`. Pushed live over WebSocket as well (§9), so this is the cold-start read. | USER |
-| POST | `/notifications/:id/read` | Idempotent. | USER |
-| POST | `/notifications/read-all` | — | USER |
+| POST | `/notifications/:id/read` | Idempotent: `204` whether or not it was unread; another user's id is `404 RESOURCE_NOT_FOUND`. | USER |
+| POST | `/notifications/read-all` | Idempotent, `204`. | USER |
+
+The feed and the count leave out expired rows (`expires_at`, rdm-spec I-10).
 
 ### 1.8 Audit log — `/admin/audit-logs`
 
@@ -405,7 +407,7 @@ A job moves `ON_HOLD` → `LINK_SENT` when `hold_until` passes, and expires case
 | PUT | `/admin/places/:id/opening-hours` ✎ | Replace the hours list, `{ items: [...] }` like the photo route. | perm:`place.update` |
 | POST | `/admin/places/:id/activate` ✎ | Set `activation_requested_at` and evaluate the gate. Answers `{ status, missing: ["en.text", "en.audio"] }` when the gate is not yet open — never a silent no-op. | perm:`place.publish` |
 | POST | `/admin/places/:id/deactivate` ✎ | `{ reason }` → `INACTIVE(ADMIN)`. | perm:`place.publish` |
-| DELETE | `/admin/places/:id` ✎ | Soft delete. `409 PLACE_IN_ACTIVE_TOUR` if a tour still lists it; `409 PLACE_HAS_LIVE_VOUCHERS` if unredeemed vouchers exist. | perm:`place.delete` |
+| DELETE | `/admin/places/:id` ✎ | Soft delete. `409 PLACE_IN_ACTIVE_TOUR` if a tour still lists it; `409 PLACE_HAS_LIVE_VOUCHERS` if unredeemed vouchers exist. A Venue's voucher check asks billing and fails closed: while billing cannot answer (or does not exist yet), deleting a Venue answers `503 UPSTREAM_UNAVAILABLE`. | perm:`place.delete` |
 | POST | `/admin/places/:id/restore` ✎ | — | perm:`place.delete` |
 | GET | `/admin/places/:id/qr` | A print-ready SVG of the QR sticker for `publicCode` (encoding `<PUBLIC_QR_BASE_URL>/q/<code>`, with the code printed beneath). A PDF for print shops is a later addition. | perm:`place.read` |
 
@@ -712,7 +714,7 @@ socket.io namespace `/ws` on the gateway, with `@socket.io/redis-adapter` ([ADR 
 | S→C | `narration:task:progress` | `{ jobId, lang, stage, status }` to `job:{jobId}` only — high-frequency, so never fanned to the whole admin room. |
 | S→C | `notification:new` | `{ id, type, data, createdAt }`. |
 | S→C | `notification:unread-count` | `{ count }` — authoritative, pushed on every change, so no client increments a local counter that drifts between tabs. |
-| S→C | `notification:read` | `{ ids }` — read on another tab or device. |
+| S→C | `notification:read` | `{ ids }` — read on another tab or device; `{ all: true }` after a read-all, which can clear more rows than one frame lists. |
 | S→C | `owner:place:status` | `{ placeId, status, inactiveReason }` — e.g. the moment a submission's audio finishes and the Venue goes live. |
 | S→C | `owner:entitlements` | `{ entitlementsVersion, entitlements }` — the plan changed; the console refetches limits. |
 | S→C | `error` | `{ code }` from `ERROR_CODES`. |
@@ -742,10 +744,10 @@ Subject form: `<publisher>.<aggregate>.<past-tense-verb>`.
 | `catalog.place.content_changed` | catalog | `placeId, contentHash, langs[], trigger` | narration → create/supersede a `PLACE` job |
 | `catalog.menu.content_changed` | catalog | `placeId, menuItemIds[], langs[]` | narration → text-only `MENU_ITEM` jobs |
 | `catalog.tour.content_changed` | catalog | `tourId, contentHash, langs[]` | narration → text-only `TOUR` job |
-| `catalog.place.status_changed` | catalog | `placeId, from, to, reason, deleted, ownerUserId?` — `deleted` changes on a soft delete or restore even when the status does not. **One event per transaction, carrying the net change** (`INACTIVE` → `ACTIVE`, not two steps); none when neither status nor `deleted` changed | identity → owner notification (`PLACE_ACTIVATED` / `PLACE_UNPUBLISHED`); billing → end boosts on a Place leaving `ACTIVE` |
+| `catalog.place.status_changed` | catalog | `placeId, from, to, reason, deleted, firstPublication, ownerUserId?` — `firstPublication` is true when this transaction sets `published_at`, so a first publication can be told from a return to `ACTIVE` after an edit (both arrive `from: PROCESSING`); `deleted` changes on a soft delete or restore even when the status does not. **One event per transaction, carrying the net change** (`INACTIVE` → `ACTIVE`, not two steps); none when neither status nor `deleted` changed | identity → owner notification, for a Venue only (`ownerUserId` set) and only on a status transition the owner did not make: into `ACTIVE` on a first publication or from `INACTIVE` → `PLACE_ACTIVATED` (an edit's return from `PROCESSING` notifies nothing); into `INACTIVE` with reason `ADMIN` or `ENTITLEMENT_LIMIT` → `PLACE_UNPUBLISHED`; billing → end boosts on a Place leaving `ACTIVE` |
 | `catalog.submission.reviewed` | catalog | `submissionId, placeId?, ownerUserId, decision, decisionNote?` | identity → notification |
 | `narration.localization.ready` | narration | `targetType, targetId, lang, sourceContentHash, translationSource, text {…}, audio? {assetId, objectPath, sha256, bytes, durationMs, voiceId, sourceContentHash}` — for a machine-translated Place it is sent **twice**: once with the text as soon as it exists, again with the text and `audio` once stored; for a human correction of a Place, `text` and `audio` always arrive together, once | catalog → upsert C-4/C-7/C-9, bump `sync_version`, evaluate activation gate; billing → upsert B-8 for `VOUCHER_OFFER` |
-| `narration.localization.failed` | narration | `targetType, targetId, lang, stage, reason, final` — `final` is true on the last permitted retry; a language with no voice (`reason: NO_VOICE`) sends it in the same transaction as, and after, its text-only `ready` — except a human correction, which sends only the failure, because a corrected Place's `ready` always carries audio — and catalog redelivers a final failure that arrives before the text's row exists | catalog → mark `audio_status = FAILED`; identity → notify the owner only after the final retry |
+| `narration.localization.failed` | narration | `targetType, targetId, lang, stage, reason, final` — `final` is true on the last permitted retry; a language with no voice (`reason: NO_VOICE`) sends it in the same transaction as, and after, its text-only `ready` — except a human correction, which sends only the failure, because a corrected Place's `ready` always carries audio — and catalog redelivers a final failure that arrives before the text's row exists | catalog → mark `audio_status = FAILED`, and on a `final` failure for a Venue publish `notification.create` `PLACE_NARRATION_FAILED` to its owner, once per text and never for `reason: NO_VOICE` (a text-only language is expected, not a failure) — catalog, not identity, because the event names a target, not an owner |
 | `billing.entitlements.changed` | billing | `ownerUserId, entitlementsVersion, entitlements{…}, previous{…}` | catalog → set `auto_narration_enabled` on Venues, unpublish excess Places, request narration for newly entitled languages; ai → refresh cached quota; identity → `ENTITLEMENTS_REDUCED` notification when narrowed |
 | `billing.boosts.changed` | billing | `placeId, discoveryBoost` | catalog → set `places.discovery_boost` |
 | `billing.subscription.payment_failed` | billing | `ownerUserId, attemptCount, nextAttemptAt?` | identity → notification + email |

@@ -22,6 +22,7 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
   readonly passwords: GrpcServiceCaller<identityGrpc.PasswordServiceClient>;
   readonly emailChange: GrpcServiceCaller<identityGrpc.EmailChangeServiceClient>;
   readonly emailWebhooks: GrpcServiceCaller<identityGrpc.EmailWebhookServiceClient>;
+  readonly notifications: GrpcServiceCaller<identityGrpc.NotificationServiceClient>;
 
   constructor(@Inject(IDENTITY_GRPC) grpc: ClientGrpc) {
     this.devices = new GrpcServiceCaller(grpc, identityGrpc.DEVICE_SERVICE_NAME);
@@ -33,6 +34,7 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
     this.passwords = new GrpcServiceCaller(grpc, identityGrpc.PASSWORD_SERVICE_NAME);
     this.emailChange = new GrpcServiceCaller(grpc, identityGrpc.EMAIL_CHANGE_SERVICE_NAME);
     this.emailWebhooks = new GrpcServiceCaller(grpc, identityGrpc.EMAIL_WEBHOOK_SERVICE_NAME);
+    this.notifications = new GrpcServiceCaller(grpc, identityGrpc.NOTIFICATION_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -45,5 +47,6 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
     this.passwords.init();
     this.emailChange.init();
     this.emailWebhooks.init();
+    this.notifications.init();
   }
 }

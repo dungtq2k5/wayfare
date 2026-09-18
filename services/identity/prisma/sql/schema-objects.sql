@@ -34,3 +34,8 @@ CREATE INDEX IF NOT EXISTS action_tokens_live_revert_idx
 -- email_deliveries (rdm-spec I-13): one email per event per recipient, a null recipient included.
 CREATE UNIQUE INDEX IF NOT EXISTS email_deliveries_one_per_event
   ON email_deliveries (template, event_id, recipient_user_id) NULLS NOT DISTINCT;
+
+-- notifications (rdm-spec I-10): the unread count on every console page load.
+CREATE INDEX IF NOT EXISTS notifications_unread_idx
+  ON notifications (recipient_user_id, created_at DESC)
+  WHERE read_at IS NULL;

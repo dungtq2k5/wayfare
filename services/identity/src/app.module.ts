@@ -6,6 +6,8 @@ import {
   createConfigModule,
   createLoggerModuleAsync,
   createSchemaCheck,
+  JobScheduler,
+  JobsModule as SchedulerModule,
   NatsClient,
   OpsModule,
   packageRoot,
@@ -22,6 +24,13 @@ import { DevicesModule } from './modules/devices/devices.module';
 import { EmailChangeModule } from './modules/email-change/email-change.module';
 import { EmailWebhooksModule } from './modules/email-webhooks/email-webhooks.module';
 import { EmailModule } from './modules/email/email.module';
+import { NotificationCreateConsumer } from './modules/notification-create/notification-create.consumer';
+import { NotificationCreateModule } from './modules/notification-create/notification-create.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PlaceStatusConsumer } from './modules/place-status/place-status.consumer';
+import { PlaceStatusModule } from './modules/place-status/place-status.module';
+import { NotificationsPruneJob } from './modules/scheduled/notifications-prune.job';
+import { ScheduledModule } from './modules/scheduled/scheduled.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { CONSUMERS, EventSpine, OutboxModule } from './modules/outbox/outbox.module';
 import { PasswordModule } from './modules/password/password.module';
@@ -45,6 +54,8 @@ export class AppModule {
   static forRoot(
     options: {
       env?: Readonly<Record<string, string | undefined>>;
+      /** `false` in tests: nothing is scheduled and no worker starts. */
+      jobs?: boolean;
       /** Tests only: point the boot-time schema check at other expectations. */
       schema?: { migrationsDir?: string; expectedObjectsPath?: string };
     } = {},
@@ -74,15 +85,34 @@ export class AppModule {
         AdminUsersModule,
         RolesModule,
         RevocationModule,
+        NotificationsModule,
+        NotificationCreateModule,
+        PlaceStatusModule,
+        SchedulerModule.forRootAsync({
+          imports: [ScheduledModule],
+          inject: [ConfigService, PrismaService, NotificationsPruneJob],
+          useFactory: (
+            config: IdentityConfig,
+            prisma: PrismaService,
+            prune: NotificationsPruneJob,
+          ) => ({
+            service: 'identity',
+            redisUrl: config.get('REDIS_URL', { infer: true }),
+            db: prisma,
+            jobs: [prune],
+            enabled: options.jobs ?? true,
+          }),
+        }),
         OpsModule.forRootAsync({
           grpcHealth: true,
           // Readiness: this service's own dependencies — database, NATS, Redis (api-endpoints-plan §13).
-          inject: [ConfigService, PrismaService, NatsClient, RedisLifecycle],
+          inject: [ConfigService, PrismaService, NatsClient, RedisLifecycle, JobScheduler],
           useFactory: (
             config: IdentityConfig,
             prisma: PrismaService,
             nats: NatsClient,
             redis: RedisLifecycle,
+            scheduler: JobScheduler,
           ) => ({
             version: {
               service: 'identity',
@@ -90,7 +120,12 @@ export class AppModule {
               gitSha: config.get('GIT_SHA', { infer: true }),
               builtAt: config.get('BUILT_AT', { infer: true }),
             },
-            checks: [prisma.readinessCheck(), nats.readinessCheck(), redis.readinessCheck()],
+            checks: [
+              prisma.readinessCheck(),
+              nats.readinessCheck(),
+              redis.readinessCheck(),
+              scheduler.readinessCheck(),
+            ],
           }),
         }),
       ],
@@ -107,8 +142,18 @@ export class AppModule {
         EventSpine,
         {
           provide: CONSUMERS,
-          inject: [AuditConsumer, RevocationConsumer],
-          useFactory: (audit: AuditConsumer, revocation: RevocationConsumer) => [audit, revocation],
+          inject: [
+            AuditConsumer,
+            RevocationConsumer,
+            NotificationCreateConsumer,
+            PlaceStatusConsumer,
+          ],
+          useFactory: (
+            audit: AuditConsumer,
+            revocation: RevocationConsumer,
+            notifications: NotificationCreateConsumer,
+            placeStatus: PlaceStatusConsumer,
+          ) => [audit, revocation, notifications, placeStatus],
         },
       ],
     };

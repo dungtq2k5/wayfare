@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+// The in-app notification feed — api-endpoints-plan §1.7, rdm-spec I-10.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/common/page.proto";
+
+// The caller's own feed. The caller travels as metadata.
+//
+// `type` is a string, not an enum, and `data` travels as JSON: a stored row may carry a type or
+// data shape the vocabulary has since changed, and must stay readable (conventions §6.3).
+service NotificationService {
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+  rpc MarkAllRead(MarkAllReadRequest) returns (MarkAllReadResponse);
+}
+
+message ListNotificationsRequest {
+  wayfare.common.PageRequest page = 1;
+  bool unread_only = 2;
+}
+
+message ListNotificationsResponse {
+  repeated NotificationItem notifications = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+// One feed row.
+message NotificationItem {
+  string id = 1;
+  string type = 2;
+  // The type's data, JSON-encoded.
+  string data_json = 3;
+  google.protobuf.Timestamp read_at = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message GetUnreadCountRequest {}
+
+message GetUnreadCountResponse {
+  int32 count = 1;
+}
+
+message MarkReadRequest {
+  string notification_id = 1;
+}
+
+message MarkReadResponse {}
+
+message MarkAllReadRequest {}
+
+message MarkAllReadResponse {}

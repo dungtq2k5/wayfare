@@ -83,7 +83,11 @@ export const SOCKET_PAYLOADS = {
     })
     .strict(),
   notificationUnreadCount: z.object({ count }).strict(),
-  notificationRead: z.object({ ids: z.array(zUuidV7).min(1).max(PAGE_SIZE_MAX) }).strict(),
+  // One read names its row; a read-all can clear more rows than a frame lists, so it says `all`.
+  notificationRead: z.union([
+    z.object({ ids: z.array(zUuidV7).min(1).max(PAGE_SIZE_MAX) }).strict(),
+    z.object({ all: z.literal(true) }).strict(),
+  ]),
   ownerPlaceStatus: z
     .object({
       placeId: zUuidV7,

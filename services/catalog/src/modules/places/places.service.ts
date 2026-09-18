@@ -914,6 +914,15 @@ export class PlacesService {
         await apply(tx, write);
         const change = netVisibilityChange(write.before, write.after);
         if (change !== null) {
+          // A first publication is the one that stamped `published_at` in this transaction.
+          const firstPublication =
+            place.publishedAt === null &&
+            (
+              await tx.place.findUniqueOrThrow({
+                where: { id: placeId },
+                select: { publishedAt: true },
+              })
+            ).publishedAt !== null;
           await this.outbox.add(tx, CATALOG_PLACE_STATUS_CHANGED, {
             occurredAt: new Date().toISOString(),
             placeId,
@@ -921,6 +930,7 @@ export class PlacesService {
             reason:
               change.to === PlaceStatus.INACTIVE ? await this.inactiveReason(tx, placeId) : null,
             ...(place.ownerUserId === null ? {} : { ownerUserId: place.ownerUserId }),
+            firstPublication,
           });
         }
         if (write.observable) await bumpSyncVersion(tx, placeId);

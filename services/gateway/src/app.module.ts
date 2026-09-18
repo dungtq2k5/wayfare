@@ -32,6 +32,7 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { NarrationClientModule } from './modules/narration-client/narration-client.module';
 import { NarrationModule } from './modules/narration/narration.module';
 import { REDIS, RedisLifecycle, RedisModule } from './modules/ops/redis.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PasswordModule } from './modules/password/password.module';
 import { PlacesModule } from './modules/places/places.module';
 import { QrModule } from './modules/qr/qr.module';
@@ -77,6 +78,7 @@ export class AppModule {
         PasswordModule,
         EmailChangeModule,
         EmailWebhooksModule,
+        NotificationsModule,
         CatalogModule,
         NarrationClientModule,
         NarrationModule,

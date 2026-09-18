@@ -3,6 +3,7 @@ import { MAX_VOUCHERS_PER_ORDER } from '../billing/limits';
 import { PlaceInactiveReason } from '../catalog/enums';
 import { MAX_DECISION_NOTE_LENGTH } from '../catalog/limits';
 import { zUuidV7 } from '../common/ids';
+import { zLanguage } from '../common/languages';
 import type { LimitDimension } from '../entitlements/ceilings';
 import { NotificationType } from './types';
 
@@ -90,6 +91,10 @@ export const NOTIFICATION_DATA = {
   [NotificationType.ACCOUNT_RECOVERY_COMPLETED]: z.object({ recoveryId: zUuidV7 }).strict(),
   // Catalog publishes it on an admin edit of a Venue (api-endpoints-plan §3.5).
   [NotificationType.PLACE_EDITED_BY_ADMIN]: placeOnly,
+  /** A language's narration failed for good; its text is still served (api-endpoints-plan §10). */
+  [NotificationType.PLACE_NARRATION_FAILED]: z
+    .object({ placeId: zUuidV7, lang: zLanguage })
+    .strict(),
 } as const satisfies Record<NotificationType, z.ZodType>;
 
 /** One notification type's `data`. */

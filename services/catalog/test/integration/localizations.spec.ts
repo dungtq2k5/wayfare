@@ -5,6 +5,7 @@ import {
   NARRATION_LOCALIZATION_FAILED,
   NARRATION_LOCALIZATION_READY,
   newId,
+  NOTIFICATION_CREATE,
   PlaceKind,
   PlaceStatus,
   SynthesisStage,
@@ -66,7 +67,13 @@ describe('narration.localization.ready for a Place', () => {
     expect(opened.status).toBe(PlaceStatus.ACTIVE);
     expect(opened.publishedAt).not.toBeNull();
     expect(await outboxPayloads(prisma, CATALOG_PLACE_STATUS_CHANGED.subject)).toEqual([
-      expect.objectContaining({ placeId: id, from: 'PROCESSING', to: 'ACTIVE', deleted: false }),
+      expect.objectContaining({
+        placeId: id,
+        from: 'PROCESSING',
+        to: 'ACTIVE',
+        deleted: false,
+        firstPublication: true,
+      }),
     ]);
     expect(await outboxPayloads(prisma, AUDIT_RECORD.subject)).toEqual([
       expect.objectContaining({
@@ -74,6 +81,17 @@ describe('narration.localization.ready for a Place', () => {
         actor: { type: 'SYSTEM' },
         service: 'catalog',
       }),
+    ]);
+  });
+
+  it('a return to ACTIVE after an edit is not a first publication', async () => {
+    const live = await insertPlace(prisma, { areaId: tax.area.id, categoryId: tax.any.id });
+    // An edit sent it back through PROCESSING; published_at stays set.
+    await prisma.place.update({ where: { id: live.id }, data: { status: PlaceStatus.PROCESSING } });
+    await apply(ready({ placeId: live.id, lang: 'en', sourceContentHash: live.contentHash }));
+    expect((await place(live.id)).status).toBe(PlaceStatus.ACTIVE);
+    expect(await outboxPayloads(prisma, CATALOG_PLACE_STATUS_CHANGED.subject)).toEqual([
+      expect.objectContaining({ placeId: live.id, to: 'ACTIVE', firstPublication: false }),
     ]);
   });
 
@@ -206,7 +224,7 @@ describe('narration.localization.ready for a menu item', () => {
 });
 
 describe('narration.localization.failed', () => {
-  const failed = (targetId: string, lang: string, final: boolean) =>
+  const failed = (targetId: string, lang: string, final: boolean, reason = 'Provider error') =>
     localizations.applyFailed(
       NARRATION_LOCALIZATION_FAILED.schema.parse({
         eventId: newId(),
@@ -215,7 +233,7 @@ describe('narration.localization.failed', () => {
         targetId,
         lang,
         stage: SynthesisStage.SYNTHESIZE,
-        reason: 'Provider error',
+        reason,
         final,
       }),
     );
@@ -272,5 +290,54 @@ describe('narration.localization.failed', () => {
       audioSourceContentHash: null,
       audioObjectPath: null,
     });
+  });
+
+  it("tells a Venue's owner once per text, never for NO_VOICE, and no one for an Editorial Place", async () => {
+    const venue = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.venueOnly.id,
+      kind: PlaceKind.VENUE,
+      status: PlaceStatus.PROCESSING,
+    });
+    const owner = (await place(venue.id)).ownerUserId!;
+    await apply(
+      ready({
+        placeId: venue.id,
+        lang: 'en',
+        sourceContentHash: venue.contentHash,
+        audioContentHash: null,
+      }),
+    );
+    await failed(venue.id, 'en', true);
+    await failed(venue.id, 'en', true);
+    expect(await outboxPayloads(prisma, NOTIFICATION_CREATE.subject)).toEqual([
+      expect.objectContaining({
+        recipientUserId: owner,
+        notification: { type: 'PLACE_NARRATION_FAILED', data: { placeId: venue.id, lang: 'en' } },
+      }),
+    ]);
+
+    await apply(
+      ready({
+        placeId: venue.id,
+        lang: 'vi',
+        sourceContentHash: venue.contentHash,
+        audioContentHash: null,
+      }),
+    );
+    await failed(venue.id, 'vi', true, 'NO_VOICE');
+    expect(await row(venue.id, 'vi')).toMatchObject({ audioStatus: 'FAILED' });
+
+    const editorial = await processing();
+    await apply(
+      ready({
+        placeId: editorial.id,
+        lang: 'en',
+        sourceContentHash: editorial.contentHash,
+        audioContentHash: null,
+      }),
+    );
+    await failed(editorial.id, 'en', true);
+    expect(await outboxPayloads(prisma, NOTIFICATION_CREATE.subject)).toHaveLength(1);
   });
 });

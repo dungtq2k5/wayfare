@@ -111,6 +111,7 @@ export const EVENT_FIXTURES: Readonly<Record<Subject, EventFixture>> = {
     reason: PlaceInactiveReason.ENTITLEMENT_LIMIT,
     deleted: false,
     ownerUserId: user,
+    firstPublication: false,
   }),
   'catalog.submission.reviewed': fixture(submission, {
     submissionId: submission,

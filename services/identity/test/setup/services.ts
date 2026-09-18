@@ -1,6 +1,7 @@
 // The identity use cases wired by hand over the test database — the same graph Nest builds,
 // without a gRPC server, a broker or Redis.
 import { MAX_ROLE_HOLDERS_PER_CHANGE } from '@wayfare/contracts';
+import type { SocketEventKey, SocketPayload } from '@wayfare/contracts';
 import { OutboxService } from '@wayfare/nest-common';
 import { AccessService } from '../../src/modules/access/access.service';
 import { AccountLinksService } from '../../src/modules/account-links/account-links.service';
@@ -12,6 +13,7 @@ import { EmailChangeService } from '../../src/modules/email-change/email-change.
 import { EmailDispatcher } from '../../src/modules/email/email.module';
 import { EmailService } from '../../src/modules/email/email.service';
 import { LegalService } from '../../src/modules/legal/legal.service';
+import { NotificationsService } from '../../src/modules/notifications/notifications.service';
 import { PasswordService } from '../../src/modules/password/password.service';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { RolesService } from '../../src/modules/roles/roles.service';
@@ -90,6 +92,7 @@ export function identityServices(
     sessions,
     options.roleHoldersLimit ?? MAX_ROLE_HOLDERS_PER_CHANGE,
   );
+  const frames = new FrameRecorder();
   return {
     config,
     tokens,
@@ -107,5 +110,25 @@ export function identityServices(
     links,
     emailChange,
     passwords,
+    frames,
+    notifications: new NotificationsService(prisma, frames),
   };
+}
+
+/** The socket emitter, recording the frames it would send. */
+export class FrameRecorder {
+  readonly frames: { room: string; event: SocketEventKey; payload: unknown }[] = [];
+
+  toRoom<K extends SocketEventKey>(
+    room: string | readonly string[],
+    event: K,
+    payload: SocketPayload<K>,
+  ): void {
+    for (const one of typeof room === 'string' ? [room] : room)
+      this.frames.push({ room: one, event, payload });
+  }
+
+  of(event: SocketEventKey): unknown[] {
+    return this.frames.filter((frame) => frame.event === event).map((frame) => frame.payload);
+  }
 }

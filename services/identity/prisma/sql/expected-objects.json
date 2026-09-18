@@ -2,7 +2,8 @@
   "indexes": [
     "outbox_events_unpublished_idx",
     "action_tokens_live_revert_idx",
-    "email_deliveries_one_per_event"
+    "email_deliveries_one_per_event",
+    "notifications_unread_idx"
   ],
   "constraints": [
     "users_email_lower_ck",

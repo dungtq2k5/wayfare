@@ -139,3 +139,30 @@ forget_places() {
   done <"$work/walk-places"
   rm -f "$work/walk-places"
 }
+
+# The console sockets a walk opens, stopped by its EXIT trap.
+socket_pids=()
+
+# socket NAME TOKEN [JOB_ID] — a console socket recording its frames to $work/NAME.frames.
+socket() {
+  (cd "$repo_root/services/gateway" && TOKEN=$2 WS_URL="$ROOT/ws" exec \
+    node scripts/walk-socket.mjs "$work/$1.frames" ${3:+"$3"}) &
+  socket_pids+=($!)
+}
+
+# frames NAME JQ — the recorded frames of a socket, filtered.
+frames() { [[ -f $work/$1.frames ]] && jq -sc "$2" "$work/$1.frames" || echo '[]'; }
+
+# wait_for WHAT SECONDS COMMAND… — polls COMMAND until it succeeds.
+wait_for() {
+  local what=$1 seconds=$2 attempt
+  shift 2
+  for attempt in $(seq 1 $((seconds * 5))); do
+    "$@" >/dev/null 2>&1 && { echo "✓ $what"; return; }
+    sleep 0.2
+  done
+  fail "$what: not within $seconds s"
+}
+
+# saw NAME EVENT — whether socket NAME has received EVENT (a wait_for condition).
+saw() { [[ $(frames "$1" "[.[] | select(.event == \"$2\")] | length") -ge 1 ]]; }

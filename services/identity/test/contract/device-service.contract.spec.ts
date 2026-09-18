@@ -54,7 +54,7 @@ function unary<T>(
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    imports: [AppModule.forRoot({ env })],
+    imports: [AppModule.forRoot({ env, jobs: false })],
   }).compile();
   app = moduleRef.createNestApplication({ logger: false });
   app.connectMicroservice<MicroserviceOptions>({

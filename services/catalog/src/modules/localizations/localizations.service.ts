@@ -6,6 +6,9 @@ import {
   AudioStatus,
   CATALOG_PLACE_STATUS_CHANGED,
   LocalizationTargetType,
+  NOTIFICATION_CREATE,
+  NotificationType,
+  PlaceKind,
   PlaceStatus,
 } from '@wayfare/contracts';
 import type {
@@ -20,6 +23,9 @@ import { PlacesService } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { bumpSyncVersion, withSyncWrite } from '../sync/sync.service';
 import type { CatalogTx } from '../sync/sync.service';
+
+/** The reason narration gives for a language it serves as text only — expected, never notified. */
+const NO_VOICE = 'NO_VOICE';
 
 // Widened: statuses are read from the database as plain strings.
 const READY: string = AudioStatus.READY;
@@ -102,6 +108,23 @@ export class LocalizationsService {
           AND NOT (l.audio_status = ${AudioStatus.READY}
                    AND l.audio_source_content_hash = p.content_hash)`;
       if (changed > 0) {
+        // The first final failure for this text: a Venue's owner is told, once (api-endpoints-plan
+        // §10). `NO_VOICE` is a text-only language working as intended, not a failure.
+        if (payload.reason !== NO_VOICE) {
+          const [venue] = await tx.$queryRaw<{ ownerUserId: string }[]>`
+            SELECT owner_user_id AS "ownerUserId" FROM places
+            WHERE id = ${payload.targetId}::uuid AND kind = ${PlaceKind.VENUE} AND owner_user_id IS NOT NULL`;
+          if (venue !== undefined) {
+            await this.outbox.add(tx, NOTIFICATION_CREATE, {
+              occurredAt: new Date().toISOString(),
+              recipientUserId: venue.ownerUserId,
+              notification: {
+                type: NotificationType.PLACE_NARRATION_FAILED,
+                data: { placeId: payload.targetId, lang: payload.lang },
+              },
+            });
+          }
+        }
         await bumpSyncVersion(tx, payload.targetId);
         return;
       }
@@ -223,6 +246,8 @@ export class LocalizationsService {
               ...change,
               reason: null,
               ...(place.ownerUserId === null ? {} : { ownerUserId: place.ownerUserId }),
+              // The gate stamps `published_at` only when the Place had none.
+              firstPublication: place.publishedAt === null,
             });
           }
         }
