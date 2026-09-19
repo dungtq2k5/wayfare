@@ -30,6 +30,7 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   OWNER_HAS_ACTIVE_OBLIGATIONS: { subscriptionEndsAt: '2026-10-19T10:00:00.000Z' },
   OWNER_HAS_LIVE_VOUCHERS: { issuedVoucherCount: 2, openCheckoutCount: 1 },
   ROLE_IN_USE: { holders: 3 },
+  SUBMISSION_CONFLICT: { changedFields: ['phone'] },
   ROLE_TOO_WIDE_TO_EDIT: { holders: 501, limit: 500 },
   PERMISSION_RETIRED: { codes: ['user.read'] },
 };

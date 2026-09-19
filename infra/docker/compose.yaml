@@ -208,6 +208,7 @@ services:
       NATS_URL: nats://nats:4222
       GRPC_URL: 0.0.0.0:50052
       BILLING_GRPC_URL: billing:50054
+      IDENTITY_GRPC_URL: identity:50051
       OPS_PORT: '3102'
       METRICS_PORT: '9102'
       GCS_BUCKET_MEDIA: wayfare-media-local

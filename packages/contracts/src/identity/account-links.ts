@@ -12,6 +12,8 @@ export const ACCOUNT_LINK_PATHS = {
   ownerRegistration: '/owner/registration',
   /** The owner's plan page; opened without a token. */
   ownerBilling: '/owner/billing',
+  /** The owner's submissions; opened without a token. */
+  ownerSubmissions: '/owner/submissions',
 } as const;
 
 /** A page an emailed link may open. */
@@ -22,6 +24,7 @@ export type AccountLinkPath = keyof typeof ACCOUNT_LINK_PATHS;
  * the page reads it, strips it, and posts it in a body (api-endpoints-plan §1.2).
  */
 export function accountLink(base: string, path: AccountLinkPath, token?: string): string {
+  // FIXME Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.
   const url = `${base.replace(/\/+$/, '')}${ACCOUNT_LINK_PATHS[path]}`;
   return token === undefined ? url : `${url}#token=${encodeURIComponent(token)}`;
 }

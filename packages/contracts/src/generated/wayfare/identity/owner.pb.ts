@@ -164,6 +164,16 @@ export interface RejectRegistrationResponse {
   registration: OwnerRegistrationAdmin | undefined;
 }
 
+export interface GetOwnerVerificationRequest {
+  userId: string;
+}
+
+export interface GetOwnerVerificationResponse {
+  verified: boolean;
+  /** Neither deactivated nor erased. */
+  live: boolean;
+}
+
 export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /** The caller's own applications. The caller travels as metadata. */
@@ -180,6 +190,16 @@ export interface OwnerServiceClient {
     request: WithdrawRegistrationRequest,
     metadata?: Metadata,
   ): Observable<WithdrawRegistrationResponse>;
+
+  /**
+   * Internal (api-endpoints-plan §12.2): whether an owner is still verified and live, asked by
+   * catalog on every approval that writes a Venue's owner.
+   */
+
+  getOwnerVerification(
+    request: GetOwnerVerificationRequest,
+    metadata?: Metadata,
+  ): Observable<GetOwnerVerificationResponse>;
 }
 
 /** The caller's own applications. The caller travels as metadata. */
@@ -199,11 +219,26 @@ export interface OwnerServiceController {
     request: WithdrawRegistrationRequest,
     metadata?: Metadata,
   ): Promise<WithdrawRegistrationResponse> | Observable<WithdrawRegistrationResponse> | WithdrawRegistrationResponse;
+
+  /**
+   * Internal (api-endpoints-plan §12.2): whether an owner is still verified and live, asked by
+   * catalog on every approval that writes a Venue's owner.
+   */
+
+  getOwnerVerification(
+    request: GetOwnerVerificationRequest,
+    metadata?: Metadata,
+  ): Promise<GetOwnerVerificationResponse> | Observable<GetOwnerVerificationResponse> | GetOwnerVerificationResponse;
 }
 
 export function OwnerServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["submitRegistration", "listMyRegistrations", "withdrawRegistration"];
+    const grpcMethods: string[] = [
+      "submitRegistration",
+      "listMyRegistrations",
+      "withdrawRegistration",
+      "getOwnerVerification",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("OwnerService", method)(constructor.prototype[method], method, descriptor);

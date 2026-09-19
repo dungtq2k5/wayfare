@@ -16,7 +16,8 @@ import { UploadsService } from './uploads.service';
 
 /**
  * `/uploads` (api-endpoints-plan §3.2): a signed PUT straight to storage, then a confirm that
- * checks and converts what arrived. Staff who create or edit Places; the owner path comes later.
+ * checks and converts what arrived. Staff who create or edit Places, and verified owners for their
+ * submissions (api-endpoints-plan §3.2): holding any one of the permissions is enough.
  */
 @ApiTags('uploads')
 @UsesUpstream()
@@ -25,7 +26,7 @@ export class UploadsController {
   constructor(private readonly uploads: UploadsService) {}
 
   @Post()
-  @RequirePermission('place.create', 'place.update')
+  @RequirePermission('place.create', 'place.update', 'owner.access')
   @NoStore()
   @ApiOperation({ summary: 'Sign an upload bound to its content type and the size limit.' })
   @ApiEnvelope(CreateUploadResponseDto)
@@ -40,7 +41,7 @@ export class UploadsController {
 
   @Post(':uploadId/confirm')
   @HttpCode(HttpStatus.OK)
-  @RequirePermission('place.create', 'place.update')
+  @RequirePermission('place.create', 'place.update', 'owner.access')
   @NoStore()
   @ApiOperation({
     summary:

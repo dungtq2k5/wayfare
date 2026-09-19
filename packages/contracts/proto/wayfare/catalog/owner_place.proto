@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+// A verified owner's own Venues — api-endpoints-plan §3.1.
+package wayfare.catalog;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/catalog/place_admin.proto";
+import "wayfare/catalog/place_types.proto";
+import "wayfare/catalog/submission.proto";
+
+// The caller travels as metadata; every Venue is the caller's own, or it is not found.
+service OwnerPlaceService {
+  rpc ListMyPlaces(ListMyPlacesRequest) returns (ListMyPlacesResponse);
+  rpc GetMyPlace(GetMyPlaceRequest) returns (GetMyPlaceResponse);
+  rpc GetMyLimits(GetMyLimitsRequest) returns (GetMyLimitsResponse);
+  rpc DeactivateMyPlace(DeactivateMyPlaceRequest) returns (DeactivateMyPlaceResponse);
+  rpc ReactivateMyPlace(ReactivateMyPlaceRequest) returns (ReactivateMyPlaceResponse);
+}
+
+// A Venue's pending submission, by reference.
+message PendingSubmissionRef {
+  string id = 1;
+  SubmissionKind kind = 2;
+  google.protobuf.Timestamp submitted_at = 3;
+}
+
+// One row of the owner's Venue list.
+message OwnerPlace {
+  string id = 1;
+  string public_code = 2;
+  string name_vi = 3;
+  string category_code = 4;
+  PlaceStatus status = 5;
+  optional PlaceInactiveReason inactive_reason = 6;
+  bool auto_narration = 7;
+  PhotoView cover = 8;
+  repeated LocalizationReadiness localizations = 9;
+  PendingSubmissionRef pending_submission = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message ListMyPlacesRequest {}
+
+message ListMyPlacesResponse {
+  repeated OwnerPlace places = 1;
+}
+
+message GetMyPlaceRequest {
+  string place_id = 1;
+}
+
+message GetMyPlaceResponse {
+  AdminPlace place = 1;
+  // The hash an `UPDATE` sends back as its base (rdm-spec C-11).
+  string editable_hash = 2;
+  Submission pending_submission = 3;
+}
+
+message GetMyLimitsRequest {}
+
+message GetMyLimitsResponse {
+  int32 max_places = 1;
+  int32 used = 2;
+  int32 reserved_by_pending_submissions = 3;
+  int32 max_photos_per_place = 4;
+  int32 max_menu_items_per_place = 5;
+  string narration_language_scope = 6;
+  bool auto_narration = 7;
+}
+
+message DeactivateMyPlaceRequest {
+  string place_id = 1;
+}
+
+message DeactivateMyPlaceResponse {
+  AdminPlace place = 1;
+}
+
+message ReactivateMyPlaceRequest {
+  string place_id = 1;
+}
+
+message ReactivateMyPlaceResponse {
+  AdminPlace place = 1;
+}

@@ -52,7 +52,9 @@ export function canonicalPublicCode(value: string): string | null {
   const folded = value
     .trim()
     .toUpperCase()
+    // FIXME Prefer `String#replaceAll()` over `String#replace()`.
     .replace(/-/g, '')
+    // FIXME Prefer `String#replaceAll()` over `String#replace()`.
     .replace(/O/g, '0')
     .replace(/[IL]/g, '1');
   return PUBLIC_CODE_PATTERN.test(folded) ? folded : null;
@@ -191,6 +193,29 @@ export const zMenuItemInput = z
 /** One validated menu line. */
 export type MenuItemInput = z.output<typeof zMenuItemInput>;
 
+/** Every price of a menu within its currency's ceiling (ADR 0046). */
+export function checkMenuPrices(
+  menu: {
+    readonly menuCurrency: MenuCurrency;
+    readonly items: readonly { priceMinor?: number | null }[];
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const ceiling = DISPLAY_PRICE_CEILING_MINOR[menu.menuCurrency];
+  menu.items.forEach((item, index) => {
+    if (item.priceMinor != null && item.priceMinor > ceiling) {
+      ctx.addIssue({
+        code: 'too_big',
+        origin: 'number',
+        maximum: ceiling,
+        inclusive: true,
+        path: ['items', index, 'priceMinor'],
+        message: 'Above the currency ceiling',
+      });
+    }
+  });
+}
+
 /** A whole menu: one currency, every price within its ceiling (rdm-spec C-6, ADR 0046). */
 export const zMenuInput = z
   .object({
@@ -198,20 +223,6 @@ export const zMenuInput = z
     items: z.array(zMenuItemInput).max(MAX_MENU_ITEMS_PER_PLACE),
   })
   .strict()
-  .superRefine((menu, ctx) => {
-    const ceiling = DISPLAY_PRICE_CEILING_MINOR[menu.menuCurrency];
-    menu.items.forEach((item, index) => {
-      if (item.priceMinor != null && item.priceMinor > ceiling) {
-        ctx.addIssue({
-          code: 'too_big',
-          origin: 'number',
-          maximum: ceiling,
-          inclusive: true,
-          path: ['items', index, 'priceMinor'],
-          message: 'Above the currency ceiling',
-        });
-      }
-    });
-  });
+  .superRefine(checkMenuPrices);
 /** A validated menu. */
 export type MenuInput = z.output<typeof zMenuInput>;

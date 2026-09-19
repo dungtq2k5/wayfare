@@ -35,3 +35,18 @@ export function placeAuditRecord(facts: {
     ...(facts.origin.userAgent === null ? {} : { userAgent: facts.origin.userAgent }),
   };
 }
+
+/** The `audit.record` input catalog writes for a submission (api-endpoints-plan §3.3, §3.4). */
+export function submissionAuditRecord(facts: {
+  readonly actor: PlaceAuditActor;
+  readonly action: AuditAction;
+  readonly submissionId: string;
+  readonly metadata?: AuditRecordPayload['metadata'];
+  readonly origin: PlaceAuditOrigin;
+  readonly now: Date;
+}): EventInput<typeof AUDIT_RECORD> {
+  return {
+    ...placeAuditRecord({ ...facts, placeId: facts.submissionId }),
+    resource: { type: AuditResourceType.SUBMISSION, id: facts.submissionId },
+  };
+}

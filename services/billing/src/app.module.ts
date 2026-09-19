@@ -20,6 +20,8 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { EntitlementsModule } from './modules/entitlements/entitlements.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { OwnerVerifiedConsumer } from './modules/owner-verified/owner-verified.consumer';
+import { EntitlementsChangedConsumer } from './modules/entitlements-changed/entitlements-changed.consumer';
+import { EntitlementsChangedModule } from './modules/entitlements-changed/entitlements-changed.module';
 import { OwnerVerifiedModule } from './modules/owner-verified/owner-verified.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PlansModule } from './modules/plans/plans.module';
@@ -75,6 +77,7 @@ export class AppModule {
         SellerModule,
         OwnerVerifiedModule,
         UserErasedModule,
+        EntitlementsChangedModule,
         SchedulerModule.forRootAsync({
           imports: [ScheduledModule],
           inject: [ConfigService, PrismaService, BillingWebhooksRecoverJob, BillingEventsPruneJob],
@@ -131,11 +134,12 @@ export class AppModule {
         EventSpine,
         {
           provide: CONSUMERS,
-          inject: [OwnerVerifiedConsumer, UserErasedConsumer],
-          useFactory: (ownerVerified: OwnerVerifiedConsumer, userErased: UserErasedConsumer) => [
-            ownerVerified,
-            userErased,
-          ],
+          inject: [OwnerVerifiedConsumer, UserErasedConsumer, EntitlementsChangedConsumer],
+          useFactory: (
+            ownerVerified: OwnerVerifiedConsumer,
+            userErased: UserErasedConsumer,
+            entitlements: EntitlementsChangedConsumer,
+          ) => [ownerVerified, userErased, entitlements],
         },
       ],
     };

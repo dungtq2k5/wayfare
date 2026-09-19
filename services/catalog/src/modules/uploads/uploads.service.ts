@@ -270,14 +270,19 @@ export class UploadsService {
 
   /**
    * Turns a confirmed upload into a photo (rdm-spec C-12, api-endpoints-plan §3.5): the same
-   * uploader and purpose, confirmed, unused and not yet due for reaping; else `UPLOAD_NOT_READY`.
+   * uploader and purpose, confirmed, unused and not yet due for reaping — or, for an approval,
+   * whatever its age; else `UPLOAD_NOT_READY`.
    */
   async consumeUpload(
     tx: CatalogTx,
     uploadId: string,
     uploaderUserId: string,
     purpose: UploadPurpose,
+    options: { readonly anyAge?: boolean } = {},
   ): Promise<{ sha256: string; variants: PhotoVariants }> {
+    // An upload a pending submission names is kept past the TTL (rdm-spec C-12): its approval
+    // consumes it whatever its age.
+    const maxAgeDays = options.anyAge === true ? null : PENDING_UPLOAD_TTL_DAYS;
     const [row] = await tx.$queryRaw<{ sha256: string; variants: unknown }[]>`
       UPDATE pending_uploads
       SET consumed_at = now()
@@ -285,7 +290,8 @@ export class UploadsService {
         AND uploader_user_id = ${uploaderUserId}::uuid
         AND purpose = ${purpose}
         AND confirmed_at IS NOT NULL
-        AND confirmed_at > now() - make_interval(days => ${PENDING_UPLOAD_TTL_DAYS})
+        AND (${maxAgeDays}::int IS NULL
+          OR confirmed_at > now() - make_interval(days => ${maxAgeDays}::int))
         AND consumed_at IS NULL
       RETURNING sha256, variants`;
     if (row === undefined) throw rpcError('UPLOAD_NOT_READY');

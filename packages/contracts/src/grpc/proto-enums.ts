@@ -24,6 +24,8 @@ import {
   PlaceInactiveReason,
   PlaceKind,
   PlaceStatus,
+  SubmissionKind,
+  SubmissionStatus,
   UploadPurpose,
 } from '../catalog/enums';
 import { ContentTier } from '../catalog/localization';
@@ -51,6 +53,10 @@ import {
   PlaceStatus as ProtoPlaceStatus,
   TranslationSource as ProtoTranslationSource,
 } from '../generated/wayfare/catalog/place_types.pb';
+import {
+  SubmissionKind as ProtoSubmissionKind,
+  SubmissionStatus as ProtoSubmissionStatus,
+} from '../generated/wayfare/catalog/submission.pb';
 import { UploadPurpose as ProtoUploadPurpose } from '../generated/wayfare/catalog/upload.pb';
 import { MenuCurrency } from '../money/display-price';
 import {
@@ -169,6 +175,20 @@ export const uploadPurposeProto = protoEnumBridge(
   'UploadPurpose',
   UploadPurpose,
   ProtoUploadPurpose,
+);
+
+/** `SubmissionKind` ⇄ `wayfare.catalog.SubmissionKind`. */
+export const submissionKindProto = protoEnumBridge(
+  'SubmissionKind',
+  SubmissionKind,
+  ProtoSubmissionKind,
+);
+
+/** `SubmissionStatus` ⇄ `wayfare.catalog.SubmissionStatus`. */
+export const submissionStatusProto = protoEnumBridge(
+  'SubmissionStatus',
+  SubmissionStatus,
+  ProtoSubmissionStatus,
 );
 
 /** `MenuCurrency` ⇄ `wayfare.catalog.MenuCurrency`. */

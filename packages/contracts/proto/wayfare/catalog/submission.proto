@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+// Owner submissions and their review — api-endpoints-plan §3.3, §3.4, rdm-spec C-11.
+package wayfare.catalog;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/catalog/place_admin.proto";
+import "wayfare/common/page.proto";
+
+// What a submission proposes.
+enum SubmissionKind {
+  SUBMISSION_KIND_UNSPECIFIED = 0;
+  SUBMISSION_KIND_CREATE = 1;
+  SUBMISSION_KIND_UPDATE = 2;
+}
+
+// Where a submission stands.
+enum SubmissionStatus {
+  SUBMISSION_STATUS_UNSPECIFIED = 0;
+  SUBMISSION_STATUS_PENDING = 1;
+  SUBMISSION_STATUS_APPROVED = 2;
+  SUBMISSION_STATUS_REJECTED = 3;
+  SUBMISSION_STATUS_WITHDRAWN = 4;
+  SUBMISSION_STATUS_SUPERSEDED = 5;
+}
+
+// A verified owner's own submissions. The caller travels as metadata.
+service SubmissionService {
+  rpc CreateSubmission(CreateSubmissionRequest) returns (CreateSubmissionResponse);
+  rpc ListMySubmissions(ListMySubmissionsRequest) returns (ListMySubmissionsResponse);
+  rpc GetMySubmission(GetMySubmissionRequest) returns (GetMySubmissionResponse);
+  rpc WithdrawSubmission(WithdrawSubmissionRequest) returns (WithdrawSubmissionResponse);
+}
+
+// The review queue. The gateway checks `submission.read` / `submission.review`.
+service SubmissionReviewService {
+  rpc ListSubmissions(ListSubmissionsRequest) returns (ListSubmissionsResponse);
+  rpc GetSubmission(GetSubmissionRequest) returns (GetSubmissionResponse);
+  rpc ApproveSubmission(ApproveSubmissionRequest) returns (ApproveSubmissionResponse);
+  rpc RejectSubmission(RejectSubmissionRequest) returns (RejectSubmissionResponse);
+}
+
+// A submission as its owner sees it: never the internal note.
+message Submission {
+  string id = 1;
+  SubmissionKind kind = 2;
+  SubmissionStatus status = 3;
+  optional string place_id = 4;
+  string owner_user_id = 5;
+  // `PlaceSubmissionPayload`, as JSON (rdm-spec §2.5).
+  string payload_json = 6;
+  int32 payload_schema_version = 7;
+  optional string category_code_override = 8;
+  optional string decision_note = 9;
+  google.protobuf.Timestamp submitted_at = 10;
+  google.protobuf.Timestamp reviewed_at = 11;
+}
+
+// A submission as a reviewer sees it.
+message SubmissionAdmin {
+  Submission submission = 1;
+  optional string internal_note = 2;
+  optional string reviewed_by_id = 3;
+  // The Place an `UPDATE` changes, as it is now.
+  AdminPlace live_place = 4;
+  // `SubmissionDiff`: the owner's base against the payload, as JSON.
+  string diff_json = 5;
+  // The owner's entitlements, as JSON; absent when billing could not answer.
+  optional string entitlements_json = 6;
+  // The owner-editable fields someone else changed since the submission.
+  repeated string conflict_changed_fields = 7;
+}
+
+message CreateSubmissionRequest {
+  SubmissionKind kind = 1;
+  optional string place_id = 2;
+  optional string base_editable_hash = 3;
+  string payload_json = 4;
+}
+
+message CreateSubmissionResponse {
+  Submission submission = 1;
+}
+
+message ListMySubmissionsRequest {
+  wayfare.common.PageRequest page = 1;
+  optional string place_id = 2;
+  optional SubmissionStatus status = 3;
+}
+
+message ListMySubmissionsResponse {
+  repeated Submission submissions = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+message GetMySubmissionRequest {
+  string submission_id = 1;
+}
+
+message GetMySubmissionResponse {
+  Submission submission = 1;
+}
+
+message WithdrawSubmissionRequest {
+  string submission_id = 1;
+}
+
+message WithdrawSubmissionResponse {
+  Submission submission = 1;
+}
+
+message ListSubmissionsRequest {
+  wayfare.common.PageNumberRequest page = 1;
+  optional SubmissionStatus status = 2;
+  optional SubmissionKind kind = 3;
+  optional string area_id = 4;
+}
+
+message ListSubmissionsResponse {
+  repeated Submission submissions = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+message GetSubmissionRequest {
+  string submission_id = 1;
+}
+
+message GetSubmissionResponse {
+  SubmissionAdmin submission = 1;
+}
+
+message ApproveSubmissionRequest {
+  string submission_id = 1;
+  int32 trigger_radius_m = 2;
+  int32 narration_priority = 3;
+  optional string category_code_override = 4;
+  optional string decision_note = 5;
+  optional string internal_note = 6;
+  bool acknowledge_conflict = 7;
+}
+
+message ApproveSubmissionResponse {
+  Submission submission = 1;
+}
+
+message RejectSubmissionRequest {
+  string submission_id = 1;
+  string decision_note = 2;
+  optional string internal_note = 3;
+}
+
+message RejectSubmissionResponse {
+  Submission submission = 1;
+}

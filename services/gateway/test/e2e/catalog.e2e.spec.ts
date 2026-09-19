@@ -294,9 +294,9 @@ describe('GET /categories and /areas', () => {
 });
 
 describe('/uploads', () => {
-  it('signs and confirms for staff who create or update Places', async () => {
+  it('signs and confirms for staff who create or update Places, and for owners', async () => {
     const body = { purpose: 'PLACE_PHOTO', contentType: 'image/jpeg', bytes: 1000 };
-    for (const perms of [['place.create'], ['place.update']]) {
+    for (const perms of [['place.create'], ['place.update'], ['owner.access']]) {
       expect((await console_('post', '/uploads', perms).send(body)).status).toBe(201);
     }
     expect((await console_('post', '/uploads', ['place.read']).send(body)).status).toBe(403);

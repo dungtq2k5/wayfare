@@ -39,6 +39,7 @@ import {
 const PENDING: string = OwnerRegistrationStatus.PENDING;
 
 const withdrawFields = z.object({ registrationId: zUuidV7 });
+const ownerVerificationFields = z.object({ userId: zUuidV7 });
 
 /** What erasure's step reports. */
 export interface RegistrationErasure {
@@ -102,7 +103,7 @@ export class OwnerRegistrationsService {
           SELECT is_email_verified, owner_verified_at, deleted_at
           FROM users WHERE id = ${account.userId}::uuid
           FOR UPDATE`;
-        if (applicant === undefined || applicant.deleted_at !== null) {
+        if (applicant?.deleted_at !== null) {
           throw rpcError('UNAUTHENTICATED');
         }
         if (!applicant.is_email_verified) throw rpcError('EMAIL_NOT_VERIFIED');
@@ -202,6 +203,25 @@ export class OwnerRegistrationsService {
     return { registration: toOwnerRegistration(row) };
   }
 
+  /**
+   * Whether an owner is still verified and live (api-endpoints-plan §12.2): catalog asks on every
+   * approval that writes a Venue's owner, since the token claim was true when the owner submitted
+   * and may not be now. Internal, answered for any caller context. An unknown id is neither.
+   */
+  async getOwnerVerification(
+    request: identityGrpc.GetOwnerVerificationRequest,
+  ): Promise<identityGrpc.GetOwnerVerificationResponse> {
+    const { userId } = parseRpcRequest(ownerVerificationFields, request);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { ownerVerifiedAt: true, deletedAt: true, erasedAt: true },
+    });
+    return {
+      verified: user?.ownerVerifiedAt != null,
+      live: user?.deletedAt === null && user.erasedAt === null,
+    };
+  }
+
   /** `/users/me`'s `owner.pendingRegistration`: the caller's open application, when there is one. */
   async pendingFor(
     db: Prisma.TransactionClient,
@@ -224,6 +244,7 @@ export class OwnerRegistrationsService {
     tx: Prisma.TransactionClient,
     userId: string,
     now: Date,
+    // FIXME Do not use an object literal as default for parameter `origin`.
     origin: AuditOrigin = { ip: null, userAgent: null },
   ): Promise<RegistrationErasure> {
     const rows = await tx.ownerRegistration.findMany({

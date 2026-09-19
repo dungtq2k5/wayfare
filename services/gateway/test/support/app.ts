@@ -113,11 +113,21 @@ export class CatalogStub {
   readonly placeQueries = new StubCaller();
   readonly placeAdmin = new StubCaller();
   readonly uploads = new StubCaller();
+  readonly ownerPlaces = new StubCaller();
+  readonly submissions = new StubCaller();
+  readonly submissionReview = new StubCaller();
 
   onModuleInit(): void {}
 
   reset(): void {
-    for (const caller of [this.placeQueries, this.placeAdmin, this.uploads]) {
+    for (const caller of [
+      this.placeQueries,
+      this.placeAdmin,
+      this.uploads,
+      this.ownerPlaces,
+      this.submissions,
+      this.submissionReview,
+    ]) {
       caller.calls.length = 0;
       caller.handlers = {};
     }

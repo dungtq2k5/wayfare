@@ -11,12 +11,15 @@ export const BILLING_GRPC = Symbol('BILLING_GRPC');
 @Injectable()
 export class BillingServiceGrpcClient implements OnModuleInit {
   readonly seller: GrpcServiceCaller<billingGrpc.SellerServiceClient>;
+  readonly entitlements: GrpcServiceCaller<billingGrpc.EntitlementServiceClient>;
 
   constructor(@Inject(BILLING_GRPC) grpc: ClientGrpc) {
     this.seller = new GrpcServiceCaller(grpc, billingGrpc.SELLER_SERVICE_NAME);
+    this.entitlements = new GrpcServiceCaller(grpc, billingGrpc.ENTITLEMENT_SERVICE_NAME);
   }
 
   onModuleInit(): void {
     this.seller.init();
+    this.entitlements.init();
   }
 }

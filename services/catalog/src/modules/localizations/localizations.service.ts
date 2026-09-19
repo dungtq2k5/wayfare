@@ -20,6 +20,7 @@ import { OutboxService, SYSTEM_ORIGIN } from '@wayfare/nest-common';
 import { placeAuditRecord } from '../places/domain/place-audit';
 import { netVisibilityChange } from '../places/domain/place-lifecycle';
 import { PlacesService } from '../places/places.service';
+import type { OwnerPlaceFrame } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { bumpSyncVersion, withSyncWrite } from '../sync/sync.service';
 import type { CatalogTx } from '../sync/sync.service';
@@ -141,6 +142,7 @@ export class LocalizationsService {
   }
 
   private async applyPlace(payload: Ready, consumer: string): Promise<void> {
+    let frame: OwnerPlaceFrame | null = null;
     await withSyncWrite(this.prisma, async (tx) => {
       if (!(await this.firstDelivery(tx, consumer, payload.eventId))) return;
       const [place] = await tx.$queryRaw<
@@ -249,11 +251,20 @@ export class LocalizationsService {
               // The gate stamps `published_at` only when the Place had none.
               firstPublication: place.publishedAt === null,
             });
+            if (place.ownerUserId !== null && !place.deleted) {
+              frame = {
+                ownerUserId: place.ownerUserId,
+                placeId: payload.targetId,
+                status: PlaceStatus.ACTIVE,
+                inactiveReason: null,
+              };
+            }
           }
         }
       }
       await bumpSyncVersion(tx, payload.targetId);
     });
+    if (frame !== null) this.places.announceStatus(frame);
   }
 
   private async applyMenuItem(payload: Ready, consumer: string): Promise<void> {

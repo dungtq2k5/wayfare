@@ -16,6 +16,9 @@ export const MAX_TOUR_TITLE_LENGTH = 160;
 /** Upper bound of a reviewer's decision note, shown to the applicant (rdm-spec I-8, C-11, B-7). */
 export const MAX_DECISION_NOTE_LENGTH = 1000;
 
+/** A reviewer's staff-only note on a submission (rdm-spec C-11). */
+export const MAX_SUBMISSION_INTERNAL_NOTE_LENGTH = 2000;
+
 /** Largest accepted upload, in bytes (rdm-spec C-12, product-overview §9). */
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 

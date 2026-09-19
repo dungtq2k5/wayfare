@@ -20,6 +20,9 @@ service OwnerService {
   rpc SubmitRegistration(SubmitRegistrationRequest) returns (SubmitRegistrationResponse);
   rpc ListMyRegistrations(ListMyRegistrationsRequest) returns (ListMyRegistrationsResponse);
   rpc WithdrawRegistration(WithdrawRegistrationRequest) returns (WithdrawRegistrationResponse);
+  // Internal (api-endpoints-plan §12.2): whether an owner is still verified and live, asked by
+  // catalog on every approval that writes a Venue's owner.
+  rpc GetOwnerVerification(GetOwnerVerificationRequest) returns (GetOwnerVerificationResponse);
 }
 
 // The review queue. The gateway checks the route's permission; identity checks the rules it alone
@@ -170,4 +173,14 @@ message RejectRegistrationRequest {
 
 message RejectRegistrationResponse {
   OwnerRegistrationAdmin registration = 1;
+}
+
+message GetOwnerVerificationRequest {
+  string user_id = 1;
+}
+
+message GetOwnerVerificationResponse {
+  bool verified = 1;
+  // Neither deactivated nor erased.
+  bool live = 2;
 }

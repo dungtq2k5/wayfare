@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AUDIT_RECORD,
@@ -29,6 +29,9 @@ import {
   PlaceStatus,
   scopeLanguages,
   scopeWidened,
+  SOCKET_ROOMS,
+  SubmissionKind,
+  SubmissionStatus,
   SynthesisTrigger,
   UploadPurpose,
   zMenuInput,
@@ -48,6 +51,7 @@ import type {
   MenuInput,
   OpeningHoursRow,
   PlaceContentInput,
+  PlaceSubmissionPayload,
 } from '@wayfare/contracts';
 import { menuCurrencyProto, placeKindProto, placeStatusProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
@@ -59,12 +63,13 @@ import {
   requireAccountContext,
   rpcError,
 } from '@wayfare/nest-common';
-import type { AccountContext, RequestContext } from '@wayfare/nest-common';
+import type { AccountContext, RequestContext, SocketEmitter } from '@wayfare/nest-common';
 import QRCode from 'qrcode';
 import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env.schema';
 import { BillingPortService } from '../billing-port/billing-port.service';
+import { SOCKET_EMITTER } from '../frames/frames.module';
 import { OwnerEntitlementsService } from '../owner-entitlements/owner-entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { bumpSyncVersion, withSyncWrite } from '../sync/sync.service';
@@ -72,7 +77,9 @@ import type { CatalogTx } from '../sync/sync.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { ActivationGate } from './domain/activation-gate';
 import type { GateMissing } from './domain/activation-gate';
-import { placeAuditRecord } from './domain/place-audit';
+import { placeAuditRecord, submissionAuditRecord } from './domain/place-audit';
+import { snapshotOfPlace } from './domain/submission-diff';
+import type { EditableSnapshot } from './domain/submission-diff';
 import {
   isIllegalTransition,
   netVisibilityChange,
@@ -232,6 +239,35 @@ interface LockedPlace {
   readonly lng: number;
 }
 
+/** A content edit: any subset of the content fields; `null` clears an optional one. */
+type ContentChange = Omit<z.output<typeof updateFields>, 'placeId'>;
+
+/** One photo of a replaced set. */
+type PhotoSetItem = z.output<typeof zPhotoSetItem>;
+
+/** catalog's admin view of a Place. */
+export type AdminPlaceView = catalogGrpc.AdminPlace;
+
+/** What an approval writes besides the payload: the reviewer's values (rdm-spec §1.4). */
+export interface SubmissionApproval {
+  readonly reviewer: AccountContext;
+  readonly ownerUserId: string;
+  readonly payload: PlaceSubmissionPayload;
+  /** The reviewer's override, or the payload's category. */
+  readonly categoryCode: string;
+  readonly triggerRadiusM: number;
+  readonly narrationPriority: number;
+  readonly now: Date;
+}
+
+/** A Venue's status as its owner's frame carries it (api-endpoints-plan §9). */
+export interface OwnerPlaceFrame {
+  readonly ownerUserId: string;
+  readonly placeId: string;
+  readonly status: PlaceStatus;
+  readonly inactiveReason: PlaceInactiveReason | null;
+}
+
 /** A transaction's view of one Place: what it was, what it becomes, and what to publish. */
 interface PlaceWrite {
   readonly place: LockedPlace;
@@ -273,6 +309,7 @@ export class PlacesService {
     private readonly billing: BillingPortService,
     private readonly ownerEntitlements: OwnerEntitlementsService,
     config: ConfigService<Env, true>,
+    @Inject(SOCKET_EMITTER) private readonly frames: Pick<SocketEmitter, 'toRoom'>,
   ) {
     this.mediaBase = config.get('GCS_PUBLIC_BASE_URL', { infer: true });
   }
@@ -440,94 +477,111 @@ export class PlacesService {
     const actor = requireAccountContext(context);
     const fields = parseRpcRequest(updateFields, request);
     const now = new Date();
-    const place = await this.write(fields.placeId, async (tx, write) => {
-      const current = write.place;
-      const data: Prisma.PlaceUncheckedUpdateInput = {};
-      const changed: string[] = [];
-      const nameVi = fields.nameVi ?? current.nameVi;
-      const descriptionVi = fields.descriptionVi ?? current.descriptionVi;
-      if (nameVi !== current.nameVi) changed.push('nameVi');
-      if (descriptionVi !== current.descriptionVi) changed.push('descriptionVi');
+    const { placeId, ...change } = fields;
+    const place = await this.write(placeId, (tx, write) =>
+      this.applyContent(tx, write, actor, change, now, { notifyOwner: true }),
+    );
+    return { place };
+  }
 
-      if (fields.categoryCode !== undefined) {
-        const category = await this.requireCategory(tx, fields.categoryCode, current.kind);
-        if (category.id !== current.categoryId) {
-          data.categoryId = category.id;
-          changed.push('categoryCode');
-        }
-      }
-      let location: GeoPoint | null = null;
-      if (
-        fields.location !== undefined &&
-        (fields.location.lat !== current.lat || fields.location.lng !== current.lng)
-      ) {
-        const area = await this.requireCoveringArea(tx, fields.location);
-        location = fields.location;
-        if (area.id !== current.areaId) data.areaId = area.id;
-        changed.push('location');
-      }
-      const optional = [
-        ['addressVi', fields.addressVi, current.addressVi],
-        ['priceBand', fields.priceBand, current.priceBand],
-        ['phone', fields.phone, current.phone],
-        ['websiteUrl', fields.websiteUrl, current.websiteUrl],
-      ] as const;
-      for (const [key, next, previous] of optional) {
-        if (next !== undefined && next !== previous) {
-          (data as Record<string, unknown>)[key] = next;
-          changed.push(key);
-        }
-      }
-      if (changed.length === 0) return;
+  /**
+   * The content step, shared by an admin's edit and a submission's approval: a changed source text
+   * sends a live Place back through `PROCESSING` and asks narration again (rdm-spec §1.6). An
+   * approval does not tell the owner an admin edited their Venue: `SUBMISSION_APPROVED` does.
+   */
+  private async applyContent(
+    tx: CatalogTx,
+    write: PlaceWrite,
+    actor: AccountContext,
+    fields: ContentChange,
+    now: Date,
+    options: { readonly notifyOwner: boolean },
+  ): Promise<void> {
+    const current = write.place;
+    const data: Prisma.PlaceUncheckedUpdateInput = {};
+    const changed: string[] = [];
+    const nameVi = fields.nameVi ?? current.nameVi;
+    const descriptionVi = fields.descriptionVi ?? current.descriptionVi;
+    if (nameVi !== current.nameVi) changed.push('nameVi');
+    if (descriptionVi !== current.descriptionVi) changed.push('descriptionVi');
 
-      const hash = placeContentHash(nameVi, descriptionVi);
-      const contentChanged = hash !== current.contentHash;
-      if (contentChanged) {
-        Object.assign(data, { nameVi, descriptionVi, contentHash: hash });
-        if (current.status === PlaceStatus.ACTIVE) {
-          write.after = {
-            ...write.after,
-            status: transition(current.status, PlaceLifecycleEvent.SOURCE_CHANGED),
-          };
-          data.status = write.after.status;
-        }
+    if (fields.categoryCode !== undefined) {
+      const category = await this.requireCategory(tx, fields.categoryCode, current.kind);
+      if (category.id !== current.categoryId) {
+        data.categoryId = category.id;
+        changed.push('categoryCode');
       }
-      await tx.place.update({ where: { id: current.id }, data, select: { id: true } });
-      if (location !== null) {
-        // longitude first
-        await tx.$executeRaw`
+    }
+    let location: GeoPoint | null = null;
+    if (
+      fields.location !== undefined &&
+      (fields.location.lat !== current.lat || fields.location.lng !== current.lng)
+    ) {
+      const area = await this.requireCoveringArea(tx, fields.location);
+      location = fields.location;
+      if (area.id !== current.areaId) data.areaId = area.id;
+      changed.push('location');
+    }
+    const optional = [
+      ['addressVi', fields.addressVi, current.addressVi],
+      ['priceBand', fields.priceBand, current.priceBand],
+      ['phone', fields.phone, current.phone],
+      ['websiteUrl', fields.websiteUrl, current.websiteUrl],
+    ] as const;
+    for (const [key, next, previous] of optional) {
+      if (next !== undefined && next !== previous) {
+        (data as Record<string, unknown>)[key] = next;
+        changed.push(key);
+      }
+    }
+    if (changed.length === 0) return;
+
+    const hash = placeContentHash(nameVi, descriptionVi);
+    const contentChanged = hash !== current.contentHash;
+    if (contentChanged) {
+      Object.assign(data, { nameVi, descriptionVi, contentHash: hash });
+      if (current.status === PlaceStatus.ACTIVE) {
+        write.after = {
+          ...write.after,
+          status: transition(current.status, PlaceLifecycleEvent.SOURCE_CHANGED),
+        };
+        data.status = write.after.status;
+      }
+    }
+    await tx.place.update({ where: { id: current.id }, data, select: { id: true } });
+    if (location !== null) {
+      // longitude first
+      await tx.$executeRaw`
           UPDATE places
           SET location = ST_SetSRID(ST_MakePoint(${location.lng}, ${location.lat}), 4326)::geography
           WHERE id = ${current.id}::uuid`;
-      }
-      await this.audit(tx, actor, AuditAction.PLACE_EDITED, current.id, now, {
-        after: { changedFields: changed, contentChanged },
-      });
-      // A Draft has never been sent to narration; activation sends it.
-      if (contentChanged && current.status !== PlaceStatus.DRAFT) {
-        await this.requestNarration(
-          tx,
-          current.id,
-          current.kind,
-          current.ownerUserId,
-          hash,
-          SynthesisTrigger.CONTENT_CHANGED,
-          now,
-        );
-      }
-      if (current.kind === PlaceKind.VENUE && current.ownerUserId !== null) {
-        await this.outbox.add(tx, NOTIFICATION_CREATE, {
-          occurredAt: now.toISOString(),
-          recipientUserId: current.ownerUserId,
-          notification: {
-            type: NotificationType.PLACE_EDITED_BY_ADMIN,
-            data: { placeId: current.id },
-          },
-        });
-      }
-      write.observable = true;
+    }
+    await this.audit(tx, actor, AuditAction.PLACE_EDITED, current.id, now, {
+      after: { changedFields: changed, contentChanged },
     });
-    return { place };
+    // A Draft has never been sent to narration; activation sends it.
+    if (contentChanged && current.status !== PlaceStatus.DRAFT) {
+      await this.requestNarration(
+        tx,
+        current.id,
+        current.kind,
+        current.ownerUserId,
+        hash,
+        SynthesisTrigger.CONTENT_CHANGED,
+        now,
+      );
+    }
+    if (options.notifyOwner && current.kind === PlaceKind.VENUE && current.ownerUserId !== null) {
+      await this.outbox.add(tx, NOTIFICATION_CREATE, {
+        occurredAt: now.toISOString(),
+        recipientUserId: current.ownerUserId,
+        notification: {
+          type: NotificationType.PLACE_EDITED_BY_ADMIN,
+          data: { placeId: current.id },
+        },
+      });
+    }
+    write.observable = true;
   }
 
   /** The editorial values — the only non-approval writer (rdm-spec §1.4). Never changes status. */
@@ -538,29 +592,41 @@ export class PlacesService {
     const actor = requireAccountContext(context);
     const fields = parseRpcRequest(editorialFields, request);
     const now = new Date();
-    const place = await this.write(fields.placeId, async (tx, write) => {
-      const before = {
-        triggerRadiusM: write.place.triggerRadiusM,
-        narrationPriority: write.place.narrationPriority,
-      };
-      const after = {
-        triggerRadiusM: fields.triggerRadiusM ?? before.triggerRadiusM,
-        narrationPriority: fields.narrationPriority ?? before.narrationPriority,
-      };
-      if (
-        after.triggerRadiusM === before.triggerRadiusM &&
-        after.narrationPriority === before.narrationPriority
-      ) {
-        return;
-      }
-      await tx.place.update({ where: { id: write.place.id }, data: after, select: { id: true } });
-      await this.audit(tx, actor, AuditAction.PLACE_EDITORIAL_UPDATED, write.place.id, now, {
-        before,
-        after,
-      });
-      write.observable = true;
-    });
+    const { placeId, ...values } = fields;
+    const place = await this.write(placeId, (tx, write) =>
+      this.applyEditorial(tx, write, actor, values, now),
+    );
     return { place };
+  }
+
+  /** The editorial step: the reviewer's or an admin's radius and priority, audited when changed. */
+  private async applyEditorial(
+    tx: CatalogTx,
+    write: PlaceWrite,
+    actor: AccountContext,
+    fields: { readonly triggerRadiusM?: number; readonly narrationPriority?: number },
+    now: Date,
+  ): Promise<void> {
+    const before = {
+      triggerRadiusM: write.place.triggerRadiusM,
+      narrationPriority: write.place.narrationPriority,
+    };
+    const after = {
+      triggerRadiusM: fields.triggerRadiusM ?? before.triggerRadiusM,
+      narrationPriority: fields.narrationPriority ?? before.narrationPriority,
+    };
+    if (
+      after.triggerRadiusM === before.triggerRadiusM &&
+      after.narrationPriority === before.narrationPriority
+    ) {
+      return;
+    }
+    await tx.place.update({ where: { id: write.place.id }, data: after, select: { id: true } });
+    await this.audit(tx, actor, AuditAction.PLACE_EDITORIAL_UPDATED, write.place.id, now, {
+      before,
+      after,
+    });
+    write.observable = true;
   }
 
   /**
@@ -574,60 +640,79 @@ export class PlacesService {
     const actor = requireAccountContext(context);
     const fields = parseRpcRequest(photosFields, request);
     const now = new Date();
-    const place = await this.write(fields.placeId, async (tx, write) => {
-      const placeId = write.place.id;
-      const existing = await tx.placePhoto.findMany({
-        where: { placeId },
-        select: { id: true, originalSha256: true, variants: true },
-      });
-      const byId = new Map(existing.map((photo) => [photo.id, photo]));
-      const kept = new Set<string>();
-      const keptHashes = new Set<string>();
-      for (const [index, item] of fields.items.entries()) {
-        if (item.photoId === undefined) continue;
-        const photo = byId.get(item.photoId);
-        if (photo === undefined || kept.has(item.photoId)) throw issue(`/items/${index}/photoId`);
-        kept.add(item.photoId);
-        keptHashes.add(photo.originalSha256);
-      }
-      const removed = existing.filter((photo) => !kept.has(photo.id));
-      if (removed.length > 0) {
-        await tx.placePhoto.deleteMany({ where: { id: { in: removed.map((photo) => photo.id) } } });
-        await tx.orphanedObject.createMany({
-          data: removed
-            .flatMap((photo) => objectPathsOf(photo.variants))
-            .map((objectPath) => ({
-              objectPath,
-            })),
-          skipDuplicates: true,
-        });
-      }
-      for (const [index, item] of fields.items.entries()) {
-        if (item.photoId === undefined) continue;
-        await tx.placePhoto.update({
-          where: { id: item.photoId },
-          data: {
-            sortOrder: index,
-            ...(item.altTextVi === undefined ? {} : { altTextVi: item.altTextVi }),
-          },
-          select: { id: true },
-        });
-      }
-      await this.addPhotos(
-        tx,
-        placeId,
-        actor.userId,
-        fields.items.flatMap((item, index) =>
-          item.uploadId === undefined ? [] : [{ ...item, sortOrder: index, index }],
-        ),
-        keptHashes,
-      );
-      await this.audit(tx, actor, AuditAction.PLACE_PHOTOS_REPLACED, placeId, now, {
-        after: { photoCount: fields.items.length },
-      });
-      write.observable = true;
-    });
+    const place = await this.write(fields.placeId, (tx, write) =>
+      this.applyPhotos(tx, write, actor, fields.items, actor.userId, now),
+    );
     return { place };
+  }
+
+  /**
+   * The photo step: kept photos keep their rows, new ones consume uploads by `uploaderUserId` (the
+   * owner, when an approval applies their submission), and the removed rows' objects are listed
+   * for the cleanup job in the same transaction (rdm-spec C-17).
+   */
+  private async applyPhotos(
+    tx: CatalogTx,
+    write: PlaceWrite,
+    actor: AccountContext,
+    items: readonly PhotoSetItem[],
+    uploaderUserId: string,
+    now: Date,
+    options: { readonly path?: string; readonly anyAge?: boolean } = {},
+  ): Promise<void> {
+    const placeId = write.place.id;
+    const existing = await tx.placePhoto.findMany({
+      where: { placeId },
+      select: { id: true, originalSha256: true, variants: true },
+    });
+    const byId = new Map(existing.map((photo) => [photo.id, photo]));
+    const kept = new Set<string>();
+    const keptHashes = new Set<string>();
+    const path = options.path ?? '/items';
+    for (const [index, item] of items.entries()) {
+      if (item.photoId === undefined) continue;
+      const photo = byId.get(item.photoId);
+      if (photo === undefined || kept.has(item.photoId)) throw issue(`${path}/${index}/photoId`);
+      kept.add(item.photoId);
+      keptHashes.add(photo.originalSha256);
+    }
+    const removed = existing.filter((photo) => !kept.has(photo.id));
+    if (removed.length > 0) {
+      await tx.placePhoto.deleteMany({ where: { id: { in: removed.map((photo) => photo.id) } } });
+      await tx.orphanedObject.createMany({
+        data: removed
+          .flatMap((photo) => objectPathsOf(photo.variants))
+          .map((objectPath) => ({
+            objectPath,
+          })),
+        skipDuplicates: true,
+      });
+    }
+    for (const [index, item] of items.entries()) {
+      if (item.photoId === undefined) continue;
+      await tx.placePhoto.update({
+        where: { id: item.photoId },
+        data: {
+          sortOrder: index,
+          ...(item.altTextVi === undefined ? {} : { altTextVi: item.altTextVi }),
+        },
+        select: { id: true },
+      });
+    }
+    await this.addPhotos(
+      tx,
+      placeId,
+      uploaderUserId,
+      items.flatMap((item, index) =>
+        item.uploadId === undefined ? [] : [{ ...item, sortOrder: index, index }],
+      ),
+      keptHashes,
+      { path, anyAge: options.anyAge === true },
+    );
+    await this.audit(tx, actor, AuditAction.PLACE_PHOTOS_REPLACED, placeId, now, {
+      after: { photoCount: items.length },
+    });
+    write.observable = true;
   }
 
   /** Replaces a Venue's menu (rdm-spec C-6, ADR 0046); unchanged lines keep their translations. */
@@ -641,69 +726,80 @@ export class PlacesService {
     if (menuCurrency === null) throw issue('/menuCurrency');
     const menu: MenuInput = parseRpcRequest(zMenuInput, { menuCurrency, items: fields.items });
     const now = new Date();
-    const place = await this.write(fields.placeId, async (tx, write) => {
-      const current = write.place;
-      // A landmark has no menu.
-      if (current.kind !== PlaceKind.VENUE) {
-        throw rpcError('INVALID_STATE', { status: PlaceKind.EDITORIAL });
-      }
-      const existing = await tx.menuItem.findMany({
-        where: { placeId: current.id },
-        select: { id: true, contentHash: true },
-      });
-      const unused = new Map<string, string[]>();
-      for (const item of existing) {
-        unused.set(item.contentHash, [...(unused.get(item.contentHash) ?? []), item.id]);
-      }
-      const keptIds = new Set<string>();
-      const created: string[] = [];
-      const rows = menu.items.map((item, index) => {
-        const hash = menuItemContentHash(item.nameVi, item.descriptionVi);
-        const reuse = unused.get(hash)?.shift();
-        if (reuse !== undefined) keptIds.add(reuse);
-        return { item, index, hash, id: reuse ?? newId(), reused: reuse !== undefined };
-      });
-      await tx.menuItem.deleteMany({
-        where: { placeId: current.id, id: { notIn: [...keptIds] } },
-      });
-      for (const row of rows) {
-        const data = {
-          nameVi: row.item.nameVi,
-          descriptionVi: row.item.descriptionVi ?? null,
-          priceMinor: row.item.priceMinor ?? null,
-          isAvailable: row.item.isAvailable,
-          sortOrder: row.index,
-          contentHash: row.hash,
-        };
-        if (row.reused) {
-          await tx.menuItem.update({ where: { id: row.id }, data, select: { id: true } });
-        } else {
-          await tx.menuItem.create({
-            data: { id: row.id, placeId: current.id, ...data },
-            select: { id: true },
-          });
-          created.push(row.id);
-        }
-      }
-      await tx.place.update({
-        where: { id: current.id },
-        data: { menuCurrency },
-        select: { id: true },
-      });
-      await this.audit(tx, actor, AuditAction.PLACE_MENU_REPLACED, current.id, now, {
-        after: { itemCount: menu.items.length, menuCurrency },
-      });
-      if (created.length > 0) {
-        await this.outbox.add(tx, CATALOG_MENU_CONTENT_CHANGED, {
-          occurredAt: now.toISOString(),
-          placeId: current.id,
-          menuItemIds: created,
-          langs: [...(await this.languagesFor(tx, current.kind, current.ownerUserId))],
-        });
-      }
-      write.observable = true;
-    });
+    const place = await this.write(fields.placeId, (tx, write) =>
+      this.applyMenu(tx, write, actor, menu, now),
+    );
     return { place };
+  }
+
+  /** The menu step: unchanged lines keep their translations; new ones ask narration (rdm-spec C-6). */
+  private async applyMenu(
+    tx: CatalogTx,
+    write: PlaceWrite,
+    actor: AccountContext,
+    menu: MenuInput,
+    now: Date,
+  ): Promise<void> {
+    const current = write.place;
+    // A landmark has no menu.
+    if (current.kind !== PlaceKind.VENUE) {
+      throw rpcError('INVALID_STATE', { status: PlaceKind.EDITORIAL });
+    }
+    const existing = await tx.menuItem.findMany({
+      where: { placeId: current.id },
+      select: { id: true, contentHash: true },
+    });
+    const unused = new Map<string, string[]>();
+    for (const item of existing) {
+      unused.set(item.contentHash, [...(unused.get(item.contentHash) ?? []), item.id]);
+    }
+    const keptIds = new Set<string>();
+    const created: string[] = [];
+    const rows = menu.items.map((item, index) => {
+      const hash = menuItemContentHash(item.nameVi, item.descriptionVi);
+      const reuse = unused.get(hash)?.shift();
+      if (reuse !== undefined) keptIds.add(reuse);
+      return { item, index, hash, id: reuse ?? newId(), reused: reuse !== undefined };
+    });
+    await tx.menuItem.deleteMany({
+      where: { placeId: current.id, id: { notIn: [...keptIds] } },
+    });
+    for (const row of rows) {
+      const data = {
+        nameVi: row.item.nameVi,
+        descriptionVi: row.item.descriptionVi ?? null,
+        priceMinor: row.item.priceMinor ?? null,
+        isAvailable: row.item.isAvailable,
+        sortOrder: row.index,
+        contentHash: row.hash,
+      };
+      if (row.reused) {
+        await tx.menuItem.update({ where: { id: row.id }, data, select: { id: true } });
+      } else {
+        await tx.menuItem.create({
+          data: { id: row.id, placeId: current.id, ...data },
+          select: { id: true },
+        });
+        created.push(row.id);
+      }
+    }
+    await tx.place.update({
+      where: { id: current.id },
+      data: { menuCurrency: menu.menuCurrency },
+      select: { id: true },
+    });
+    await this.audit(tx, actor, AuditAction.PLACE_MENU_REPLACED, current.id, now, {
+      after: { itemCount: menu.items.length, menuCurrency: menu.menuCurrency },
+    });
+    if (created.length > 0) {
+      await this.outbox.add(tx, CATALOG_MENU_CONTENT_CHANGED, {
+        occurredAt: now.toISOString(),
+        placeId: current.id,
+        menuItemIds: created,
+        langs: [...(await this.languagesFor(tx, current.kind, current.ownerUserId))],
+      });
+    }
+    write.observable = true;
   }
 
   /** Replaces the opening hours (rdm-spec C-16). */
@@ -714,15 +810,26 @@ export class PlacesService {
     const actor = requireAccountContext(context);
     const fields = parseRpcRequest(hoursFields, request);
     const now = new Date();
-    const place = await this.write(fields.placeId, async (tx, write) => {
-      await tx.placeOpeningHours.deleteMany({ where: { placeId: write.place.id } });
-      await this.writeHours(tx, write.place.id, fields.rows);
-      await this.audit(tx, actor, AuditAction.PLACE_HOURS_REPLACED, write.place.id, now, {
-        after: { rowCount: fields.rows.length },
-      });
-      write.observable = true;
-    });
+    const place = await this.write(fields.placeId, (tx, write) =>
+      this.applyHours(tx, write, actor, fields.rows, now),
+    );
     return { place };
+  }
+
+  /** The opening-hours step: the whole list replaced (rdm-spec C-16). */
+  private async applyHours(
+    tx: CatalogTx,
+    write: PlaceWrite,
+    actor: AccountContext,
+    rows: readonly OpeningHoursRow[],
+    now: Date,
+  ): Promise<void> {
+    await tx.placeOpeningHours.deleteMany({ where: { placeId: write.place.id } });
+    await this.writeHours(tx, write.place.id, rows);
+    await this.audit(tx, actor, AuditAction.PLACE_HOURS_REPLACED, write.place.id, now, {
+      after: { rowCount: rows.length },
+    });
+    write.observable = true;
   }
 
   /**
@@ -948,6 +1055,28 @@ export class PlacesService {
         allowDeleted: true,
       });
     }
+    // A pending submission of an erased owner can never be approved, and holds their contact phone.
+    await this.prisma.$transaction(async (tx) => {
+      const withdrawn = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE place_submissions
+        SET status = ${SubmissionStatus.WITHDRAWN}, updated_at = now()
+        WHERE owner_user_id = ${event.userId}::uuid AND status = ${SubmissionStatus.PENDING}
+        RETURNING id`;
+      for (const { id } of withdrawn) {
+        await this.outbox.add(
+          tx,
+          AUDIT_RECORD,
+          submissionAuditRecord({
+            actor: { type: AuditActorType.SYSTEM },
+            action: AuditAction.SUBMISSION_WITHDRAWN,
+            submissionId: id,
+            metadata: { before: { status: SubmissionStatus.PENDING } },
+            origin: { ip: null, userAgent: null },
+            now,
+          }),
+        );
+      }
+    });
     await this.prisma.processedEvent.createMany({
       data: [{ consumer, eventId: event.eventId }],
       skipDuplicates: true,
@@ -1153,42 +1282,385 @@ export class PlacesService {
     options: { allowDeleted?: boolean } = {},
   ): Promise<catalogGrpc.AdminPlace> {
     try {
-      return await withSyncWrite(this.prisma, async (tx) => {
-        const place = await this.lock(tx, placeId);
-        if (place.deletedAt !== null && options.allowDeleted !== true) {
-          throw rpcError('INVALID_STATE', { status: DELETED });
-        }
-        const before = { status: place.status, deleted: place.deletedAt !== null };
-        const write: PlaceWrite = { place, before, after: before, observable: false };
-        await apply(tx, write);
-        const change = netVisibilityChange(write.before, write.after);
-        if (change !== null) {
-          // A first publication is the one that stamped `published_at` in this transaction.
-          const firstPublication =
-            place.publishedAt === null &&
-            (
-              await tx.place.findUniqueOrThrow({
-                where: { id: placeId },
-                select: { publishedAt: true },
-              })
-            ).publishedAt !== null;
-          await this.outbox.add(tx, CATALOG_PLACE_STATUS_CHANGED, {
-            occurredAt: new Date().toISOString(),
-            placeId,
-            ...change,
-            reason:
-              change.to === PlaceStatus.INACTIVE ? await this.inactiveReason(tx, placeId) : null,
-            ...(place.ownerUserId === null ? {} : { ownerUserId: place.ownerUserId }),
-            firstPublication,
-          });
-        }
-        if (write.observable) await bumpSyncVersion(tx, placeId);
-        return this.view(tx, placeId);
-      });
+      const { view, frame } = await withSyncWrite(this.prisma, (tx) =>
+        this.writeInTx(tx, placeId, apply, options),
+      );
+      if (frame !== null) this.announceStatus(frame);
+      return view;
     } catch (error) {
       if (isIllegalTransition(error)) throw rpcError('INVALID_STATE', { status: error.from });
       throw error;
     }
+  }
+
+  /**
+   * `write` inside the caller's transaction: locks the Place, applies, publishes the one net
+   * status change and bumps the version. Returns the view and the owner's frame, which is sent
+   * only after the commit.
+   */
+  private async writeInTx(
+    tx: CatalogTx,
+    placeId: string,
+    apply: (tx: CatalogTx, write: PlaceWrite) => Promise<void>,
+    options: { allowDeleted?: boolean } = {},
+  ): Promise<{ view: catalogGrpc.AdminPlace; frame: OwnerPlaceFrame | null }> {
+    const place = await this.lock(tx, placeId);
+    if (place.deletedAt !== null && options.allowDeleted !== true) {
+      throw rpcError('INVALID_STATE', { status: DELETED });
+    }
+    const before = { status: place.status, deleted: place.deletedAt !== null };
+    const write: PlaceWrite = { place, before, after: before, observable: false };
+    await apply(tx, write);
+    const change = netVisibilityChange(write.before, write.after);
+    let frame: OwnerPlaceFrame | null = null;
+    if (change !== null) {
+      // A first publication is the one that stamped `published_at` in this transaction.
+      const firstPublication =
+        place.publishedAt === null &&
+        (
+          await tx.place.findUniqueOrThrow({
+            where: { id: placeId },
+            select: { publishedAt: true },
+          })
+        ).publishedAt !== null;
+      const reason =
+        change.to === PlaceStatus.INACTIVE ? await this.inactiveReason(tx, placeId) : null;
+      await this.outbox.add(tx, CATALOG_PLACE_STATUS_CHANGED, {
+        occurredAt: new Date().toISOString(),
+        placeId,
+        ...change,
+        reason,
+        ...(place.ownerUserId === null ? {} : { ownerUserId: place.ownerUserId }),
+        firstPublication,
+      });
+      if (place.ownerUserId !== null && !change.deleted) {
+        frame = {
+          ownerUserId: place.ownerUserId,
+          placeId,
+          status: change.to,
+          inactiveReason: reason,
+        };
+      }
+    }
+    if (write.observable) await bumpSyncVersion(tx, placeId);
+    return { view: await this.view(tx, placeId), frame };
+  }
+
+  /**
+   * Serializes everything that counts an owner's place limit (rdm-spec C-1, C-11): two
+   * submissions, approvals or reactivations cannot both take the last slot.
+   */
+  async lockOwner(tx: CatalogTx, ownerUserId: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catalog:owner:${ownerUserId}`}))`;
+  }
+
+  /**
+   * What counts against `max_places` (rdm-spec C-1): the owner's Venues in `PLACE_LIMIT_STATUSES`,
+   * and their `PENDING` creations, which reserve a slot. Count under `lockOwner`.
+   */
+  async placeLimitUsage(
+    db: CatalogTx,
+    ownerUserId: string,
+  ): Promise<{ used: number; reserved: number }> {
+    const [used, reserved] = await Promise.all([
+      db.place.count({
+        where: {
+          ownerUserId,
+          kind: VENUE,
+          deletedAt: null,
+          status: { in: [...PLACE_LIMIT_STATUSES] },
+        },
+      }),
+      db.placeSubmission.count({
+        where: {
+          ownerUserId,
+          kind: SubmissionKind.CREATE,
+          status: SubmissionStatus.PENDING,
+        },
+      }),
+    ]);
+    return { used, reserved };
+  }
+
+  /** A Venue of this owner, not deleted; anything else is `404 PLACE` to them. */
+  async ownedVenue(db: CatalogTx, placeId: string, ownerUserId: string): Promise<AdminPlaceView> {
+    const found = await db.place.findUnique({
+      where: { id: placeId },
+      select: { kind: true, ownerUserId: true, deletedAt: true },
+    });
+    if (found?.kind !== VENUE || found.ownerUserId !== ownerUserId || found.deletedAt !== null) {
+      throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
+    }
+    return this.view(db, placeId);
+  }
+
+  /** A Place as catalog's admin view shows it (the owner's detail uses the same shape). */
+  async placeView(db: CatalogTx, placeId: string): Promise<AdminPlaceView> {
+    return this.view(db, placeId);
+  }
+
+  /**
+   * What a submission names, checked as submission and approval both need it (api-endpoints-plan
+   * §3.3): a Venue category, a location inside an active area, the caller's own confirmed uploads,
+   * and photos of this Place. Paths are the payload's.
+   */
+  async checkSubmissionPayload(
+    tx: CatalogTx,
+    payload: PlaceSubmissionPayload,
+    target: { readonly ownerUserId: string; readonly placeId: string | null },
+  ): Promise<void> {
+    await this.requireCategory(tx, payload.categoryCode, PlaceKind.VENUE);
+    await this.requireCoveringArea(tx, payload.location);
+    const photoIds = new Set(
+      target.placeId === null
+        ? []
+        : (
+            await tx.placePhoto.findMany({
+              where: { placeId: target.placeId },
+              select: { id: true },
+            })
+          ).map((photo) => photo.id),
+    );
+    for (const [index, photo] of payload.photos.entries()) {
+      if (photo.photoId !== undefined) {
+        if (!photoIds.has(photo.photoId)) throw issue(`/payload/photos/${index}/photoId`);
+        continue;
+      }
+      const upload = await tx.pendingUpload.findUnique({
+        where: { id: photo.uploadId! },
+        select: { uploaderUserId: true, confirmedAt: true, consumedAt: true },
+      });
+      if (upload?.uploaderUserId !== target.ownerUserId) {
+        throw rpcError('RESOURCE_NOT_FOUND', { resource: 'UPLOAD' });
+      }
+      if (upload.confirmedAt === null || upload.consumedAt !== null) {
+        throw rpcError('UPLOAD_NOT_READY');
+      }
+    }
+  }
+
+  /**
+   * Approves a `CREATE` (rdm-spec C-11) in one transaction: `prepare` takes the owner lock, moves the
+   * submission and re-counts the limit; then the Venue is inserted with the reviewer's editorial
+   * values and the owner's plan's auto-narration, its photos, menu and hours written through the
+   * ordinary steps, narration requested in the owner's scope, and `record` closes the submission.
+   */
+  async approveCreate(
+    approval: SubmissionApproval,
+    hooks: {
+      readonly prepare: (tx: CatalogTx) => Promise<void>;
+      readonly record: (tx: CatalogTx, placeId: string) => Promise<void>;
+    },
+  ): Promise<AdminPlaceView> {
+    const { payload, reviewer, ownerUserId, now } = approval;
+    try {
+      const { view, frame } = await withSyncWrite(this.prisma, async (tx) => {
+        await hooks.prepare(tx);
+        const category = await this.requireCategory(tx, approval.categoryCode, PlaceKind.VENUE);
+        const area = await this.requireCoveringArea(tx, payload.location);
+        const id = newId();
+        const hash = placeContentHash(payload.nameVi, payload.descriptionVi);
+        const publicCode = await this.insertPlace(tx, {
+          id,
+          kind: PlaceKind.VENUE,
+          categoryId: category.id,
+          areaId: area.id,
+          text: { ...contentOf(payload), categoryCode: approval.categoryCode },
+          contentHash: hash,
+          triggerRadiusM: approval.triggerRadiusM,
+          narrationPriority: approval.narrationPriority,
+          status: PlaceStatus.PROCESSING,
+          activationRequestedAt: now,
+          createdById: reviewer.userId,
+          ownerUserId,
+          autoNarrationEnabled: await this.ownerEntitlements.autoNarrationOf(tx, ownerUserId),
+        });
+        await this.audit(tx, reviewer, AuditAction.PLACE_CREATED, id, now, {
+          after: {
+            kind: PlaceKind.VENUE,
+            status: PlaceStatus.PROCESSING,
+            categoryCode: approval.categoryCode,
+            areaCode: area.code,
+            publicCode,
+          },
+        });
+        const written = await this.writeInTx(tx, id, async (inner, write) => {
+          await this.applyPhotos(inner, write, reviewer, payload.photos, ownerUserId, now, {
+            path: '/payload/photos',
+            anyAge: true,
+          });
+          await this.applyMenu(inner, write, reviewer, payload.menu, now);
+          await this.applyHours(inner, write, reviewer, payload.openingHours, now);
+        });
+        await this.requestNarration(
+          tx,
+          id,
+          PlaceKind.VENUE,
+          ownerUserId,
+          hash,
+          SynthesisTrigger.APPROVAL,
+          now,
+        );
+        await hooks.record(tx, id);
+        const created: OwnerPlaceFrame = {
+          ownerUserId,
+          placeId: id,
+          status: PlaceStatus.PROCESSING,
+          inactiveReason: null,
+        };
+        return { view: written.view, frame: created };
+      });
+      this.announceStatus(frame);
+      return view;
+    } catch (error) {
+      if (isIllegalTransition(error)) throw rpcError('INVALID_STATE', { status: error.from });
+      throw error;
+    }
+  }
+
+  /**
+   * Approves an `UPDATE` (rdm-spec C-11) in one transaction on the locked Venue: `prepare` moves the
+   * submission, `check` sees the live editable fields (the conflict), then the whole payload goes
+   * through the ordinary steps with the reviewer's editorial values — a text change sends a live
+   * Venue back through `PROCESSING`; an `INACTIVE` one stays so. The owner is not told an admin
+   * edited their Venue: the submission's outcome tells them.
+   */
+  async approveUpdate(
+    placeId: string,
+    approval: SubmissionApproval,
+    hooks: {
+      readonly prepare: (tx: CatalogTx) => Promise<void>;
+      readonly check: (live: EditableSnapshot) => void;
+      readonly record: (tx: CatalogTx) => Promise<void>;
+    },
+  ): Promise<AdminPlaceView> {
+    const { payload, reviewer, now } = approval;
+    return this.write(placeId, async (tx, write) => {
+      const current = write.place;
+      if (current.kind !== PlaceKind.VENUE || current.ownerUserId !== approval.ownerUserId) {
+        throw rpcError('INVALID_STATE', { status: 'OWNER_CHANGED' });
+      }
+      await hooks.prepare(tx);
+      hooks.check(snapshotOfPlace(await this.view(tx, placeId)));
+      await this.applyContent(
+        tx,
+        write,
+        reviewer,
+        { ...contentOf(payload), categoryCode: approval.categoryCode },
+        now,
+        { notifyOwner: false },
+      );
+      await this.applyEditorial(
+        tx,
+        write,
+        reviewer,
+        { triggerRadiusM: approval.triggerRadiusM, narrationPriority: approval.narrationPriority },
+        now,
+      );
+      await this.applyPhotos(tx, write, reviewer, payload.photos, approval.ownerUserId, now, {
+        path: '/payload/photos',
+        anyAge: true,
+      });
+      await this.applyMenu(tx, write, reviewer, payload.menu, now);
+      await this.applyHours(tx, write, reviewer, payload.openingHours, now);
+      await hooks.record(tx);
+    });
+  }
+
+  /**
+   * `POST /owner/places/:id/deactivate` (api-endpoints-plan §3.1): an `ACTIVE` Venue goes
+   * `INACTIVE (OWNER)` — closed for renovation, the listing kept. Any other state is refused.
+   */
+  async deactivateByOwner(placeId: string, owner: AccountContext): Promise<AdminPlaceView> {
+    const now = new Date();
+    return this.write(
+      placeId,
+      async (tx, write) => {
+        const current = write.place;
+        requireOwned(current, owner.userId);
+        if (current.status !== PlaceStatus.ACTIVE) {
+          throw rpcError('INVALID_STATE', { status: current.status });
+        }
+        const status = transition(current.status, PlaceLifecycleEvent.DEACTIVATED);
+        await tx.place.update({
+          where: { id: current.id },
+          data: { status, inactiveReason: PlaceInactiveReason.OWNER },
+          select: { id: true },
+        });
+        await this.audit(tx, owner, AuditAction.PLACE_DEACTIVATED_BY_OWNER, current.id, now, {
+          before: { status: current.status, inactiveReason: null },
+          after: { status, inactiveReason: PlaceInactiveReason.OWNER },
+        });
+        write.after = { ...write.after, status };
+        write.observable = true;
+      },
+      { allowDeleted: true },
+    );
+  }
+
+  /**
+   * `POST /owner/places/:id/reactivate` (api-endpoints-plan §3.1): `INACTIVE (OWNER)` or
+   * `INACTIVE (ENTITLEMENT_LIMIT)` back through the activation gate, when the plan has room — the
+   * Venue itself does not count yet. An admin's deactivation is an admin's to undo.
+   */
+  async reactivateByOwner(
+    placeId: string,
+    owner: AccountContext,
+    maxPlaces: number,
+  ): Promise<AdminPlaceView> {
+    const now = new Date();
+    return this.write(
+      placeId,
+      async (tx, write) => {
+        const current = write.place;
+        requireOwned(current, owner.userId);
+        const reason = current.inactiveReason;
+        if (
+          current.status !== PlaceStatus.INACTIVE ||
+          (reason !== PlaceInactiveReason.OWNER && reason !== PlaceInactiveReason.ENTITLEMENT_LIMIT)
+        ) {
+          throw rpcError('INVALID_STATE', { status: current.status });
+        }
+        await this.lockOwner(tx, owner.userId);
+        const usage = await this.placeLimitUsage(tx, owner.userId);
+        if (usage.used + usage.reserved >= maxPlaces) {
+          throw rpcError('PLACE_LIMIT_REACHED', { limit: maxPlaces });
+        }
+        let status = transition(current.status, PlaceLifecycleEvent.ACTIVATION_REQUESTED);
+        await tx.place.update({
+          where: { id: current.id },
+          data: { status, inactiveReason: null, activationRequestedAt: now },
+          select: { id: true },
+        });
+        const opened = await this.openGateIfReady(tx, current.id, {
+          contentHash: current.contentHash,
+          activationRequestedAt: now,
+          publishedAt: current.publishedAt,
+        });
+        if (opened.open) status = PlaceStatus.ACTIVE;
+        await this.audit(tx, owner, AuditAction.PLACE_REACTIVATED, current.id, now, {
+          before: { status: current.status, inactiveReason: reason },
+          after: { status, inactiveReason: null },
+        });
+        if (opened.open) await this.audit(tx, owner, AuditAction.PLACE_ACTIVATED, current.id, now);
+        write.after = { ...write.after, status };
+        write.observable = true;
+      },
+      { allowDeleted: true },
+    );
+  }
+
+  /**
+   * `owner:place:status` to the owner's room (api-endpoints-plan §9), after the commit that changed
+   * a Venue's status — the one hook every status path goes through, the localization consumer's
+   * gate included. Fire-and-forget: the feed and the Venue list are the record.
+   */
+  announceStatus(frame: OwnerPlaceFrame): void {
+    this.frames.toRoom(SOCKET_ROOMS.owner(frame.ownerUserId), 'ownerPlaceStatus', {
+      placeId: frame.placeId,
+      status: frame.status,
+      inactiveReason: frame.inactiveReason,
+    });
   }
 
   /**
@@ -1299,6 +1771,10 @@ export class PlacesService {
       status: PlaceStatus;
       activationRequestedAt: Date | null;
       createdById: string;
+      /** A Venue's owner; an Editorial Place has none. */
+      ownerUserId?: string | null;
+      /** A Venue's from its owner's plan (rdm-spec C-18); an Editorial Place always narrates. */
+      autoNarrationEnabled?: boolean;
       /** A committed code: one attempt, no random fallback. */
       publicCode?: string;
     },
@@ -1310,15 +1786,17 @@ export class PlacesService {
       // longitude first
       const inserted = await tx.$queryRaw<{ id: string }[]>`
         INSERT INTO places (
-          id, kind, public_code, category_id, area_id, name_vi, description_vi, content_hash,
+          id, kind, owner_user_id, public_code, category_id, area_id, name_vi, description_vi, content_hash,
           location, address_vi, trigger_radius_m, narration_priority, auto_narration_enabled,
           discovery_boost, price_band, phone, website_url, status, activation_requested_at,
           sync_version, created_by_id, updated_at
         ) VALUES (
-          ${place.id}::uuid, ${place.kind}, ${code}, ${place.categoryId}::uuid, ${place.areaId}::uuid,
+          ${place.id}::uuid, ${place.kind}, ${place.ownerUserId ?? null}::uuid, ${code},
+          ${place.categoryId}::uuid, ${place.areaId}::uuid,
           ${text.nameVi}, ${text.descriptionVi}, ${place.contentHash},
           ST_SetSRID(ST_MakePoint(${text.location.lng}, ${text.location.lat}), 4326)::geography,
-          ${text.addressVi ?? null}, ${place.triggerRadiusM}, ${place.narrationPriority}, true,
+          ${text.addressVi ?? null}, ${place.triggerRadiusM}, ${place.narrationPriority},
+          ${place.autoNarrationEnabled ?? true},
           0, ${text.priceBand ?? null}::smallint, ${text.phone ?? null}, ${text.websiteUrl ?? null},
           ${place.status}, ${place.activationRequestedAt}, nextval('catalog_sync_version_seq'),
           ${place.createdById}::uuid, clock_timestamp()
@@ -1342,6 +1820,7 @@ export class PlacesService {
       index: number;
     }[],
     takenHashes: Set<string>,
+    options: { readonly path?: string; readonly anyAge?: boolean } = {},
   ): Promise<void> {
     for (const item of items) {
       if (item.uploadId === undefined) continue;
@@ -1350,9 +1829,12 @@ export class PlacesService {
         item.uploadId,
         uploaderUserId,
         UploadPurpose.PLACE_PHOTO,
+        { anyAge: options.anyAge === true },
       );
       // The unique (place, original) pair is the guarantee; this is the message.
-      if (takenHashes.has(upload.sha256)) throw issue(`/items/${item.index}`, 'custom');
+      if (takenHashes.has(upload.sha256)) {
+        throw issue(`${options.path ?? '/items'}/${item.index}`, 'custom');
+      }
       takenHashes.add(upload.sha256);
       await tx.placePhoto.create({
         data: {
@@ -1473,6 +1955,31 @@ export class PlacesService {
       FROM places WHERE id = ${placeId}::uuid`;
     return toAdminPlace(row, location!, this.mediaBase);
   }
+}
+
+/** A Venue the caller does not own, or a deleted one, is not found — never refused. */
+function requireOwned(place: LockedPlace, ownerUserId: string): void {
+  if (
+    place.kind !== PlaceKind.VENUE ||
+    place.ownerUserId !== ownerUserId ||
+    place.deletedAt !== null
+  ) {
+    throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
+  }
+}
+
+/** A payload's content fields, each stated (`null` clears). */
+function contentOf(payload: PlaceSubmissionPayload): PlaceContentInput {
+  return {
+    nameVi: payload.nameVi,
+    descriptionVi: payload.descriptionVi,
+    categoryCode: payload.categoryCode,
+    location: payload.location,
+    addressVi: payload.addressVi,
+    priceBand: payload.priceBand,
+    phone: payload.phone,
+    websiteUrl: payload.websiteUrl,
+  };
 }
 
 /** Every object path a stored `PhotoVariants` names. */

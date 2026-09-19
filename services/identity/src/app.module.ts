@@ -26,6 +26,8 @@ import { EmailWebhooksModule } from './modules/email-webhooks/email-webhooks.mod
 import { EmailModule } from './modules/email/email.module';
 import { EntitlementsChangedConsumer } from './modules/entitlements-changed/entitlements-changed.consumer';
 import { EntitlementsChangedModule } from './modules/entitlements-changed/entitlements-changed.module';
+import { SubmissionReviewedConsumer } from './modules/submission-reviewed/submission-reviewed.consumer';
+import { SubmissionReviewedModule } from './modules/submission-reviewed/submission-reviewed.module';
 import { NotificationCreateConsumer } from './modules/notification-create/notification-create.consumer';
 import { NotificationCreateModule } from './modules/notification-create/notification-create.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -97,6 +99,7 @@ export class AppModule {
         PlaceStatusModule,
         PaymentFailedModule,
         EntitlementsChangedModule,
+        SubmissionReviewedModule,
         OwnerRegistrationsModule,
         OwnerReviewModule,
         SchedulerModule.forRootAsync({
@@ -161,6 +164,7 @@ export class AppModule {
             PlaceStatusConsumer,
             PaymentFailedConsumer,
             EntitlementsChangedConsumer,
+            SubmissionReviewedConsumer,
           ],
           useFactory: (
             audit: AuditConsumer,
@@ -169,7 +173,16 @@ export class AppModule {
             placeStatus: PlaceStatusConsumer,
             paymentFailed: PaymentFailedConsumer,
             entitlementsChanged: EntitlementsChangedConsumer,
-          ) => [audit, revocation, notifications, placeStatus, paymentFailed, entitlementsChanged],
+            submissionReviewed: SubmissionReviewedConsumer,
+          ) => [
+            audit,
+            revocation,
+            notifications,
+            placeStatus,
+            paymentFailed,
+            entitlementsChanged,
+            submissionReviewed,
+          ],
         },
       ],
     };

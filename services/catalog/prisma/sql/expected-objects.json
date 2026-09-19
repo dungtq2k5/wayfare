@@ -5,7 +5,8 @@
     "outbox_events_unpublished_idx",
     "places_active_location_gist",
     "places_owner_live_idx",
-    "areas_boundary_gist"
+    "areas_boundary_gist",
+    "place_submissions_one_pending_update"
   ],
   "constraints": [
     "places_kind_owner_ck",
@@ -21,6 +22,9 @@
     "menu_items_price_ck",
     "place_opening_hours_one_of_ck",
     "place_opening_hours_times_ck",
-    "place_opening_hours_weekday_ck"
+    "place_opening_hours_weekday_ck",
+    "place_submissions_update_has_place_ck",
+    "place_submissions_reviewed_ck",
+    "place_submissions_update_base_ck"
   ]
 }

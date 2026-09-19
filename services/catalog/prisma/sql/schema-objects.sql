@@ -85,3 +85,23 @@ ALTER TABLE place_opening_hours ADD CONSTRAINT place_opening_hours_times_ck
 ALTER TABLE place_opening_hours DROP CONSTRAINT IF EXISTS place_opening_hours_weekday_ck;
 ALTER TABLE place_opening_hours ADD CONSTRAINT place_opening_hours_weekday_ck
   CHECK (weekday IS NULL OR weekday BETWEEN 1 AND 7);
+
+-- place_submissions (rdm-spec C-11). One pending UPDATE per Place: a new one supersedes it.
+CREATE UNIQUE INDEX IF NOT EXISTS place_submissions_one_pending_update
+  ON place_submissions (place_id)
+  WHERE status = 'PENDING' AND kind = 'UPDATE';
+
+-- A CREATE names its Place only once approved; an UPDATE always does.
+ALTER TABLE place_submissions DROP CONSTRAINT IF EXISTS place_submissions_update_has_place_ck;
+ALTER TABLE place_submissions ADD CONSTRAINT place_submissions_update_has_place_ck
+  CHECK (kind IN ('CREATE', 'UPDATE') AND (kind = 'CREATE' OR place_id IS NOT NULL));
+
+-- A decision is stamped exactly when one was made.
+ALTER TABLE place_submissions DROP CONSTRAINT IF EXISTS place_submissions_reviewed_ck;
+ALTER TABLE place_submissions ADD CONSTRAINT place_submissions_reviewed_ck
+  CHECK ((status IN ('APPROVED', 'REJECTED')) = (reviewed_at IS NOT NULL));
+
+-- An UPDATE carries its base (hash and snapshot); a CREATE carries none.
+ALTER TABLE place_submissions DROP CONSTRAINT IF EXISTS place_submissions_update_base_ck;
+ALTER TABLE place_submissions ADD CONSTRAINT place_submissions_update_base_ck
+  CHECK ((kind = 'CREATE') = (base_snapshot IS NULL AND base_editable_hash IS NULL));

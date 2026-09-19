@@ -25,6 +25,10 @@ import { LocalizationReadyModule } from './modules/localization-ready/localizati
 import { LocalizationSourcesModule } from './modules/localization-sources/localization-sources.module';
 import { EntitlementsChangedConsumer } from './modules/entitlements-changed/entitlements-changed.consumer';
 import { EntitlementsChangedModule } from './modules/entitlements-changed/entitlements-changed.module';
+import { FramesModule } from './modules/frames/frames.module';
+import { OwnerPlacesModule } from './modules/owner-places/owner-places.module';
+import { SubmissionReviewModule } from './modules/submission-review/submission-review.module';
+import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { PlaceQueriesModule } from './modules/place-queries/place-queries.module';
 import { PlacesModule } from './modules/places/places.module';
@@ -60,10 +64,14 @@ export class AppModule {
         createLoggerModuleAsync(),
         PrismaModule,
         OutboxModule,
+        FramesModule,
         SystemCatalogModule,
         AreasModule,
         UploadsModule,
         PlacesModule,
+        SubmissionsModule,
+        SubmissionReviewModule,
+        OwnerPlacesModule,
         PlaceQueriesModule,
         LocalizationReadyModule,
         LocalizationFailedModule,

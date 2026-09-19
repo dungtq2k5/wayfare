@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { VoucherStatus } from '../billing/enums';
+import { SUBMISSION_EDITABLE_FIELDS } from '../catalog/submission-fields';
 import { LegalDocument } from '../identity/enums';
 import { zMoney } from '../money/money';
 
@@ -65,6 +66,14 @@ export const ownerHasLiveVouchersDetails = z
 /** `OWNER_HAS_ACTIVE_OBLIGATIONS`: when a cancelled subscription's paid period ends, if known. */
 export const ownerHasActiveObligationsDetails = z
   .object({ subscriptionEndsAt: zInstant.optional() })
+  .strict();
+
+/**
+ * `SUBMISSION_CONFLICT`: the owner-editable fields someone else changed since the submission's
+ * base — empty when a stale base is refused at submission, where the owner simply reloads.
+ */
+export const submissionConflictDetails = z
+  .object({ changedFields: z.array(z.enum(SUBMISSION_EDITABLE_FIELDS)) })
   .strict();
 
 /** `ROLE_IN_USE`: how many accounts, deactivated ones included, still hold the role. */

@@ -664,7 +664,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **phone** | VARCHAR(20) | Nullable | E.164. |
 | **website_url** | VARCHAR(512) | Nullable | `https` only, validated at the edge. |
 | **status** | VARCHAR(16) | NOT NULL | `DRAFT \| PROCESSING \| ACTIVE \| INACTIVE` (§1.6). |
-| **inactive_reason** | VARCHAR(24) | Nullable | `ADMIN \| OWNER \| ENTITLEMENT_LIMIT`. `CHECK ((status = 'INACTIVE') = (inactive_reason IS NOT NULL))`. Recorded because reactivation rules differ: an owner may undo `OWNER` (for an erased owner nobody can, so it is terminal; erasure moves the owner's `ADMIN` and `ENTITLEMENT_LIMIT` Venues to `OWNER` too, so neither an admin nor a widened grant can bring one back), only an admin may undo `ADMIN`, and `ENTITLEMENT_LIMIT` lifts itself when the plan allows. |
+| **inactive_reason** | VARCHAR(24) | Nullable | `ADMIN \| OWNER \| ENTITLEMENT_LIMIT`. `CHECK ((status = 'INACTIVE') = (inactive_reason IS NOT NULL))`. Recorded because reactivation rules differ: an owner may undo `OWNER` (for an erased owner nobody can, so it is terminal; erasure moves the owner's `ADMIN` and `ENTITLEMENT_LIMIT` Venues to `OWNER` too, so neither an admin nor a widened grant can bring one back), only an admin may undo `ADMIN`, and `ENTITLEMENT_LIMIT` lifts itself when the plan allows — or the owner lifts it, when the plan has room. |
 | **activation_requested_at** | TIMESTAMPTZ(3) | Nullable | Set when a Place is approved for publication. The activation gate needs it (§1.6); a Place whose localizations become ready without it stays `PROCESSING`. |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | First time the Place became `ACTIVE`. Never cleared. |
 | **sync_version** | BIGINT | NOT NULL, Indexed | From `catalog_sync_version_seq`, re-taken on every tourist-observable change to the Place or its children (§1.7). |
@@ -855,9 +855,11 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **place_id** | UUID | Nullable, FK ➔ places.id, RESTRICT, Indexed | `UPDATE`: the Place. `CREATE`: NULL until approval, then set to the created Place in the same transaction. `CHECK (kind = 'CREATE' OR place_id IS NOT NULL)`. |
 | **owner_user_id** | UUID | NOT NULL, ref ➔ identity.users.id, Indexed | Must equal `places.owner_user_id` for `UPDATE`. |
 | **status** | VARCHAR(16) | NOT NULL | `PENDING \| APPROVED \| REJECTED \| WITHDRAWN \| SUPERSEDED` |
-| **payload** | JSONB | NOT NULL | `PlaceSubmissionPayload` — the complete desired state: `nameVi`, `descriptionVi`, `categoryCode`, `location {lat,lng}`, `addressVi`, `priceBand`, `phone`, `websiteUrl`, `openingHours[]`, `photos[]` (ordered: existing photo ids to keep and confirmed upload ids to add), `menuItems[]`. **Contains no `narrationPriority` and no `triggerRadiusM`** (§1.4). |
+| **payload** | JSONB | NOT NULL | `PlaceSubmissionPayload` — the complete desired state: `nameVi`, `descriptionVi`, `categoryCode`, `location {lat,lng}`, `addressVi`, `priceBand`, `phone`, `websiteUrl`, `openingHours[]`, `photos[]` (ordered: existing photo ids to keep and confirmed upload ids to add), `menu { menuCurrency, items[] }` (one currency for the whole menu, C-1). Every optional field is present, as a value or `null`: `null` clears. **Contains no `narrationPriority` and no `triggerRadiusM`** (§1.4). |
 | **payload_schema_version** | SMALLINT | NOT NULL | Readers dispatch on it (§2.5). Bumped whenever a field is added or its meaning changes; old versions stay readable for as long as a `PENDING` row of that version exists. |
-| **base_sync_version** | BIGINT | Nullable | `UPDATE` only: the Place's `sync_version` when the owner opened the editor. If the Place has changed since — an admin fixed a typo, entitlements unpublished it — approval answers `409` unless the reviewer explicitly acknowledges the conflict. A full-state payload applied blindly would silently revert the admin's fix. |
+| **base_editable_hash** | CHAR(64) | Nullable | `UPDATE` only: the hash of the owner-editable fields the owner started from (`editableHash` from their read of the Place). A submission whose base no longer matches the live Place is refused at once. |
+| **base_snapshot** | JSONB | Nullable | `UPDATE` only: those owner-editable fields as they stood at submission — content, photo ids and alt texts in order, the menu currency and its full items (name, description, price, availability, so an admin's price change counts), hours. At approval, a field where the live Place differs from this snapshot was changed by someone else since; approval answers `409` with those fields unless the reviewer acknowledges them. **Not `sync_version`**: it moves when narration finishes or the status changes, which are not conflicts. A full-state payload applied blindly would silently revert an admin's fix. `CHECK ((kind = 'CREATE') = (base_snapshot IS NULL AND base_editable_hash IS NULL))`. |
+| **category_code_override** | VARCHAR(32) | Nullable | The category the reviewer applied instead of the payload's, if any. The owner's view shows both. |
 | **submitted_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **reviewed_at** | TIMESTAMPTZ(3) | Nullable | `CHECK ((status IN ('APPROVED','REJECTED')) = (reviewed_at IS NOT NULL))`. |
 | **reviewed_by_id** | UUID | Nullable, ref ➔ identity.users.id | — |
@@ -868,7 +870,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Partial unique:** `place_submissions_one_pending_update` — `(place_id) WHERE status = 'PENDING' AND kind = 'UPDATE'`. A new `UPDATE` submission for the same Place marks the previous `PENDING` one `SUPERSEDED` in the same transaction, rather than refusing — the owner fixing their own typo before review is the normal case, not a conflict.
 - **Entitlements are checked twice:** at submission (fast feedback) and at approval (the plan may have changed in between). The approval check is the one that counts.
-- **Approval, in one transaction:** apply the payload to the Place and its children; set `trigger_radius_m` and `narration_priority` from the *reviewer's* request, not the payload; if `name_vi`/`description_vi` changed, recompute `content_hash`, move the Place to `PROCESSING`, stamp `activation_requested_at`; take a new `sync_version`; mark the submission `APPROVED`; write outbox `catalog.place.content_changed` (if text changed), `catalog.submission.reviewed`, `audit.record`.
+- **The place limit** counts the owner's Places in `PLACE_LIMIT_STATUSES` plus their `PENDING` `CREATE` submissions, checked at submission and at approval under a transaction-scoped advisory lock on the owner, so two requests cannot both take the last slot.
+- **Approval, in one transaction:** composed of the same write steps an admin's edit uses (content, editorial, photos, menu, hours, activation), so the content hash, the sync bump, the events and the audit rows are identical; apply the payload to the Place and its children; set `trigger_radius_m` and `narration_priority` from the *reviewer's* request, not the payload; if `name_vi`/`description_vi` changed, recompute `content_hash`, move the Place to `PROCESSING`, stamp `activation_requested_at`; take a new `sync_version`; mark the submission `APPROVED`; write outbox `catalog.place.content_changed` (if text changed), `catalog.submission.reviewed`, `audit.record`.
 - Rows are never deleted. They are the history of what an owner asked for and what an admin decided.
 
 #### Table C-12: pending_uploads
@@ -892,6 +895,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **consumed_at** | TIMESTAMPTZ(3) | Nullable | Set when a submission approval or an admin edit turns this into a `place_photos` row. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
+- **Kept while a `PENDING` submission names it:** the reaper skips it, and approval consumes it whatever its age.
 - **Reaped** by a job: unconfirmed past `expires_at`, or confirmed but unconsumed after `PENDING_UPLOAD_TTL_DAYS` (14 — long enough for a submission to sit in review). The job deletes the objects first and the row after.
 
 #### Table C-13: favorites
@@ -1754,6 +1758,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | catalog | `tours_minutes_ck`, `tours_inactive_reason_ck` | CHECK | — |
 | catalog | `place_submissions_one_pending_update` | partial unique | one pending update per Place |
 | catalog | `place_submissions_update_has_place_ck`, `place_submissions_reviewed_ck` | CHECK | — |
+| catalog | `place_submissions_update_base_ck` | CHECK | an `UPDATE` carries its base (hash and snapshot); a `CREATE` carries none |
 | catalog | `map_packs_one_published` | partial unique | one live map per area |
 | catalog | `map_packs_zoom_ck` | CHECK | — |
 | catalog | `place_opening_hours_one_of_ck`, `…_times_ck`, `…_weekday_ck` | CHECK | §C-16 |

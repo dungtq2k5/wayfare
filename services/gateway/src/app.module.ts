@@ -23,6 +23,9 @@ import { BillingModule } from './modules/billing/billing.module';
 import { OwnerBillingModule } from './modules/owner-billing/owner-billing.module';
 import { StripeWebhooksModule } from './modules/stripe-webhooks/stripe-webhooks.module';
 import { AdminPlacesModule } from './modules/admin-places/admin-places.module';
+import { AdminSubmissionsModule } from './modules/admin-submissions/admin-submissions.module';
+import { OwnerPlacesModule } from './modules/owner-places/owner-places.module';
+import { OwnerSubmissionsModule } from './modules/owner-submissions/owner-submissions.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AreasModule } from './modules/areas/areas.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
@@ -100,6 +103,9 @@ export class AppModule {
         AreasModule,
         UploadsModule,
         AdminPlacesModule,
+        AdminSubmissionsModule,
+        OwnerPlacesModule,
+        OwnerSubmissionsModule,
         BillingModule,
         OwnerBillingModule,
         AdminPlansModule,

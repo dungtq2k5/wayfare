@@ -30,4 +30,10 @@ export class OwnerRegistrationsGrpcController implements identityGrpc.OwnerServi
   ): Promise<identityGrpc.WithdrawRegistrationResponse> {
     return this.registrations.withdrawRegistration(request, unpackCallerContext(metadata));
   }
+
+  getOwnerVerification(
+    request: identityGrpc.GetOwnerVerificationRequest,
+  ): Promise<identityGrpc.GetOwnerVerificationResponse> {
+    return this.registrations.getOwnerVerification(request);
+  }
 }

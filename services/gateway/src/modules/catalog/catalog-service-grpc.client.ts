@@ -16,16 +16,25 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
   readonly placeQueries: GrpcServiceCaller<catalogGrpc.PlaceQueryServiceClient>;
   readonly placeAdmin: GrpcServiceCaller<catalogGrpc.PlaceAdminServiceClient>;
   readonly uploads: GrpcServiceCaller<catalogGrpc.UploadServiceClient>;
+  readonly ownerPlaces: GrpcServiceCaller<catalogGrpc.OwnerPlaceServiceClient>;
+  readonly submissions: GrpcServiceCaller<catalogGrpc.SubmissionServiceClient>;
+  readonly submissionReview: GrpcServiceCaller<catalogGrpc.SubmissionReviewServiceClient>;
 
   constructor(@Inject(CATALOG_GRPC) grpc: ClientGrpc) {
     this.placeQueries = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_QUERY_SERVICE_NAME);
     this.placeAdmin = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_ADMIN_SERVICE_NAME);
     this.uploads = new GrpcServiceCaller(grpc, catalogGrpc.UPLOAD_SERVICE_NAME);
+    this.ownerPlaces = new GrpcServiceCaller(grpc, catalogGrpc.OWNER_PLACE_SERVICE_NAME);
+    this.submissions = new GrpcServiceCaller(grpc, catalogGrpc.SUBMISSION_SERVICE_NAME);
+    this.submissionReview = new GrpcServiceCaller(grpc, catalogGrpc.SUBMISSION_REVIEW_SERVICE_NAME);
   }
 
   onModuleInit(): void {
     this.placeQueries.init();
     this.placeAdmin.init();
     this.uploads.init();
+    this.ownerPlaces.init();
+    this.submissions.init();
+    this.submissionReview.init();
   }
 }

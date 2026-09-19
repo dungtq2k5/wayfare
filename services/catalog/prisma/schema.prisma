@@ -55,10 +55,47 @@ model Place {
   menuItems     MenuItem[]
   qrScans       PlaceQrScanDaily[]
   openingHours  PlaceOpeningHours[]
+  submissions   PlaceSubmission[]
 
   @@index([syncVersion], map: "places_sync_version_idx")
   @@index([areaId, status], map: "places_area_status_idx")
   @@map("places")
+}
+
+/// An owner's proposed complete state of a Venue, awaiting review — rdm-spec C-11. Never deleted.
+model PlaceSubmission {
+  id                   String    @id @db.Uuid
+  /// SubmissionKind in `@wayfare/contracts`
+  kind                 String    @db.VarChar(16)
+  /// `UPDATE`: the Place. `CREATE`: set at approval.
+  placeId              String?   @map("place_id") @db.Uuid
+  /// ref ➔ identity.users.id
+  ownerUserId          String    @map("owner_user_id") @db.Uuid
+  /// SubmissionStatus in `@wayfare/contracts`
+  status               String    @db.VarChar(16)
+  /// `PlaceSubmissionPayload`, read by `payload_schema_version`.
+  payload              Json      @db.JsonB
+  payloadSchemaVersion Int       @map("payload_schema_version") @db.SmallInt
+  /// `UPDATE` only: the hash of the owner-editable fields the owner started from.
+  baseEditableHash     String?   @map("base_editable_hash") @db.Char(64)
+  /// `UPDATE` only: those fields as they stood at submission.
+  baseSnapshot         Json?     @map("base_snapshot") @db.JsonB
+  categoryCodeOverride String?   @map("category_code_override") @db.VarChar(32)
+  submittedAt          DateTime  @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  reviewedAt           DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  /// ref ➔ identity.users.id
+  reviewedById         String?   @map("reviewed_by_id") @db.Uuid
+  decisionNote         String?   @map("decision_note") @db.Text
+  internalNote         String?   @map("internal_note") @db.Text
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  place Place? @relation(fields: [placeId], references: [id], onDelete: Restrict)
+
+  @@index([placeId], map: "place_submissions_place_idx")
+  @@index([ownerUserId, status], map: "place_submissions_owner_status_idx")
+  @@index([status, submittedAt], map: "place_submissions_queue_idx")
+  @@map("place_submissions")
 }
 
 /// A category — rdm-spec C-2. Its display name comes from the UI bundle.
