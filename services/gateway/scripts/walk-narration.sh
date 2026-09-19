@@ -10,7 +10,7 @@
 #   end. The failing-provider steps wait for retries, so the whole walk takes about two minutes.
 set -euo pipefail
 
-ROOT=${ROOT:-http://localhost:3000}
+ROOT=${ROOT:-http://localhost:13000}
 BASE=${BASE:-$ROOT/api/v1}
 NARRATION_OPS=${NARRATION_OPS:-http://localhost:3103}
 APP_VERSION=${APP_VERSION:-1.0.0}

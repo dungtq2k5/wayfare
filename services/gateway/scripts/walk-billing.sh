@@ -11,7 +11,7 @@
 #   by SQL once, since registering a price reads it from Stripe.
 set -euo pipefail
 
-ROOT=${ROOT:-http://localhost:3000}
+ROOT=${ROOT:-http://localhost:13000}
 BASE=${BASE:-$ROOT/api/v1}
 export BOOTSTRAP_SUPER_ADMIN_EMAIL=${BOOTSTRAP_SUPER_ADMIN_EMAIL:-superadmin@wayfare.local}
 export BOOTSTRAP_SUPER_ADMIN_PASSWORD=${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-super admin pass 1}

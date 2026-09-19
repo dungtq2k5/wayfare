@@ -9,9 +9,9 @@ const keys = generateTestSigningKeys('dev-1');
 
 const valid = {
   NODE_ENV: 'development',
-  DATABASE_URL: 'postgresql://wayfare:wayfare@localhost:5433/wayfare_identity',
-  NATS_URL: 'nats://localhost:4222',
-  REDIS_URL: 'redis://localhost:6379',
+  DATABASE_URL: 'postgresql://wayfare:wayfare@localhost:15433/wayfare_identity',
+  NATS_URL: 'nats://localhost:14222',
+  REDIS_URL: 'redis://localhost:16379',
   JWT_PRIVATE_KEY: keys.privateKey,
   JWT_KEY_ID: keys.keyId,
   GRPC_URL: '0.0.0.0:50051',

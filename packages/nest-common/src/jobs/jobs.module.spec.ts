@@ -3,9 +3,9 @@ import { bullConnection } from './jobs.module';
 
 describe('bullConnection', () => {
   it('reads a plain URL', () => {
-    expect(bullConnection('redis://localhost:6379', 'svc')).toEqual({
+    expect(bullConnection('redis://localhost:16379', 'svc')).toEqual({
       host: 'localhost',
-      port: 6379,
+      port: 16379,
       db: 0,
       connectionName: 'svc',
       maxRetriesPerRequest: null,

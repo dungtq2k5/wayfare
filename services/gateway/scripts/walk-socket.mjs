@@ -2,7 +2,7 @@
 // subscribes to a job, and appends every frame to a file as a JSON line until it is stopped.
 //
 // Usage: node walk-socket.mjs OUT_FILE [JOB_ID]
-//   WS_URL (default http://localhost:3000/ws), ORIGIN (default http://localhost:5173) and TOKEN
+//   WS_URL (default http://localhost:13000/ws), ORIGIN (default http://localhost:5173) and TOKEN
 //   (the wf_at access token) come from the environment.
 import { appendFileSync } from 'node:fs';
 import { io } from 'socket.io-client';
@@ -15,7 +15,7 @@ if (out === undefined) {
 const record = (event, payload) =>
   appendFileSync(out, `${JSON.stringify({ at: Date.now(), event, payload })}\n`);
 
-const socket = io(process.env.WS_URL ?? 'http://localhost:3000/ws', {
+const socket = io(process.env.WS_URL ?? 'http://localhost:13000/ws', {
   transports: ['websocket'],
   auth: { client: 'console' },
   extraHeaders: {

@@ -9,7 +9,7 @@ const keys = generateTestSigningKeys('dev-1');
 
 const valid = {
   NODE_ENV: 'development',
-  PORT: '3000',
+  PORT: '13000',
   GLOBAL_PREFIX: 'api',
   CORS_ORIGINS: 'http://localhost:5173, http://localhost:5174',
   TRUST_PROXY_HOPS: '0',
@@ -21,7 +21,7 @@ const valid = {
   PUBLIC_QR_BASE_URL: 'https://go.wayfare.app/',
   PUBLIC_LINK_BASE_URL: 'https://wayfare.app',
   JWT_PUBLIC_KEYS: keys.publicKeys,
-  REDIS_URL: 'redis://localhost:6379',
+  REDIS_URL: 'redis://localhost:16379',
   METRICS_PORT: '9100',
 };
 
@@ -30,7 +30,7 @@ const parse = (env: Record<string, string>) => parseEnvOrThrow('gateway', envSch
 describe('gateway configuration', () => {
   it('parses a complete environment into converted values', () => {
     const config = parse(valid);
-    expect(config.PORT).toBe(3000);
+    expect(config.PORT).toBe(13000);
     expect(config.CORS_ORIGINS).toEqual(['http://localhost:5173', 'http://localhost:5174']);
     expect(config.SWAGGER_ENABLED).toBe(true);
     expect(config.JWT_PUBLIC_KEYS.get('dev-1')?.asymmetricKeyType).toBe('ed25519');

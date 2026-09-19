@@ -12,7 +12,7 @@
 #   sync lag makes some steps wait ~6 s.
 set -euo pipefail
 
-ROOT=${ROOT:-http://localhost:3000}
+ROOT=${ROOT:-http://localhost:13000}
 BASE=${BASE:-$ROOT/api/v1}
 GCS=${GCS:-http://localhost:4443}
 BUCKET=${BUCKET:-wayfare-media-local}

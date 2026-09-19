@@ -9,7 +9,7 @@
 #   Staff set their passwords from the setup mails, read through Mailpit.
 set -euo pipefail
 
-BASE=${BASE:-http://localhost:3000/api/v1}
+BASE=${BASE:-http://localhost:13000/api/v1}
 export BOOTSTRAP_SUPER_ADMIN_EMAIL=${BOOTSTRAP_SUPER_ADMIN_EMAIL:-superadmin@wayfare.local}
 export BOOTSTRAP_SUPER_ADMIN_PASSWORD=${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-super admin pass 1}
 work=$(mktemp -d)

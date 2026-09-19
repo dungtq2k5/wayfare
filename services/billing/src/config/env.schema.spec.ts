@@ -4,9 +4,9 @@ import { envSchema } from './env.schema';
 const valid = {
   NODE_ENV: 'development',
   LOG_LEVEL: 'info',
-  DATABASE_URL: 'postgresql://wayfare:wayfare@localhost:5436/wayfare_billing',
-  NATS_URL: 'nats://localhost:4222',
-  REDIS_URL: 'redis://localhost:6379',
+  DATABASE_URL: 'postgresql://wayfare:wayfare@localhost:15436/wayfare_billing',
+  NATS_URL: 'nats://localhost:14222',
+  REDIS_URL: 'redis://localhost:16379',
   GRPC_URL: '0.0.0.0:50054',
   OPS_PORT: '3104',
   METRICS_PORT: '9104',

@@ -10,7 +10,7 @@
 #   moderator@wayfare.test. BASE, ROOT and the BOOTSTRAP_SUPER_ADMIN_* variables may be overridden.
 set -euo pipefail
 
-ROOT=${ROOT:-http://localhost:3000}
+ROOT=${ROOT:-http://localhost:13000}
 BASE=${BASE:-$ROOT/api/v1}
 export BOOTSTRAP_SUPER_ADMIN_EMAIL=${BOOTSTRAP_SUPER_ADMIN_EMAIL:-superadmin@wayfare.local}
 export BOOTSTRAP_SUPER_ADMIN_PASSWORD=${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-super admin pass 1}

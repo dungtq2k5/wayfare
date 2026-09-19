@@ -6,7 +6,7 @@
 # Usage: services/gateway/scripts/walk-email.sh     (BASE and MAILPIT may be overridden)
 set -euo pipefail
 
-BASE=${BASE:-http://localhost:3000/api/v1}
+BASE=${BASE:-http://localhost:13000/api/v1}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # shellcheck source=./walk-lib.sh

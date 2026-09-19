@@ -5,7 +5,7 @@
 # Usage: services/gateway/scripts/walk-sessions.sh     (BASE and APP_VERSION may be overridden)
 set -euo pipefail
 
-BASE=${BASE:-http://localhost:3000/api/v1}
+BASE=${BASE:-http://localhost:13000/api/v1}
 APP_VERSION=${APP_VERSION:-1.0.0}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT

@@ -10,7 +10,7 @@
 #   it runs only when BILLING_STOP and BILLING_START name the commands that stop and start it.
 set -euo pipefail
 
-ROOT=${ROOT:-http://localhost:3000}
+ROOT=${ROOT:-http://localhost:13000}
 BASE=${BASE:-$ROOT/api/v1}
 APP_VERSION=${APP_VERSION:-1.0.0}
 work=$(mktemp -d)
