@@ -7,10 +7,10 @@ const valid = {
   DATABASE_URL: 'postgresql://wayfare:wayfare@localhost:15436/wayfare_billing',
   NATS_URL: 'nats://localhost:14222',
   REDIS_URL: 'redis://localhost:16379',
-  GRPC_URL: '0.0.0.0:50054',
+  GRPC_URL: '0.0.0.0:20054',
   OPS_PORT: '3104',
   METRICS_PORT: '9104',
-  CATALOG_GRPC_URL: 'localhost:50052',
+  CATALOG_GRPC_URL: 'localhost:20052',
   CONSOLE_URL: 'http://localhost:5173/',
   STRIPE_WEBHOOK_SECRET: 'whsec_local',
 };
