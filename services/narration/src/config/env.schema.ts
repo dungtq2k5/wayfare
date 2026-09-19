@@ -47,6 +47,8 @@ export const envSchema = z
     OPS_PORT: zPort,
     METRICS_PORT: zPort,
     CATALOG_GRPC_URL: z.string().min(1),
+    // billing's gRPC address: a Venue's languages, for on-demand (api-endpoints-plan §12.2).
+    BILLING_GRPC_URL: z.string().min(1),
     APP_VERSION: z.string().default('0.0.0-dev'),
     GIT_SHA: z.string().default('unknown'),
     BUILT_AT: z.string().default('unknown'),

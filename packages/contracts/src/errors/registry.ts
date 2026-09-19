@@ -107,6 +107,7 @@ export const ERRORS = {
   ROLE_NAME_TAKEN: exists,
   INVALID_STATE: { ...conflict, details: invalidStateDetails },
   EMAIL_CHANGE_REVERT_PENDING: conflict,
+  IDEMPOTENCY_KEY_IN_FLIGHT: conflict,
   PAYOUT_CHANGES_COOLING_DOWN: { ...conflict, details: coolingDownDetails },
   BUYER_HAS_PENDING_ORDER: conflict,
   OWNER_HAS_ACTIVE_OBLIGATIONS: conflict,

@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { status } from '@grpc/grpc-js';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AuditAction,
@@ -10,6 +11,7 @@ import {
   OnDemandStatus,
   PlaceKind,
   PlaceStatus,
+  scopeCoversLanguage,
   SynthesisTaskStatus,
   SynthesisTrigger,
   zUuidV7,
@@ -17,16 +19,23 @@ import {
 import type { Language } from '@wayfare/contracts';
 import {
   audioStatusProto,
+  narrationLanguageScopeProto,
   onDemandStatusProto,
   placeKindProto,
   placeStatusProto,
 } from '@wayfare/contracts/grpc';
-import type { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
+import type { billingGrpc, catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
 import { servedAudio } from '@wayfare/core';
-import { parseRpcRequest, requireDeviceContext, rpcError } from '@wayfare/nest-common';
+import {
+  isGrpcServiceError,
+  parseRpcRequest,
+  requireDeviceContext,
+  rpcError,
+} from '@wayfare/nest-common';
 import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import type { Env } from '../../config/env.schema';
+import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { LIVE_JOB_STATUSES } from '../jobs/domain/job-status';
 import { JobsService } from '../jobs/jobs.service';
@@ -70,10 +79,12 @@ function servedOf(row: catalogGrpc.LocalizationState) {
  */
 @Injectable()
 export class NarrationService {
+  private readonly logger = new Logger(NarrationService.name);
   private readonly mediaBase: string;
 
   constructor(
     private readonly catalog: CatalogServiceGrpcClient,
+    private readonly billing: BillingServiceGrpcClient,
     private readonly jobs: JobsService,
     private readonly tasks: TasksService,
     config: ConfigService<Env, true>,
@@ -111,9 +122,9 @@ export class NarrationService {
     const place = await this.activePlace(fields.placeId);
     const lang = normalizeLang(fields.lang);
     if (lang === null) return this.answer(OnDemandStatus.UNAVAILABLE);
-    // A Venue's languages are its plan's: fail closed until billing answers (api-endpoints-plan §12.2).
-    if (placeKindProto.fromProto(place.kind) === PlaceKind.VENUE)
-      throw rpcError('ENTITLEMENTS_UNAVAILABLE');
+    if (placeKindProto.fromProto(place.kind) === PlaceKind.VENUE) {
+      await this.requireVenueLanguage(place.ownerUserId ?? null, lang);
+    }
 
     const row = place.localizations.find((state) => state.lang === lang);
     const audio =
@@ -172,6 +183,34 @@ export class NarrationService {
   }
 
   /** A Place a tourist may ask about: `ACTIVE` and not deleted. */
+  /**
+   * A Venue's languages are its owner's plan's (api-endpoints-plan §12.2): outside the scope is
+   * `LANGUAGE_NOT_ENTITLED`, and so is an owner with no billing account; a billing that cannot
+   * answer refuses (`ENTITLEMENTS_UNAVAILABLE`) — a grant is never assumed.
+   */
+  private async requireVenueLanguage(ownerUserId: string | null, lang: Language): Promise<void> {
+    if (ownerUserId === null) throw rpcError('LANGUAGE_NOT_ENTITLED');
+    let answer: billingGrpc.GetEntitlementsResponse;
+    try {
+      answer = await this.billing.getEntitlements(ownerUserId);
+    } catch (error) {
+      if (isGrpcServiceError(error) && error.code === status.NOT_FOUND) {
+        throw rpcError('LANGUAGE_NOT_ENTITLED');
+      }
+      this.logger.warn(
+        { ownerUserId, kind: error instanceof Error ? error.name : 'unknown' },
+        'billing did not answer the entitlements',
+      );
+      throw rpcError('ENTITLEMENTS_UNAVAILABLE');
+    }
+    const scope = narrationLanguageScopeProto.fromProto(
+      answer.entitlements?.narrationLanguageScope,
+    );
+    if (scope === null || !scopeCoversLanguage(scope, lang)) {
+      throw rpcError('LANGUAGE_NOT_ENTITLED');
+    }
+  }
+
   private async activePlace(placeId: string): Promise<catalogGrpc.LocalizationSourcePlace> {
     const source = await this.catalog.localizationSource(LocalizationTargetType.PLACE, placeId);
     const place = source.place ?? null;

@@ -32,6 +32,8 @@ export function toMeResponseDto(response: identityGrpc.GetMeResponse): MeRespons
       owner === null
         ? null
         : {
+            // Composed by the gateway from billing (api-endpoints-plan §12.1).
+            billingSummary: null,
             pendingRegistration:
               pending === null
                 ? null

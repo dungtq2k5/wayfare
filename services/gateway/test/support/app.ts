@@ -18,6 +18,7 @@ import type { GatewayConfig } from '../../src/config/env.schema';
 import { configureApp } from '../../src/configure-app';
 import { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
 import { IdentityServiceGrpcClient } from '../../src/modules/identity/identity-service-grpc.client';
+import { BillingServiceGrpcClient } from '../../src/modules/billing/billing-service-grpc.client';
 import { NarrationServiceGrpcClient } from '../../src/modules/narration-client/narration-service-grpc.client';
 import { SOCKET_REVALIDATE_INTERVAL } from '../../src/modules/events/events.gateway';
 import { REDIS } from '../../src/modules/ops/redis.module';
@@ -39,6 +40,7 @@ export function e2eEnv(overrides: Record<string, string> = {}): Record<string, s
     IDENTITY_GRPC_URL: 'localhost:1',
     CATALOG_GRPC_URL: 'localhost:2',
     NARRATION_GRPC_URL: 'localhost:3',
+    BILLING_GRPC_URL: 'localhost:4',
     PUBLIC_QR_BASE_URL: 'https://go.wayfare.test',
     PUBLIC_LINK_BASE_URL: 'https://wayfare.test',
     JWT_PUBLIC_KEYS: keys.publicKeys,
@@ -137,6 +139,24 @@ export class NarrationStub {
   }
 }
 
+/** billing, stubbed the same way. */
+export class BillingStub {
+  readonly billing = new StubCaller();
+  readonly plans = new StubCaller();
+  readonly accounts = new StubCaller();
+  readonly events = new StubCaller();
+  readonly webhooks = new StubCaller();
+
+  onModuleInit(): void {}
+
+  reset(): void {
+    for (const caller of [this.billing, this.plans, this.accounts, this.events, this.webhooks]) {
+      caller.calls.length = 0;
+      caller.handlers = {};
+    }
+  }
+}
+
 /** The fake Redis, with the readiness surface the ops module uses. */
 export class E2eRedis extends FakeRedis {
   healthy = true;
@@ -154,6 +174,7 @@ export interface E2eApp {
   readonly identity: IdentityStub;
   readonly catalog: CatalogStub;
   readonly narration: NarrationStub;
+  readonly billing: BillingStub;
   readonly redis: E2eRedis;
   readonly config: GatewayConfig;
 }
@@ -169,6 +190,7 @@ export async function bootGateway(
   identity.reset();
   const catalog = new CatalogStub();
   const narration = new NarrationStub();
+  const billing = new BillingStub();
   const redis = new E2eRedis();
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule.forRoot({ env: e2eEnv(overrides) })],
@@ -179,6 +201,8 @@ export async function bootGateway(
     .useValue(catalog)
     .overrideProvider(NarrationServiceGrpcClient)
     .useValue(narration)
+    .overrideProvider(BillingServiceGrpcClient)
+    .useValue(billing)
     .overrideProvider(REDIS)
     .useValue(redis)
     .overrideProvider(SOCKET_REVALIDATE_INTERVAL)
@@ -198,7 +222,7 @@ export async function bootGateway(
     await app.listen(0, '127.0.0.1');
   }
   restoreEnv();
-  return { app, identity, catalog, narration, redis, config };
+  return { app, identity, catalog, narration, billing, redis, config };
 }
 
 const now = () => new Date();

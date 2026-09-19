@@ -23,6 +23,8 @@ import { LocalizationFailedModule } from './modules/localization-failed/localiza
 import { LocalizationReadyConsumer } from './modules/localization-ready/localization-ready.consumer';
 import { LocalizationReadyModule } from './modules/localization-ready/localization-ready.module';
 import { LocalizationSourcesModule } from './modules/localization-sources/localization-sources.module';
+import { EntitlementsChangedConsumer } from './modules/entitlements-changed/entitlements-changed.consumer';
+import { EntitlementsChangedModule } from './modules/entitlements-changed/entitlements-changed.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { PlaceQueriesModule } from './modules/place-queries/place-queries.module';
 import { PlacesModule } from './modules/places/places.module';
@@ -63,6 +65,7 @@ export class AppModule {
         PlaceQueriesModule,
         LocalizationReadyModule,
         LocalizationFailedModule,
+        EntitlementsChangedModule,
         LocalizationSourcesModule,
         SchedulerModule.forRootAsync({
           imports: [JobsModule],
@@ -120,11 +123,16 @@ export class AppModule {
         EventSpine,
         {
           provide: CONSUMERS,
-          inject: [LocalizationReadyConsumer, LocalizationFailedConsumer],
-          useFactory: (ready: LocalizationReadyConsumer, failed: LocalizationFailedConsumer) => [
-            ready,
-            failed,
+          inject: [
+            LocalizationReadyConsumer,
+            LocalizationFailedConsumer,
+            EntitlementsChangedConsumer,
           ],
+          useFactory: (
+            ready: LocalizationReadyConsumer,
+            failed: LocalizationFailedConsumer,
+            entitlements: EntitlementsChangedConsumer,
+          ) => [ready, failed, entitlements],
         },
       ],
     };

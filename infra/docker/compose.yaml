@@ -47,6 +47,17 @@ services:
       - ./postgres-init/narration.sh:/docker-entrypoint-initdb.d/20-narration.sh:ro
     healthcheck: *postgres-health
 
+  billing-db:
+    image: postgres:17
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_billing
+    ports: ['5436:5432']
+    volumes:
+      - billing-db:/var/lib/postgresql/data
+      - ./postgres-init/billing.sh:/docker-entrypoint-initdb.d/20-billing.sh:ro
+    healthcheck: *postgres-health
+
   # noeviction: a queue must never be silently evicted (ADR 0021).
   redis:
     image: redis:7-alpine
@@ -149,6 +160,7 @@ services:
       DATABASE_URL: postgresql://wayfare:wayfare@identity-db:5432/wayfare_identity?schema=public
       NATS_URL: nats://nats:4222
       GRPC_URL: 0.0.0.0:50051
+      BILLING_GRPC_URL: billing:50054
       OPS_PORT: '3101'
       METRICS_PORT: '9101'
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
@@ -181,6 +193,7 @@ services:
       DATABASE_URL: postgresql://wayfare:wayfare@catalog-db:5432/wayfare_catalog?schema=public
       NATS_URL: nats://nats:4222
       GRPC_URL: 0.0.0.0:50052
+      BILLING_GRPC_URL: billing:50054
       OPS_PORT: '3102'
       METRICS_PORT: '9102'
       GCS_BUCKET_MEDIA: wayfare-media-local
@@ -219,6 +232,7 @@ services:
       DATABASE_URL: postgresql://wayfare:wayfare@narration-db:5432/wayfare_narration?schema=public
       NATS_URL: nats://nats:4222
       GRPC_URL: 0.0.0.0:50053
+      BILLING_GRPC_URL: billing:50054
       OPS_PORT: '3103'
       METRICS_PORT: '9103'
       CATALOG_GRPC_URL: catalog:50052
@@ -247,6 +261,44 @@ services:
       timeout: 3s
       retries: 30
 
+  billing:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: billing
+    # Only for the webhook secret (`pnpm keys:dev`) and a sandbox key; everything below overrides
+    # the host-form values.
+    env_file:
+      - path: ../../services/billing/.env
+        required: false
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@billing-db:5432/wayfare_billing?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:50054
+      OPS_PORT: '3104'
+      METRICS_PORT: '9104'
+      # No depends_on catalog: catalog calls billing too, and both connect lazily.
+      CATALOG_GRPC_URL: catalog:50052
+      CONSOLE_URL: http://localhost:5173
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: billing
+    ports: ['3104:3104']
+    depends_on:
+      billing-db: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3104/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
   gateway:
     profiles: [apps]
     build:
@@ -268,6 +320,7 @@ services:
       IDENTITY_GRPC_URL: identity:50051
       CATALOG_GRPC_URL: catalog:50052
       NARRATION_GRPC_URL: narration:50053
+      BILLING_GRPC_URL: billing:50054
       PUBLIC_QR_BASE_URL: http://localhost:3000
       PUBLIC_LINK_BASE_URL: http://localhost:5174
       REDIS_URL: redis://redis:6379
@@ -281,6 +334,7 @@ services:
       identity: { condition: service_healthy }
       catalog: { condition: service_healthy }
       narration: { condition: service_healthy }
+      billing: { condition: service_healthy }
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health/ready']
       interval: 5s
@@ -291,4 +345,5 @@ volumes:
   identity-db:
   catalog-db:
   narration-db:
+  billing-db:
   nats-data:

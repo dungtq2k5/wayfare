@@ -1,17 +1,20 @@
 // narration's services wired by hand, with in-memory stand-ins for catalog, the queue, the socket
 // and storage — so a suite drives the pipeline step by step and reads what it wrote.
 import { createHash } from 'node:crypto';
+import { Metadata, status } from '@grpc/grpc-js';
 import { AudioStatus, newId, PlaceKind, PlaceStatus, TranslationSource } from '@wayfare/contracts';
-import type { SocketEventKey, SocketPayload } from '@wayfare/contracts';
+import type { SocketEventKey, SocketPayload, NarrationLanguageScope } from '@wayfare/contracts';
 import {
   audioStatusProto,
+  narrationLanguageScopeProto,
   placeKindProto,
   placeStatusProto,
   translationSourceProto,
 } from '@wayfare/contracts/grpc';
-import type { catalogGrpc } from '@wayfare/contracts/grpc';
+import type { billingGrpc, catalogGrpc } from '@wayfare/contracts/grpc';
 import { OutboxService } from '@wayfare/nest-common';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
+import type { BillingServiceGrpcClient } from '../../src/modules/billing/billing-service-grpc.client';
 import type { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
 import { JobsService } from '../../src/modules/jobs/jobs.service';
 import { NarrationService } from '../../src/modules/narration/narration.service';
@@ -70,6 +73,7 @@ export class FakeCatalog {
       status?: PlaceStatus;
       kind?: PlaceKind;
       deleted?: boolean;
+      ownerUserId?: string;
       localizations?: catalogGrpc.LocalizationState[];
     } = {},
   ): { id: string; hash: string } {
@@ -85,6 +89,7 @@ export class FakeCatalog {
         contentHash: hash,
         nameVi: name,
         descriptionVi: description,
+        ...(input.ownerUserId === undefined ? {} : { ownerUserId: input.ownerUserId }),
         localizations: input.localizations ?? [],
       },
     });
@@ -218,9 +223,54 @@ const noCache = {
 };
 
 /** narration's services, wired by hand the way the modules wire them. */
+/**
+ * billing's entitlements, as narration asks them: a scope per owner; an unknown owner answers as
+ * billing does for no account (NOT_FOUND); `down` rejects as an unreachable billing.
+ */
+export class FakeBilling {
+  readonly scopes = new Map<string, NarrationLanguageScope>();
+  down = false;
+
+  getEntitlements(ownerUserId: string): Promise<billingGrpc.GetEntitlementsResponse> {
+    if (this.down) {
+      return Promise.reject(
+        Object.assign(new Error('billing down'), {
+          code: status.UNAVAILABLE,
+          details: 'down',
+          metadata: new Metadata(),
+        }),
+      );
+    }
+    const scope = this.scopes.get(ownerUserId);
+    if (scope === undefined) {
+      return Promise.reject(
+        Object.assign(new Error('no account'), {
+          code: status.NOT_FOUND,
+          details: 'no account',
+          metadata: new Metadata(),
+        }),
+      );
+    }
+    return Promise.resolve({
+      entitlementsVersion: '1',
+      entitlements: {
+        maxPlaces: 1,
+        autoNarration: false,
+        narrationLanguageScope: narrationLanguageScopeProto.toProto(scope),
+        maxPhotosPerPlace: 3,
+        maxMenuItemsPerPlace: 10,
+        discoveryBoostSlots: 0,
+        aiCreditsPerDay: 0,
+        analyticsLevel: 1,
+        canSellVouchers: false,
+      },
+    });
+  }
+}
+
 export function narrationServices(
   prisma: PrismaService,
-  options: { chains?: ProviderChains; catalog?: FakeCatalog } = {},
+  options: { chains?: ProviderChains; catalog?: FakeCatalog; billing?: FakeBilling } = {},
 ) {
   const config = testConfig();
   const outbox = new OutboxService();
@@ -244,7 +294,26 @@ export function narrationServices(
   );
   queue.run = (taskId) => tasks.run(taskId);
   const jobs = new JobsService(prisma, outbox, tasks, client, health);
-  const narration = new NarrationService(client, jobs, tasks, config);
+  const billing = options.billing ?? new FakeBilling();
+  const narration = new NarrationService(
+    client,
+    billing as unknown as BillingServiceGrpcClient,
+    jobs,
+    tasks,
+    config,
+  );
   const recover = new SynthesisRecoverJob(tasks, queue as unknown as TaskQueue);
-  return { catalog, queue, frames, storage, chains, health, tasks, jobs, narration, recover };
+  return {
+    catalog,
+    billing,
+    queue,
+    frames,
+    storage,
+    chains,
+    health,
+    tasks,
+    jobs,
+    narration,
+    recover,
+  };
 }

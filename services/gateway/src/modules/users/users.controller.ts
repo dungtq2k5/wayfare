@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiEnvelope, ApiErrors, Auth, Ctx, NoStore, UsesUpstream } from '@wayfare/nest-common';
-import type { AccountContext } from '@wayfare/nest-common';
+import type { AccountContext, WithMeta } from '@wayfare/nest-common';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { LegalAcceptanceResponseDto } from '../devices/dto/device-response.dto';
 import { RecordLegalAcceptanceDto } from '../devices/dto/device.dto';
@@ -25,7 +25,7 @@ export class UsersController {
   })
   @ApiEnvelope(MeResponseDto)
   @ZodSerializerDto(MeResponseDto)
-  me(@Ctx() context: AccountContext): Promise<MeResponseDto> {
+  me(@Ctx() context: AccountContext): Promise<MeResponseDto | WithMeta<MeResponseDto>> {
     return this.users.me(context);
   }
 

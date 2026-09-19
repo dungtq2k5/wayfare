@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+// The owner subscription — api-endpoints-plan §5.1, §12.1, rdm-spec B-1 to B-3.
+package wayfare.billing;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/billing/entitlement.proto";
+
+// An owner's Stripe subscription state (rdm-spec B-3), plus NONE.
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  SUBSCRIPTION_STATUS_NONE = 1;
+  SUBSCRIPTION_STATUS_INCOMPLETE = 2;
+  SUBSCRIPTION_STATUS_INCOMPLETE_EXPIRED = 3;
+  SUBSCRIPTION_STATUS_TRIALING = 4;
+  SUBSCRIPTION_STATUS_ACTIVE = 5;
+  SUBSCRIPTION_STATUS_PAST_DUE = 6;
+  SUBSCRIPTION_STATUS_UNPAID = 7;
+  SUBSCRIPTION_STATUS_CANCELED = 8;
+  SUBSCRIPTION_STATUS_PAUSED = 9;
+}
+
+// A plan price's interval (rdm-spec B-2).
+enum BillingInterval {
+  BILLING_INTERVAL_UNSPECIFIED = 0;
+  BILLING_INTERVAL_MONTH = 1;
+  BILLING_INTERVAL_YEAR = 2;
+}
+
+// The calling owner's subscription. The caller travels as metadata; the gateway checked OWNER.
+// GetBillingSummary names its owner, for the /users/me composition.
+service BillingService {
+  rpc GetOverview(GetOverviewRequest) returns (GetOverviewResponse);
+  rpc ListPurchasablePlans(ListPurchasablePlansRequest) returns (ListPurchasablePlansResponse);
+  rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
+  rpc CreatePortalSession(CreatePortalSessionRequest) returns (CreatePortalSessionResponse);
+  rpc ListInvoices(ListInvoicesRequest) returns (ListInvoicesResponse);
+  rpc GetBillingSummary(GetBillingSummaryRequest) returns (GetBillingSummaryResponse);
+}
+
+// A registered price (rdm-spec B-2). The amount is Stripe's.
+message PlanPrice {
+  string id = 1;
+  string stripe_price_id = 2;
+  BillingInterval billing_interval = 3;
+  int32 amount_minor = 4;
+  string currency = 5;
+  bool is_active = 6;
+}
+
+// A plan an owner may buy.
+message Plan {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  Entitlements grants = 4;
+  repeated PlanPrice prices = 5;
+}
+
+// A plan by name only.
+message PlanRef {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message GetOverviewRequest {}
+
+message GetOverviewResponse {
+  PlanRef plan = 1;
+  PlanPrice price = 2;
+  SubscriptionStatus subscription_status = 3;
+  google.protobuf.Timestamp current_period_end = 4;
+  bool cancel_at_period_end = 5;
+  // Set while a failure streak lasts.
+  google.protobuf.Timestamp dunning_since = 6;
+  Entitlements entitlements = 7;
+  // Absent when catalog could not count.
+  optional int32 usage_places = 8;
+  int32 usage_boosts_live = 9;
+  bool pinned = 10;
+}
+
+message ListPurchasablePlansRequest {}
+
+message ListPurchasablePlansResponse {
+  repeated Plan plans = 1;
+}
+
+message CreateCheckoutSessionRequest {
+  string plan_price_id = 1;
+  // The route's Idempotency-Key, forwarded to Stripe.
+  string idempotency_key = 2;
+}
+
+message CreateCheckoutSessionResponse {
+  string url = 1;
+}
+
+message CreatePortalSessionRequest {}
+
+message CreatePortalSessionResponse {
+  string url = 1;
+}
+
+// One invoice as Stripe lists it.
+message Invoice {
+  string id = 1;
+  optional string number = 2;
+  string status = 3;
+  int32 total_minor = 4;
+  int32 amount_paid_minor = 5;
+  string currency = 6;
+  google.protobuf.Timestamp created_at = 7;
+  optional string hosted_invoice_url = 8;
+  optional string invoice_pdf_url = 9;
+}
+
+message ListInvoicesRequest {}
+
+message ListInvoicesResponse {
+  repeated Invoice invoices = 1;
+}
+
+message GetBillingSummaryRequest {
+  string owner_user_id = 1;
+}
+
+message GetBillingSummaryResponse {
+  string plan_code = 1;
+  SubscriptionStatus subscription_status = 2;
+  google.protobuf.Timestamp dunning_since = 3;
+}

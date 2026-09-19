@@ -1,0 +1,180 @@
+// billing — rdm-spec §3.4. The owner subscription, mirrored from Stripe, and what it grants.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma" // outside src/ — ADR 0056's entryFile depends on it
+  moduleFormat = "cjs" // ADR 0058; never rely on inference
+}
+
+datasource db {
+  provider = "postgresql" // no url here — it lives in prisma.config.ts
+}
+
+/// The plan catalogue and what each plan grants — rdm-spec B-1. `plans_code_live_key` and
+/// `plans_commission_ck` live in prisma/sql/schema-objects.sql.
+model Plan {
+  id                     String    @id @default(uuid(7)) @db.Uuid
+  code                   String    @db.VarChar(32)
+  name                   String    @db.VarChar(64)
+  /// NULL for a plan assigned, not sold — FREE, and any negotiated plan.
+  stripeProductId        String?   @unique @map("stripe_product_id") @db.VarChar(255)
+  isActive               Boolean   @default(true) @map("is_active")
+  sortOrder              Int       @map("sort_order") @db.SmallInt
+  // Every grant NOT NULL with no default: a plan states every limit it grants.
+  maxPlaces              Int       @map("max_places")
+  autoNarration          Boolean   @map("auto_narration")
+  /// NarrationLanguageScope in `@wayfare/contracts`
+  narrationLanguageScope String    @map("narration_language_scope") @db.VarChar(16)
+  maxPhotosPerPlace      Int       @map("max_photos_per_place") @db.SmallInt
+  maxMenuItemsPerPlace   Int       @map("max_menu_items_per_place") @db.SmallInt
+  discoveryBoostSlots    Int       @map("discovery_boost_slots") @db.SmallInt
+  aiCreditsPerDay        Int       @map("ai_credits_per_day") @db.SmallInt
+  /// AnalyticsLevel in `@wayfare/contracts`
+  analyticsLevel         String    @map("analytics_level") @db.VarChar(16)
+  canSellVouchers        Boolean   @map("can_sell_vouchers")
+  voucherCommissionBps   Int?      @map("voucher_commission_bps")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// Retired; refused while any billing account is on the plan.
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedById            String?   @map("deleted_by_id") @db.Uuid
+
+  prices   PlanPrice[]
+  accounts BillingAccount[]
+
+  @@map("plans")
+}
+
+/// A registered Stripe Price — rdm-spec B-2. `plan_prices_one_active_interval` and the currency and
+/// amount checks live in prisma/sql/schema-objects.sql.
+model PlanPrice {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  planId          String   @map("plan_id") @db.Uuid
+  stripePriceId   String   @unique @map("stripe_price_id") @db.VarChar(255)
+  /// BillingInterval in `@wayfare/contracts`
+  billingInterval String   @map("billing_interval") @db.VarChar(8)
+  /// Mirrors the Stripe Price, which is immutable: a price change is a new row.
+  amountMinor     Int      @map("amount_minor")
+  currency        String   @default("USD") @db.Char(3)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan     Plan             @relation(fields: [planId], references: [id], onDelete: Cascade)
+  accounts BillingAccount[]
+
+  @@map("plan_prices")
+}
+
+/// One per verified owner: the subscription mirror and the effective entitlements — rdm-spec B-3.
+model BillingAccount {
+  id                     String    @id @default(uuid(7)) @db.Uuid
+  /// ref ➔ identity.users.id
+  ownerUserId            String    @unique @map("owner_user_id") @db.Uuid
+  stripeCustomerId       String?   @unique @map("stripe_customer_id") @db.VarChar(255)
+  /// The effective plan: the subscribed one while its status applies, else FREE.
+  planId                 String    @map("plan_id") @db.Uuid
+  /// The subscribed price; kept after a cancellation until a new subscription replaces it.
+  planPriceId            String?   @map("plan_price_id") @db.Uuid
+  stripeSubscriptionId   String?   @unique @map("stripe_subscription_id") @db.VarChar(255)
+  /// SubscriptionStatus in `@wayfare/contracts`
+  subscriptionStatus     String    @default("NONE") @map("subscription_status") @db.VarChar(24)
+  currentPeriodStart     DateTime? @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd       DateTime? @map("current_period_end") @db.Timestamptz(3)
+  cancelAtPeriodEnd      Boolean   @default(false) @map("cancel_at_period_end")
+  /// The monotonic guard: Stripe's `created` of the newest subscription event applied.
+  lastStripeEventAt      DateTime? @map("last_stripe_event_at") @db.Timestamptz(3)
+  /// The invoice events' own guard.
+  lastInvoiceEventAt     DateTime? @map("last_invoice_event_at") @db.Timestamptz(3)
+  dunningStartedAt       DateTime? @map("dunning_started_at") @db.Timestamptz(3)
+  /// When true, webhooks update the subscription columns but not the grants.
+  entitlementsPinned     Boolean   @default(false) @map("entitlements_pinned")
+  maxPlaces              Int       @map("max_places")
+  autoNarration          Boolean   @map("auto_narration")
+  narrationLanguageScope String    @map("narration_language_scope") @db.VarChar(16)
+  maxPhotosPerPlace      Int       @map("max_photos_per_place") @db.SmallInt
+  maxMenuItemsPerPlace   Int       @map("max_menu_items_per_place") @db.SmallInt
+  discoveryBoostSlots    Int       @map("discovery_boost_slots") @db.SmallInt
+  aiCreditsPerDay        Int       @map("ai_credits_per_day") @db.SmallInt
+  analyticsLevel         String    @map("analytics_level") @db.VarChar(16)
+  canSellVouchers        Boolean   @map("can_sell_vouchers")
+  voucherCommissionBps   Int?      @map("voucher_commission_bps")
+  /// Bumped on every grant change and carried in `billing.entitlements.changed`.
+  entitlementsVersion    BigInt    @default(0) @map("entitlements_version")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan      Plan           @relation(fields: [planId], references: [id], onDelete: Restrict)
+  planPrice PlanPrice?     @relation(fields: [planPriceId], references: [id], onDelete: SetNull)
+  events    BillingEvent[]
+
+  @@map("billing_accounts")
+}
+
+/// Every Stripe webhook accepted as genuine — rdm-spec B-4. The unique event id is the idempotency.
+model BillingEvent {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  stripeEventId    String    @unique @map("stripe_event_id") @db.VarChar(255)
+  /// StripeEndpoint in `@wayfare/contracts`
+  endpoint         String    @db.VarChar(16)
+  livemode         Boolean
+  eventType        String    @map("event_type") @db.VarChar(100)
+  /// Stripe's `created`, whole seconds.
+  stripeCreatedAt  DateTime  @map("stripe_created_at") @db.Timestamptz(3)
+  stripeAccountId  String?   @map("stripe_account_id") @db.VarChar(255)
+  billingAccountId String?   @map("billing_account_id") @db.Uuid
+  /// The raw event; may hold a customer email — `billing.event.read` only.
+  payload          Json      @db.JsonB
+  /// BillingEventStatus in `@wayfare/contracts`
+  status           String    @db.VarChar(24)
+  errorLog         String?   @map("error_log")
+  receivedAt       DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt      DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  billingAccount BillingAccount? @relation(fields: [billingAccountId], references: [id], onDelete: SetNull)
+
+  @@index([eventType])
+  @@index([billingAccountId, stripeCreatedAt(sort: Desc)])
+  @@map("billing_events")
+}
+
+/// rdm-spec §2.10.
+model OutboxEvent {
+  /// Also the event's eventId and the JetStream Nats-Msg-Id.
+  id          String    @id @default(uuid(7)) @db.Uuid
+  subject     String    @db.VarChar(128)
+  payload     Json      @db.JsonB
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  /// W3C traceparent of the request that wrote the row.
+  traceParent String?   @map("trace_parent") @db.VarChar(55)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error") @db.Text
+
+  @@map("outbox_events")
+}
+
+/// rdm-spec §2.11 — written in the same transaction as the handler's effect.
+model ProcessedEvent {
+  consumer    String   @db.VarChar(64)
+  eventId     String   @map("event_id") @db.Uuid
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+
+  @@id([consumer, eventId])
+  @@map("processed_events")
+}
+
+/// rdm-spec §2.12.
+model JobRun {
+  jobName             String    @id @map("job_name") @db.VarChar(64)
+  lastStartedAt       DateTime? @map("last_started_at") @db.Timestamptz(3)
+  lastSucceededAt     DateTime? @map("last_succeeded_at") @db.Timestamptz(3)
+  lastFailedAt        DateTime? @map("last_failed_at") @db.Timestamptz(3)
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastDurationMs      Int?      @map("last_duration_ms")
+  lastError           String?   @map("last_error") @db.Text
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("job_runs")
+}

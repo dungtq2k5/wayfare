@@ -34,6 +34,7 @@ const tokens = new TokensService(
     JWT_PRIVATE_KEY: keys.privateKey,
     JWT_KEY_ID: keys.keyId,
     GRPC_URL: 'localhost:1',
+    BILLING_GRPC_URL: 'localhost:2',
     OPS_PORT: '1',
     METRICS_PORT: '2',
     EMAIL_PROVIDER: 'smtp',

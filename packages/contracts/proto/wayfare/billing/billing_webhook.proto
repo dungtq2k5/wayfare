@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+// Stripe's webhooks, forwarded by the gateway — api-endpoints-plan §6.3, rdm-spec B-4.
+package wayfare.billing;
+
+// Which Stripe endpoint delivered an event (rdm-spec B-4).
+enum StripeEndpoint {
+  STRIPE_ENDPOINT_UNSPECIFIED = 0;
+  STRIPE_ENDPOINT_PLATFORM = 1;
+  STRIPE_ENDPOINT_CONNECT = 2;
+}
+
+// What happened to a recorded event (rdm-spec B-4).
+enum BillingEventStatus {
+  BILLING_EVENT_STATUS_UNSPECIFIED = 0;
+  BILLING_EVENT_STATUS_RECEIVED = 1;
+  BILLING_EVENT_STATUS_PROCESSED = 2;
+  BILLING_EVENT_STATUS_SKIPPED_STALE = 3;
+  BILLING_EVENT_STATUS_SKIPPED_DUPLICATE = 4;
+  BILLING_EVENT_STATUS_IGNORED = 5;
+  BILLING_EVENT_STATUS_FAILED = 6;
+}
+
+// The gateway never parses the body: billing verifies the signature over the exact bytes.
+service BillingWebhookService {
+  rpc ReceiveStripeEvent(ReceiveStripeEventRequest) returns (ReceiveStripeEventResponse);
+}
+
+message ReceiveStripeEventRequest {
+  bytes raw_body = 1;
+  string signature = 2;
+  StripeEndpoint endpoint = 3;
+}
+
+message ReceiveStripeEventResponse {}

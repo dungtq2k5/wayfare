@@ -16,6 +16,7 @@ import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
 import { envSchema } from './config/env.schema';
 import type { NarrationConfig } from './config/env.schema';
+import { BillingModule } from './modules/billing/billing.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { MenuContentConsumer } from './modules/menu-content/menu-content.consumer';
@@ -63,6 +64,7 @@ export class AppModule {
         RedisModule,
         StorageModule,
         CatalogModule,
+        BillingModule,
         ProgressModule,
         TasksModule.forRoot({ worker: jobs }),
         JobsModule,

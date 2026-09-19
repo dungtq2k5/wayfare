@@ -3,6 +3,7 @@
 export * as identityGrpc from './identity';
 export * as catalogGrpc from './catalog';
 export * as narrationGrpc from './narration';
+export * as billingGrpc from './billing';
 export * as healthGrpc from '../generated/grpc/health/v1/health.pb';
 export * as commonGrpc from '../generated/wayfare/common/page.pb';
 export * as geoGrpc from '../generated/wayfare/common/geo.pb';

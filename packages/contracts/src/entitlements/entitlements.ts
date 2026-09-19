@@ -86,11 +86,22 @@ export function subscribedPlanApplies(status: SubscriptionStatus): boolean {
   return SUBSCRIBED_PLAN_STATUSES.has(status);
 }
 
-const SCOPE_LANGUAGES: Readonly<Record<NarrationLanguageScope, ReadonlySet<Language>>> = {
-  [NarrationLanguageScope.BASIC]: new Set(BASIC_LANGUAGES),
-  [NarrationLanguageScope.LAUNCH]: new Set(CONTENT_LANGUAGES),
-  [NarrationLanguageScope.EXTENDED]: new Set([...CONTENT_LANGUAGES, ...LONG_TAIL_LANGUAGES]),
+const SCOPE_LANGUAGE_LISTS: Readonly<Record<NarrationLanguageScope, readonly Language[]>> = {
+  [NarrationLanguageScope.BASIC]: BASIC_LANGUAGES,
+  [NarrationLanguageScope.LAUNCH]: CONTENT_LANGUAGES,
+  [NarrationLanguageScope.EXTENDED]: [...CONTENT_LANGUAGES, ...LONG_TAIL_LANGUAGES],
 };
+
+const SCOPE_LANGUAGES: Readonly<Record<NarrationLanguageScope, ReadonlySet<Language>>> = {
+  [NarrationLanguageScope.BASIC]: new Set(SCOPE_LANGUAGE_LISTS.BASIC),
+  [NarrationLanguageScope.LAUNCH]: new Set(SCOPE_LANGUAGE_LISTS.LAUNCH),
+  [NarrationLanguageScope.EXTENDED]: new Set(SCOPE_LANGUAGE_LISTS.EXTENDED),
+};
+
+/** The languages a scope narrates, in order: what a Venue asks narration for (rdm-spec B-1). */
+export function scopeLanguages(scope: NarrationLanguageScope): readonly Language[] {
+  return SCOPE_LANGUAGE_LISTS[scope];
+}
 
 /** Whether a scope covers a (normalized) language (rdm-spec B-1). */
 export function scopeCoversLanguage(scope: NarrationLanguageScope, lang: Language): boolean {

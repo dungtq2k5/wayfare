@@ -678,6 +678,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
   - `(owner_user_id) WHERE deleted_at IS NULL` — the Owner Portal list and the place-limit count.
   - `(area_id, status)`.
 - **What counts against an owner's place limit:** Places in `DRAFT`, `PROCESSING` or `ACTIVE` with `deleted_at IS NULL`, **plus** `PENDING` `CREATE` submissions (C-11). A pending creation reserves its slot — counting only approved Places would let an owner on a 1-place plan submit five and have the admin discover the overrun on approval. `INACTIVE` Places do not count, which is what lets a downgrade unpublish the excess without deleting anything; reactivating one re-checks the limit.
+- **The counted statuses are one constant,** `PLACE_LIMIT_STATUSES` (`DRAFT`, `PROCESSING`, `ACTIVE`) in `packages/contracts`, used by the limit check, a downgrade's unpublishing, a widened limit's reactivation and the owner place count. "Newest" is by `created_at`.
 - **Ranking in the nearby list** is computed at read time from distance and `discovery_boost` with a fixed formula in `packages/core` — rank distance = `distance × (1 − 0.5 × discovery_boost / 100)`, applied after the radius filter — and any result where boost changed its position carries `sponsored: true`. The formula is not a column, so changing it is a deploy, not a data migration.
 
 #### Table C-2: categories
@@ -973,6 +974,22 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - Written in the **same transaction** that deletes the row referencing the path (a photo removed by a replace), so the intent to delete survives a crash; read by the `photo-objects-cleanup` job, which deletes the object and then the row. This is how C-5's "objects are removed after the row is gone" is kept without a scan of the bucket.
 
+#### Table C-18: owner_entitlements
+
+*catalog's projection of each owner's entitlements, kept by its `billing.entitlements.changed` consumer. It exists for the consumer's version guard and the effects that compare old and new grants; limit checks still ask billing (`GetEntitlements`).*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **owner_user_id** | UUID | PK | ref ➔ identity.users.id. |
+| **entitlements_version** | BIGINT | NOT NULL | The newest `entitlementsVersion` applied. An event with a version not newer than this is ignored. |
+| **auto_narration** | BOOLEAN | NOT NULL | — |
+| **narration_language_scope** | VARCHAR(16) | NOT NULL | The same values as B-1's column. |
+| **max_places** | INT | NOT NULL | — |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+
+- Never deleted; an owner with no row has never had entitlements applied, and the consumer inserts it.
+- **catalog also reads it** for a Venue's requested languages and its `auto_narration_enabled` at creation (`BASIC` and off with no row) — choosing languages is not a limit check, and asking billing would fail every Venue edit while billing is down.
+
 ### 3.3 `narration` — translation, pronunciation, synthesis
 
 `narration` produces localizations and audio; it serves none of them to tourists directly (§1.5). Its tables describe *work* and *artifacts*.
@@ -1179,6 +1196,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **deleted_at** | TIMESTAMPTZ(3) | Nullable | Retired. Refused while any billing account is on the plan. |
 | **deleted_by_id** | UUID | Nullable | ref ➔ identity.users.id. |
 
+- **`FREE` is a system row:** billing's `db:seed:system` inserts it in every environment from `FREE_PLAN_GRANTS` in `packages/contracts`, insert-only, because no account can be opened without it. From then on the row is the source of Free's grants — an admin may edit it, and the grant function reads it. Paid plans are data, created by the admin routes (and locally by the development seed), because their Stripe ids differ per environment.
 - **Every grant is `NOT NULL` with no column default.** A plan states every limit it grants; "unlimited" is written as the platform ceiling. A defaulted grant is a plan that silently grants whatever the column defaulted to.
 - **Every grant is bounded by a platform ceiling in code**, and the effective limit is always `min(plan grant, platform ceiling)`. A plan can narrow what the platform allows, never widen it.
 - **Partial unique:** `plans_code_live_key` — `(code) WHERE deleted_at IS NULL`. Retired plans never come back (§2.8), so their code is reusable.
@@ -1211,13 +1229,14 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **owner_user_id** | UUID | NOT NULL, **UNIQUE** | ref ➔ identity.users.id. Created by the `identity.owner.verified` consumer, on `FREE`. |
 | **stripe_customer_id** | VARCHAR(255) | Nullable, **UNIQUE** | Created lazily on first checkout. NULL for an owner who has never paid. |
 | **plan_id** | UUID | NOT NULL, FK ➔ plans.id, RESTRICT | The plan whose grants apply — not necessarily the plan being paid for (see status mapping). |
-| **plan_price_id** | UUID | Nullable, FK ➔ plan_prices.id, SET NULL | — |
+| **plan_price_id** | UUID | Nullable, FK ➔ plan_prices.id, SET NULL | The subscribed price. It stays set after a cancellation, while `plan_id` falls back to `FREE`, until a new subscription replaces it. |
 | **stripe_subscription_id** | VARCHAR(255) | Nullable, **UNIQUE** | — |
 | **subscription_status** | VARCHAR(24) | NOT NULL, `'NONE'` | `NONE \| INCOMPLETE \| INCOMPLETE_EXPIRED \| TRIALING \| ACTIVE \| PAST_DUE \| UNPAID \| CANCELED \| PAUSED` — Stripe's statuses, plus `NONE`. |
 | **current_period_start** | TIMESTAMPTZ(3) | Nullable | — |
 | **current_period_end** | TIMESTAMPTZ(3) | Nullable | — |
 | **cancel_at_period_end** | BOOLEAN | NOT NULL, false | — |
 | **last_stripe_event_at** | TIMESTAMPTZ(3) | Nullable | **The monotonic guard** (§1.12). Stripe's `created` of the newest subscription event applied. |
+| **last_invoice_event_at** | TIMESTAMPTZ(3) | Nullable | The invoice events' own monotonic guard: an `invoice.*` event older than this changes nothing, so a late `payment_failed` cannot restart dunning after the `paid` that settled it. |
 | **dunning_started_at** | TIMESTAMPTZ(3) | Nullable | First `invoice.payment_failed` of the current failure streak; cleared by `invoice.paid`. |
 | **entitlements_pinned** | BOOLEAN | NOT NULL, false | When true, webhooks update subscription columns but **not** the grants below — an admin's off-catalogue grant survives the next renewal. Stripe timestamps cannot protect a manual edit, which has none. |
 | **max_places** | INT | NOT NULL | Effective grant. |
@@ -1242,7 +1261,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
   | `PAST_DUE` | the subscribed plan's — Stripe is still retrying; a card blip must not silence a venue's narration mid-afternoon. `dunning_started_at` drives the banner. |
   | `NONE`, `INCOMPLETE`, `INCOMPLETE_EXPIRED`, `UNPAID`, `CANCELED`, `PAUSED` | `FREE`'s |
 
-- **Downgrade never deletes.** Reducing `max_places` unpublishes the owner's newest Venues beyond the limit (`inactive_reason = ENTITLEMENT_LIMIT`); reducing `discovery_boost_slots` ends the newest boosts; losing `auto_narration` flips the flag on every Venue. All three happen in their owning service in reaction to the event, and each notifies the owner.
+- **Downgrade never deletes.** A `DRAFT` counts toward `max_places` but is never unpublished (it has nothing to take off the map): the oldest `max_places` counted Venues stay, and only the published ones beyond them are unpublished. Reducing `max_places` unpublishes the owner's newest Venues beyond the limit (`inactive_reason = ENTITLEMENT_LIMIT`); reducing `discovery_boost_slots` ends the newest boosts; losing `auto_narration` flips the flag on every Venue. All three happen in their owning service in reaction to the event, and each notifies the owner.
 - **Never deleted.** An erased owner's account row stays, because orders and payouts reference it.
 
 #### Table B-4: billing_events
@@ -1267,7 +1286,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Index:** `(billing_account_id, stripe_created_at DESC)`.
 - **Signature verification happens before this table.** A row here means "we believed this was Stripe and acted on it".
-- The webhook route inserts `RECEIVED` and returns `2xx` immediately; a BullMQ job processes it. Never updated after `processed_at`. Pruned after 400 days.
+- The webhook route inserts `RECEIVED` and returns `2xx` immediately; a BullMQ job processes it. Never updated after `processed_at`, which `PROCESSED`, `SKIPPED_STALE` and `IGNORED` set. A `FAILED` row (after three attempts) keeps `processed_at` NULL, and a replay returns it to `RECEIVED`. `SKIPPED_DUPLICATE` is never written: the unique index refuses a duplicate before a row exists. Pruned after 400 days.
 
 #### Table B-5: discovery_boosts
 

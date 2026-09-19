@@ -15,41 +15,41 @@ datasource db {
 /// Inserted with raw SQL (its location); `sync_version` and `updated_at` are written only by
 /// `bumpSyncVersion`.
 model Place {
-  id                    String                                 @id @db.Uuid
-  kind                  String                                 @db.VarChar(16)
-  ownerUserId           String?                                @map("owner_user_id") @db.Uuid
+  id                    String                                @id @db.Uuid
+  kind                  String                                @db.VarChar(16)
+  ownerUserId           String?                               @map("owner_user_id") @db.Uuid
   /// Crockford base32; full unique, never reused.
-  publicCode            String                                 @unique(map: "places_public_code_key") @map("public_code") @db.VarChar(12)
-  categoryId            String                                 @map("category_id") @db.Uuid
-  areaId                String                                 @map("area_id") @db.Uuid
-  nameVi                String                                 @map("name_vi") @db.VarChar(160)
-  descriptionVi         String                                 @map("description_vi") @db.Text
-  contentHash           String                                 @map("content_hash") @db.Char(64)
+  publicCode            String                                @unique(map: "places_public_code_key") @map("public_code") @db.VarChar(12)
+  categoryId            String                                @map("category_id") @db.Uuid
+  areaId                String                                @map("area_id") @db.Uuid
+  nameVi                String                                @map("name_vi") @db.VarChar(160)
+  descriptionVi         String                                @map("description_vi") @db.Text
+  contentHash           String                                @map("content_hash") @db.Char(64)
   location              Unsupported("geography(Point, 4326)")
-  addressVi             String?                                @map("address_vi") @db.VarChar(255)
-  triggerRadiusM        Int                                    @default(30) @map("trigger_radius_m") @db.SmallInt
-  narrationPriority     Int                                    @default(50) @map("narration_priority") @db.SmallInt
-  autoNarrationEnabled  Boolean                                @map("auto_narration_enabled")
-  discoveryBoost        Int                                    @default(0) @map("discovery_boost") @db.SmallInt
-  priceBand             Int?                                   @map("price_band") @db.SmallInt
-  menuCurrency          String                                 @default("VND") @map("menu_currency") @db.Char(3)
-  phone                 String?                                @db.VarChar(20)
-  websiteUrl            String?                                @map("website_url") @db.VarChar(512)
-  status                String                                 @db.VarChar(16)
-  inactiveReason        String?                                @map("inactive_reason") @db.VarChar(24)
-  activationRequestedAt DateTime?                              @map("activation_requested_at") @db.Timestamptz(3)
-  publishedAt           DateTime?                              @map("published_at") @db.Timestamptz(3)
+  addressVi             String?                               @map("address_vi") @db.VarChar(255)
+  triggerRadiusM        Int                                   @default(30) @map("trigger_radius_m") @db.SmallInt
+  narrationPriority     Int                                   @default(50) @map("narration_priority") @db.SmallInt
+  autoNarrationEnabled  Boolean                               @map("auto_narration_enabled")
+  discoveryBoost        Int                                   @default(0) @map("discovery_boost") @db.SmallInt
+  priceBand             Int?                                  @map("price_band") @db.SmallInt
+  menuCurrency          String                                @default("VND") @map("menu_currency") @db.Char(3)
+  phone                 String?                               @db.VarChar(20)
+  websiteUrl            String?                               @map("website_url") @db.VarChar(512)
+  status                String                                @db.VarChar(16)
+  inactiveReason        String?                               @map("inactive_reason") @db.VarChar(24)
+  activationRequestedAt DateTime?                             @map("activation_requested_at") @db.Timestamptz(3)
+  publishedAt           DateTime?                             @map("published_at") @db.Timestamptz(3)
   /// From catalog_sync_version_seq; no default names the sequence (rdm-spec §1.7).
-  syncVersion           BigInt                                 @map("sync_version")
-  createdById           String                                 @map("created_by_id") @db.Uuid
-  createdAt             DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  syncVersion           BigInt                                @map("sync_version")
+  createdById           String                                @map("created_by_id") @db.Uuid
+  createdAt             DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
   /// Written only by bumpSyncVersion, with the database's clock — no @updatedAt.
-  updatedAt             DateTime                               @default(now()) @map("updated_at") @db.Timestamptz(3)
-  deletedAt             DateTime?                              @map("deleted_at") @db.Timestamptz(3)
-  deletedById           String?                                @map("deleted_by_id") @db.Uuid
+  updatedAt             DateTime                              @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt             DateTime?                             @map("deleted_at") @db.Timestamptz(3)
+  deletedById           String?                               @map("deleted_by_id") @db.Uuid
 
-  category      Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  area          Area                 @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  category      Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  area          Area                @relation(fields: [areaId], references: [id], onDelete: Restrict)
   localizations PlaceLocalization[]
   photos        PlacePhoto[]
   menuItems     MenuItem[]
@@ -79,16 +79,16 @@ model Category {
 
 /// A pilot area — rdm-spec C-3. Inserted with raw SQL (its geography).
 model Area {
-  id          String                                   @id @db.Uuid
-  code        String                                   @unique @db.VarChar(32)
-  nameVi      String                                   @map("name_vi") @db.VarChar(120)
+  id          String                                  @id @db.Uuid
+  code        String                                  @unique @db.VarChar(32)
+  nameVi      String                                  @map("name_vi") @db.VarChar(120)
   boundary    Unsupported("geography(Polygon, 4326)")
   center      Unsupported("geography(Point, 4326)")
-  defaultZoom Int                                      @map("default_zoom") @db.SmallInt
-  isActive    Boolean                                  @default(false) @map("is_active")
-  sortOrder   Int                                      @default(0) @map("sort_order") @db.SmallInt
-  createdAt   DateTime                                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime                                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  defaultZoom Int                                     @map("default_zoom") @db.SmallInt
+  isActive    Boolean                                 @default(false) @map("is_active")
+  sortOrder   Int                                     @default(0) @map("sort_order") @db.SmallInt
+  createdAt   DateTime                                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime                                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   places Place[]
 
@@ -153,7 +153,7 @@ model MenuItem {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  place         Place                     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  place         Place                  @relation(fields: [placeId], references: [id], onDelete: Cascade)
   localizations MenuItemLocalization[]
 
   @@index([placeId], map: "menu_items_place_idx")
@@ -273,4 +273,20 @@ model JobRun {
   updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("job_runs")
+}
+
+/// rdm-spec C-18 — catalog's projection of each owner's entitlements, kept by its
+/// `billing.entitlements.changed` consumer: the version guard, and the grants catalog reads for a
+/// Venue's languages and auto-narration. Limit checks still ask billing.
+model OwnerEntitlement {
+  /// ref ➔ identity.users.id
+  ownerUserId            String   @id @map("owner_user_id") @db.Uuid
+  entitlementsVersion    BigInt   @map("entitlements_version")
+  autoNarration          Boolean  @map("auto_narration")
+  /// NarrationLanguageScope in `@wayfare/contracts`
+  narrationLanguageScope String   @map("narration_language_scope") @db.VarChar(16)
+  maxPlaces              Int      @map("max_places")
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("owner_entitlements")
 }

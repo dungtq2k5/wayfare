@@ -16,4 +16,10 @@ export class LocalizationSourcesGrpcController implements catalogGrpc.PlaceServi
   ): Promise<catalogGrpc.GetLocalizationSourceResponse> {
     return this.sources.getLocalizationSource(request, unpackCallerContext(metadata));
   }
+
+  countOwnerPlaces(
+    request: catalogGrpc.CountOwnerPlacesRequest,
+  ): Promise<catalogGrpc.CountOwnerPlacesResponse> {
+    return this.sources.countOwnerPlaces(request);
+  }
 }

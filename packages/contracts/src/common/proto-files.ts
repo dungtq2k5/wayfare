@@ -24,6 +24,13 @@ export const PROTO_FILES = {
     'wayfare/catalog/localization_source.proto',
   ],
   narration: ['wayfare/narration/narration.proto', 'wayfare/narration/synthesis_admin.proto'],
+  billing: [
+    'wayfare/billing/entitlement.proto',
+    'wayfare/billing/billing.proto',
+    'wayfare/billing/seller.proto',
+    'wayfare/billing/billing_webhook.proto',
+    'wayfare/billing/billing_admin.proto',
+  ],
   health: ['grpc/health/v1/health.proto'],
 } as const;
 
@@ -32,5 +39,6 @@ export const GRPC_PACKAGES = {
   identity: 'wayfare.identity',
   catalog: 'wayfare.catalog',
   narration: 'wayfare.narration',
+  billing: 'wayfare.billing',
   health: 'grpc.health.v1',
 } as const;

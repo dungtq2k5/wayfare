@@ -36,6 +36,7 @@ export const envSchema = z
     IDENTITY_GRPC_URL: z.string().min(1),
     CATALOG_GRPC_URL: z.string().min(1),
     NARRATION_GRPC_URL: z.string().min(1),
+    BILLING_GRPC_URL: z.string().min(1),
     // The sticker host (api-endpoints-plan §2.1): printed on every QR, so it can never change.
     PUBLIC_QR_BASE_URL: zBaseUrl,
     // The universal-link host `/q/:code` redirects to.

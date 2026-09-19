@@ -1,9 +1,9 @@
 import type { RevocationStore } from '../auth/account-token-verifier';
 
 /**
- * An in-memory stand-in for the two Redis scripts and `MGET` — the semantics the specs rely on,
- * not a Redis. The real scripts run against Redis in identity's integration suite and the gateway's
- * e2e suite.
+ * An in-memory stand-in for the two Redis scripts, `MGET`, `GET`, `SET` and `DEL` — the semantics
+ * the specs rely on, not a Redis. The real scripts run against Redis in identity's integration suite
+ * and the gateway's e2e suite.
  */
 export class FakeRedis implements RevocationStore {
   readonly values = new Map<string, string>();
@@ -13,6 +13,26 @@ export class FakeRedis implements RevocationStore {
   mget(...keys: string[]): Promise<(string | null)[]> {
     if (this.failure) return Promise.reject(this.failure);
     return Promise.resolve(keys.map((key) => this.values.get(key) ?? null));
+  }
+
+  get(key: string): Promise<string | null> {
+    if (this.failure) return Promise.reject(this.failure);
+    return Promise.resolve(this.values.get(key) ?? null);
+  }
+
+  /** `SET key value [PX ms] [NX]` — expiry is not simulated; `NX` refuses an existing key. */
+  set(key: string, value: string, ...options: (string | number)[]): Promise<'OK' | null> {
+    if (this.failure) return Promise.reject(this.failure);
+    if (options.includes('NX') && this.values.has(key)) return Promise.resolve(null);
+    this.values.set(key, value);
+    return Promise.resolve('OK');
+  }
+
+  del(...keys: string[]): Promise<number> {
+    if (this.failure) return Promise.reject(this.failure);
+    let removed = 0;
+    for (const key of keys) if (this.values.delete(key)) removed++;
+    return Promise.resolve(removed);
   }
 
   eval(script: string, _numKeys: number, ...args: (string | number)[]): Promise<unknown> {

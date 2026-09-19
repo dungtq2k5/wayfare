@@ -1,0 +1,226 @@
+syntax = "proto3";
+
+// Staff administration of plans, accounts and Stripe events — api-endpoints-plan §6.1, §6.2.
+package wayfare.billing;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/billing/billing.proto";
+import "wayfare/billing/billing_webhook.proto";
+import "wayfare/billing/entitlement.proto";
+import "wayfare/common/page.proto";
+
+// The caller travels as metadata; the gateway checks each route's permission.
+
+// The plan catalogue (api-endpoints-plan §6.1).
+service PlanAdminService {
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+  rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
+  rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
+  rpc RegisterPrice(RegisterPriceRequest) returns (RegisterPriceResponse);
+  rpc ApplyPlan(ApplyPlanRequest) returns (ApplyPlanResponse);
+  rpc RetirePlan(RetirePlanRequest) returns (RetirePlanResponse);
+}
+
+// Billing accounts and their pinned grants (api-endpoints-plan §6.2).
+service AccountAdminService {
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  rpc OverrideEntitlements(OverrideEntitlementsRequest) returns (OverrideEntitlementsResponse);
+  rpc UnpinEntitlements(UnpinEntitlementsRequest) returns (UnpinEntitlementsResponse);
+}
+
+// Recorded Stripe events (api-endpoints-plan §6.2).
+service BillingEventAdminService {
+  rpc ListBillingEvents(ListBillingEventsRequest) returns (ListBillingEventsResponse);
+  rpc ReplayBillingEvent(ReplayBillingEventRequest) returns (ReplayBillingEventResponse);
+}
+
+// A catalogue plan, with every price and its subscriber count.
+message AdminPlan {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  optional string stripe_product_id = 4;
+  bool is_active = 5;
+  int32 sort_order = 6;
+  Entitlements grants = 7;
+  repeated PlanPrice prices = 8;
+  int32 subscriber_count = 9;
+}
+
+message ListPlansRequest {}
+
+message ListPlansResponse {
+  repeated AdminPlan plans = 1;
+}
+
+message CreatePlanRequest {
+  string code = 1;
+  string name = 2;
+  int32 sort_order = 3;
+  optional bool is_active = 4;
+  Entitlements grants = 5;
+}
+
+message CreatePlanResponse {
+  AdminPlan plan = 1;
+}
+
+message UpdatePlanRequest {
+  string plan_id = 1;
+  optional string name = 2;
+  optional int32 sort_order = 3;
+  optional bool is_active = 4;
+  // Absent: the grants are unchanged.
+  Entitlements grants = 5;
+}
+
+message UpdatePlanResponse {
+  AdminPlan plan = 1;
+}
+
+message RegisterPriceRequest {
+  string plan_id = 1;
+  string stripe_price_id = 2;
+  BillingInterval billing_interval = 3;
+}
+
+message RegisterPriceResponse {
+  AdminPlan plan = 1;
+}
+
+message ApplyPlanRequest {
+  string plan_id = 1;
+  bool dry_run = 2;
+}
+
+// One account of an apply.
+message ApplyAccount {
+  string billing_account_id = 1;
+  string owner_user_id = 2;
+  bool changed = 3;
+  // Absent when catalog could not count.
+  optional int32 would_unpublish_places = 4;
+  bool failed = 5;
+}
+
+message ApplyPlanResponse {
+  bool dry_run = 1;
+  int32 affected = 2;
+  int32 skipped_pinned = 3;
+  int32 failed = 4;
+  // Absent when catalog could not count for some account.
+  optional int32 would_unpublish_places = 5;
+  int32 would_end_boosts = 6;
+  repeated ApplyAccount accounts = 7;
+}
+
+message RetirePlanRequest {
+  string plan_id = 1;
+}
+
+message RetirePlanResponse {}
+
+// An account as the admin list shows it.
+message BillingAccountSummary {
+  string id = 1;
+  string owner_user_id = 2;
+  string plan_code = 3;
+  SubscriptionStatus subscription_status = 4;
+  bool pinned = 5;
+  google.protobuf.Timestamp dunning_since = 6;
+  google.protobuf.Timestamp current_period_end = 7;
+  int64 entitlements_version = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// An account's detail: effective grants beside the plan's own, and its recent events.
+message BillingAccountDetail {
+  BillingAccountSummary summary = 1;
+  optional string stripe_customer_id = 2;
+  optional string stripe_subscription_id = 3;
+  optional string subscribed_plan_code = 4;
+  bool cancel_at_period_end = 5;
+  Entitlements entitlements = 6;
+  Entitlements plan_grants = 7;
+  repeated BillingEvent recent_events = 8;
+}
+
+message ListAccountsRequest {
+  wayfare.common.PageNumberRequest page = 1;
+  optional string plan_code = 2;
+  // UNSPECIFIED: any status.
+  SubscriptionStatus status = 3;
+  optional bool pinned = 4;
+  optional bool dunning = 5;
+}
+
+message ListAccountsResponse {
+  repeated BillingAccountSummary accounts = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+message GetAccountRequest {
+  string billing_account_id = 1;
+}
+
+message GetAccountResponse {
+  BillingAccountDetail account = 1;
+}
+
+message OverrideEntitlementsRequest {
+  string billing_account_id = 1;
+  Entitlements grants = 2;
+  string reason = 3;
+}
+
+message OverrideEntitlementsResponse {
+  BillingAccountDetail account = 1;
+}
+
+message UnpinEntitlementsRequest {
+  string billing_account_id = 1;
+  string reason = 2;
+}
+
+message UnpinEntitlementsResponse {
+  BillingAccountDetail account = 1;
+}
+
+// One recorded Stripe event.
+message BillingEvent {
+  string id = 1;
+  string stripe_event_id = 2;
+  StripeEndpoint endpoint = 3;
+  bool livemode = 4;
+  string event_type = 5;
+  google.protobuf.Timestamp stripe_created_at = 6;
+  optional string billing_account_id = 7;
+  BillingEventStatus status = 8;
+  optional string error_log = 9;
+  google.protobuf.Timestamp received_at = 10;
+  google.protobuf.Timestamp processed_at = 11;
+  // The raw event, JSON-encoded.
+  string payload_json = 12;
+}
+
+message ListBillingEventsRequest {
+  wayfare.common.PageNumberRequest page = 1;
+  // UNSPECIFIED: any status.
+  BillingEventStatus status = 2;
+  optional string event_type = 3;
+  optional string billing_account_id = 4;
+}
+
+message ListBillingEventsResponse {
+  repeated BillingEvent events = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+message ReplayBillingEventRequest {
+  string billing_event_id = 1;
+}
+
+message ReplayBillingEventResponse {
+  BillingEvent event = 1;
+}

@@ -52,6 +52,8 @@ export const envSchema = z
     JWT_PRIVATE_KEY: zPrivateKeyEnv,
     JWT_KEY_ID: zKeyId,
     GRPC_URL: z.string().min(1),
+    // billing's gRPC address: live obligations before an owner is deactivated (api-endpoints-plan §12.2).
+    BILLING_GRPC_URL: z.string().min(1),
     OPS_PORT: zPort,
     METRICS_PORT: zPort,
     // Build identity for /version, stamped into the image; defaults keep local runs working.

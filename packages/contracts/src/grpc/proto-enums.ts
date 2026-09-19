@@ -1,5 +1,24 @@
 import { SessionClient } from '../access/clients';
 import {
+  BillingEventStatus,
+  BillingInterval,
+  StripeEndpoint,
+  SubscriptionStatus,
+} from '../billing/enums';
+import { AnalyticsLevel, NarrationLanguageScope } from '../entitlements/entitlements';
+import {
+  BillingInterval as ProtoBillingInterval,
+  SubscriptionStatus as ProtoSubscriptionStatus,
+} from '../generated/wayfare/billing/billing.pb';
+import {
+  BillingEventStatus as ProtoBillingEventStatus,
+  StripeEndpoint as ProtoStripeEndpoint,
+} from '../generated/wayfare/billing/billing_webhook.pb';
+import {
+  AnalyticsLevel as ProtoAnalyticsLevel,
+  NarrationLanguageScope as ProtoNarrationLanguageScope,
+} from '../generated/wayfare/billing/entitlement.pb';
+import {
   AudioStatus,
   CategoryAppliesTo,
   PlaceInactiveReason,
@@ -200,6 +219,48 @@ export const onDemandStatusProto = protoEnumBridge(
   ProtoOnDemandStatus,
 );
 
+/** `SubscriptionStatus` ⇄ `wayfare.billing.SubscriptionStatus`. */
+export const subscriptionStatusProto = protoEnumBridge(
+  'SubscriptionStatus',
+  SubscriptionStatus,
+  ProtoSubscriptionStatus,
+);
+
+/** `BillingInterval` ⇄ `wayfare.billing.BillingInterval`. */
+export const billingIntervalProto = protoEnumBridge(
+  'BillingInterval',
+  BillingInterval,
+  ProtoBillingInterval,
+);
+
+/** `BillingEventStatus` ⇄ `wayfare.billing.BillingEventStatus`. */
+export const billingEventStatusProto = protoEnumBridge(
+  'BillingEventStatus',
+  BillingEventStatus,
+  ProtoBillingEventStatus,
+);
+
+/** `StripeEndpoint` ⇄ `wayfare.billing.StripeEndpoint`. */
+export const stripeEndpointProto = protoEnumBridge(
+  'StripeEndpoint',
+  StripeEndpoint,
+  ProtoStripeEndpoint,
+);
+
+/** `NarrationLanguageScope` ⇄ `wayfare.billing.NarrationLanguageScope`. */
+export const narrationLanguageScopeProto = protoEnumBridge(
+  'NarrationLanguageScope',
+  NarrationLanguageScope,
+  ProtoNarrationLanguageScope,
+);
+
+/** `AnalyticsLevel` ⇄ `wayfare.billing.AnalyticsLevel`. */
+export const analyticsLevelProto = protoEnumBridge(
+  'AnalyticsLevel',
+  AnalyticsLevel,
+  ProtoAnalyticsLevel,
+);
+
 /** Every bridge, so one spec can round-trip them all. Each new proto enum adds its line here. */
 export const PROTO_ENUM_BRIDGES = [
   platformProto,
@@ -226,4 +287,10 @@ export const PROTO_ENUM_BRIDGES = [
   synthesisStageProto,
   synthesisTaskStatusProto,
   onDemandStatusProto,
+  subscriptionStatusProto,
+  billingIntervalProto,
+  billingEventStatusProto,
+  stripeEndpointProto,
+  narrationLanguageScopeProto,
+  analyticsLevelProto,
 ] as const;

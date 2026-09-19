@@ -5,7 +5,7 @@ import type { Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
 import { isGrpcServiceError, readGrpcErrorInfo } from '../errors/grpc-service-error';
 import { requestIdOfActiveTrace } from '../observability/trace';
-import { AppHttpException } from './app-http.exception';
+import { AppHttpException, ReplayedHttpError } from './app-http.exception';
 
 /** The error envelope (api-endpoints-plan §0.4). */
 export interface ErrorBody {
@@ -27,7 +27,7 @@ const NOT_FOUND: number = HttpStatus.NOT_FOUND;
 const TOO_MANY_REQUESTS: number = HttpStatus.TOO_MANY_REQUESTS;
 const SERVICE_UNAVAILABLE: number = HttpStatus.SERVICE_UNAVAILABLE;
 
-interface Resolved {
+export interface Resolved {
   status: number;
   code: string;
   message: string;
@@ -50,7 +50,7 @@ export class ErrorFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     if (host.getType() !== 'http') throw exception;
     const response = host.switchToHttp().getResponse<Response>();
-    const resolved = resolve(exception);
+    const resolved = resolveHttpError(exception);
 
     if (resolved.unknownCode) {
       this.logger.warn({ code: resolved.code, status: resolved.status }, 'gateway registry behind');
@@ -78,7 +78,16 @@ export class ErrorFilter implements ExceptionFilter {
   }
 }
 
-function resolve(exception: unknown): Resolved {
+/** What a failure answers: status, code, message, details — the filter's one resolution. */
+export function resolveHttpError(exception: unknown): Resolved {
+  if (exception instanceof ReplayedHttpError) {
+    return {
+      status: exception.status,
+      code: exception.code,
+      message: exception.code,
+      ...(exception.details === undefined ? {} : { details: exception.details }),
+    };
+  }
   if (exception instanceof ZodValidationException) {
     const error = exception.getZodError() as
       { issues?: { path: PropertyKey[]; code: string }[] } | undefined;

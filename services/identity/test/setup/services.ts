@@ -2,12 +2,12 @@
 // without a gRPC server, a broker or Redis.
 import { MAX_ROLE_HOLDERS_PER_CHANGE } from '@wayfare/contracts';
 import type { SocketEventKey, SocketPayload } from '@wayfare/contracts';
-import { OutboxService } from '@wayfare/nest-common';
+import { OutboxService, rpcError } from '@wayfare/nest-common';
 import { AccessService } from '../../src/modules/access/access.service';
 import { AccountLinksService } from '../../src/modules/account-links/account-links.service';
 import { AdminUsersService } from '../../src/modules/admin-users/admin-users.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
-import { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
+import type { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
 import { DevicesService } from '../../src/modules/devices/devices.service';
 import { EmailChangeService } from '../../src/modules/email-change/email-change.service';
 import { EmailDispatcher } from '../../src/modules/email/email.module';
@@ -33,7 +33,7 @@ export function identityServices(
   prisma: PrismaService,
   outboxOverride: Partial<OutboxService> = {},
   options: {
-    billing?: BillingPortService;
+    billing?: Pick<BillingPortService, 'getLiveObligations'>;
     roleHoldersLimit?: number;
     mailbox?: RecordingEmailProvider;
   } = {},
@@ -77,7 +77,10 @@ export function identityServices(
   );
   const registrations = new OwnerRegistrationsService(prisma, outbox, legal, config);
   const users = new UsersService(prisma, access, legal, devices, registrations);
-  const billing = options.billing ?? new BillingPortService();
+  // billing, unreachable unless a spec says otherwise: every call fails closed, as the port does.
+  const billing = (options.billing ?? {
+    getLiveObligations: () => Promise.reject(rpcError('UPSTREAM_UNAVAILABLE')),
+  }) as BillingPortService;
   const adminUsers = new AdminUsersService(
     prisma,
     outbox,

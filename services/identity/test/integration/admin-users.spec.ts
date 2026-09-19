@@ -9,6 +9,7 @@ import {
 import { hashToken, toProtoTimestamp } from '@wayfare/nest-common';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
+import type { BillingServiceGrpcClient } from '../../src/modules/billing-port/billing-service-grpc.client';
 import type { SellerObligations } from '../../src/modules/billing-port/billing-port.service';
 import { testPrisma, truncateAll } from '../setup/database';
 import { errorOf, staffAccount } from '../setup/fixtures';
@@ -576,15 +577,16 @@ describe('DeactivateUser and RestoreUser', () => {
   });
 
   describe('an owner', () => {
-    class CountingBilling extends BillingPortService {
-      constructor(private readonly obligations: SellerObligations) {
-        super();
-      }
-
-      override getLiveObligations(): Promise<SellerObligations> {
-        return Promise.resolve(this.obligations);
-      }
-    }
+    /** The real port over a billing that answers these obligations, or cannot answer. */
+    const billingAnswering = (obligations: SellerObligations | 'DOWN') =>
+      new BillingPortService({
+        seller: {
+          call: () =>
+            obligations === 'DOWN'
+              ? Promise.reject(new Error('billing is down'))
+              : Promise.resolve(obligations),
+        },
+      } as unknown as BillingServiceGrpcClient);
 
     const deactivateOwner = async (
       billing: BillingPortService,
@@ -605,7 +607,7 @@ describe('DeactivateUser and RestoreUser', () => {
     };
 
     it('billing unavailable → UPSTREAM_UNAVAILABLE, nothing written', async () => {
-      const { owner, result } = await deactivateOwner(new BillingPortService(), true);
+      const { owner, result } = await deactivateOwner(billingAnswering('DOWN'), true);
       expect((await errorOf(result)).code).toBe('UPSTREAM_UNAVAILABLE');
       const row = await prisma.user.findUniqueOrThrow({ where: { id: owner.id } });
       expect(row.deletedAt).toBeNull();
@@ -613,7 +615,7 @@ describe('DeactivateUser and RestoreUser', () => {
     });
 
     it('live obligations without a refund → OWNER_HAS_LIVE_VOUCHERS with the counts', async () => {
-      const billing = new CountingBilling({ issuedVoucherCount: 3, openCheckoutCount: 1 });
+      const billing = billingAnswering({ issuedVoucherCount: 3, openCheckoutCount: 1 });
       const { owner, result } = await deactivateOwner(billing, false);
       expect(await errorOf(result)).toEqual({
         code: 'OWNER_HAS_LIVE_VOUCHERS',
@@ -624,7 +626,7 @@ describe('DeactivateUser and RestoreUser', () => {
     });
 
     it('with a refund → deactivated, and the event carries it', async () => {
-      const billing = new CountingBilling({ issuedVoucherCount: 3, openCheckoutCount: 0 });
+      const billing = billingAnswering({ issuedVoucherCount: 3, openCheckoutCount: 0 });
       const { owner, result } = await deactivateOwner(billing, true);
       await result;
       expect(await outbox('identity.user.deactivated')).toEqual([

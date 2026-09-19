@@ -11,6 +11,16 @@ import "wayfare/common/localization.proto";
 service PlaceService {
   // The target's source text as it is now, and its localizations' state.
   rpc GetLocalizationSource(GetLocalizationSourceRequest) returns (GetLocalizationSourceResponse);
+  // An owner's Venues that count against their place limit (rdm-spec C-1) — billing's projections.
+  rpc CountOwnerPlaces(CountOwnerPlacesRequest) returns (CountOwnerPlacesResponse);
+}
+
+message CountOwnerPlacesRequest {
+  string owner_user_id = 1;
+}
+
+message CountOwnerPlacesResponse {
+  int32 count = 1;
 }
 
 message GetLocalizationSourceRequest {

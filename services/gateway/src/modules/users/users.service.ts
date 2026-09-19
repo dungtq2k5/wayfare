@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { LegalParty } from '@wayfare/contracts';
+import { WithMeta } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
+import { toBillingSummary } from '../billing/billing.mapper';
+import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import {
   toLegalAcceptanceResponseDto,
   toRecordLegalAcceptanceRequest,
@@ -21,10 +24,35 @@ import {
 /** `/users/me` routes, backed by `identity.UserService`. */
 @Injectable()
 export class UsersService {
-  constructor(private readonly identity: IdentityServiceGrpcClient) {}
+  private readonly logger = new Logger(UsersService.name);
 
-  async me(context: AccountContext): Promise<MeResponseDto> {
-    return toMeResponseDto(await this.identity.users.call('getMe', {}, context));
+  constructor(
+    private readonly identity: IdentityServiceGrpcClient,
+    private readonly billing: BillingServiceGrpcClient,
+  ) {}
+
+  /**
+   * The console's bootstrap: identity's account, and for an owner billing's summary. billing is the
+   * secondary service: when it cannot answer, the summary is `null` and `meta.degraded` says so
+   * (api-endpoints-plan §12.1).
+   */
+  async me(context: AccountContext): Promise<MeResponseDto | WithMeta<MeResponseDto>> {
+    const me = toMeResponseDto(await this.identity.users.call('getMe', {}, context));
+    if (!me.ownerVerified || me.owner === null) return me;
+    try {
+      const summary = await this.billing.billing.call(
+        'getBillingSummary',
+        { ownerUserId: context.userId },
+        context,
+      );
+      return { ...me, owner: { ...me.owner, billingSummary: toBillingSummary(summary) } };
+    } catch (error) {
+      this.logger.warn(
+        { kind: error instanceof Error ? error.name : 'unknown' },
+        'billing summary unavailable; /users/me degraded',
+      );
+      return WithMeta.of(me, { degraded: ['billing'] });
+    }
   }
 
   async update(context: AccountContext, body: UpdateMeDto): Promise<UpdateMeResponseDto> {

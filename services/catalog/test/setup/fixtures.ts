@@ -154,6 +154,10 @@ export async function insertPlace(
     discoveryBoost?: number;
     deleted?: boolean;
     publicCode?: string;
+    /** A Venue's owner; a fresh id otherwise. */
+    ownerUserId?: string;
+    autoNarrationEnabled?: boolean;
+    createdAt?: Date;
   },
 ): Promise<{ id: string; contentHash: string; publicCode: string }> {
   const id = newId();
@@ -170,17 +174,18 @@ export async function insertPlace(
       INSERT INTO places (
         id, kind, owner_user_id, public_code, category_id, area_id, name_vi, description_vi,
         content_hash, location, auto_narration_enabled, discovery_boost, status, inactive_reason,
-        activation_requested_at, published_at, sync_version, created_by_id, deleted_at
+        activation_requested_at, published_at, sync_version, created_by_id, deleted_at, created_at
       ) VALUES (
-        ${id}::uuid, ${kind}, ${kind === PlaceKind.VENUE ? newId() : null}::uuid, ${publicCode},
+        ${id}::uuid, ${kind},
+        ${kind === PlaceKind.VENUE ? (input.ownerUserId ?? newId()) : null}::uuid, ${publicCode},
         ${input.categoryId}::uuid, ${input.areaId}::uuid, ${name}, ${description}, ${hash},
         ST_SetSRID(ST_MakePoint(${location.lng}, ${location.lat}), 4326)::geography,
-        true, ${input.discoveryBoost ?? 0}, ${status},
+        ${input.autoNarrationEnabled ?? true}, ${input.discoveryBoost ?? 0}, ${status},
         ${status === PlaceStatus.INACTIVE ? 'ADMIN' : null},
         ${status === PlaceStatus.DRAFT ? null : new Date()},
         ${status === PlaceStatus.ACTIVE ? new Date() : null},
         nextval('catalog_sync_version_seq'), ${newId()}::uuid,
-        ${input.deleted === true ? new Date() : null}
+        ${input.deleted === true ? new Date() : null}, ${input.createdAt ?? new Date()}
       )`;
     await bumpSyncVersion(tx, id);
   });

@@ -631,7 +631,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS place_submissions_one_pending_update
 ### 9.3 PII and encryption
 
 - The national ID is encrypted with `encryptPii()` (AES-256-GCM, `v1:` prefix, key from `PII_ENCRYPTION_KEY`) **before** it is passed to Prisma, and plaintext is never assigned to a variable that outlives the encrypt call.
-- Decryption is `decryptPii()`, which returns `null` on any failure and never throws a message containing ciphertext.
+- Decryption is `decryptPii()`, which **throws** on any failure (a tampered tag, a wrong key, an unknown version prefix) with a message that contains neither the plaintext nor the ciphertext; the reveal route answers `500 INTERNAL` and logs neither value.
 - A decrypt happens only in the reveal use case, which writes an audit row **in the same transaction** as returning the value.
 
 ### 9.4 Never log, never return

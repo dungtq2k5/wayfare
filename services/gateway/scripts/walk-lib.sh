@@ -75,6 +75,12 @@ identity_sql() {
     psql -U wayfare -d wayfare_identity -At -v ON_ERROR_STOP=1 -c "$1")
 }
 
+# billing_sql SQL — runs SQL against the local billing database and prints the bare result.
+billing_sql() {
+  (cd "$repo_root" && docker compose exec -T billing-db \
+    psql -U wayfare -d wayfare_billing -At -v ON_ERROR_STOP=1 -c "$1")
+}
+
 # catalog_sql SQL — runs SQL against the local catalog database and prints the bare result.
 catalog_sql() {
   (cd "$repo_root" && docker compose exec -T catalog-db \

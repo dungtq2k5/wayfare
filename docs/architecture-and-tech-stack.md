@@ -379,11 +379,13 @@ It also holds identity's **revocation state** — each user's token cutoff and t
 📌 [ADR 0031](./decisions/0031-stripe-is-the-only-payment-provider.md) · [ADR 0004](./decisions/0004-usd-only-with-amounts-in-integer-cents.md) — Stripe is the only payment provider, and **all prices are in USD, always**. Read `product-overview.md` §8 for the business model before this section; the three money flows are different integrations and conflating them is the most likely architectural mistake in this project.
 
 - **Server SDK:** **`stripe`** (Node, v22+). Always instantiate a client — `const stripe = new Stripe(key)` — and call methods on that instance. The global `Stripe.setApiKey` pattern is deprecated.
-- **Pin the API version** explicitly in the constructor and upgrade deliberately. Latest as of writing: `2026-07-29.dahlia`.
+- **Pin the API version** explicitly in the constructor and upgrade deliberately. billing pins `2026-08-26.dahlia`, the version its SDK release was built for.
 - **Web client:** **`@stripe/stripe-js`** + **`@stripe/react-stripe-js`**.
 - **Mobile client:** **`@stripe/stripe-react-native`** (PaymentSheet).
 - **Local development:** the **Stripe CLI**. `stripe listen --forward-to localhost:3000/webhooks/stripe` to receive real events locally, `stripe trigger` to fire specific ones, and **test clocks** to fast-forward a subscription a month to verify renewal and dunning without waiting.
   - No Stripe account needed to start: `npm i -g @stripe/cli && stripe sandbox create`.
+  - **Without any Stripe account**, billing still runs: its tests use a fake payments provider for API calls and events signed with the SDK against a local webhook secret (which the real SDK verifies), and the service starts without a key — the three Stripe-backed owner routes then answer `503`. A sandbox is needed only for a real Checkout. `pnpm --filter @wayfare/billing stripe:sandbox-setup` creates the paid plans' Products and Prices in a sandbox (refusing a live key) and prints the `STRIPE_PRICE_*` lines.
+  - **The mode comes from the key,** not `NODE_ENV`: `rk_live_` is live, `rk_test_` or no key is test, and `STRIPE_MODE` must agree. A staging environment running as production can therefore still use test keys.
 
 ### 5.1 Which API for which flow
 
@@ -693,8 +695,9 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `GCS_BUCKET_TILES` | catalog | map packs and tiles, with their own cache policy (not used yet) |
 | `GOOGLE_APPLICATION_CREDENTIALS` | catalog, narration | service-account key path; Secret Manager in staging. Locally `pnpm keys:dev` writes the same throwaway key path into both services' `.env` |
 | `STORAGE_EMULATOR_HOST` | catalog, narration | points at `fake-gcs-server` locally; **unset** in staging |
-| `STRIPE_SECRET_KEY` | billing | ⚠️ restricted key (`rk_`), least privilege |
-| `STRIPE_WEBHOOK_SECRET` | billing | signature verification |
+| `STRIPE_MODE` | billing | `test` (default) or `live`; must agree with the key's prefix, and decides which `livemode` events are applied |
+| `STRIPE_SECRET_KEY` | billing | ⚠️ restricted key (`rk_`), least privilege: `rk_test_` in test mode, `rk_live_` in live mode, never `sk_`. Optional in test mode (the Stripe-backed owner routes answer `503` without it) |
+| `STRIPE_WEBHOOK_SECRET` | billing | signature verification; always required. `pnpm keys:dev` writes a local one when absent (never replacing it); `stripe listen`'s replaces it for a sandbox |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | billing | the separate Connect endpoint |
 | `STRIPE_VOUCHER_PMC_ID` | billing | payment method configuration allowing instant methods only, for voucher checkout |
 | `VOUCHER_CODE_HASH_KEY` | billing | HMAC key for voucher short codes |
@@ -708,9 +711,9 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `EMAIL_NONPROD_ALLOWLIST` | identity | with `restricted`: addresses (or `*@domain`) that may receive mail |
 | `EMAIL_NONPROD_CATCHALL` | identity | with `restricted`: where every other mail goes |
 | `RESEND_DOMAIN_ID` | identity's `email:check-domain` deploy step only | the sending domain whose tracking settings the deploy checks |
-| `CONSOLE_URL`, `WEB_URL` | identity | bases for emailed links — the console for staff and owners, the web app for everyone else |
+| `CONSOLE_URL`, `WEB_URL` | identity; billing reads `CONSOLE_URL` | bases for emailed links — the console for staff and owners, the web app for everyone else; billing's Checkout success and cancel pages and the Customer Portal's return page |
 | `SMTP_URL` | identity | local only: the Mailpit container |
-| `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing | Price IDs, never hardcoded |
+| `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing's `seed:dev` only | Price IDs, never hardcoded; the seed registers them as the admin price route would. The running service reads prices from `plan_prices` |
 | `GEMINI_API_KEY` | ai | never reaches a client |
 | `PROXYPAL_*` | ai | LLM gateway config |
 | `TTS_PROVIDER_ORDER`, `TRANSLATION_PROVIDER_ORDER` | narration | the providers to try, in order (`fake` locally; e.g. `google,free` deployed) |
@@ -725,6 +728,8 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `MIN_SUPPORTED_APP_VERSION` | gateway | Semver; a mobile build below it gets `426 APP_VERSION_UNSUPPORTED`. `0.0.0` by default. Configuration, not a constant, so a floor moves without a client release |
 | `CATALOG_GRPC_URL` | gateway | catalog's gRPC address |
 | `NARRATION_GRPC_URL` | gateway | narration's gRPC address |
+| `BILLING_GRPC_URL` | gateway, catalog, identity, narration | billing's gRPC address — entitlements, obligations, the owner summary |
+| `CATALOG_GRPC_URL` | billing | catalog's gRPC address, for the plan dry run's place counts |
 | `PUBLIC_QR_BASE_URL` | gateway, catalog's QR rendering | the host printed on every QR sticker (`https://go.wayfare.app`), mapped to the gateway; **it can never change** once stickers exist |
 | `GCS_API_ENDPOINT` | catalog, narration | local only: the fake-gcs origin |
 | `PUBLIC_LINK_BASE_URL` | gateway | the universal-link host `/q/:code` redirects to (`https://wayfare.app` in production) |

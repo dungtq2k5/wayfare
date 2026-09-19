@@ -15,6 +15,7 @@ const valid = {
   JWT_PRIVATE_KEY: keys.privateKey,
   JWT_KEY_ID: keys.keyId,
   GRPC_URL: '0.0.0.0:50051',
+  BILLING_GRPC_URL: 'localhost:50054',
   OPS_PORT: '3101',
   METRICS_PORT: '9101',
   EMAIL_PROVIDER: 'smtp',

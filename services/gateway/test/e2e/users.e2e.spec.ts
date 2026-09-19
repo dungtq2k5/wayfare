@@ -82,7 +82,10 @@ describe('/users/me', () => {
         id: '01990000-0000-7000-8000-0000000000aa',
         submittedAt: '2026-09-18T08:00:00.000Z',
       },
+      // An applicant is not an owner yet: billing is not asked.
+      billingSummary: null,
     });
+    expect(gateway.billing.billing.calls).toHaveLength(0);
   });
 
   it('refuses anonymous callers', async () => {

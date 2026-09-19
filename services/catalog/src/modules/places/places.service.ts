@@ -5,12 +5,12 @@ import {
   AUDIT_RECORD,
   AuditAction,
   AuditActorType,
-  BASIC_LANGUAGES,
   CATALOG_MENU_CONTENT_CHANGED,
   CATALOG_PLACE_CONTENT_CHANGED,
   CATALOG_PLACE_STATUS_CHANGED,
   CategoryAppliesTo,
   CONTENT_LANGUAGES,
+  effectiveLimit,
   MAX_ADMIN_REASON_LENGTH,
   MAX_PHOTOS_PER_PLACE,
   MAX_TRIGGER_RADIUS_M,
@@ -22,10 +22,13 @@ import {
   NOTIFICATION_CREATE,
   NotificationType,
   PLACE_KINDS,
+  PLACE_LIMIT_STATUSES,
   PLACE_STATUSES,
   PlaceInactiveReason,
   PlaceKind,
   PlaceStatus,
+  scopeLanguages,
+  scopeWidened,
   SynthesisTrigger,
   UploadPurpose,
   zMenuInput,
@@ -37,7 +40,9 @@ import {
 } from '@wayfare/contracts';
 import type {
   AuditRecordPayload,
-  ContentLanguage,
+  BILLING_ENTITLEMENTS_CHANGED,
+  EventPayload,
+  Language,
   GeoPoint,
   MenuInput,
   OpeningHoursRow,
@@ -59,6 +64,7 @@ import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env.schema';
 import { BillingPortService } from '../billing-port/billing-port.service';
+import { OwnerEntitlementsService } from '../owner-entitlements/owner-entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { bumpSyncVersion, withSyncWrite } from '../sync/sync.service';
 import type { CatalogTx } from '../sync/sync.service';
@@ -241,12 +247,6 @@ export const placeContentHash = (name: string, description: string) =>
 export const menuItemContentHash = (name: string, description: string | null | undefined) =>
   contentHash({ name, description: description ?? null });
 
-/** The languages a Place's text asks narration for (api-endpoints-plan §10). */
-function requestedLanguages(kind: PlaceKind): readonly ContentLanguage[] {
-  // Venues will ask for their entitlement's scope when billing exists; the basic scope until then.
-  return kind === PlaceKind.EDITORIAL ? CONTENT_LANGUAGES : BASIC_LANGUAGES;
-}
-
 const issue = (path: string, code = 'invalid_value') =>
   rpcError('VALIDATION_FAILED', { issues: [{ path, code }] });
 
@@ -270,6 +270,7 @@ export class PlacesService {
     private readonly outbox: OutboxService,
     private readonly uploads: UploadsService,
     private readonly billing: BillingPortService,
+    private readonly ownerEntitlements: OwnerEntitlementsService,
     config: ConfigService<Env, true>,
   ) {
     this.mediaBase = config.get('GCS_PUBLIC_BASE_URL', { infer: true });
@@ -415,6 +416,7 @@ export class PlacesService {
           tx,
           id,
           PlaceKind.EDITORIAL,
+          null,
           hash,
           SynthesisTrigger.APPROVAL,
           now,
@@ -506,6 +508,7 @@ export class PlacesService {
           tx,
           current.id,
           current.kind,
+          current.ownerUserId,
           hash,
           SynthesisTrigger.CONTENT_CHANGED,
           now,
@@ -694,7 +697,7 @@ export class PlacesService {
           occurredAt: now.toISOString(),
           placeId: current.id,
           menuItemIds: created,
-          langs: [...requestedLanguages(current.kind)],
+          langs: [...(await this.languagesFor(tx, current.kind, current.ownerUserId))],
         });
       }
       write.observable = true;
@@ -758,6 +761,7 @@ export class PlacesService {
           tx,
           current.id,
           current.kind,
+          current.ownerUserId,
           current.contentHash,
           SynthesisTrigger.APPROVAL,
           now,
@@ -892,6 +896,177 @@ export class PlacesService {
     if (place === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
     const url = `${fields.qrBaseUrl}/q/${place.publicCode}`;
     return { svg: await stickerSvg(url, place.publicCode), publicCode: place.publicCode };
+  }
+
+  /**
+   * An owner's Venues follow their grants (api-endpoints-plan §10, rdm-spec B-3): auto-narration,
+   * the place limit both ways, and narration for newly covered languages. An event whose version
+   * is not newer than the projection's is ignored; each effect is idempotent, and the projection is
+   * written last, so a redelivery after a crash finishes the work.
+   */
+  async applyEntitlements(event: EventPayload<typeof BILLING_ENTITLEMENTS_CHANGED>): Promise<void> {
+    const known = await this.ownerEntitlements.current(this.prisma, event.ownerUserId);
+    if (known !== null && event.entitlementsVersion <= known.version) return;
+    const next = event.entitlements;
+    const previousScope = known?.narrationLanguageScope ?? event.previous?.narrationLanguageScope;
+    const now = new Date();
+    await this.setAutoNarration(event.ownerUserId, next.autoNarration);
+    await this.enforcePlaceLimit(event.ownerUserId, effectiveLimit('maxPlaces', next), now);
+    if (previousScope !== undefined && scopeWidened(previousScope, next.narrationLanguageScope)) {
+      const had = new Set<string>(scopeLanguages(previousScope));
+      const added = scopeLanguages(next.narrationLanguageScope).filter((lang) => !had.has(lang));
+      await this.requestEntitledLanguages(event.ownerUserId, added, now);
+    }
+    await this.ownerEntitlements.record(this.prisma, event);
+  }
+
+  /** Sets `auto_narration_enabled` on every Venue of the owner that differs, bumping each. */
+  private async setAutoNarration(ownerUserId: string, enabled: boolean): Promise<void> {
+    const differing = await this.prisma.place.findMany({
+      where: { ownerUserId, kind: VENUE, autoNarrationEnabled: !enabled },
+      select: { id: true },
+    });
+    for (const { id } of differing) {
+      await withSyncWrite(this.prisma, async (tx) => {
+        await tx.place.update({
+          where: { id },
+          data: { autoNarrationEnabled: enabled },
+          select: { id: true },
+        });
+        await bumpSyncVersion(tx, id);
+      });
+    }
+  }
+
+  /**
+   * The place limit (rdm-spec B-3, C-1): the oldest `maxPlaces` counted Venues stay; a live one
+   * beyond them is unpublished (`ENTITLEMENT_LIMIT`), newest first. With room to spare,
+   * `ENTITLEMENT_LIMIT` Venues come back, oldest first, up to the room. A Draft counts but is never
+   * unpublished — it was never published.
+   */
+  private async enforcePlaceLimit(
+    ownerUserId: string,
+    maxPlaces: number,
+    now: Date,
+  ): Promise<void> {
+    const counted = await this.prisma.place.findMany({
+      where: {
+        ownerUserId,
+        kind: VENUE,
+        deletedAt: null,
+        status: { in: [...PLACE_LIMIT_STATUSES] },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true, status: true },
+    });
+    if (counted.length > maxPlaces) {
+      const beyond = counted.slice(maxPlaces).reverse();
+      for (const place of beyond) {
+        if (place.status === String(PlaceStatus.DRAFT)) continue;
+        await this.write(place.id, (tx, write) => this.unpublishForEntitlement(tx, write, now));
+      }
+      return;
+    }
+    const room = maxPlaces - counted.length;
+    if (room === 0) return;
+    const waiting = await this.prisma.place.findMany({
+      where: {
+        ownerUserId,
+        kind: VENUE,
+        deletedAt: null,
+        status: PlaceStatus.INACTIVE,
+        inactiveReason: PlaceInactiveReason.ENTITLEMENT_LIMIT,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: room,
+      select: { id: true },
+    });
+    for (const { id } of waiting) {
+      await this.write(id, (tx, write) => this.activateAfterEntitlement(tx, write, now));
+    }
+  }
+
+  /** A live Venue over the limit goes `INACTIVE (ENTITLEMENT_LIMIT)`, audited as catalog's own act. */
+  private async unpublishForEntitlement(
+    tx: CatalogTx,
+    write: PlaceWrite,
+    now: Date,
+  ): Promise<void> {
+    const current = write.place;
+    if (current.status !== PlaceStatus.ACTIVE && current.status !== PlaceStatus.PROCESSING) return;
+    const status = transition(current.status, PlaceLifecycleEvent.DEACTIVATED);
+    await tx.place.update({
+      where: { id: current.id },
+      data: { status, inactiveReason: PlaceInactiveReason.ENTITLEMENT_LIMIT },
+      select: { id: true },
+    });
+    await this.systemAudit(tx, AuditAction.PLACE_DEACTIVATED, current.id, now, {
+      before: { status: current.status },
+      reason: PlaceInactiveReason.ENTITLEMENT_LIMIT,
+    });
+    write.after = { ...write.after, status };
+    write.observable = true;
+  }
+
+  /**
+   * catalog's system activation path: `INACTIVE (ENTITLEMENT_LIMIT)` goes through the same gate
+   * `requestActivation` uses, audited as catalog's own act. The owner- and admin-facing
+   * `requestActivation` keeps refusing it — only a wider plan lifts this reason.
+   */
+  private async activateAfterEntitlement(
+    tx: CatalogTx,
+    write: PlaceWrite,
+    now: Date,
+  ): Promise<void> {
+    const current = write.place;
+    if (
+      current.status !== PlaceStatus.INACTIVE ||
+      current.inactiveReason !== PlaceInactiveReason.ENTITLEMENT_LIMIT
+    ) {
+      return;
+    }
+    let status = transition(current.status, PlaceLifecycleEvent.ACTIVATION_REQUESTED);
+    await tx.place.update({
+      where: { id: current.id },
+      data: { status, inactiveReason: null, activationRequestedAt: now },
+      select: { id: true },
+    });
+    const opened = await this.openGateIfReady(tx, current.id, {
+      contentHash: current.contentHash,
+      activationRequestedAt: now,
+      publishedAt: current.publishedAt,
+    });
+    if (opened.open) status = PlaceStatus.ACTIVE;
+    await this.systemAudit(tx, AuditAction.PLACE_ACTIVATION_REQUESTED, current.id, now, {
+      after: { status, missing: opened.missing },
+    });
+    if (opened.open) await this.systemAudit(tx, AuditAction.PLACE_ACTIVATED, current.id, now);
+    write.after = { ...write.after, status };
+    write.observable = true;
+  }
+
+  /** Asks narration for newly covered languages of every published Venue of the owner. */
+  private async requestEntitledLanguages(
+    ownerUserId: string,
+    langs: readonly Language[],
+    now: Date,
+  ): Promise<void> {
+    if (langs.length === 0) return;
+    const venues = await this.prisma.place.findMany({
+      where: { ownerUserId, kind: VENUE, deletedAt: null, status: { not: PlaceStatus.DRAFT } },
+      select: { id: true, contentHash: true },
+    });
+    for (const venue of venues) {
+      await this.prisma.$transaction((tx) =>
+        this.outbox.add(tx, CATALOG_PLACE_CONTENT_CHANGED, {
+          occurredAt: now.toISOString(),
+          placeId: venue.id,
+          contentHash: venue.contentHash,
+          langs: [...langs],
+          trigger: SynthesisTrigger.ENTITLEMENT_EXPANDED,
+        }),
+      );
+    }
   }
 
   /**
@@ -1142,6 +1317,7 @@ export class PlacesService {
     tx: CatalogTx,
     placeId: string,
     kind: PlaceKind,
+    ownerUserId: string | null,
     hash: string,
     trigger: SynthesisTrigger.APPROVAL | SynthesisTrigger.CONTENT_CHANGED,
     now: Date,
@@ -1150,9 +1326,23 @@ export class PlacesService {
       occurredAt: now.toISOString(),
       placeId,
       contentHash: hash,
-      langs: [...requestedLanguages(kind)],
+      langs: [...(await this.languagesFor(tx, kind, ownerUserId))],
       trigger,
     });
+  }
+
+  /**
+   * The languages a Place's text asks narration for (api-endpoints-plan §10): every launch language
+   * for an Editorial Place; for a Venue, its owner's scope as catalog's projection holds it — never
+   * a call to billing, so an edit works while billing is down (rdm-spec C-18).
+   */
+  private async languagesFor(
+    db: CatalogTx,
+    kind: PlaceKind,
+    ownerUserId: string | null,
+  ): Promise<readonly Language[]> {
+    if (kind === PlaceKind.EDITORIAL || ownerUserId === null) return CONTENT_LANGUAGES;
+    return scopeLanguages(await this.ownerEntitlements.scopeOf(db, ownerUserId));
   }
 
   private async audit(
@@ -1172,6 +1362,28 @@ export class PlacesService {
         placeId,
         ...(metadata === undefined ? {} : { metadata }),
         origin: actor.origin,
+        now,
+      }),
+    );
+  }
+
+  /** An audit row for catalog's own act: a consumer following billing's grants. */
+  private async systemAudit(
+    tx: CatalogTx,
+    action: AuditAction,
+    placeId: string,
+    now: Date,
+    metadata?: AuditRecordPayload['metadata'],
+  ): Promise<void> {
+    await this.outbox.add(
+      tx,
+      AUDIT_RECORD,
+      placeAuditRecord({
+        actor: { type: AuditActorType.SYSTEM },
+        action,
+        placeId,
+        ...(metadata === undefined ? {} : { metadata }),
+        origin: { ip: null, userAgent: null },
         now,
       }),
     );

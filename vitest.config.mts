@@ -75,6 +75,7 @@ export default defineConfig({
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
       unit('catalog', './services/catalog', ['src/**/*.spec.ts', 'prisma/seed/**/*.spec.ts']),
       unit('narration', './services/narration', ['src/**/*.spec.ts']),
+      unit('billing', './services/billing', ['src/**/*.spec.ts']),
       unit('gateway', './services/gateway', ['src/**/*.spec.ts', 'test/e2e/**/*.spec.ts']),
       unit('config', './packages/config', ['markdownlint/**/*.spec.ts']),
       // Repo-wide rules as tests (conventions §17.4); also a named step in pr.yml.
@@ -119,6 +120,23 @@ export default defineConfig({
         test: {
           name: 'integration:narration',
           root: root('./services/narration'),
+          include: ['test/integration/**/*.spec.ts'],
+          environment: 'node',
+          globalSetup: ['test/setup/global-setup.ts'],
+          setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],
+          env: { OTEL_SDK_DISABLED: 'true' },
+          // One database: suites run serially (conventions §17.2).
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
+        },
+      },
+      {
+        plugins: [swcPlugin()],
+        resolve: { alias },
+        test: {
+          name: 'integration:billing',
+          root: root('./services/billing'),
           include: ['test/integration/**/*.spec.ts'],
           environment: 'node',
           globalSetup: ['test/setup/global-setup.ts'],

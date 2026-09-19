@@ -1,0 +1,8 @@
+{
+  "indexes": [
+    "outbox_events_unpublished_idx",
+    "plans_code_live_key",
+    "plan_prices_one_active_interval"
+  ],
+  "constraints": ["plans_commission_ck", "plan_prices_currency_ck", "plan_prices_amount_ck"]
+}

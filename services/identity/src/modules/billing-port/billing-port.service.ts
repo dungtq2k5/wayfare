@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { rpcError } from '@wayfare/nest-common';
+import { Injectable, Logger } from '@nestjs/common';
+import { rpcError, SYSTEM_ORIGIN } from '@wayfare/nest-common';
+import { BillingServiceGrpcClient } from './billing-service-grpc.client';
 
 /** What billing still owes an owner's buyers (api-endpoints-plan §12.2). */
 export interface SellerObligations {
@@ -8,14 +9,29 @@ export interface SellerObligations {
 }
 
 /**
- * billing, as identity sees it. Until billing exists every call fails closed (api-endpoints-plan
- * §12.2): deactivating an owner is refused rather than allowed unchecked. Billing's client replaces
- * this provider; the use cases do not change.
+ * billing, as identity sees it (api-endpoints-plan §12.2). Read at the moment of deciding, and fail
+ * closed: an unreachable billing refuses the deactivation rather than allowing it unchecked.
  */
 @Injectable()
 export class BillingPortService {
-  /** Live obligations for an owner, read at the moment of deciding. Throws when unavailable. */
-  getLiveObligations(_ownerUserId: string): Promise<SellerObligations> {
-    return Promise.reject(rpcError('UPSTREAM_UNAVAILABLE'));
+  private readonly logger = new Logger(BillingPortService.name);
+
+  constructor(private readonly billing: BillingServiceGrpcClient) {}
+
+  /** Live obligations for an owner. Throws `UPSTREAM_UNAVAILABLE` when billing cannot say. */
+  async getLiveObligations(ownerUserId: string): Promise<SellerObligations> {
+    try {
+      return await this.billing.seller.call(
+        'getLiveObligations',
+        { ownerUserId },
+        { kind: 'anonymous', origin: SYSTEM_ORIGIN },
+      );
+    } catch (error) {
+      this.logger.warn(
+        { ownerUserId, kind: error instanceof Error ? error.name : 'unknown' },
+        'billing did not answer the live obligations',
+      );
+      throw rpcError('UPSTREAM_UNAVAILABLE');
+    }
   }
 }

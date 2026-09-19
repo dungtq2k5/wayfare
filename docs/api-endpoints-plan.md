@@ -116,7 +116,7 @@ Two styles, chosen by the consumer, not by taste:
 
 ### 0.8 Idempotency
 
-`Idempotency-Key: <UUIDv7>` is **required** on every route that creates money movement or an external side effect a retry would duplicate — marked **⟳** below. A key that is not a UUIDv7 is `400`. The gateway stores `(route, caller, key) → response` in Redis for 24 h and replays the stored response on a repeat; the same key with a different body is `422 IDEMPOTENCY_KEY_REUSED`. For Stripe calls the same key is forwarded as Stripe's own idempotency key.
+`Idempotency-Key: <UUIDv7>` is **required** on every route that creates money movement or an external side effect a retry would duplicate — marked **⟳** below. A key that is not a UUIDv7 is `400`. The gateway stores `(route, caller, key) → response` in Redis for 24 h and replays the stored response on a repeat; the same key with a different body is `422 IDEMPOTENCY_KEY_REUSED`, and a repeat that arrives while the first is still running is `409 IDEMPOTENCY_KEY_IN_FLIGHT`. `2xx` and `4xx` answers are stored; a `5xx` is not, so a retry after an outage runs again. **If Redis cannot be reached, the store fails open:** the request runs unguarded, and for a Stripe call the key still reaches Stripe, which deduplicates on its own. For Stripe calls the same key is forwarded as Stripe's own idempotency key.
 
 ### 0.8.1 Identifiers
 
@@ -189,7 +189,7 @@ A new version is never used for an additive change. Within v1: fields are added,
 | POST | `/auth/email/change/revert` ✎ | `{ token }` — the "this wasn't me" link. In one transaction: restores the old address, revokes every session, bumps `tokens_valid_after`, invalidates outstanding `EMAIL_CHANGE` tokens, and issues a `PASSWORD_RESET` to the restored address — the password is treated as compromised. `410` if spent or expired. Raises the same alert as `REFRESH_TOKEN_REPLAY_DETECTED` ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)). | PUBLIC |
 | POST | `/auth/devices/claim` ✎ | Claim the calling device for the signed-in account when the device was registered after login. Idempotent. | USER + DEVICE |
 
-**Every emailed link carries its token in the URL fragment** (`…/reset-password#token=…`), which browsers never send to a server; the page reads it and posts it in a body. The link's host is the console for staff and owners, the web app for everyone else.
+**Every emailed link carries its token in the URL fragment** (`…/reset-password#token=…`), which browsers never send to a server; the page reads it and posts it in a body. The link's host is the console for staff and owners, the web app for everyone else — except an email whose page exists only in the console (an owner-registration outcome, which also reaches a rejected applicant who holds only `USER`), which always links to the console.
 
 *Audit actions:* `USER_REGISTERED`, `USER_LOGIN`, `USER_LOGIN_FAILED`, `USER_LOGOUT`, `USER_LOGOUT_ALL`, `REFRESH_TOKEN_REPLAY_DETECTED` (alerts), `PASSWORD_RESET_REQUESTED`, `PASSWORD_RESET_COMPLETED`, `PASSWORD_CHANGED`, `EMAIL_VERIFIED`, `EMAIL_CHANGED`, `DEVICE_CLAIMED`, `EMAIL_CHANGE_REVERTED` (alerts).
 
@@ -197,7 +197,7 @@ A new version is never used for an additive change. Within v1: fields are added,
 
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
-| GET | `/users/me` | Bootstrap: `{ user, roles[], permissions[], ownerVerified, owner?: { billingSummary, pendingRegistration } }`. The console's first call. `user` carries `emailBounced` (a hard bounce was recorded since the address was last verified), which drives the console's banner. Register, login and refresh return the same `user` shape. | USER |
+| GET | `/users/me` | Bootstrap: `{ user, roles[], permissions[], ownerVerified, owner: { billingSummary?, pendingRegistration? } \| null }` — `owner` is `null` for an account that is neither an owner nor an applicant. The console's first call. `user` carries `emailBounced` (a hard bounce was recorded since the address was last verified), which drives the console's banner. Register, login and refresh return the same `user` shape. | USER |
 | PATCH | `/users/me` | `{ fullName?, preferredLocale? }`. Nothing else — email has its own flow, and roles are never self-service. | USER |
 | DELETE | `/users/me` ✎ | **Erasure** (rdm-spec I-1, [ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)). Body `{ currentPassword, confirm: "DELETE" }`. Irreversible. Purchases survive **anonymised**; unredeemed vouchers are neither voided nor waited for — the client first warns *"Your N unused vouchers stay on this phone until they expire and can't be moved after deletion."* **Refused `409 BUYER_HAS_PENDING_ORDER`** while a checkout is open (at most 30 minutes), **`409 EMAIL_CHANGE_REVERT_PENDING`** while a revert link is live, and **`409 OWNER_HAS_ACTIVE_OBLIGATIONS`** for an owner with an active paid subscription, unredeemed vouchers sold, or an open dispute — those must be wound down first, because erasing the counterparty to a live financial obligation leaves nobody to pay or refund. | USER |
 | GET | `/users/me/legal-acceptances` | Newest acceptance per `(party, document)` — the account's, plus the calling device's when there is one, each marked `party: USER \| DEVICE` — each with `current: boolean` against `LEGAL_DOCUMENT_VERSIONS`, so the client knows when to re-prompt. | USER |
@@ -211,7 +211,7 @@ A new version is never used for an additive change. Within v1: fields are added,
 
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
-| POST | `/owner/registration` ✎ | Apply. `{ businessName, businessAddress, businessRegistrationNo?, contactName, contactPhone, nationalId, applicantNote?, ownerAgreementVersion }`. The national ID is a 12-digit CCCD, encrypted before the row is written and never echoed. `ownerAgreementVersion` must be the current `OWNER_AGREEMENT` version (`409 LEGAL_VERSION_OUTDATED`), and the same transaction records the acceptance if the account has none for it. `409 REGISTRATION_ALREADY_PENDING`; `409 INVALID_STATE` for an account that is already an owner. | USER+EMAIL |
+| POST | `/owner/registration` ✎ | Apply. `{ businessName, businessAddress, businessRegistrationNo?, contactName, contactPhone, nationalId, applicantNote?, ownerAgreementVersion }`. The national ID is a 12-digit CCCD, encrypted before the row is written and never echoed. `ownerAgreementVersion` must be the current `OWNER_AGREEMENT` version (`409 LEGAL_VERSION_OUTDATED`), and the same transaction records the acceptance if the account has none for it. `409 REGISTRATION_ALREADY_PENDING`; `409 INVALID_STATE` (`details.status: 'ALREADY_OWNER'`) for an account that is already an owner. | USER+EMAIL |
 | GET | `/owner/registration` | The caller's applications, newest first: status, `decisionNote`, `nationalIdLast4`. **Never `internal_note`.** | USER |
 | POST | `/owner/registration/:id/withdraw` ✎ | `PENDING` → `WITHDRAWN`. | USER |
 
@@ -222,7 +222,7 @@ A new version is never used for an additive change. Within v1: fields are added,
 | GET | `/admin/owner-registrations` | Queue. `?status=&q=` (business or contact name), page style. Oldest `PENDING` first by default. | perm:`owner_registration.read` |
 | GET | `/admin/owner-registrations/:id` | Detail with applicant account summary and prior applications. National ID shown as last 4 only. | perm:`owner_registration.read` |
 | POST | `/admin/owner-registrations/:id/national-id/reveal` ✎ | Decrypt and return the full national ID **once**, with `Cache-Control: no-store`. `POST`, not `GET`, because it has a side effect (the audit row) and must never be prefetched. `410 NATIONAL_ID_REDACTED` after redaction. Rate class `PII_REVEAL` (§0.9). | perm:`owner_registration.pii.read` |
-| POST | `/admin/owner-registrations/:id/approve` ✎ | `{ decisionNote?, internalNote? }`. The approval transaction in rdm-spec I-8. `409 INVALID_STATE` when the application is no longer `PENDING` or the applicant has been deactivated; `403 PERMISSION_DENIED` for a reviewer's own application (also on reject). | perm:`owner_registration.review` |
+| POST | `/admin/owner-registrations/:id/approve` ✎ | `{ decisionNote?, internalNote? }`. The approval transaction in rdm-spec I-8. `409 INVALID_STATE` when the application is no longer `PENDING` or the applicant has been deactivated or erased; `403 PERMISSION_DENIED` for a reviewer's own application (also on reject). | perm:`owner_registration.review` |
 | POST | `/admin/owner-registrations/:id/reject` ✎ | `{ decisionNote, internalNote? }` — `decisionNote` required. | perm:`owner_registration.review` |
 
 *Audit actions:* `OWNER_REGISTRATION_SUBMITTED`, `OWNER_REGISTRATION_WITHDRAWN`, `OWNER_REGISTRATION_APPROVED`, `OWNER_REGISTRATION_REJECTED`, `OWNER_NATIONAL_ID_REVEALED`, `OWNER_PII_REDACTED` (job).
@@ -510,9 +510,11 @@ Pause, resume, cancel and retry on a job in the wrong state answer `409 SYNTHESI
 | :---- | :---- | :---- | :---- |
 | GET | `/owner/billing` | `{ plan, price, subscriptionStatus, currentPeriodEnd, cancelAtPeriodEnd, dunning: { since } \| null, entitlements, usage: { places, boostsLive }, pinned }`. **Reads Postgres, never Stripe** — a billing page that fans out to a third party on every load fails whenever they do. | OWNER |
 | GET | `/owner/billing/plans` | Plans an owner can move to: active, with at least one active price, excluding `FREE` (assigned, not sold). Each with grants and monthly/annual prices. | OWNER |
-| POST | `/owner/billing/checkout-session` ✎ ⟳ | `{ planPriceId }` → `{ url }`. Creates the Stripe Customer if absent, then a Checkout Session in `mode: "subscription"` — **no `payment_method_types`**, with `integration_identifier`. `409 SUBSCRIPTION_EXISTS` if one is active: plan changes go through the portal. **Entitlements are not written here**; the webhook writes them. Requires the current `OWNER_AGREEMENT`. | OWNER |
-| POST | `/owner/billing/portal-session` ✎ | → `{ url }` for the Stripe Customer Portal: upgrade, downgrade, cancel, invoices, card. `409 NO_STRIPE_CUSTOMER` for an owner who never checked out. | OWNER |
-| GET | `/owner/billing/invoices` | Proxied from Stripe and cached 5 min — the one live Stripe read, because invoices are not mirrored. | OWNER |
+| POST | `/owner/billing/checkout-session` ✎ ⟳ | `{ planPriceId }` → `200 { url }`. Creates the Stripe Customer if absent, then a Checkout Session in `mode: "subscription"` — **no `payment_method_types`**, with `integration_identifier`. `409 SUBSCRIPTION_EXISTS` if one is active: plan changes go through the portal. **Entitlements are not written here**; the webhook writes them. Requires the current `OWNER_AGREEMENT` (`409 LEGAL_VERSION_OUTDATED`) — checked by the gateway against identity's acceptances before it calls billing, since billing holds no legal data. | OWNER |
+| POST | `/owner/billing/portal-session` ✎ | → `200 { url }` for the Stripe Customer Portal: upgrade, downgrade, cancel, invoices, card. `409 NO_STRIPE_CUSTOMER` for an owner who never checked out. | OWNER |
+| GET | `/owner/billing/invoices` | Proxied from Stripe and cached 5 min — the one live Stripe read, because invoices are not mirrored. An owner with no Stripe customer gets `[]`. | OWNER |
+
+The three routes that call Stripe (checkout, portal, invoices) answer `503 UPSTREAM_UNAVAILABLE` when billing runs without a Stripe key, as a local stack may; every other billing route, and webhook processing, works without one.
 
 *Audit actions:* `BILLING_CHECKOUT_STARTED`, `BILLING_PORTAL_OPENED`.
 
@@ -602,7 +604,7 @@ Staff never see prices, sales, commissions, payouts, offers, billing, submission
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
 | GET | `/admin/plans` | With prices and subscriber counts (**including deactivated accounts** — the count that decides whether a plan may be retired). | perm:`billing.plan.manage` |
-| POST | `/admin/plans` ✎ | Every grant required (rdm-spec B-1). | perm:`billing.plan.manage` |
+| POST | `/admin/plans` ✎ | Every grant required (rdm-spec B-1). A code already used by a live plan is `400 VALIDATION_FAILED` on `/code`. | perm:`billing.plan.manage` |
 | PATCH | `/admin/plans/:id` ✎ | Edits the catalogue row **only**; subscribers are untouched until `apply`. | perm:`billing.plan.manage` |
 | POST | `/admin/plans/:id/prices` ✎ | Register a Stripe Price `{ stripePriceId, billingInterval }` — amount read from Stripe, never typed. Deactivates the previous active price for that interval. | perm:`billing.plan.manage` |
 | POST | `/admin/plans/:id/apply` ✎ | Write the plan's grants onto every subscriber **not pinned**, publishing `billing.entitlements.changed` per account. `?dryRun=true` writes nothing and returns the same per-account projection, from the same code path: `{ affected, skippedPinned, wouldUnpublishPlaces, wouldEndBoosts }`. | perm:`billing.plan.manage` |
@@ -636,10 +638,10 @@ Staff never see prices, sales, commissions, payouts, offers, billing, submission
 **Both routes, and the five things that break them silently if missed:**
 
 1. **Raw body.** Registered with a raw-body parser *before* the global JSON parser; a re-serialized body no longer matches the signature. The single most common first-deploy failure.
-2. **Verify, then insert, then acknowledge.** Verify the signature → insert B-4 as `RECEIVED` (a duplicate `stripe_event_id` is a caught `P2002` answered `200`) → return `200` → process in a BullMQ job. Doing the work inline lets Stripe time out and retry a job that is still running.
+2. **Verify, then insert, then acknowledge.** Verify the signature → insert B-4 as `RECEIVED` (a duplicate `stripe_event_id` is a caught `P2002` acknowledged with `204`) → return `204` → process in a BullMQ job. Doing the work inline lets Stripe time out and retry a job that is still running.
 3. **No auth guard, no rate-limit-by-IP ban, no `X-Wayfare-Client` requirement.** These routes are exempt from §0.3, and from any gate that could refuse Stripe during an incident — which is precisely when the reactivating event arrives.
-4. **Monotonic guard** on subscription writes (rdm-spec §1.12) — `SKIPPED_STALE` when older than `last_stripe_event_at`.
-5. **`livemode` must match the environment.** A test event reaching production is recorded `IGNORED`.
+4. **Monotonic guard** on subscription writes (rdm-spec §1.12) — `SKIPPED_STALE` when older than `last_stripe_event_at`. Stripe's `created` is whole seconds, so **a tie is not stale**: the subscription is re-read from Stripe and its current state applied (a Checkout often sends `.created` and `.updated` in the same second). Invoice events have their own guard, `last_invoice_event_at`, so a late `payment_failed` cannot restart dunning after the `paid` that settled it.
+5. **`livemode` must match the mode**, which follows the key (`rk_live_` live, `rk_test_` or none test) and `STRIPE_MODE`, not `NODE_ENV`. An event in the other mode is recorded `IGNORED`.
 
 **Events handled:**
 
@@ -655,7 +657,9 @@ Staff never see prices, sales, commissions, payouts, offers, billing, submission
 | `charge.refunded` · `refund.updated` | Update B-11 and the order's `refunded_minor`/status; void refunded vouchers. |
 | `charge.dispute.created` · `.updated` · `.closed` | Upsert B-12; order `DISPUTED`; void unredeemed vouchers on the disputed order. |
 | Accounts v2 recipient-capability status update *(Connect)* | Update B-6 `transfers_status`; notify on `RESTRICTED` (`PAYOUT_ACCOUNT_ACTION_REQUIRED`). ⚠️ Accounts v2 delivers these as thin `v2.core.account…` events — **copy the exact event type from the Stripe Dashboard's event destination setup** when wiring it, rather than from this table. A daily reconciliation job (rdm-spec B-6) covers any event the subscription misses. |
-| anything else | Recorded `IGNORED`. |
+| anything else | Recorded `IGNORED` — including, until their tables exist, the order, refund, dispute and Connect events above. |
+
+**A bad signature answers `400`** and stores nothing. **An event whose account cannot be resolved, or whose subscription price no `plan_prices` row knows, fails:** three attempts with backoff, then `FAILED`, replayable once the cause is fixed.
 
 *Audit actions:* `BILLING_SUBSCRIPTION_CHANGED`, `BILLING_ENTITLEMENTS_APPLIED`, `ORDER_PAID`, `ORDER_REFUNDED`, `DISPUTE_OPENED`, `BILLING_WEBHOOK_FAILED`.
 
@@ -749,9 +753,11 @@ Subject form: `<publisher>.<aggregate>.<past-tense-verb>`.
 | `catalog.submission.reviewed` | catalog | `submissionId, placeId?, ownerUserId, decision, decisionNote?` | identity → notification |
 | `narration.localization.ready` | narration | `targetType, targetId, lang, sourceContentHash, translationSource, text {…}, audio? {assetId, objectPath, sha256, bytes, durationMs, voiceId, sourceContentHash}` — for a machine-translated Place it is sent **twice**: once with the text as soon as it exists, again with the text and `audio` once stored; for a human correction of a Place, `text` and `audio` always arrive together, once | catalog → upsert C-4/C-7/C-9, bump `sync_version`, evaluate activation gate; billing → upsert B-8 for `VOUCHER_OFFER` |
 | `narration.localization.failed` | narration | `targetType, targetId, lang, stage, reason, final` — `final` is true on the last permitted retry; a language with no voice (`reason: NO_VOICE`) sends it in the same transaction as, and after, its text-only `ready` — except a human correction, which sends only the failure, because a corrected Place's `ready` always carries audio — and catalog redelivers a final failure that arrives before the text's row exists | catalog → mark `audio_status = FAILED`, and on a `final` failure for a Venue publish `notification.create` `PLACE_NARRATION_FAILED` to its owner, once per text and never for `reason: NO_VOICE` (a text-only language is expected, not a failure) — catalog, not identity, because the event names a target, not an owner |
-| `billing.entitlements.changed` | billing | `ownerUserId, entitlementsVersion, entitlements{…}, previous{…}` | catalog → set `auto_narration_enabled` on Venues, unpublish excess Places, request narration for newly entitled languages; ai → refresh cached quota; identity → `ENTITLEMENTS_REDUCED` notification when narrowed |
+| `billing.entitlements.changed` | billing | `ownerUserId, entitlementsVersion, entitlements{…}, previous{…}` | catalog → set `auto_narration_enabled` on Venues, unpublish excess Places (newest first) or, when the limit widens, reactivate `ENTITLEMENT_LIMIT` Places (oldest first) through catalog's system activation path, request narration for newly entitled languages — guarded by the version it keeps in `owner_entitlements`; ai → refresh cached quota; identity → `ENTITLEMENTS_REDUCED` notification and email when narrowed — a smaller numeric grant, lost auto-narration or vouchers, a smaller language scope or a lower analytics level |
 | `billing.boosts.changed` | billing | `placeId, discoveryBoost` | catalog → set `places.discovery_boost` |
 | `billing.subscription.payment_failed` | billing | `ownerUserId, attemptCount, nextAttemptAt?` | identity → notification + email |
+
+`SUBSCRIPTION_ACTIVATED` has no event of its own: billing publishes it as `notification.create` when a subscription starts applying a paid plan (`subscribedPlanApplies` goes from false to true); a move between paid plans sends nothing.
 | `billing.order.paid` | billing | `orderId, ownerUserId, placeId, quantity, amount` (`Money`) | identity → `VOUCHER_SOLD` notification (which carries no amount) |
 | `billing.voucher.refunded` | billing | `orderId, buyerUserId?, voucherIds[], reason` | identity → `VOUCHER_REFUNDED` email when `buyerUserId` is set |
 | `billing.voucher.moved` | billing | `voucherId, buyerUserId, offerTitle` | identity → `VOUCHER_MOVED` email (§5.6) |
@@ -849,7 +855,9 @@ gRPC packages are `wayfare.<service>`, protos in `packages/contracts/proto/wayfa
 | `catalog.PlaceService.SearchLocalizedText(term, lang?)` | narration (dictionary edits) | find affected localizations | the dictionary save succeeds; regeneration retries |
 | `catalog.PlaceService.CountOwnerPlaces(ownerUserId)` | billing (plan apply dry run) | projection | the dry run reports the dimension as not evaluated |
 | `identity.AccountSecurityService.GetSecurityState(userId)` | billing (payout routes, staff invitations) | `{ revertPendingUntil?, credentialsChangedAt? }` must be current — a cached "no restriction" is exactly the window a takeover uses | **refuse the restricted action** (`503`) |
-| `billing.SellerService.GetLiveObligations(ownerUserId)` | identity (owner deactivation, erasure) | `{ issuedVoucherCount, openCheckoutCount }` must be current at the moment of refusing or allowing | **refuse the deactivation** (`503`) |
+| `billing.SellerService.GetLiveObligations(ownerUserId)` | identity (owner deactivation, erasure) | `{ issuedVoucherCount, openCheckoutCount }` must be current at the moment of refusing or allowing — zero until the voucher tables exist, which is true, not a placeholder | **refuse the deactivation** (`503`) |
+| `billing.SellerService.CountLiveVouchers(placeId)` | catalog (Venue delete) | the Place's unredeemed issued vouchers; zero until the voucher tables exist | **refuse the delete** (`503`) |
+| `billing.BillingService.GetBillingSummary(ownerUserId)` | gateway (`/users/me` composition) | `{ planCode, subscriptionStatus, dunningSince? }` | `owner.billingSummary: null`, `meta.degraded: ["billing"]` (§12.1) |
 | `billing.EntitlementService.GetEntitlements(ownerUserId)` | catalog, narration, ai | every limit check | **deny** the limited action — never assume a grant (`503 ENTITLEMENTS_UNAVAILABLE`) |
 | `billing.OfferService.ListActiveOffersForPlace(placeId, lang)` | gateway composition | — | see §12.1 |
 

@@ -35,6 +35,7 @@ export * from './http/client-header.guard';
 export * from './http/cursor';
 export * from './http/error.filter';
 export * from './http/etag';
+export * from './http/idempotency';
 export * from './http/openapi-post-pass';
 export * from './http/paged';
 export * from './http/public-cache.decorator';

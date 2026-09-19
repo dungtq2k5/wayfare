@@ -25,6 +25,7 @@ const VENDOR_SDK_PATHS = [
   '@google-cloud/text-to-speech',
   'msedge-tts',
   'google-translate-api-x',
+  'stripe',
 ].map((name) => ({
   name,
   message: `Only the provider adapter under src/providers/ imports ${name} (conventions §11.5).`,

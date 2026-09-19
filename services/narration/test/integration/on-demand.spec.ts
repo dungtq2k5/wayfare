@@ -3,6 +3,8 @@ import {
   AudioStatus,
   NARRATION_LOCALIZATION_FAILED,
   NARRATION_LOCALIZATION_READY,
+  NarrationLanguageScope,
+  newId,
   OnDemandStatus,
   PlaceKind,
   PlaceStatus,
@@ -103,16 +105,29 @@ describe('RequestOnDemand', () => {
     expect(status((await ask(place.id, 'xx')).status)).toBe(OnDemandStatus.UNAVAILABLE);
   });
 
-  it('refuses a Place a tourist cannot see, and fails closed for a Venue', async () => {
+  it('refuses a Place a tourist cannot see', async () => {
     const draft = services.catalog.place({ status: PlaceStatus.DRAFT });
     const deleted = services.catalog.place({ deleted: true });
-    const venue = services.catalog.place({ kind: PlaceKind.VENUE });
     expect(await errorCode(ask(draft.id, 'en'))).toBe('RESOURCE_NOT_FOUND');
     expect(await errorCode(ask(deleted.id, 'en'))).toBe('RESOURCE_NOT_FOUND');
     expect(await errorCode(ask('01990000-0000-7000-8000-000000000999', 'en'))).toBe(
       'RESOURCE_NOT_FOUND',
     );
-    expect(await errorCode(ask(venue.id, 'en'))).toBe('ENTITLEMENTS_UNAVAILABLE');
+  });
+
+  it("answers a Venue from its owner's entitlements, and fails closed without billing", async () => {
+    const ownerUserId = newId();
+    const venue = services.catalog.place({ kind: PlaceKind.VENUE, ownerUserId });
+    const orphan = services.catalog.place({ kind: PlaceKind.VENUE, ownerUserId: newId() });
+    services.billing.scopes.set(ownerUserId, NarrationLanguageScope.BASIC);
+    expect(status((await ask(venue.id, 'en')).status)).toBe(OnDemandStatus.PENDING);
+    expect(await errorCode(ask(venue.id, 'ja'))).toBe('LANGUAGE_NOT_ENTITLED');
+    // An owner billing has no account for is denied, never assumed.
+    expect(await errorCode(ask(orphan.id, 'en'))).toBe('LANGUAGE_NOT_ENTITLED');
+    services.billing.scopes.set(ownerUserId, NarrationLanguageScope.LAUNCH);
+    expect(status((await ask(venue.id, 'ja')).status)).toBe(OnDemandStatus.PENDING);
+    services.billing.down = true;
+    expect(await errorCode(ask(venue.id, 'ko'))).toBe('ENTITLEMENTS_UNAVAILABLE');
   });
 
   it('a language with no voice publishes its text, then reports NO_VOICE in the same transaction', async () => {

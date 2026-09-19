@@ -16,7 +16,12 @@ import {
 import type { Redis } from 'ioredis';
 import { envSchema } from './config/env.schema';
 import type { GatewayConfig } from './config/env.schema';
+import { AdminBillingModule } from './modules/admin-billing/admin-billing.module';
 import { AdminNarrationModule } from './modules/admin-narration/admin-narration.module';
+import { AdminPlansModule } from './modules/admin-plans/admin-plans.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { OwnerBillingModule } from './modules/owner-billing/owner-billing.module';
+import { StripeWebhooksModule } from './modules/stripe-webhooks/stripe-webhooks.module';
 import { AdminPlacesModule } from './modules/admin-places/admin-places.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AreasModule } from './modules/areas/areas.module';
@@ -95,6 +100,11 @@ export class AppModule {
         AreasModule,
         UploadsModule,
         AdminPlacesModule,
+        BillingModule,
+        OwnerBillingModule,
+        AdminPlansModule,
+        AdminBillingModule,
+        StripeWebhooksModule,
       ],
       providers: [
         {

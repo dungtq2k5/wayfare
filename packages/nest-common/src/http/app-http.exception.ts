@@ -27,3 +27,15 @@ interface AppHttpExceptionConstructor {
  */
 export type AppHttpException = AppHttpExceptionImpl;
 export const AppHttpException = AppHttpExceptionImpl as AppHttpExceptionConstructor;
+
+/** A stored `4xx`, replayed through the error filter exactly as it was first answered. */
+export class ReplayedHttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    readonly details: Record<string, unknown> | undefined,
+  ) {
+    super(code);
+    this.name = 'ReplayedHttpError';
+  }
+}

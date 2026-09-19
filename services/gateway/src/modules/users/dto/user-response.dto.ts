@@ -1,4 +1,4 @@
-import { zPendingRegistration, zUuidV7 } from '@wayfare/contracts';
+import { zBillingSummary, zPendingRegistration, zUuidV7 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -23,8 +23,17 @@ export const meResponseSchema = z.object({
   roles: z.array(z.string()),
   permissions: z.array(z.string()),
   ownerVerified: z.boolean(),
-  /** For a verified owner or an applicant; `null` for everyone else. */
-  owner: z.object({ pendingRegistration: zPendingRegistration.nullable() }).nullable(),
+  /**
+   * For a verified owner or an applicant; `null` for everyone else. `billingSummary` is billing's,
+   * composed by the gateway — `null` for an applicant, and when billing cannot answer
+   * (`meta.degraded: ["billing"]`, api-endpoints-plan §12.1).
+   */
+  owner: z
+    .object({
+      pendingRegistration: zPendingRegistration.nullable(),
+      billingSummary: zBillingSummary.nullable(),
+    })
+    .nullable(),
 });
 
 /** What `GET /users/me` returns under `data`. */

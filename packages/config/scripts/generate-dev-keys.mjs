@@ -3,7 +3,9 @@
 // Writes JWT_PRIVATE_KEY and JWT_KEY_ID into services/identity/.env and JWT_PUBLIC_KEYS into
 // services/gateway/.env, replacing only those lines. EMAIL_HASH_KEY and PII_ENCRYPTION_KEY are
 // written only when absent or empty: a new key would stop every stored address hash from matching,
-// and would make every stored national ID undecryptable. catalog gets a
+// and would make every stored national ID undecryptable. billing's STRIPE_WEBHOOK_SECRET is written
+// the same way, only when absent: the local walks sign Stripe events with it, and a sandbox's
+// `stripe listen` secret, once pasted in, must never be replaced. catalog gets a
 // throwaway service-account key to sign upload URLs against the storage emulator (architecture
 // §3.6), written once to services/catalog/.keys/ and named by GOOGLE_APPLICATION_CREDENTIALS in
 // catalog's and narration's .env.
@@ -77,6 +79,15 @@ if (!existsSync(gcsKeyPath)) {
   writeFileSync(gcsKeyPath, `${JSON.stringify(key, null, 2)}\n`, { mode: 0o600 });
   console.log('✓ services/catalog/.keys/gcs-dev.json');
 }
+// billing verifies Stripe webhooks with a secret even without an API key (architecture §5).
+const billingPath = resolve(root, 'services/billing/.env');
+const billingEnv = existsSync(billingPath) ? readFileSync(billingPath, 'utf8') : '';
+if (!/^STRIPE_WEBHOOK_SECRET=.+$/m.test(billingEnv)) {
+  setEnv('services/billing/.env', {
+    STRIPE_WEBHOOK_SECRET: `whsec_${randomBytes(24).toString('base64url')}`,
+  });
+}
+
 // narration writes audio to the same bucket, with the same throwaway key.
 setEnv('services/catalog/.env', { GOOGLE_APPLICATION_CREDENTIALS: gcsKeyPath });
 setEnv('services/narration/.env', { GOOGLE_APPLICATION_CREDENTIALS: gcsKeyPath });

@@ -31,8 +31,14 @@ export const entitlementsReducedData = z
     reduced: z.array(zLimitDimension).max(LIMIT_DIMENSION_COUNT),
     autoNarrationLost: z.boolean().optional(),
     vouchersLost: z.boolean().optional(),
+    /** A smaller narration language scope. */
+    languagesReduced: z.boolean().optional(),
+    /** A lower analytics level. */
+    analyticsReduced: z.boolean().optional(),
   })
   .strict();
+/** What an `ENTITLEMENTS_REDUCED` notification or email carries. */
+export type EntitlementsReducedData = z.output<typeof entitlementsReducedData>;
 
 const registrationDecision = z
   .object({ registrationId: zUuidV7, decisionNote: zDecisionNote.optional() })

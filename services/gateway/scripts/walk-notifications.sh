@@ -6,8 +6,8 @@
 #
 # Usage: services/gateway/scripts/walk-notifications.sh
 #   BASE, ROOT and the BOOTSTRAP_SUPER_ADMIN_* variables may be overridden. The Venue is inserted
-#   by SQL (owner registration and submissions come later) and deleted by SQL at the end: deleting
-#   a Venue through catalog needs billing, which fails closed until it exists.
+#   by SQL (submissions come later) and deleted through the admin API at the end, which asks billing
+#   for its live vouchers — billing must be running.
 set -euo pipefail
 
 ROOT=${ROOT:-http://localhost:3000}
@@ -15,13 +15,11 @@ BASE=${BASE:-$ROOT/api/v1}
 export BOOTSTRAP_SUPER_ADMIN_EMAIL=${BOOTSTRAP_SUPER_ADMIN_EMAIL:-superadmin@wayfare.local}
 export BOOTSTRAP_SUPER_ADMIN_PASSWORD=${BOOTSTRAP_SUPER_ADMIN_PASSWORD:-super admin pass 1}
 work=$(mktemp -d)
-# retire_venue — soft-deletes the walk Venue with a sync bump, as a delete would. By SQL: catalog
-# refuses to delete a Venue while billing cannot say it has no live vouchers (fail-closed).
+# retire_venue — deletes the walk Venue through the admin API; best-effort from the EXIT trap.
 retire_venue() {
-  [[ -n ${venue_id:-} ]] || return 0
-  catalog_sql "UPDATE places SET deleted_at = clock_timestamp(), updated_at = clock_timestamp(),
-      sync_version = nextval('catalog_sync_version_seq')
-    WHERE id = '$venue_id' AND deleted_at IS NULL" >/dev/null || true
+  [[ -n ${venue_id:-} && -f $work/admin.at ]] || return 0
+  curl -sS -o /dev/null -X DELETE "$BASE/admin/places/$venue_id" "${console[@]}" \
+    -b "wf_at=$(cat "$work/admin.at")" || true
 }
 
 cleanup() {
@@ -150,8 +148,8 @@ call activate 200 -X POST "$BASE/admin/places/$venue_id/activate" "${console[@]}
 [[ $(json activate .data.status) == ACTIVE ]] || fail "the Venue is $(json activate .data.status), not ACTIVE"
 wait_for 'the owner is told PLACE_ACTIVATED' 3 has_type tab-a PLACE_ACTIVATED
 
-step '9. delete the Venue again'
-retire_venue
+step '9. delete the Venue through the API (billing answers the voucher count)'
+call delete-venue 204 -X DELETE "$BASE/admin/places/$venue_id" "${console[@]}" -b "$(admin)"
 [[ $(catalog_sql "SELECT count(*) FROM places WHERE id = '$venue_id' AND deleted_at IS NULL") == 0 ]] ||
   fail 'the walk Venue is still live'
 echo '✓ the walk Venue is deleted'

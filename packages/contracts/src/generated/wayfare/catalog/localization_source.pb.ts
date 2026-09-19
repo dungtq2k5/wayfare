@@ -13,6 +13,14 @@ import { AudioStatus, PlaceKind, PlaceStatus, TranslationSource } from "./place_
 
 export const protobufPackage = "wayfare.catalog";
 
+export interface CountOwnerPlacesRequest {
+  ownerUserId: string;
+}
+
+export interface CountOwnerPlacesResponse {
+  count: number;
+}
+
 export interface GetLocalizationSourceRequest {
   targetType: LocalizationTargetType;
   targetId: string;
@@ -73,6 +81,10 @@ export interface PlaceServiceClient {
     request: GetLocalizationSourceRequest,
     metadata?: Metadata,
   ): Observable<GetLocalizationSourceResponse>;
+
+  /** An owner's Venues that count against their place limit (rdm-spec C-1) — billing's projections. */
+
+  countOwnerPlaces(request: CountOwnerPlacesRequest, metadata?: Metadata): Observable<CountOwnerPlacesResponse>;
 }
 
 /** catalog's service-to-service reads. A tourist route never reaches it. */
@@ -84,11 +96,18 @@ export interface PlaceServiceController {
     request: GetLocalizationSourceRequest,
     metadata?: Metadata,
   ): Promise<GetLocalizationSourceResponse> | Observable<GetLocalizationSourceResponse> | GetLocalizationSourceResponse;
+
+  /** An owner's Venues that count against their place limit (rdm-spec C-1) — billing's projections. */
+
+  countOwnerPlaces(
+    request: CountOwnerPlacesRequest,
+    metadata?: Metadata,
+  ): Promise<CountOwnerPlacesResponse> | Observable<CountOwnerPlacesResponse> | CountOwnerPlacesResponse;
 }
 
 export function PlaceServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getLocalizationSource"];
+    const grpcMethods: string[] = ["getLocalizationSource", "countOwnerPlaces"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("PlaceService", method)(constructor.prototype[method], method, descriptor);

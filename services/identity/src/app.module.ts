@@ -24,6 +24,8 @@ import { DevicesModule } from './modules/devices/devices.module';
 import { EmailChangeModule } from './modules/email-change/email-change.module';
 import { EmailWebhooksModule } from './modules/email-webhooks/email-webhooks.module';
 import { EmailModule } from './modules/email/email.module';
+import { EntitlementsChangedConsumer } from './modules/entitlements-changed/entitlements-changed.consumer';
+import { EntitlementsChangedModule } from './modules/entitlements-changed/entitlements-changed.module';
 import { NotificationCreateConsumer } from './modules/notification-create/notification-create.consumer';
 import { NotificationCreateModule } from './modules/notification-create/notification-create.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -37,6 +39,8 @@ import { OwnerRegistrationsModule } from './modules/owner-registrations/owner-re
 import { OwnerReviewModule } from './modules/owner-review/owner-review.module';
 import { CONSUMERS, EventSpine, OutboxModule } from './modules/outbox/outbox.module';
 import { PasswordModule } from './modules/password/password.module';
+import { PaymentFailedConsumer } from './modules/payment-failed/payment-failed.consumer';
+import { PaymentFailedModule } from './modules/payment-failed/payment-failed.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { RedisLifecycle, RedisModule } from './modules/redis/redis.module';
@@ -91,6 +95,8 @@ export class AppModule {
         NotificationsModule,
         NotificationCreateModule,
         PlaceStatusModule,
+        PaymentFailedModule,
+        EntitlementsChangedModule,
         OwnerRegistrationsModule,
         OwnerReviewModule,
         SchedulerModule.forRootAsync({
@@ -153,13 +159,17 @@ export class AppModule {
             RevocationConsumer,
             NotificationCreateConsumer,
             PlaceStatusConsumer,
+            PaymentFailedConsumer,
+            EntitlementsChangedConsumer,
           ],
           useFactory: (
             audit: AuditConsumer,
             revocation: RevocationConsumer,
             notifications: NotificationCreateConsumer,
             placeStatus: PlaceStatusConsumer,
-          ) => [audit, revocation, notifications, placeStatus],
+            paymentFailed: PaymentFailedConsumer,
+            entitlementsChanged: EntitlementsChangedConsumer,
+          ) => [audit, revocation, notifications, placeStatus, paymentFailed, entitlementsChanged],
         },
       ],
     };

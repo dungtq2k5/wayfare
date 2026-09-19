@@ -10,6 +10,8 @@ export const ACCOUNT_LINK_PATHS = {
   revertEmailChange: '/revert-email-change',
   /** The owner's application status; opened without a token. */
   ownerRegistration: '/owner/registration',
+  /** The owner's plan page; opened without a token. */
+  ownerBilling: '/owner/billing',
 } as const;
 
 /** A page an emailed link may open. */

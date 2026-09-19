@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+// What billing still owes a seller's buyers — api-endpoints-plan §12.2. Zero until the voucher
+// tables exist, which is true, not a placeholder.
+package wayfare.billing;
+
+service SellerService {
+  rpc GetLiveObligations(GetLiveObligationsRequest) returns (GetLiveObligationsResponse);
+  rpc CountLiveVouchers(CountLiveVouchersRequest) returns (CountLiveVouchersResponse);
+}
+
+message GetLiveObligationsRequest {
+  string owner_user_id = 1;
+}
+
+message GetLiveObligationsResponse {
+  int32 issued_voucher_count = 1;
+  int32 open_checkout_count = 2;
+}
+
+message CountLiveVouchersRequest {
+  string place_id = 1;
+}
+
+message CountLiveVouchersResponse {
+  int32 count = 1;
+}

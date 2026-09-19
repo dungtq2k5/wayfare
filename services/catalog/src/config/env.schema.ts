@@ -17,6 +17,8 @@ export const envSchema = z.object({
   GRPC_URL: z.string().min(1),
   OPS_PORT: zPort,
   METRICS_PORT: zPort,
+  // billing's gRPC address: voucher counts before a Venue delete (api-endpoints-plan §12.2).
+  BILLING_GRPC_URL: z.string().min(1),
   // Build identity for /version, stamped into the image; defaults keep local runs working.
   APP_VERSION: z.string().default('0.0.0-dev'),
   GIT_SHA: z.string().default('unknown'),
