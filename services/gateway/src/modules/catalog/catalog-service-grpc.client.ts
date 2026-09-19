@@ -19,6 +19,7 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
   readonly ownerPlaces: GrpcServiceCaller<catalogGrpc.OwnerPlaceServiceClient>;
   readonly submissions: GrpcServiceCaller<catalogGrpc.SubmissionServiceClient>;
   readonly submissionReview: GrpcServiceCaller<catalogGrpc.SubmissionReviewServiceClient>;
+  readonly taxonomyAdmin: GrpcServiceCaller<catalogGrpc.TaxonomyAdminServiceClient>;
 
   constructor(@Inject(CATALOG_GRPC) grpc: ClientGrpc) {
     this.placeQueries = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_QUERY_SERVICE_NAME);
@@ -27,6 +28,7 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.ownerPlaces = new GrpcServiceCaller(grpc, catalogGrpc.OWNER_PLACE_SERVICE_NAME);
     this.submissions = new GrpcServiceCaller(grpc, catalogGrpc.SUBMISSION_SERVICE_NAME);
     this.submissionReview = new GrpcServiceCaller(grpc, catalogGrpc.SUBMISSION_REVIEW_SERVICE_NAME);
+    this.taxonomyAdmin = new GrpcServiceCaller(grpc, catalogGrpc.TAXONOMY_ADMIN_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -36,5 +38,6 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.ownerPlaces.init();
     this.submissions.init();
     this.submissionReview.init();
+    this.taxonomyAdmin.init();
   }
 }

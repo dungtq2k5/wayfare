@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+// The catalogue's taxonomy administration — api-endpoints-plan §3.6, rdm-spec C-2, C-3.
+package wayfare.catalog;
+
+import "wayfare/catalog/place_types.proto";
+import "wayfare/common/geo.proto";
+
+// Categories and areas. The caller travels as metadata; the gateway checks
+// `catalog.taxonomy.manage`, catalog checks the rules only it can know.
+service TaxonomyAdminService {
+  rpc ListAdminCategories(ListAdminCategoriesRequest) returns (ListAdminCategoriesResponse);
+  rpc CreateCategory(CreateCategoryRequest) returns (CreateCategoryResponse);
+  rpc UpdateCategory(UpdateCategoryRequest) returns (UpdateCategoryResponse);
+  rpc ListAdminAreas(ListAdminAreasRequest) returns (ListAdminAreasResponse);
+  rpc GetAdminArea(GetAdminAreaRequest) returns (GetAdminAreaResponse);
+  rpc CreateArea(CreateAreaRequest) returns (CreateAreaResponse);
+  rpc UpdateArea(UpdateAreaRequest) returns (UpdateAreaResponse);
+}
+
+// A category, active or not, with how many non-deleted Places use it.
+message AdminCategory {
+  string id = 1;
+  string code = 2;
+  CategoryAppliesTo applies_to = 3;
+  string icon = 4;
+  int32 sort_order = 5;
+  bool is_active = 6;
+  int32 place_count = 7;
+}
+
+message ListAdminCategoriesRequest {}
+
+message ListAdminCategoriesResponse {
+  repeated AdminCategory categories = 1;
+}
+
+message CreateCategoryRequest {
+  string code = 1;
+  CategoryAppliesTo applies_to = 2;
+  string icon = 3;
+  int32 sort_order = 4;
+}
+
+message CreateCategoryResponse {
+  AdminCategory category = 1;
+}
+
+// Only the fields sent change; the code never does.
+message UpdateCategoryRequest {
+  string category_id = 1;
+  optional CategoryAppliesTo applies_to = 2;
+  optional string icon = 3;
+  optional int32 sort_order = 4;
+  optional bool is_active = 5;
+}
+
+message UpdateCategoryResponse {
+  AdminCategory category = 1;
+}
+
+// Non-deleted Places of an area, per status.
+message AreaPlaceCounts {
+  int32 draft = 1;
+  int32 processing = 2;
+  int32 active = 3;
+  int32 inactive = 4;
+}
+
+// An area, active or not, with its Place counts.
+message AdminArea {
+  string id = 1;
+  string code = 2;
+  string name_vi = 3;
+  // GeoJSON Polygon.
+  string boundary_geojson = 4;
+  wayfare.common.GeoPoint center = 5;
+  int32 default_zoom = 6;
+  int32 sort_order = 7;
+  bool is_active = 8;
+  AreaPlaceCounts place_counts = 9;
+}
+
+message ListAdminAreasRequest {}
+
+message ListAdminAreasResponse {
+  repeated AdminArea areas = 1;
+}
+
+message GetAdminAreaRequest {
+  string area_id = 1;
+}
+
+message GetAdminAreaResponse {
+  AdminArea area = 1;
+}
+
+message CreateAreaRequest {
+  string code = 1;
+  string name_vi = 2;
+  // GeoJSON Polygon.
+  string boundary_geojson = 3;
+  wayfare.common.GeoPoint center = 4;
+  int32 default_zoom = 5;
+  int32 sort_order = 6;
+  bool is_active = 7;
+}
+
+message CreateAreaResponse {
+  AdminArea area = 1;
+}
+
+// Only the fields sent change; the code never does.
+message UpdateAreaRequest {
+  string area_id = 1;
+  optional string name_vi = 2;
+  // GeoJSON Polygon.
+  optional string boundary_geojson = 3;
+  wayfare.common.GeoPoint center = 4;
+  optional int32 default_zoom = 5;
+  optional int32 sort_order = 6;
+  optional bool is_active = 7;
+}
+
+message UpdateAreaResponse {
+  AdminArea area = 1;
+}

@@ -85,7 +85,7 @@ const NON_JSON = new Map([['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml']]
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(119);
+    expect(names).toHaveLength(126);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/q/'))).toBe(false);

@@ -55,6 +55,8 @@ describe('catalog schema objects', () => {
     ['places_inactive_reason_ck', update(`status = 'INACTIVE'`)],
     ['places_inactive_reason_ck', update(`inactive_reason = 'ADMIN'`)],
     ['places_menu_currency_ck', update(`menu_currency = 'EUR'`)],
+    ['areas_default_zoom_ck', () => `UPDATE areas SET default_zoom = 9`],
+    ['areas_default_zoom_ck', () => `UPDATE areas SET default_zoom = 19`],
   ] as [string, Sql][])('%s', async (constraint, sql) => {
     await refuses(constraint, sql());
   });

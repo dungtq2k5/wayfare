@@ -74,6 +74,7 @@ import { OwnerEntitlementsService } from '../owner-entitlements/owner-entitlemen
 import { PrismaService } from '../prisma/prisma.service';
 import { bumpSyncVersion, withSyncWrite } from '../sync/sync.service';
 import type { CatalogTx } from '../sync/sync.service';
+import { AREAS_LOCK_KEY } from '../areas/domain/area-rules';
 import { UploadsService } from '../uploads/uploads.service';
 import { ActivationGate } from './domain/activation-gate';
 import type { GateMissing } from './domain/activation-gate';
@@ -515,7 +516,7 @@ export class PlacesService {
     if (descriptionVi !== current.descriptionVi) changed.push('descriptionVi');
 
     if (fields.categoryCode !== undefined) {
-      const category = await this.requireCategory(tx, fields.categoryCode, current.kind);
+      const category = await this.categoryForWrite(tx, fields.categoryCode, current);
       if (category.id !== current.categoryId) {
         data.categoryId = category.id;
         changed.push('categoryCode');
@@ -864,6 +865,7 @@ export class PlacesService {
       ) {
         throw rpcError('INVALID_STATE', { status: current.status });
       }
+      await this.requireActiveArea(tx, current.areaId);
       status =
         current.status === PlaceStatus.PROCESSING
           ? current.status
@@ -980,6 +982,7 @@ export class PlacesService {
         if (write.place.deletedAt === null) {
           throw rpcError('INVALID_STATE', { status: write.place.status });
         }
+        await this.requireActiveArea(tx, write.place.areaId);
         await tx.place.update({
           where: { id: placeId },
           data: { deletedAt: null, deletedById: null },
@@ -1418,8 +1421,27 @@ export class PlacesService {
     payload: PlaceSubmissionPayload,
     target: { readonly ownerUserId: string; readonly placeId: string | null },
   ): Promise<void> {
-    await this.requireCategory(tx, payload.categoryCode, PlaceKind.VENUE);
-    await this.requireCoveringArea(tx, payload.location);
+    // An edit's unchanged category and location are the Place's own, and are not checked again
+    // (rdm-spec C-1): retiring a category or an area never blocks an edit of a Place that has it.
+    const [current] =
+      target.placeId === null
+        ? []
+        : await tx.$queryRaw<{ categoryId: string; lat: number; lng: number }[]>`
+            SELECT category_id AS "categoryId",
+                   ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng
+            FROM places WHERE id = ${target.placeId}::uuid`;
+    if (current === undefined) {
+      await this.requireCategory(tx, payload.categoryCode, PlaceKind.VENUE);
+      await this.requireCoveringArea(tx, payload.location);
+    } else {
+      await this.categoryForWrite(tx, payload.categoryCode, {
+        kind: PlaceKind.VENUE,
+        categoryId: current.categoryId,
+      });
+      if (payload.location.lat !== current.lat || payload.location.lng !== current.lng) {
+        await this.requireCoveringArea(tx, payload.location);
+      }
+    }
     const photoIds = new Set(
       target.placeId === null
         ? []
@@ -1632,7 +1654,9 @@ export class PlacesService {
         ) {
           throw rpcError('INVALID_STATE', { status: current.status });
         }
+        // The owner lock first, the areas lock second: the order every Venue write takes them in.
         await this.lockOwner(tx, owner.userId);
+        await this.requireActiveArea(tx, current.areaId);
         const usage = await this.placeLimitUsage(tx, owner.userId);
         if (usage.used + usage.reserved >= maxPlaces) {
           throw rpcError('PLACE_LIMIT_REACHED', { limit: maxPlaces });
@@ -1748,11 +1772,46 @@ export class PlacesService {
     return category;
   }
 
-  /** The active area whose boundary covers the point (rdm-spec C-1). */
+  /**
+   * The category a write names for an existing Place: the Place's own is kept without a check —
+   * `applies_to` and deactivation govern new choices only (rdm-spec C-2) — and a different one must
+   * be active and applicable.
+   */
+  private async categoryForWrite(
+    tx: CatalogTx,
+    code: string,
+    place: { readonly kind: PlaceKind; readonly categoryId: string },
+  ): Promise<{ id: string }> {
+    const kept = await tx.category.findFirst({
+      where: { id: place.categoryId, code },
+      select: { id: true },
+    });
+    return kept ?? this.requireCategory(tx, code, place.kind);
+  }
+
+  /**
+   * Refuses to take a Place live in an inactive area (rdm-spec C-3); moving it into an active area
+   * is the way out. Holds the areas lock shared, so no deactivation interleaves.
+   */
+  private async requireActiveArea(tx: CatalogTx, areaId: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtext(${AREAS_LOCK_KEY}))`;
+    const area = await tx.area.findUniqueOrThrow({
+      where: { id: areaId },
+      select: { isActive: true },
+    });
+    if (!area.isActive) throw rpcError('AREA_INACTIVE');
+  }
+
+  /**
+   * The active area whose boundary covers the point (rdm-spec C-1). Holds the areas lock shared
+   * until the commit, so no boundary change or deactivation interleaves with the Place write
+   * (rdm-spec C-3); Place writes stay concurrent with each other.
+   */
   private async requireCoveringArea(
     tx: CatalogTx,
     location: GeoPoint,
   ): Promise<{ id: string; code: string }> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtext(${AREAS_LOCK_KEY}))`;
     // longitude first
     const [area] = await tx.$queryRaw<{ id: string; code: string }[]>`
       SELECT id, code FROM areas

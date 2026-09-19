@@ -14,7 +14,6 @@ import { assertNotProduction, SEED_EDITOR_CONTEXT } from '../../prisma/seed/pilo
 import { loadPilotCorpus } from '../../prisma/seed/pilot-corpus';
 import type { PilotCorpus, PilotPlace } from '../../prisma/seed/pilot-corpus';
 import { PilotSeeder } from '../../prisma/seed/pilot-seeder';
-import { AreasService } from '../../src/modules/areas/areas.service';
 import { insertArea, testPrisma, truncateAll } from '../setup/database';
 import { insertPlace } from '../setup/fixtures';
 import { catalogServices } from '../setup/services';
@@ -55,7 +54,7 @@ async function slice(
 
 const seeder = () =>
   new PilotSeeder(
-    { places: services.places, uploads: services.uploads, areas: new AreasService(prisma), prisma },
+    { places: services.places, uploads: services.uploads, areas: services.areas, prisma },
     SEED_EDITOR_CONTEXT,
   );
 
@@ -101,7 +100,11 @@ describe('pilot-d1 seed', () => {
       SynthesisTrigger.APPROVAL,
     ]);
     const audits = events.filter((event) => event.subject === AUDIT_RECORD.subject);
-    expect(audits.map((event) => event.payload.action)).toEqual(['PLACE_CREATED', 'PLACE_CREATED']);
+    expect(audits.map((event) => event.payload.action)).toEqual([
+      'AREA_CREATED',
+      'PLACE_CREATED',
+      'PLACE_CREATED',
+    ]);
     expect(audits[0]!.payload.actor).toEqual({ type: 'USER', userId: SEED_EDITOR_CONTEXT.userId });
 
     const [photo] = await prisma.placePhoto.findMany({ where: { placeId: corpus.places[0]!.id } });

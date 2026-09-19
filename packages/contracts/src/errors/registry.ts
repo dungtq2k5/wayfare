@@ -1,6 +1,9 @@
 import type { z } from 'zod';
 import {
   appVersionUnsupportedDetails,
+  areaExcludesPlacesDetails,
+  areaHasLivePlacesDetails,
+  areaOverlapsDetails,
   coolingDownDetails,
   invalidStateDetails,
   legalVersionOutdatedDetails,
@@ -139,6 +142,10 @@ export const ERRORS = {
   PLAN_HAS_SUBSCRIBERS: conflict,
   TRANSLATION_NOT_READY: conflict,
   LEGAL_VERSION_OUTDATED: { ...conflict, details: legalVersionOutdatedDetails },
+  AREA_OVERLAPS: { ...conflict, details: areaOverlapsDetails },
+  AREA_EXCLUDES_PLACES: { ...conflict, details: areaExcludesPlacesDetails },
+  AREA_HAS_LIVE_PLACES: { ...conflict, details: areaHasLivePlacesDetails },
+  AREA_INACTIVE: conflict,
 
   // 410 — every single-use link, spent or expired; a national ID after its redaction.
   TOKEN_EXPIRED: gone,

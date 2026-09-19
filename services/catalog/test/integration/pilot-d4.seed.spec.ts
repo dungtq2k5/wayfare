@@ -13,7 +13,6 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { SEED_EDITOR_CONTEXT } from '../../prisma/seed/pilot-d1.seed';
 import { loadPilotD4, seedPilotD4, waitForGrants } from '../../prisma/seed/pilot-d4.seed';
 import type { PilotD4Corpus, PilotD4Deps } from '../../prisma/seed/pilot-d4.seed';
-import { AreasService } from '../../src/modules/areas/areas.service';
 import { testPrisma, truncateAll } from '../setup/database';
 import { catalogServices, GROWTH_GRANTS } from '../setup/services';
 
@@ -35,7 +34,7 @@ const GRANTS: Record<string, Entitlements> = {
 const versions = new Map<string, number>();
 const deps: PilotD4Deps = {
   prisma,
-  areas: new AreasService(prisma),
+  areas: services.areas,
   places: services.places,
   submissions: services.submissions,
   review: services.review,

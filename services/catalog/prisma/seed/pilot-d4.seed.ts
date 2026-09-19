@@ -24,7 +24,7 @@ import type { AccountContext } from '@wayfare/nest-common';
 import { config } from 'dotenv';
 import { z } from 'zod';
 import { AppModule } from '../../src/app.module';
-import { AreasService } from '../../src/modules/areas/areas.service';
+import { AreasService, isAreaRefusal } from '../../src/modules/areas/areas.service';
 import { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
 import { OwnerEntitlementsService } from '../../src/modules/owner-entitlements/owner-entitlements.service';
 import { editableHash } from '../../src/modules/places/domain/editable-hash';
@@ -220,7 +220,7 @@ export async function seedPilotD4(
   wait?: SeedWait,
 ): Promise<D4Report> {
   const area = await deps.areas.upsertArea(reviewer, { ...corpus.area, isActive: true });
-  if (area.outcome === 'overlaps' || area.outcome === 'uncovers') {
+  if (isAreaRefusal(area)) {
     throw new Error(`${corpus.area.code}: ${area.outcome} — ${JSON.stringify(area)}`);
   }
   const ownerOf = (slug: string) => corpus.owners.get(slug)!;

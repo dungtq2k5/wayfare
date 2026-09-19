@@ -116,6 +116,7 @@ export class CatalogStub {
   readonly ownerPlaces = new StubCaller();
   readonly submissions = new StubCaller();
   readonly submissionReview = new StubCaller();
+  readonly taxonomyAdmin = new StubCaller();
 
   onModuleInit(): void {}
 
@@ -127,6 +128,7 @@ export class CatalogStub {
       this.ownerPlaces,
       this.submissions,
       this.submissionReview,
+      this.taxonomyAdmin,
     ]) {
       caller.calls.length = 0;
       caller.handlers = {};

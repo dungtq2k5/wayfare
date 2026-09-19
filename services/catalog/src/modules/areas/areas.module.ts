@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AreasService } from './areas.service';
 
-/** The pilot areas' writes (rdm-spec C-3); the admin area route will land here. */
+/** The areas (rdm-spec C-3): their writes, for the admin routes and the seeds, and their admin reads. */
 @Module({
   providers: [AreasService],
   exports: [AreasService],

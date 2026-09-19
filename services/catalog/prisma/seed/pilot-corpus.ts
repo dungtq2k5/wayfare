@@ -12,27 +12,16 @@ import {
   zOpeningHours,
   zPlaceContentInput,
   zPublicCode,
+  zAreaCreateInput,
   zUuidV7,
 } from '@wayfare/contracts';
 import { packageRoot } from '@wayfare/nest-common';
 import { z } from 'zod';
 
 /** The committed pilot area (rdm-spec C-3). */
-export const zPilotArea = z
-  .object({
-    id: zUuidV7,
-    code: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-    nameVi: z.string().min(1).max(120),
-    boundary: z
-      .object({
-        type: z.literal('Polygon'),
-        coordinates: z.array(z.array(z.tuple([z.number(), z.number()])).min(4)).length(1),
-      })
-      .strict(),
-    center: z.object({ lat: z.number(), lng: z.number() }).strict(),
-    defaultZoom: z.number().int().min(10).max(18),
-    sortOrder: z.number().int().min(0),
-  })
+export const zPilotArea = zAreaCreateInput
+  .omit({ isActive: true })
+  .extend({ id: zUuidV7 })
   .strict();
 /** The committed pilot area. */
 export type PilotArea = z.output<typeof zPilotArea>;

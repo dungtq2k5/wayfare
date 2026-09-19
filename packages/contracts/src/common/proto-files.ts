@@ -24,6 +24,7 @@ export const PROTO_FILES = {
     'wayfare/catalog/localization_source.proto',
     'wayfare/catalog/submission.proto',
     'wayfare/catalog/owner_place.proto',
+    'wayfare/catalog/taxonomy_admin.proto',
   ],
   narration: ['wayfare/narration/narration.proto', 'wayfare/narration/synthesis_admin.proto'],
   billing: [

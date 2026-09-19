@@ -33,6 +33,9 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   SUBMISSION_CONFLICT: { changedFields: ['phone'] },
   ROLE_TOO_WIDE_TO_EDIT: { holders: 501, limit: 500 },
   PERMISSION_RETIRED: { codes: ['user.read'] },
+  AREA_OVERLAPS: { codes: ['hcmc-d1-core'] },
+  AREA_EXCLUDES_PLACES: { count: 1, placeIds: ['01a0b373-d3eb-73c0-bd63-b96a868ab216'] },
+  AREA_HAS_LIVE_PLACES: { count: 10 },
 };
 
 // The signature forbids a mismatch at compile time; this reaches the runtime check.

@@ -66,7 +66,7 @@ describe('the Vĩnh Khánh corpus', () => {
   });
 
   it('puts every Venue inside the area, 20 m from its edge and from each other', () => {
-    const ring = corpus.area.boundary.coordinates[0]!;
+    const ring = corpus.area.boundary.coordinates[0];
     expect(inside(corpus.area.center, ring)).toBe(true);
     for (const venue of allVenues) {
       expect(inside(venue.location, ring), venue.slug).toBe(true);

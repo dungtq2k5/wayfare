@@ -1,6 +1,9 @@
 import { OutboxService, rpcError } from '@wayfare/nest-common';
 import { AnalyticsLevel, NarrationLanguageScope } from '@wayfare/contracts';
 import type { Entitlements } from '@wayfare/contracts';
+import { AreasService } from '../../src/modules/areas/areas.service';
+import { CategoriesService } from '../../src/modules/categories/categories.service';
+import { TaxonomyAdminService } from '../../src/modules/taxonomy-admin/taxonomy-admin.service';
 import type { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
 import type {
   IdentityPortService,
@@ -107,6 +110,8 @@ export function catalogServices(
     frames,
   );
   const sync = new SyncService(prisma);
+  const areas = new AreasService(prisma, outbox);
+  const categories = new CategoriesService(prisma, outbox);
   const submissions = new SubmissionsService(prisma, outbox, places, billingPort);
   return {
     billing,
@@ -120,6 +125,9 @@ export function catalogServices(
       identity as unknown as IdentityPortService,
     ),
     ownerPlaces: new OwnerPlacesService(prisma, places, submissions, billingPort),
+    areas,
+    categories,
+    taxonomy: new TaxonomyAdminService(categories, areas),
     config,
     storage,
     uploads,

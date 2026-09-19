@@ -7,3 +7,4 @@ export * from './schemas';
 export * from './submission-fields';
 export * from './submissions';
 export * from './sync';
+export * from './taxonomy';

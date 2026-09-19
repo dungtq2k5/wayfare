@@ -18,6 +18,7 @@
     "places_price_band_ck",
     "places_inactive_reason_ck",
     "places_menu_currency_ck",
+    "areas_default_zoom_ck",
     "place_localizations_audio_ready_ck",
     "menu_items_price_ck",
     "place_opening_hours_one_of_ck",

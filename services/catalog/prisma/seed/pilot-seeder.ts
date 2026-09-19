@@ -9,6 +9,7 @@ import type { OpeningHoursRow } from '@wayfare/contracts';
 import { isGrpcServiceError, readGrpcErrorInfo } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import { RpcException } from '@nestjs/microservices';
+import { isAreaRefusal } from '../../src/modules/areas/areas.service';
 import type { AreasService } from '../../src/modules/areas/areas.service';
 import type { PlacesService } from '../../src/modules/places/places.service';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
@@ -133,7 +134,15 @@ export class PilotSeeder {
     if (area.outcome === 'uncovers') {
       return {
         area: corpus.area.code,
-        stopped: `the new boundary of ${corpus.area.code} would leave Places ${area.placeIds.join(', ')} outside it`,
+        stopped: `the new boundary of ${corpus.area.code} would leave ${area.count} Place(s) outside it: ${area.placeIds.join(', ')}`,
+        rows: [],
+        ...counts,
+      };
+    }
+    if (isAreaRefusal(area)) {
+      return {
+        area: corpus.area.code,
+        stopped: `${corpus.area.code} was refused: ${JSON.stringify(area)}`,
         rows: [],
         ...counts,
       };

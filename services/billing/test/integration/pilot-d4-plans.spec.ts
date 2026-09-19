@@ -101,7 +101,9 @@ describe('the Vĩnh Khánh plans seed', () => {
       'unchanged owner-4 (FREE)',
     ]);
     expect(await prisma.outboxEvent.count()).toBe(outbox);
-    expect(await outboxPayloads(prisma, BILLING_ENTITLEMENTS_CHANGED.subject)).toHaveLength(changed);
+    expect(await outboxPayloads(prisma, BILLING_ENTITLEMENTS_CHANGED.subject)).toHaveLength(
+      changed,
+    );
     expect(await prisma.billingEvent.count()).toBe(4);
   });
 

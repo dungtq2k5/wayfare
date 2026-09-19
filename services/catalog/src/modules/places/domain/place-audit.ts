@@ -50,3 +50,19 @@ export function submissionAuditRecord(facts: {
     resource: { type: AuditResourceType.SUBMISSION, id: facts.submissionId },
   };
 }
+
+/** The `audit.record` input catalog writes for a category or an area (api-endpoints-plan §3.6). */
+export function taxonomyAuditRecord(facts: {
+  readonly actor: PlaceAuditActor;
+  readonly action: AuditAction;
+  readonly resource: AuditResourceType.CATEGORY | AuditResourceType.AREA;
+  readonly resourceId: string;
+  readonly metadata?: AuditRecordPayload['metadata'];
+  readonly origin: PlaceAuditOrigin;
+  readonly now: Date;
+}): EventInput<typeof AUDIT_RECORD> {
+  return {
+    ...placeAuditRecord({ ...facts, placeId: facts.resourceId }),
+    resource: { type: facts.resource, id: facts.resourceId },
+  };
+}

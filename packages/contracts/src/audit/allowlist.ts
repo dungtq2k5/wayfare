@@ -113,10 +113,17 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<AuditAction, AuditMetadat
   [AuditAction.TOUR_DEACTIVATED]: {},
   [AuditAction.TOUR_DELETED]: {},
   [AuditAction.TOUR_RESTORED]: {},
-  [AuditAction.CATEGORY_CREATED]: {},
-  [AuditAction.CATEGORY_UPDATED]: {},
-  [AuditAction.AREA_CREATED]: {},
-  [AuditAction.AREA_UPDATED]: {},
+  [AuditAction.CATEGORY_CREATED]: { after: ['code', 'appliesTo', 'icon', 'sortOrder'] },
+  [AuditAction.CATEGORY_UPDATED]: {
+    before: ['appliesTo', 'icon', 'sortOrder', 'isActive'],
+    after: ['appliesTo', 'icon', 'sortOrder', 'isActive'],
+  },
+  [AuditAction.AREA_CREATED]: { after: ['code', 'nameVi', 'defaultZoom', 'sortOrder', 'isActive'] },
+  // Whether the geometry moved, never the geometry itself.
+  [AuditAction.AREA_UPDATED]: {
+    before: ['nameVi', 'defaultZoom', 'sortOrder', 'isActive'],
+    after: ['nameVi', 'defaultZoom', 'sortOrder', 'isActive', 'boundaryChanged', 'centerChanged'],
+  },
   [AuditAction.MAP_PACK_REGISTERED]: {},
   [AuditAction.MAP_PACK_PUBLISHED]: {},
   [AuditAction.SYNTHESIS_JOB_CREATED]: {

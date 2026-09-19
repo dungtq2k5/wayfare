@@ -15,6 +15,7 @@ import {
 import { envSchema } from './config/env.schema';
 import type { CatalogConfig } from './config/env.schema';
 import { AreasModule } from './modules/areas/areas.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PendingUploadsReapJob } from './modules/jobs/pending-uploads-reap.job';
 import { PhotoObjectsCleanupJob } from './modules/jobs/photo-objects-cleanup.job';
@@ -35,6 +36,7 @@ import { PlacesModule } from './modules/places/places.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { SystemCatalogModule } from './modules/system-catalog/system-catalog.module';
+import { TaxonomyAdminModule } from './modules/taxonomy-admin/taxonomy-admin.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UserErasedConsumer } from './modules/user-erased/user-erased.consumer';
 import { UserErasedModule } from './modules/user-erased/user-erased.module';
@@ -67,6 +69,8 @@ export class AppModule {
         FramesModule,
         SystemCatalogModule,
         AreasModule,
+        CategoriesModule,
+        TaxonomyAdminModule,
         UploadsModule,
         PlacesModule,
         SubmissionsModule,

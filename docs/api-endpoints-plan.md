@@ -359,7 +359,7 @@ A job moves `ON_HOLD` → `LINK_SENT` when `hold_until` passes, and expires case
 | GET | `/owner/places/:id` | Live state **and** the pending submission side by side — the owner sees what tourists see and what is waiting. Carries `editableHash`, a hash of the fields an owner can edit, which an `UPDATE` sends back as its base. The Place is the admin view, so the owner also sees the trigger radius and narration priority staff set — read-only, since no owner route writes them. | OWNER |
 | GET | `/owner/places/limits` | `{ maxPlaces, used, reservedByPendingSubmissions, maxPhotosPerPlace, maxMenuItemsPerPlace, narrationLanguageScope, autoNarration }` — the effective `min(plan, platform)` values, so the editor can disable what the plan does not allow before the owner tries. | OWNER |
 | POST | `/owner/places/:id/deactivate` ✎ | `ACTIVE` → `INACTIVE` with reason `OWNER` — closing for renovation without losing the listing. Any other state, `PROCESSING` included, is `409 INVALID_STATE`. | OWNER |
-| POST | `/owner/places/:id/reactivate` ✎ | `INACTIVE(OWNER \| ENTITLEMENT_LIMIT)` → back through the activation gate. Re-checks the place limit, not counting the Venue itself. `409` for reason `ADMIN`. | OWNER |
+| POST | `/owner/places/:id/reactivate` ✎ | `INACTIVE(OWNER \| ENTITLEMENT_LIMIT)` → back through the activation gate. Re-checks the place limit, not counting the Venue itself. `409 AREA_INACTIVE` when the Venue's area has been deactivated. `409` for reason `ADMIN`. | OWNER |
 
 ### 3.2 Uploads — `/uploads`
 
@@ -408,10 +408,10 @@ Owners upload for their submissions through the same routes; an upload is consum
 | PUT | `/admin/places/:id/photos` ✎ | Replace the ordered photo set `{ items: [{ photoId? \| uploadId, altTextVi? }] }`. | perm:`place.update` |
 | PUT | `/admin/places/:id/menu` ✎ | Replace the menu `{ menuCurrency, items[] }` — same shape and ceilings as the submission payload. **Venues only**: an Editorial Place answers `409 INVALID_STATE`. | perm:`place.update` |
 | PUT | `/admin/places/:id/opening-hours` ✎ | Replace the hours list, `{ items: [...] }` like the photo route. | perm:`place.update` |
-| POST | `/admin/places/:id/activate` ✎ | Set `activation_requested_at` and evaluate the gate. Answers `{ status, missing: ["en.text", "en.audio"] }` when the gate is not yet open — never a silent no-op. | perm:`place.publish` |
+| POST | `/admin/places/:id/activate` ✎ | Set `activation_requested_at` and evaluate the gate. Answers `{ status, missing: ["en.text", "en.audio"] }` when the gate is not yet open — never a silent no-op. `409 AREA_INACTIVE` when the Place's area has been deactivated. | perm:`place.publish` |
 | POST | `/admin/places/:id/deactivate` ✎ | `{ reason }` → `INACTIVE(ADMIN)`. | perm:`place.publish` |
 | DELETE | `/admin/places/:id` ✎ | Soft delete. `409 PLACE_IN_ACTIVE_TOUR` if a tour still lists it; `409 PLACE_HAS_LIVE_VOUCHERS` if unredeemed vouchers exist. A Venue's voucher check asks billing and fails closed: while billing cannot answer (or does not exist yet), deleting a Venue answers `503 UPSTREAM_UNAVAILABLE`. | perm:`place.delete` |
-| POST | `/admin/places/:id/restore` ✎ | — | perm:`place.delete` |
+| POST | `/admin/places/:id/restore` ✎ | `409 AREA_INACTIVE` when the Place's area has been deactivated. | perm:`place.delete` |
 | GET | `/admin/places/:id/qr` | A print-ready SVG of the QR sticker for `publicCode` (encoding `<PUBLIC_QR_BASE_URL>/q/<code>`, with the code printed beneath). A PDF for print shops is a later addition. | perm:`place.read` |
 
 *Audit actions:* `PLACE_CREATED`, `PLACE_EDITED`, `PLACE_EDITORIAL_UPDATED`, `PLACE_PHOTOS_REPLACED`, `PLACE_MENU_REPLACED`, `PLACE_HOURS_REPLACED`, `PLACE_ACTIVATION_REQUESTED`, `PLACE_ACTIVATED`, `PLACE_DEACTIVATED`, `PLACE_DELETED`, `PLACE_RESTORED`.
@@ -426,8 +426,8 @@ Owners upload for their submissions through the same routes; an upload is consum
 | PUT | `/admin/tours/:id/stops` ✎ | Replace the ordered stop list; every Place must be in the tour's area. | perm:`tour.manage` |
 | POST | `/admin/tours/:id/activate` · `/deactivate` ✎ | — | perm:`tour.manage` |
 | DELETE | `/admin/tours/:id` · POST `/restore` ✎ | — | perm:`tour.manage` |
-| GET · POST · PATCH | `/admin/categories[/:id]` ✎ | Create; change icon, `appliesTo`, order; deactivate. `code` is immutable once used. No delete route — deactivate instead. | perm:`catalog.taxonomy.manage` |
-| GET · POST · PATCH | `/admin/areas[/:id]` ✎ | `{ code, nameVi, boundary (GeoJSON), center, defaultZoom, isActive }`. Refuses an overlapping boundary, and a boundary change that would exclude an existing Place. | perm:`catalog.taxonomy.manage` |
+| GET · POST · PATCH | `/admin/categories[/:id]` ✎ | Create; change icon, `appliesTo`, order; deactivate. The list carries each category's Place count. `code` is immutable — it keys the UI bundle's `category.<code>`, so a wrong one is fixed by a new category. A taken code is `400` at `/code`. `appliesTo` and deactivation govern new choices only: Places that have the category keep it. No delete route — deactivate instead. | perm:`catalog.taxonomy.manage` |
+| GET · POST · PATCH | `/admin/areas[/:id]` ✎ | `{ code, nameVi, boundary (GeoJSON), center, defaultZoom, isActive }`. The list carries each area's Place counts by status. `code` is immutable (it is in pack file names and client storage keys); a taken code is `400` at `/code`. Refuses an overlapping boundary (`409 AREA_OVERLAPS { codes }`), a boundary change that would exclude an existing Place (`409 AREA_EXCLUDES_PLACES { count, placeIds }`), and deactivating an area that still holds `PROCESSING` or `ACTIVE` Places (`409 AREA_HAS_LIVE_PLACES { count }`). | perm:`catalog.taxonomy.manage` |
 | GET | `/admin/map-packs` | `?areaId=`. | perm:`map_pack.manage` |
 | POST | `/admin/map-packs` ✎ | Register a pack built by `infra/tiles` and already uploaded: `{ areaId, pmtilesPath, stylePath, assets[], source, sourceDate, minZoom, maxZoom, buildTool }`. The service **re-hashes every object** before accepting — a build script's claimed sha256 is not trusted. Created `BUILDING` → `PUBLISHED` only via the next route. | perm:`map_pack.manage` |
 | POST | `/admin/map-packs/:id/publish` ✎ | Publish; retires the previous version. | perm:`map_pack.manage` |

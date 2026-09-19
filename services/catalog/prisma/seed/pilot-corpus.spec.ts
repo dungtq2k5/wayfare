@@ -39,7 +39,7 @@ describe('the District 1 pilot corpus', () => {
   });
 
   it('places every Place inside the area, at least 50 m from its edge', () => {
-    const ring = corpus.area.boundary.coordinates[0]!;
+    const ring = corpus.area.boundary.coordinates[0];
     expect(inside(corpus.area.center, ring)).toBe(true);
     for (const place of corpus.places) {
       expect(inside(place.location, ring), place.slug).toBe(true);

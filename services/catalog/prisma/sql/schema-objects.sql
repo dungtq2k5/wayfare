@@ -61,6 +61,8 @@ CREATE INDEX IF NOT EXISTS places_owner_live_idx
 
 -- areas (rdm-spec C-3): containment and overlap checks.
 CREATE INDEX IF NOT EXISTS areas_boundary_gist ON areas USING GIST (boundary);
+ALTER TABLE areas DROP CONSTRAINT IF EXISTS areas_default_zoom_ck;
+ALTER TABLE areas ADD CONSTRAINT areas_default_zoom_ck CHECK (default_zoom BETWEEN 10 AND 18);
 
 -- place_localizations (rdm-spec C-4): READY audio has a file for a known text.
 ALTER TABLE place_localizations DROP CONSTRAINT IF EXISTS place_localizations_audio_ready_ck;

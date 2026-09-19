@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { VoucherStatus } from '../billing/enums';
 import { SUBMISSION_EDITABLE_FIELDS } from '../catalog/submission-fields';
+import { zUuidV7 } from '../common/ids';
 import { LegalDocument } from '../identity/enums';
 import { zMoney } from '../money/money';
 
@@ -88,3 +89,14 @@ export const roleTooWideDetails = z
 export const permissionRetiredDetails = z
   .object({ codes: z.array(z.string().min(1)).min(1) })
   .strict();
+
+/** `AREA_OVERLAPS`: the codes of the active areas the boundary intersects, sorted. */
+export const areaOverlapsDetails = z.object({ codes: z.array(z.string().min(1)).min(1) }).strict();
+
+/** `AREA_EXCLUDES_PLACES`: how many Places the boundary would leave outside, and the first ids. */
+export const areaExcludesPlacesDetails = z
+  .object({ count: z.number().int().min(1), placeIds: z.array(zUuidV7).min(1).max(20) })
+  .strict();
+
+/** `AREA_HAS_LIVE_PLACES`: how many `PROCESSING` or `ACTIVE` Places the area still holds. */
+export const areaHasLivePlacesDetails = z.object({ count: z.number().int().min(1) }).strict();

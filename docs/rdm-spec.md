@@ -649,7 +649,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **owner_user_id** | UUID | Nullable, ref ➔ identity.users.id, Indexed | `CHECK ((kind = 'VENUE') = (owner_user_id IS NOT NULL))`. Validated over gRPC at write time: the user must exist and have `owner_verified_at` set. |
 | **public_code** | VARCHAR(12) | NOT NULL, **UNIQUE** *(full — never reused)* | The code printed in a QR sticker and used in share links: 8 characters of Crockford base32 (no `I L O U`, so it survives being read aloud or typed from a photo). **Never changes and is never reassigned**, including after soft delete — a sticker on a wall outlives every database decision, and a reused code would narrate the wrong place to someone standing in front of the old one. |
 | **category_id** | UUID | NOT NULL, FK ➔ categories.id, RESTRICT | — |
-| **area_id** | UUID | NOT NULL, FK ➔ areas.id, RESTRICT, Indexed | The pilot area. `location` must lie inside the area's `boundary`, checked with `ST_Covers` in the service on every write — a `CHECK` cannot read another table. |
+| **area_id** | UUID | NOT NULL, FK ➔ areas.id, RESTRICT, Indexed | The pilot area. `location` must lie inside the area's `boundary`, checked with `ST_Covers` in the service on every write that sets or changes it — a `CHECK` cannot read another table. The category, likewise, is checked (active, applicable to the kind) only when a write changes it, so retiring a category never blocks an edit of a Place that has it. |
 | **name_vi** | VARCHAR(160) | NOT NULL | Vietnamese source name. Feeds `content_hash`. |
 | **description_vi** | TEXT | NOT NULL | Vietnamese source description, bounded at the edge by `MAX_DESCRIPTION_CHARS` (4000). Feeds `content_hash`. |
 | **content_hash** | CHAR(64) | NOT NULL | SHA-256 of the canonical JSON `{"name":…,"description":…}` after Unicode NFC normalization. **NFC is not optional**: Vietnamese can be encoded precomposed or decomposed, and two byte-different encodings of identical text would otherwise hash differently and regenerate audio for no change. See §1.5. |
@@ -697,6 +697,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **The initial codes are system rows:** `SYSTEM_CATEGORIES` in `packages/contracts` (code, `applies_to`, icon, order) is inserted by catalog's `db:seed:system` in every environment, insert-only — a missing code is added, an existing row is never changed or deactivated by it. Admins own every change afterwards.
+- **`code` is immutable,** and a change of `applies_to` or `is_active` governs new choices only: Places that have the category keep it.
 - Hard-delete refused while any Place references it (`RESTRICT`). Deactivate instead.
 
 #### Table C-3: areas
@@ -710,13 +711,16 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **name_vi** | VARCHAR(120) | NOT NULL | Translated through the UI bundle key `area.<code>`, like categories. |
 | **boundary** | geography(Polygon, 4326) | NOT NULL | Places must lie inside it. The map-pack build clips to its bounding box. |
 | **center** | geography(Point, 4326) | NOT NULL | Initial map camera. |
-| **default_zoom** | SMALLINT | NOT NULL | `CHECK (default_zoom BETWEEN 10 AND 18)`. |
+| **default_zoom** | SMALLINT | NOT NULL | `CHECK (default_zoom BETWEEN 10 AND 18)` (`areas_default_zoom_ck`). |
 | **is_active** | BOOLEAN | NOT NULL, false | Inactive areas are hidden from tourists and pack listings. |
 | **sort_order** | SMALLINT | NOT NULL, 0 | — |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **An area is content, not a system row:** the pilot area is created by the development seed locally and in tests, and through the admin route in a deployed environment.
+- **`code` is immutable.** The boundary is one closed, valid ring of at most 500 vertices, and `center` lies inside it.
+- **An area holding `PROCESSING` or `ACTIVE` Places cannot be deactivated:** it would vanish from `/areas` and the pack listings while its Places stayed on the map. **And no Place goes live in an inactive area:** activation, reactivation and restore refuse it (`AREA_INACTIVE`).
+- **Place writes and area writes do not interleave:** an area write holds the exclusive `catalog:areas` advisory lock, and a Place write takes it shared when it looks up its covering area, so no Place lands outside a boundary being shrunk or in an area being deactivated.
 - Areas may not overlap. Checked in the service with `ST_Intersects` on write — a Place inside two areas would belong to two offline packs and be downloaded twice.
 
 #### Table C-4: place_localizations
@@ -1758,6 +1762,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | catalog | `tours_minutes_ck`, `tours_inactive_reason_ck` | CHECK | — |
 | catalog | `place_submissions_one_pending_update` | partial unique | one pending update per Place |
 | catalog | `place_submissions_update_has_place_ck`, `place_submissions_reviewed_ck` | CHECK | — |
+| catalog | `areas_default_zoom_ck` | CHECK | `default_zoom BETWEEN 10 AND 18` (C-3) |
 | catalog | `place_submissions_update_base_ck` | CHECK | an `UPDATE` carries its base (hash and snapshot); a `CREATE` carries none |
 | catalog | `map_packs_one_published` | partial unique | one live map per area |
 | catalog | `map_packs_zoom_ck` | CHECK | — |
