@@ -5,9 +5,12 @@ export interface SuperAdminHolder {
   readonly active: boolean;
 }
 
-/** A change that may take a holder out of the active set: losing the role, a lock, a deactivation. */
+/**
+ * A change that may take a holder out of the active set: losing the role, a lock, a deactivation,
+ * an erasure.
+ */
 export interface SuperAdminChange {
-  readonly kind: 'REMOVE_ROLE' | 'LOCK' | 'DEACTIVATE';
+  readonly kind: 'REMOVE_ROLE' | 'LOCK' | 'DEACTIVATE' | 'ERASE';
   readonly userId: string;
 }
 

@@ -87,6 +87,8 @@ model BillingAccount {
   /// The invoice events' own guard.
   lastInvoiceEventAt     DateTime? @map("last_invoice_event_at") @db.Timestamptz(3)
   dunningStartedAt       DateTime? @map("dunning_started_at") @db.Timestamptz(3)
+  /// The newest Checkout session's expiry; while it lies ahead, the owner may still subscribe.
+  checkoutOpenUntil      DateTime? @map("checkout_open_until") @db.Timestamptz(3)
   /// When true, webhooks update the subscription columns but not the grants.
   entitlementsPinned     Boolean   @default(false) @map("entitlements_pinned")
   maxPlaces              Int       @map("max_places")

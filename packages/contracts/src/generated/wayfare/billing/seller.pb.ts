@@ -8,6 +8,7 @@
 import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
 
 export const protobufPackage = "wayfare.billing";
 
@@ -28,12 +29,33 @@ export interface CountLiveVouchersResponse {
   count: number;
 }
 
+export interface GetErasureBlockersRequest {
+  userId: string;
+}
+
+export interface GetErasureBlockersResponse {
+  pendingBuyerOrder: boolean;
+  /** A subscription that can still charge, or a Checkout page still open. */
+  activeSubscription: boolean;
+  /** The paid period's end, when the subscription is set to cancel then. */
+  subscriptionEndsAt: Timestamp | undefined;
+  issuedVouchersSold: number;
+  openDisputes: number;
+}
+
 export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";
 
 export interface SellerServiceClient {
   getLiveObligations(request: GetLiveObligationsRequest, metadata?: Metadata): Observable<GetLiveObligationsResponse>;
 
   countLiveVouchers(request: CountLiveVouchersRequest, metadata?: Metadata): Observable<CountLiveVouchersResponse>;
+
+  /**
+   * What stands in the way of erasing an account (api-endpoints-plan §1.3). A user with no billing
+   * account answers all-clear.
+   */
+
+  getErasureBlockers(request: GetErasureBlockersRequest, metadata?: Metadata): Observable<GetErasureBlockersResponse>;
 }
 
 export interface SellerServiceController {
@@ -46,11 +68,21 @@ export interface SellerServiceController {
     request: CountLiveVouchersRequest,
     metadata?: Metadata,
   ): Promise<CountLiveVouchersResponse> | Observable<CountLiveVouchersResponse> | CountLiveVouchersResponse;
+
+  /**
+   * What stands in the way of erasing an account (api-endpoints-plan §1.3). A user with no billing
+   * account answers all-clear.
+   */
+
+  getErasureBlockers(
+    request: GetErasureBlockersRequest,
+    metadata?: Metadata,
+  ): Promise<GetErasureBlockersResponse> | Observable<GetErasureBlockersResponse> | GetErasureBlockersResponse;
 }
 
 export function SellerServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getLiveObligations", "countLiveVouchers"];
+    const grpcMethods: string[] = ["getLiveObligations", "countLiveVouchers", "getErasureBlockers"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("SellerService", method)(constructor.prototype[method], method, descriptor);

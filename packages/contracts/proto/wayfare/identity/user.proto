@@ -27,6 +27,8 @@ service UserService {
   rpc UpdateMe(UpdateMeRequest) returns (UpdateMeResponse);
   rpc ListLegalAcceptances(ListLegalAcceptancesRequest) returns (ListLegalAcceptancesResponse);
   rpc RecordLegalAcceptance(RecordLegalAcceptanceRequest) returns (RecordLegalAcceptanceResponse);
+  // Erasure (rdm-spec I-1): irreversible; the account stops being a person.
+  rpc EraseMe(EraseMeRequest) returns (EraseMeResponse);
 }
 
 message GetMeRequest {}
@@ -60,6 +62,12 @@ message UpdateMeRequest {
 message UpdateMeResponse {
   SessionUser user = 1;
 }
+
+message EraseMeRequest {
+  string current_password = 1;
+}
+
+message EraseMeResponse {}
 
 message ListLegalAcceptancesRequest {}
 

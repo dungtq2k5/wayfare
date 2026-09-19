@@ -216,8 +216,9 @@ export class OwnerRegistrationsService {
 
   /**
    * Erasure's step (rdm-spec I-1, I-8), inside its transaction: an open application is withdrawn,
-   * and every row loses its national ID and contact fields, with one `OWNER_PII_REDACTED` audit row
-   * each. A row redacted earlier keeps its first `pii_redacted_at`.
+   * and every row loses its national ID, its contact fields and the applicant's own note, with one
+   * `OWNER_PII_REDACTED` audit row each. The business name and address and the staff notes are
+   * business records and stay. A row redacted earlier keeps its first `pii_redacted_at`.
    */
   async eraseFor(
     tx: Prisma.TransactionClient,
@@ -246,6 +247,7 @@ export class OwnerRegistrationsService {
         nationalIdLast4: null,
         contactName: '',
         contactPhone: '',
+        applicantNote: null,
       },
     });
     await this.outbox.addMany(

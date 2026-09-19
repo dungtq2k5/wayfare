@@ -62,6 +62,11 @@ export const ownerHasLiveVouchersDetails = z
   })
   .strict();
 
+/** `OWNER_HAS_ACTIVE_OBLIGATIONS`: when a cancelled subscription's paid period ends, if known. */
+export const ownerHasActiveObligationsDetails = z
+  .object({ subscriptionEndsAt: zInstant.optional() })
+  .strict();
+
 /** `ROLE_IN_USE`: how many accounts, deactivated ones included, still hold the role. */
 export const roleInUseDetails = z.object({ holders: z.number().int().min(1) }).strict();
 

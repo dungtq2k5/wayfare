@@ -11,13 +11,15 @@ import type {
  * and invoices are what a test puts here. `unavailable` makes every call reject as Stripe down.
  */
 export class FakePaymentsProvider extends PaymentsProvider {
-  readonly configured = true;
+  /** False plays a stack with no key configured. */
+  configured = true;
   unavailable = false;
   readonly prices = new Map<string, ProviderPrice>();
   readonly subscriptions = new Map<string, Record<string, unknown>>();
   readonly invoices = new Map<string, ProviderInvoice[]>();
   readonly customers = new Map<string, string>();
   readonly checkouts: SubscriptionCheckoutInput[] = [];
+  readonly redacted: string[] = [];
   readonly calls: string[] = [];
 
   createCustomer(input: {
@@ -66,6 +68,12 @@ export class FakePaymentsProvider extends PaymentsProvider {
       const subscription = this.subscriptions.get(subscriptionId);
       if (subscription === undefined) throw new PaymentsUnavailableError('PROVIDER');
       return subscription;
+    });
+  }
+
+  redactCustomer(customerId: string): Promise<void> {
+    return this.answer('redactCustomer', () => {
+      this.redacted.push(customerId);
     });
   }
 

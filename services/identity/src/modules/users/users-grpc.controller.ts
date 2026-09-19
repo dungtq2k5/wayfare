@@ -37,4 +37,11 @@ export class UsersGrpcController implements identityGrpc.UserServiceController {
   ): Promise<identityGrpc.RecordLegalAcceptanceResponse> {
     return this.users.recordLegalAcceptance(request, unpackCallerContext(metadata));
   }
+
+  eraseMe(
+    request: identityGrpc.EraseMeRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.EraseMeResponse> {
+    return this.users.eraseMe(request, unpackCallerContext(metadata));
+  }
 }

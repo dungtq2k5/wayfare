@@ -27,6 +27,7 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   SHORT_CODE_ENTRY_PAUSED: { retryAfterSeconds: 600 },
   AI_QUOTA_EXHAUSTED: { resetsAt: '2026-09-17T00:00:00.000+07:00' },
   LEGAL_VERSION_OUTDATED: { document: 'PRIVACY_POLICY', currentVersion: '2026-09-01' },
+  OWNER_HAS_ACTIVE_OBLIGATIONS: { subscriptionEndsAt: '2026-10-19T10:00:00.000Z' },
   OWNER_HAS_LIVE_VOUCHERS: { issuedVoucherCount: 2, openCheckoutCount: 1 },
   ROLE_IN_USE: { holders: 3 },
   ROLE_TOO_WIDE_TO_EDIT: { holders: 501, limit: 500 },

@@ -1,8 +1,9 @@
+import { status } from '@grpc/grpc-js';
 import { identityGrpc } from '@wayfare/contracts/grpc';
 import { toProtoTimestamp } from '@wayfare/nest-common';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { accountToken, bootGateway, stubSession } from '../support/app';
+import { accountToken, bootGateway, serviceError, stubSession } from '../support/app';
 import type { E2eApp } from '../support/app';
 
 let gateway: E2eApp;
@@ -127,5 +128,72 @@ describe('/users/me', () => {
         },
       ],
     });
+  });
+});
+
+describe('DELETE /users/me', () => {
+  const erase = (body: unknown) =>
+    request(server())
+      .delete('/api/v1/users/me')
+      .set('X-Wayfare-Client', 'console')
+      .set('Cookie', cookie())
+      .send(body as object);
+  const cookiesOf = (res: request.Response) =>
+    (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
+
+  it('parses the JSON body, forwards the password only, answers 204 and clears the cookies', async () => {
+    gateway.identity.users.handlers.eraseMe = () => Promise.resolve({});
+    const res = await erase({ currentPassword: 'correct horse battery', confirm: 'DELETE' });
+    expect(res.status).toBe(204);
+    expect(gateway.identity.users.calls.at(-1)).toMatchObject({
+      method: 'eraseMe',
+      request: { currentPassword: 'correct horse battery' },
+    });
+    expect(cookiesOf(res).some((c) => c.startsWith('wf_at=;'))).toBe(true);
+    expect(cookiesOf(res).some((c) => c.startsWith('wf_rt=;'))).toBe(true);
+    expect(res.headers['cache-control']).toBe('private, no-store');
+  });
+
+  it('refuses anything but the word DELETE, without asking identity', async () => {
+    for (const body of [
+      { currentPassword: 'x', confirm: 'delete' },
+      { currentPassword: 'x' },
+      { confirm: 'DELETE' },
+    ]) {
+      const res = await erase(body);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    }
+    expect(gateway.identity.users.calls.filter((call) => call.method === 'eraseMe')).toEqual([]);
+  });
+
+  it("maps identity's refusals and keeps the cookies", async () => {
+    const refusals: [string, number, number, Record<string, string>?][] = [
+      ['INVALID_CREDENTIALS', status.UNAUTHENTICATED, 401],
+      ['EMAIL_CHANGE_REVERT_PENDING', status.FAILED_PRECONDITION, 409],
+      ['LAST_SUPER_ADMIN', status.FAILED_PRECONDITION, 409],
+      ['BUYER_HAS_PENDING_ORDER', status.FAILED_PRECONDITION, 409],
+      [
+        'OWNER_HAS_ACTIVE_OBLIGATIONS',
+        status.FAILED_PRECONDITION,
+        409,
+        { subscriptionEndsAt: '2026-10-19T10:00:00.000Z' },
+      ],
+      ['UPSTREAM_UNAVAILABLE', status.UNAVAILABLE, 503],
+    ];
+    for (const [code, grpcStatus, http, details] of refusals) {
+      gateway.identity.users.handlers.eraseMe = () =>
+        Promise.reject(
+          serviceError(grpcStatus, {
+            'wf-error-code': code,
+            ...(details === undefined ? {} : { 'wf-error-details': JSON.stringify(details) }),
+          }),
+        );
+      const res = await erase({ currentPassword: 'x', confirm: 'DELETE' });
+      expect(res.status, code).toBe(http);
+      expect(res.body.error.code).toBe(code);
+      if (details !== undefined) expect(res.body.error.details).toEqual(details);
+      expect(cookiesOf(res).some((c) => c.startsWith('wf_at=;'))).toBe(false);
+    }
   });
 });

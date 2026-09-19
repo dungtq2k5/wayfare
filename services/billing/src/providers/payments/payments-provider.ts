@@ -45,6 +45,8 @@ export interface SubscriptionCheckoutInput {
   readonly cancelUrl: string;
   /** The route's `Idempotency-Key`, forwarded as Stripe's own. */
   readonly idempotencyKey: string;
+  /** When the session stops being payable (api-endpoints-plan §5.1). */
+  readonly expiresAt: Date;
 }
 
 /**
@@ -75,4 +77,11 @@ export abstract class PaymentsProvider {
 
   /** The subscription as Stripe holds it now: the same object shape an event carries. */
   abstract retrieveSubscription(subscriptionId: string): Promise<Record<string, unknown>>;
+
+  /**
+   * Erasure (api-endpoints-plan §10): clears the customer's email, name, phone and address and
+   * detaches every payment method, keeping the customer, its metadata and its invoices. Idempotent;
+   * a customer Stripe no longer has counts as done.
+   */
+  abstract redactCustomer(customerId: string): Promise<void>;
 }

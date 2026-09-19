@@ -114,6 +114,8 @@ export class EmailService {
     input: EmailInput<T>,
   ): Promise<PendingEmail | null> {
     const recipient = await this.resolve(db, input.recipient);
+    // An erased account's address is gone: nothing is ever sent to it (rdm-spec I-1).
+    if (recipient.erased) return null;
     if (recipient.bounced && !EMAIL_SECURITY_TEMPLATES.has(input.template)) return null;
 
     const id = newId();
@@ -246,6 +248,7 @@ export class EmailService {
     address: string;
     locale: BundleLocale;
     bounced: boolean;
+    erased: boolean;
     linkBase: string;
   }> {
     if (!('userId' in recipient)) {
@@ -254,6 +257,7 @@ export class EmailService {
         address: recipient.email,
         locale: resolveLocale(recipient.locale),
         bounced: false,
+        erased: false,
         linkBase: this.webUrl,
       };
     }
@@ -263,6 +267,7 @@ export class EmailService {
         email: true,
         preferredLocale: true,
         emailBouncedAt: true,
+        erasedAt: true,
         ownerVerifiedAt: true,
         roles: { select: { role: { select: { code: true } } } },
       },
@@ -277,6 +282,7 @@ export class EmailService {
       address,
       locale: resolveLocale(user.preferredLocale),
       bounced: address === user.email && user.emailBouncedAt !== null,
+      erased: user.erasedAt !== null,
       linkBase: inConsole ? this.consoleUrl : this.webUrl,
     };
   }

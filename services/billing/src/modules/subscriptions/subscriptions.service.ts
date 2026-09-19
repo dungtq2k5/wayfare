@@ -37,6 +37,7 @@ import type { BillingAccountRow } from '../entitlements/entitlement.mapper';
 import { ADMIN_PLAN_SELECT, PLAN_PRICE_SELECT, toPlan, toPlanPrice } from '../plans/plan.mapper';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS } from '../redis/redis.module';
+import { checkoutExpiry } from './domain/checkout-expiry';
 
 const checkoutFields = z.object({ planPriceId: zUuidV7, idempotencyKey: zUuidV7 });
 const ownerField = z.object({ ownerUserId: zUuidV7 });
@@ -146,6 +147,7 @@ export class SubscriptionsService {
     }
     if (LIVE_SUBSCRIPTION.has(account.subscriptionStatus)) throw rpcError('SUBSCRIPTION_EXISTS');
     const customerId = await this.customerOf(account);
+    const expiresAt = checkoutExpiry(new Date());
     const { url } = await this.stripe(() =>
       this.payments.createSubscriptionCheckout({
         customerId,
@@ -154,8 +156,14 @@ export class SubscriptionsService {
         successUrl: `${this.consoleUrl}${BILLING_PAGE}?checkout=success`,
         cancelUrl: `${this.consoleUrl}${BILLING_PAGE}?checkout=cancelled`,
         idempotencyKey: fields.idempotencyKey,
+        expiresAt,
       }),
     );
+    // Erasure waits while the page can still be paid (api-endpoints-plan §1.3).
+    await this.prisma.$executeRaw`
+      UPDATE billing_accounts
+      SET checkout_open_until = GREATEST(checkout_open_until, ${expiresAt}), updated_at = now()
+      WHERE id = ${account.id}::uuid`;
     await this.audit(caller, AuditAction.BILLING_CHECKOUT_STARTED, account.id, {
       after: { planPriceId: price.id },
     });

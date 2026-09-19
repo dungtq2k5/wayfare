@@ -696,7 +696,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `GOOGLE_APPLICATION_CREDENTIALS` | catalog, narration | service-account key path; Secret Manager in staging. Locally `pnpm keys:dev` writes the same throwaway key path into both services' `.env` |
 | `STORAGE_EMULATOR_HOST` | catalog, narration | points at `fake-gcs-server` locally; **unset** in staging |
 | `STRIPE_MODE` | billing | `test` (default) or `live`; must agree with the key's prefix, and decides which `livemode` events are applied |
-| `STRIPE_SECRET_KEY` | billing | ⚠️ restricted key (`rk_`), least privilege: `rk_test_` in test mode, `rk_live_` in live mode, never `sk_`. Optional in test mode (the Stripe-backed owner routes answer `503` without it) |
+| `STRIPE_SECRET_KEY` | billing | ⚠️ restricted key (`rk_`), least privilege: `rk_test_` in test mode, `rk_live_` in live mode, never `sk_`. Optional in test mode (the Stripe-backed owner routes answer `503` without it). Its permissions include Customers **write** and PaymentMethods **write**, which account erasure needs to redact the customer and detach its cards |
 | `STRIPE_WEBHOOK_SECRET` | billing | signature verification; always required. `pnpm keys:dev` writes a local one when absent (never replacing it); `stripe listen`'s replaces it for a sandbox |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | billing | the separate Connect endpoint |
 | `STRIPE_VOUCHER_PMC_ID` | billing | payment method configuration allowing instant methods only, for voucher checkout |

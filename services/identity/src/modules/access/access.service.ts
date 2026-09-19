@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { compareStrings } from '@wayfare/contracts';
+import { compareStrings, SystemRole } from '@wayfare/contracts';
 import { rpcError } from '@wayfare/nest-common';
 import type { Prisma } from '../../../generated/prisma/client';
+import { isActiveAccount } from '../users/domain/account-state';
 import { permissionsOf, roleCodesOf } from './domain/permissions-of';
 import type { RoleGrants } from './domain/permissions-of';
+import { leavesActiveSuperAdmin, SUPER_ADMIN_LOCK_KEY } from './domain/super-admin-guard';
+import type { SuperAdminChange } from './domain/super-admin-guard';
 
 /** A user's roles and the permissions they add up to. */
 export interface UserAccess {
@@ -32,6 +35,40 @@ export class AccessService {
       permissions: role.permissions.map(({ permission }) => permission),
     }));
     return { roles: roleCodesOf(roles), permissions: permissionsOf(roles) };
+  }
+
+  /**
+   * Serializes every change that could remove an active `SUPER_ADMIN` (rdm-spec I-4): an admin's
+   * role change, lock or deactivation, and a super admin's own erasure. Taken before any user row.
+   */
+  async lockSuperAdmins(tx: Prisma.TransactionClient): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${SUPER_ADMIN_LOCK_KEY}))`;
+  }
+
+  /** Whether the user holds `SUPER_ADMIN` — the role is never granted here, so no lock is needed. */
+  async holdsSuperAdmin(tx: Prisma.TransactionClient, userId: string): Promise<boolean> {
+    const held = await tx.userRole.findFirst({
+      where: { userId, role: { code: SystemRole.SUPER_ADMIN } },
+      select: { userId: true },
+    });
+    return held !== null;
+  }
+
+  /** `LAST_SUPER_ADMIN` when the change would leave no active holder. Call under the lock. */
+  async requireSuperAdminRemains(
+    tx: Prisma.TransactionClient,
+    change: SuperAdminChange,
+    now: Date,
+  ): Promise<void> {
+    const holders = await tx.user.findMany({
+      where: { roles: { some: { role: { code: SystemRole.SUPER_ADMIN } } } },
+      select: { id: true, deletedAt: true, isLocked: true, lockedUntil: true },
+    });
+    const active = holders.map((holder) => ({
+      userId: holder.id,
+      active: isActiveAccount(holder, now),
+    }));
+    if (!leavesActiveSuperAdmin(active, change)) throw rpcError('LAST_SUPER_ADMIN');
   }
 
   /**

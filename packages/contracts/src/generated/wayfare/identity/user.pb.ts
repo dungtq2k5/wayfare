@@ -63,6 +63,13 @@ export interface UpdateMeResponse {
   user: SessionUser | undefined;
 }
 
+export interface EraseMeRequest {
+  currentPassword: string;
+}
+
+export interface EraseMeResponse {
+}
+
 export interface ListLegalAcceptancesRequest {
 }
 
@@ -106,6 +113,10 @@ export interface UserServiceClient {
     request: RecordLegalAcceptanceRequest,
     metadata?: Metadata,
   ): Observable<RecordLegalAcceptanceResponse>;
+
+  /** Erasure (rdm-spec I-1): irreversible; the account stops being a person. */
+
+  eraseMe(request: EraseMeRequest, metadata?: Metadata): Observable<EraseMeResponse>;
 }
 
 /** Reads and edits the calling account. The caller travels as metadata. */
@@ -127,11 +138,18 @@ export interface UserServiceController {
     request: RecordLegalAcceptanceRequest,
     metadata?: Metadata,
   ): Promise<RecordLegalAcceptanceResponse> | Observable<RecordLegalAcceptanceResponse> | RecordLegalAcceptanceResponse;
+
+  /** Erasure (rdm-spec I-1): irreversible; the account stops being a person. */
+
+  eraseMe(
+    request: EraseMeRequest,
+    metadata?: Metadata,
+  ): Promise<EraseMeResponse> | Observable<EraseMeResponse> | EraseMeResponse;
 }
 
 export function UserServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getMe", "updateMe", "listLegalAcceptances", "recordLegalAcceptance"];
+    const grpcMethods: string[] = ["getMe", "updateMe", "listLegalAcceptances", "recordLegalAcceptance", "eraseMe"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("UserService", method)(constructor.prototype[method], method, descriptor);

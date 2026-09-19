@@ -17,3 +17,11 @@ export function isLockActive(
 export function isActiveAccount(user: AccountStateColumns, now: Date): boolean {
   return user.deletedAt === null && !isLockActive(user, now);
 }
+
+/**
+ * The address an erased account keeps (rdm-spec I-1): unique by the id, never deliverable, and
+ * freeing the real address by construction.
+ */
+export function erasedEmail(userId: string): string {
+  return `erased+${userId.toLowerCase()}@invalid.wayfare.app`;
+}

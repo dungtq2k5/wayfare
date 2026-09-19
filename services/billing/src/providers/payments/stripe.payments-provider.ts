@@ -66,6 +66,7 @@ export class StripePaymentsProvider extends PaymentsProvider {
           success_url: input.successUrl,
           cancel_url: input.cancelUrl,
           integration_identifier: CHECKOUT_INTEGRATION,
+          expires_at: Math.floor(input.expiresAt.getTime() / 1000),
         },
         { idempotencyKey: input.idempotencyKey },
       ),
@@ -123,6 +124,20 @@ export class StripePaymentsProvider extends PaymentsProvider {
     return subscription as unknown as Record<string, unknown>;
   }
 
+  async redactCustomer(customerId: string): Promise<void> {
+    await this.call('redactCustomer', async (stripe) => {
+      try {
+        await stripe.customers.update(customerId, { email: '', name: '', phone: '', address: '' });
+      } catch (error) {
+        if (isMissing(error)) return;
+        throw error;
+      }
+      for await (const method of stripe.customers.listPaymentMethods(customerId, { limit: 100 })) {
+        await stripe.paymentMethods.detach(method.id);
+      }
+    });
+  }
+
   /** One call; a Stripe or network error becomes `PaymentsUnavailableError`, its class name logged. */
   private async call<T>(operation: string, run: (stripe: Stripe) => Promise<T>): Promise<T> {
     if (this.stripe === null) throw new PaymentsUnavailableError('NOT_CONFIGURED');
@@ -136,4 +151,11 @@ export class StripePaymentsProvider extends PaymentsProvider {
       throw new PaymentsUnavailableError('PROVIDER');
     }
   }
+}
+
+/** Stripe's answer for an object it does not have, such as a customer deleted in the Dashboard. */
+function isMissing(error: unknown): boolean {
+  return (
+    error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing'
+  );
 }

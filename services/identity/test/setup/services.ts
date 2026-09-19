@@ -33,7 +33,7 @@ export function identityServices(
   prisma: PrismaService,
   outboxOverride: Partial<OutboxService> = {},
   options: {
-    billing?: Pick<BillingPortService, 'getLiveObligations'>;
+    billing?: Partial<Pick<BillingPortService, 'getLiveObligations' | 'getErasureBlockers'>>;
     roleHoldersLimit?: number;
     mailbox?: RecordingEmailProvider;
   } = {},
@@ -76,11 +76,27 @@ export function identityServices(
     dispatcher,
   );
   const registrations = new OwnerRegistrationsService(prisma, outbox, legal, config);
-  const users = new UsersService(prisma, access, legal, devices, registrations);
   // billing, unreachable unless a spec says otherwise: every call fails closed, as the port does.
-  const billing = (options.billing ?? {
-    getLiveObligations: () => Promise.reject(rpcError('UPSTREAM_UNAVAILABLE')),
-  }) as BillingPortService;
+  const provided = options.billing;
+  const unreachable = () => Promise.reject(rpcError('UPSTREAM_UNAVAILABLE'));
+  const billing = {
+    getLiveObligations: (ownerUserId: string) =>
+      provided?.getLiveObligations ? provided.getLiveObligations(ownerUserId) : unreachable(),
+    getErasureBlockers: (userId: string) =>
+      provided?.getErasureBlockers ? provided.getErasureBlockers(userId) : unreachable(),
+  } as BillingPortService;
+  const users = new UsersService(
+    prisma,
+    access,
+    legal,
+    devices,
+    registrations,
+    outbox,
+    tokens,
+    sessions,
+    links,
+    billing,
+  );
   const adminUsers = new AdminUsersService(
     prisma,
     outbox,

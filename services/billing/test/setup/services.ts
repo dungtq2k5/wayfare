@@ -9,6 +9,7 @@ import type { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog
 import { EntitlementsService } from '../../src/modules/entitlements/entitlements.service';
 import { PlansService } from '../../src/modules/plans/plans.service';
 import { SellerService } from '../../src/modules/seller/seller.service';
+import { UserErasedConsumer } from '../../src/modules/user-erased/user-erased.consumer';
 import { SubscriptionsService } from '../../src/modules/subscriptions/subscriptions.service';
 import type {
   WebhookItem,
@@ -102,7 +103,8 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
     plans: new PlansService(prisma, outbox, payments, entitlements, catalogClient),
     accounts: new AccountsService(prisma, outbox, entitlements),
     events: new BillingEventsService(prisma, outbox, webhooks),
-    seller: new SellerService(),
+    seller: new SellerService(prisma),
+    userErased: new UserErasedConsumer(prisma, payments),
   };
 }
 

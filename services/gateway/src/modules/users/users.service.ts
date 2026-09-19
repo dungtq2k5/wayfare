@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { Response } from 'express';
 import { LegalParty } from '@wayfare/contracts';
-import { WithMeta } from '@wayfare/nest-common';
+import { SessionResponder, WithMeta } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import { toBillingSummary } from '../billing/billing.mapper';
 import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
@@ -13,7 +14,7 @@ import type { RecordLegalAcceptanceDto } from '../devices/dto/device.dto';
 import { IdentityServiceGrpcClient } from '../identity/identity-service-grpc.client';
 import type { LegalAcceptanceStatusResponseDto } from './dto/legal-acceptance-response.dto';
 import type { MeResponseDto, UpdateMeResponseDto } from './dto/user-response.dto';
-import type { UpdateMeDto } from './dto/user.dto';
+import type { EraseMeDto, UpdateMeDto } from './dto/user.dto';
 import {
   toLegalAcceptanceStatusResponseDto,
   toMeResponseDto,
@@ -29,6 +30,7 @@ export class UsersService {
   constructor(
     private readonly identity: IdentityServiceGrpcClient,
     private readonly billing: BillingServiceGrpcClient,
+    private readonly responder: SessionResponder,
   ) {}
 
   /**
@@ -53,6 +55,15 @@ export class UsersService {
       );
       return WithMeta.of(me, { degraded: ['billing'] });
     }
+  }
+
+  /**
+   * Erasure (api-endpoints-plan §1.3). The account is gone on success, so this client's cookies go
+   * with it; a refusal leaves them, as the session still stands.
+   */
+  async erase(context: AccountContext, body: EraseMeDto, res: Response): Promise<void> {
+    await this.identity.users.call('eraseMe', { currentPassword: body.currentPassword }, context);
+    this.responder.clear(res);
   }
 
   async update(context: AccountContext, body: UpdateMeDto): Promise<UpdateMeResponseDto> {

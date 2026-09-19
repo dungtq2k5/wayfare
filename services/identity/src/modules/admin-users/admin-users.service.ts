@@ -50,7 +50,6 @@ import { EmailDispatcher } from '../email/email.module';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionsService } from '../sessions/sessions.service';
-import { isActiveAccount } from '../users/domain/account-state';
 import {
   ADMIN_USER_SELECT,
   toAdminUser,
@@ -60,8 +59,6 @@ import {
 } from './admin-user.mapper';
 import type { AdminUserRow } from './admin-user.mapper';
 import { addedCodesActorLacks, targetCodesActorLacks } from './domain/escalation';
-import { leavesActiveSuperAdmin, SUPER_ADMIN_LOCK_KEY } from './domain/super-admin-guard';
-import type { SuperAdminChange } from './domain/super-admin-guard';
 
 // Widened: role codes are read from the database as plain strings.
 const SUPER_ADMIN_CODE: string = SystemRole.SUPER_ADMIN;
@@ -379,7 +376,7 @@ export class AdminUsersService {
     const fields = parseRpcRequest(setRolesFields, request);
     const now = new Date();
     const row = await this.prisma.$transaction(async (tx) => {
-      await lockSuperAdmins(tx);
+      await this.access.lockSuperAdmins(tx);
       const target = await this.target(tx, fields.userId);
       requireLive(target);
       const roles = await this.requestedRoles(tx, fields.roleIds, {
@@ -400,7 +397,11 @@ export class AdminUsersService {
         current.roles.includes(SystemRole.SUPER_ADMIN) &&
         !after.includes(SystemRole.SUPER_ADMIN)
       ) {
-        await this.requireSuperAdminRemains(tx, { kind: 'REMOVE_ROLE', userId: target.id }, now);
+        await this.access.requireSuperAdminRemains(
+          tx,
+          { kind: 'REMOVE_ROLE', userId: target.id },
+          now,
+        );
       }
       if (sameCodes(current.roles, after)) return target;
 
@@ -441,11 +442,11 @@ export class AdminUsersService {
     }
     if (fields.userId === actor.userId) throw rpcError('SELF_ACTION_FORBIDDEN');
     await this.prisma.$transaction(async (tx) => {
-      await lockSuperAdmins(tx);
+      await this.access.lockSuperAdmins(tx);
       const target = await this.target(tx, fields.userId);
       requireLive(target);
       await this.requireOutrank(tx, actor, target.id);
-      await this.requireSuperAdminRemains(tx, { kind: 'LOCK', userId: target.id }, now);
+      await this.access.requireSuperAdminRemains(tx, { kind: 'LOCK', userId: target.id }, now);
       await tx.user.update({
         where: { id: target.id },
         data: { isLocked: true, lockedUntil, lockReason: fields.reason },
@@ -519,14 +520,18 @@ export class AdminUsersService {
     const refund = isOwner && fields.refundUnredeemedVouchers;
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
-      await lockSuperAdmins(tx);
+      await this.access.lockSuperAdmins(tx);
       const target = await this.target(tx, fields.userId);
       await this.requireOutrank(tx, actor, target.id);
       if (target.deletedAt !== null) return; // a concurrent deactivation won
       if ((target.ownerVerifiedAt !== null) !== isOwner) {
         throw rpcError('INVALID_STATE', { status: 'OWNER_STATUS_CHANGED' });
       }
-      await this.requireSuperAdminRemains(tx, { kind: 'DEACTIVATE', userId: target.id }, now);
+      await this.access.requireSuperAdminRemains(
+        tx,
+        { kind: 'DEACTIVATE', userId: target.id },
+        now,
+      );
       await tx.user.update({
         where: { id: target.id },
         data: { deletedAt: now, deletedById: actor.userId },
@@ -711,23 +716,6 @@ export class AdminUsersService {
     return roles;
   }
 
-  /** `LAST_SUPER_ADMIN` when the change would leave no active holder. Call under the lock. */
-  private async requireSuperAdminRemains(
-    tx: Prisma.TransactionClient,
-    change: SuperAdminChange,
-    now: Date,
-  ): Promise<void> {
-    const holders = await tx.user.findMany({
-      where: { roles: { some: { role: { code: SystemRole.SUPER_ADMIN } } } },
-      select: { id: true, deletedAt: true, isLocked: true, lockedUntil: true },
-    });
-    const active = holders.map((holder) => ({
-      userId: holder.id,
-      active: isActiveAccount(holder, now),
-    }));
-    if (!leavesActiveSuperAdmin(active, change)) throw rpcError('LAST_SUPER_ADMIN');
-  }
-
   private async audit(
     tx: Prisma.TransactionClient,
     actor: AccountContext,
@@ -749,11 +737,6 @@ export class AdminUsersService {
       }),
     );
   }
-}
-
-/** Serializes every change that could remove an active `SUPER_ADMIN` (rdm-spec I-4). */
-async function lockSuperAdmins(tx: Prisma.TransactionClient): Promise<void> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${SUPER_ADMIN_LOCK_KEY}))`;
 }
 
 /** `PERMISSION_DENIED` naming the missing codes, when there are any. */

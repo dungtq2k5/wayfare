@@ -19,4 +19,10 @@ export class SellerGrpcController implements billingGrpc.SellerServiceController
   ): Promise<billingGrpc.CountLiveVouchersResponse> {
     return this.seller.countLiveVouchers(request);
   }
+
+  getErasureBlockers(
+    request: billingGrpc.GetErasureBlockersRequest,
+  ): Promise<billingGrpc.GetErasureBlockersResponse> {
+    return this.seller.getErasureBlockers(request);
+  }
 }

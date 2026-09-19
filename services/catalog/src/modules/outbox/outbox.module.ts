@@ -18,13 +18,14 @@ export const SERVICE_NAME = 'catalog';
 
 /**
  * Streams catalog declares at boot: every stream it publishes to — its own, the audit and
- * notification subjects, the dead letters — and narration's and billing's, which it consumes
+ * notification subjects, the dead letters — and narration's, billing's and identity's, which it consumes
  * (api-endpoints-plan §10). `ensureStreams` creates a missing one and verifies an existing one.
  */
 export const CATALOG_STREAMS: readonly StreamName[] = [
   'CATALOG',
   'NARRATION',
   'BILLING',
+  'IDENTITY',
   'AUDIT',
   'NOTIFICATION',
   'DLQ',

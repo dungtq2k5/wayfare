@@ -32,6 +32,8 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { SystemCatalogModule } from './modules/system-catalog/system-catalog.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { UserErasedConsumer } from './modules/user-erased/user-erased.consumer';
+import { UserErasedModule } from './modules/user-erased/user-erased.module';
 import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
 
@@ -66,6 +68,7 @@ export class AppModule {
         LocalizationReadyModule,
         LocalizationFailedModule,
         EntitlementsChangedModule,
+        UserErasedModule,
         LocalizationSourcesModule,
         SchedulerModule.forRootAsync({
           imports: [JobsModule],
@@ -127,12 +130,14 @@ export class AppModule {
             LocalizationReadyConsumer,
             LocalizationFailedConsumer,
             EntitlementsChangedConsumer,
+            UserErasedConsumer,
           ],
           useFactory: (
             ready: LocalizationReadyConsumer,
             failed: LocalizationFailedConsumer,
             entitlements: EntitlementsChangedConsumer,
-          ) => [ready, failed, entitlements],
+            erased: UserErasedConsumer,
+          ) => [ready, failed, entitlements, erased],
         },
       ],
     };

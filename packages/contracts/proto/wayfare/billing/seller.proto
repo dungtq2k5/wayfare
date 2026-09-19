@@ -4,9 +4,14 @@ syntax = "proto3";
 // tables exist, which is true, not a placeholder.
 package wayfare.billing;
 
+import "google/protobuf/timestamp.proto";
+
 service SellerService {
   rpc GetLiveObligations(GetLiveObligationsRequest) returns (GetLiveObligationsResponse);
   rpc CountLiveVouchers(CountLiveVouchersRequest) returns (CountLiveVouchersResponse);
+  // What stands in the way of erasing an account (api-endpoints-plan §1.3). A user with no billing
+  // account answers all-clear.
+  rpc GetErasureBlockers(GetErasureBlockersRequest) returns (GetErasureBlockersResponse);
 }
 
 message GetLiveObligationsRequest {
@@ -24,4 +29,18 @@ message CountLiveVouchersRequest {
 
 message CountLiveVouchersResponse {
   int32 count = 1;
+}
+
+message GetErasureBlockersRequest {
+  string user_id = 1;
+}
+
+message GetErasureBlockersResponse {
+  bool pending_buyer_order = 1;
+  // A subscription that can still charge, or a Checkout page still open.
+  bool active_subscription = 2;
+  // The paid period's end, when the subscription is set to cancel then.
+  google.protobuf.Timestamp subscription_ends_at = 3;
+  int32 issued_vouchers_sold = 4;
+  int32 open_disputes = 5;
 }

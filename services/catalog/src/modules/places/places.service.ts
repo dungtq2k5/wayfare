@@ -41,6 +41,7 @@ import {
 import type {
   AuditRecordPayload,
   BILLING_ENTITLEMENTS_CHANGED,
+  IDENTITY_USER_ERASED,
   EventPayload,
   Language,
   GeoPoint,
@@ -918,6 +919,79 @@ export class PlacesService {
       await this.requestEntitledLanguages(event.ownerUserId, added, now);
     }
     await this.ownerEntitlements.record(this.prisma, event);
+  }
+
+  /**
+   * An erased owner's Venues (api-endpoints-plan §10, rdm-spec C-1): a Venue nobody can manage stops
+   * narrating. A published one, or one waiting on the plan or on an admin, goes `INACTIVE (OWNER)`,
+   * which no route lifts, so a later grant cannot bring it back; a draft, which cannot become
+   * `INACTIVE` and was never public, is soft-deleted. The rows are business data and are kept.
+   * Each step is idempotent; the event is recorded last, so a redelivery after a crash finishes.
+   */
+  async retireErasedOwner(
+    event: EventPayload<typeof IDENTITY_USER_ERASED>,
+    consumer: string,
+  ): Promise<void> {
+    const done = await this.prisma.processedEvent.findUnique({
+      where: { consumer_eventId: { consumer, eventId: event.eventId } },
+      select: { eventId: true },
+    });
+    if (done !== null) return;
+    const now = new Date();
+    const venues = await this.prisma.place.findMany({
+      where: { ownerUserId: event.userId, kind: VENUE, deletedAt: null },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+    for (const { id } of venues) {
+      await this.write(id, (tx, write) => this.retireForErasure(tx, write, now), {
+        allowDeleted: true,
+      });
+    }
+    await this.prisma.processedEvent.createMany({
+      data: [{ consumer, eventId: event.eventId }],
+      skipDuplicates: true,
+    });
+  }
+
+  /** One Venue of an erased owner: soft-deleted as a draft, `INACTIVE (OWNER)` otherwise. */
+  private async retireForErasure(tx: CatalogTx, write: PlaceWrite, now: Date): Promise<void> {
+    const current = write.place;
+    if (current.deletedAt !== null) return;
+    if (current.status === PlaceStatus.DRAFT) {
+      await tx.place.update({
+        where: { id: current.id },
+        data: { deletedAt: now },
+        select: { id: true },
+      });
+      await this.systemAudit(tx, AuditAction.PLACE_DELETED, current.id, now, {
+        before: { status: current.status },
+      });
+      write.after = { ...write.after, deleted: true };
+      write.observable = true;
+      return;
+    }
+    if (current.status === PlaceStatus.INACTIVE) {
+      if (current.inactiveReason === PlaceInactiveReason.OWNER) return;
+      await tx.place.update({
+        where: { id: current.id },
+        data: { inactiveReason: PlaceInactiveReason.OWNER },
+        select: { id: true },
+      });
+    } else {
+      const status = transition(current.status, PlaceLifecycleEvent.DEACTIVATED);
+      await tx.place.update({
+        where: { id: current.id },
+        data: { status, inactiveReason: PlaceInactiveReason.OWNER },
+        select: { id: true },
+      });
+      write.after = { ...write.after, status };
+      write.observable = true;
+    }
+    await this.systemAudit(tx, AuditAction.PLACE_DEACTIVATED, current.id, now, {
+      before: { status: current.status },
+      reason: PlaceInactiveReason.OWNER,
+    });
   }
 
   /** Sets `auto_narration_enabled` on every Venue of the owner that differs, bumping each. */

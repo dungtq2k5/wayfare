@@ -30,6 +30,8 @@ import { BillingEventsPruneJob } from './modules/scheduled/billing-events-prune.
 import { BillingWebhooksRecoverJob } from './modules/scheduled/billing-webhooks-recover.job';
 import { ScheduledModule } from './modules/scheduled/scheduled.module';
 import { SellerModule } from './modules/seller/seller.module';
+import { UserErasedConsumer } from './modules/user-erased/user-erased.consumer';
+import { UserErasedModule } from './modules/user-erased/user-erased.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { SystemPlansModule } from './modules/system-plans/system-plans.module';
 import { WebhookQueueModule } from './modules/webhook-queue/webhook-queue.module';
@@ -72,6 +74,7 @@ export class AppModule {
         BillingEventsModule,
         SellerModule,
         OwnerVerifiedModule,
+        UserErasedModule,
         SchedulerModule.forRootAsync({
           imports: [ScheduledModule],
           inject: [ConfigService, PrismaService, BillingWebhooksRecoverJob, BillingEventsPruneJob],
@@ -128,8 +131,11 @@ export class AppModule {
         EventSpine,
         {
           provide: CONSUMERS,
-          inject: [OwnerVerifiedConsumer],
-          useFactory: (ownerVerified: OwnerVerifiedConsumer) => [ownerVerified],
+          inject: [OwnerVerifiedConsumer, UserErasedConsumer],
+          useFactory: (ownerVerified: OwnerVerifiedConsumer, userErased: UserErasedConsumer) => [
+            ownerVerified,
+            userErased,
+          ],
         },
       ],
     };

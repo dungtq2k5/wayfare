@@ -1,13 +1,32 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  Res,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiEnvelope, ApiErrors, Auth, Ctx, NoStore, UsesUpstream } from '@wayfare/nest-common';
+import {
+  ApiEnvelope,
+  ApiErrors,
+  Auth,
+  Ctx,
+  NoStore,
+  RateLimit,
+  UsesUpstream,
+} from '@wayfare/nest-common';
 import type { AccountContext, WithMeta } from '@wayfare/nest-common';
+import type { Response } from 'express';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { LegalAcceptanceResponseDto } from '../devices/dto/device-response.dto';
 import { RecordLegalAcceptanceDto } from '../devices/dto/device.dto';
 import { LegalAcceptanceStatusResponseDto } from './dto/legal-acceptance-response.dto';
 import { MeResponseDto, UpdateMeResponseDto } from './dto/user-response.dto';
-import { UpdateMeDto } from './dto/user.dto';
+import { EraseMeDto, UpdateMeDto } from './dto/user.dto';
 import { UsersService } from './users.service';
 
 /** `/users/me` (api-endpoints-plan §1.3). Every response is account-specific: never cached. */
@@ -37,6 +56,31 @@ export class UsersController {
   @ZodSerializerDto(UpdateMeResponseDto)
   update(@Ctx() context: AccountContext, @Body() body: UpdateMeDto): Promise<UpdateMeResponseDto> {
     return this.users.update(context, body);
+  }
+
+  @Delete()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Auth('USER')
+  @RateLimit('PASSWORD_CHECK')
+  @NoStore()
+  @ApiOperation({
+    summary:
+      'Erase the account: irreversible. The address is freed, every session ends, and this client is signed out.',
+  })
+  @ApiEnvelope(null)
+  @ApiErrors(
+    'INVALID_CREDENTIALS',
+    'BUYER_HAS_PENDING_ORDER',
+    'EMAIL_CHANGE_REVERT_PENDING',
+    'OWNER_HAS_ACTIVE_OBLIGATIONS',
+    'LAST_SUPER_ADMIN',
+  )
+  async erase(
+    @Ctx() context: AccountContext,
+    @Body() body: EraseMeDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.users.erase(context, body, res);
   }
 
   @Get('legal-acceptances')
