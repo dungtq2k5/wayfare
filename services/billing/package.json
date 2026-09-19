@@ -18,7 +18,7 @@
     "db:seed:system": "node dist/src/scripts/seed-system-plans.js",
     "db:verify": "wayfare-db-verify",
     "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
-    "seed:dev": "node dist/prisma/seed/dev-plans.seed.js",
+    "seed:dev": "node dist/prisma/seed/dev-plans.seed.js && node dist/prisma/seed/pilot-d4-plans.seed.js",
     "stripe:sandbox-setup": "turbo run build --filter=@wayfare/billing --output-logs=errors-only && node dist/src/scripts/stripe-sandbox-setup.js"
   },
   "dependencies": {

@@ -79,11 +79,12 @@ export class OwnerRegistrationsService {
   /**
    * Applies. One user's applications run one at a time on their locked row, so the checks, the
    * agreement's acceptance and the insert are one serial step; the partial unique index is the
-   * backstop.
+   * backstop. `fixed` is the development seed's committed id (ADR 0002), never reachable over gRPC.
    */
   async submitRegistration(
     request: identityGrpc.SubmitRegistrationRequest,
     context: RequestContext,
+    fixed: { readonly id?: string } = {},
   ): Promise<identityGrpc.SubmitRegistrationResponse> {
     const account = requireAccountContext(context);
     const input = parseRpcRequest(zOwnerRegistrationInput, {
@@ -124,6 +125,7 @@ export class OwnerRegistrationsService {
         );
         const created = await tx.ownerRegistration.create({
           data: {
+            ...(fixed.id === undefined ? {} : { id: fixed.id }),
             userId: account.userId,
             status: PENDING,
             businessName: input.businessName,

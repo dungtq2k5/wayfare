@@ -245,6 +245,15 @@ type ContentChange = Omit<z.output<typeof updateFields>, 'placeId'>;
 /** One photo of a replaced set. */
 type PhotoSetItem = z.output<typeof zPhotoSetItem>;
 
+/**
+ * The development seed's committed id and public code (ADR 0002), never reachable over gRPC: a
+ * committed code is tried once, and a collision is `SHORT_CODE_COLLISION`.
+ */
+export interface FixedPlace {
+  readonly id?: string;
+  readonly publicCode?: string;
+}
+
 /** catalog's admin view of a Place. */
 export type AdminPlaceView = catalogGrpc.AdminPlace;
 
@@ -1451,6 +1460,7 @@ export class PlacesService {
       readonly prepare: (tx: CatalogTx) => Promise<void>;
       readonly record: (tx: CatalogTx, placeId: string) => Promise<void>;
     },
+    fixed: FixedPlace = {},
   ): Promise<AdminPlaceView> {
     const { payload, reviewer, ownerUserId, now } = approval;
     try {
@@ -1458,9 +1468,10 @@ export class PlacesService {
         await hooks.prepare(tx);
         const category = await this.requireCategory(tx, approval.categoryCode, PlaceKind.VENUE);
         const area = await this.requireCoveringArea(tx, payload.location);
-        const id = newId();
+        const id = fixed.id ?? newId();
         const hash = placeContentHash(payload.nameVi, payload.descriptionVi);
         const publicCode = await this.insertPlace(tx, {
+          publicCode: fixed.publicCode,
           id,
           kind: PlaceKind.VENUE,
           categoryId: category.id,

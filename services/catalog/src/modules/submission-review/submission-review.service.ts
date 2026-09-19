@@ -35,7 +35,7 @@ import {
 } from '../places/domain/submission-diff';
 import type { EditableSnapshot } from '../places/domain/submission-diff';
 import { PlacesService } from '../places/places.service';
-import type { SubmissionApproval } from '../places/places.service';
+import type { FixedPlace, SubmissionApproval } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { hasPlaceRoom, payloadLimitBreach } from '../submissions/domain/submission-rules';
 import { SUBMISSION_SELECT, toSubmission } from '../submissions/submission.mapper';
@@ -162,10 +162,14 @@ export class SubmissionReviewService {
     };
   }
 
-  /** `POST /admin/submissions/:id/approve`. */
+  /**
+   * `POST /admin/submissions/:id/approve`. `fixed` is the development seed's committed Venue id and
+   * public code for a `CREATE` (ADR 0002), never reachable over gRPC.
+   */
   async approveSubmission(
     request: catalogGrpc.ApproveSubmissionRequest,
     context: RequestContext,
+    fixed: FixedPlace = {},
   ): Promise<catalogGrpc.ApproveSubmissionResponse> {
     const reviewer = requireAccountContext(context);
     const { submissionId } = parseRpcRequest(submissionIdField, request);
@@ -229,24 +233,28 @@ export class SubmissionReviewService {
 
     if (row.kind === String(SubmissionKind.CREATE)) {
       const maxPlaces = effectiveLimit('maxPlaces', grants);
-      await this.places.approveCreate(approval, {
-        prepare: async (tx) => {
-          await this.places.lockOwner(tx, row.ownerUserId);
-          await decide(tx);
-          // Approved now, so no longer reserved: the Venue about to exist must fit.
-          if (!hasPlaceRoom(await this.places.placeLimitUsage(tx, row.ownerUserId), maxPlaces)) {
-            throw rpcError('PLACE_LIMIT_REACHED', { limit: maxPlaces });
-          }
+      await this.places.approveCreate(
+        approval,
+        {
+          prepare: async (tx) => {
+            await this.places.lockOwner(tx, row.ownerUserId);
+            await decide(tx);
+            // Approved now, so no longer reserved: the Venue about to exist must fit.
+            if (!hasPlaceRoom(await this.places.placeLimitUsage(tx, row.ownerUserId), maxPlaces)) {
+              throw rpcError('PLACE_LIMIT_REACHED', { limit: maxPlaces });
+            }
+          },
+          record: async (tx, placeId) => {
+            await tx.placeSubmission.update({
+              where: { id: submissionId },
+              data: { placeId },
+              select: { id: true },
+            });
+            await record(tx, placeId, false);
+          },
         },
-        record: async (tx, placeId) => {
-          await tx.placeSubmission.update({
-            where: { id: submissionId },
-            data: { placeId },
-            select: { id: true },
-          });
-          await record(tx, placeId, false);
-        },
-      });
+        fixed,
+      );
     } else {
       const base = baseOf(row.baseSnapshot);
       if (base === null || row.placeId === null) {

@@ -68,11 +68,13 @@ export class SubmissionsService {
   /**
    * `POST /owner/submissions`. A `CREATE` reserves a place slot under the owner's lock; an `UPDATE`
    * must start from the live Venue's editable fields, which it keeps as its base, and supersedes
-   * the Venue's pending `UPDATE`. Uploads are not consumed here: only an approval does.
+   * the Venue's pending `UPDATE`. Uploads are not consumed here: only an approval does. `fixed` is
+   * the development seed's committed id (ADR 0002), never reachable over gRPC.
    */
   async createSubmission(
     request: catalogGrpc.CreateSubmissionRequest,
     context: RequestContext,
+    fixed: { readonly id?: string } = {},
   ): Promise<catalogGrpc.CreateSubmissionResponse> {
     const owner = requireAccountContext(context);
     const input = parseRpcRequest(zSubmissionCreateInput, {
@@ -111,7 +113,7 @@ export class SubmissionsService {
       } else {
         await this.supersede(tx, input.placeId!, owner, now);
       }
-      const id = newId();
+      const id = fixed.id ?? newId();
       const created = await tx.placeSubmission.create({
         data: {
           id,
@@ -240,7 +242,7 @@ export class SubmissionsService {
       where: { id: submissionId },
       select: SUBMISSION_SELECT,
     });
-    if (row === null || row.ownerUserId !== ownerUserId) {
+    if (row?.ownerUserId !== ownerUserId) {
       throw rpcError('RESOURCE_NOT_FOUND', { resource: 'SUBMISSION' });
     }
     return row;

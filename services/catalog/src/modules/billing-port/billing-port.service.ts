@@ -52,4 +52,25 @@ export class BillingPortService {
       throw rpcError('ENTITLEMENTS_UNAVAILABLE');
     }
   }
+
+  /**
+   * An owner's current grants version, for a development seed that waits until catalog's own copy
+   * has caught up (conventions §8.1). Throws `ENTITLEMENTS_UNAVAILABLE` when billing cannot say.
+   */
+  async getEntitlementsVersion(ownerUserId: string): Promise<number> {
+    try {
+      const answer = await this.billing.entitlements.call(
+        'getEntitlements',
+        { ownerUserId },
+        { kind: 'anonymous', origin: SYSTEM_ORIGIN },
+      );
+      return Number(answer.entitlementsVersion);
+    } catch (error) {
+      this.logger.warn(
+        { ownerUserId, kind: error instanceof Error ? error.name : 'unknown' },
+        'billing did not answer the entitlements version',
+      );
+      throw rpcError('ENTITLEMENTS_UNAVAILABLE');
+    }
+  }
 }
