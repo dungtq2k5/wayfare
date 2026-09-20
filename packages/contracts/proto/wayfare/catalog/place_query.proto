@@ -187,4 +187,12 @@ message Area {
   int32 sort_order = 7;
   // The sync cap every area shares (rdm-spec §1.7).
   int64 dataset_version = 8;
+  // The published map pack; absent without one.
+  AreaMapPack map_pack = 9;
+}
+
+// The published map pack of an area, as `/areas` announces it.
+message AreaMapPack {
+  int32 version = 1;
+  int64 bytes = 2;
 }

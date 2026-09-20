@@ -1,15 +1,32 @@
 import { Module } from '@nestjs/common';
 import { UploadsModule } from '../uploads/uploads.module';
+import { MapPacksPruneJob } from './map-packs-prune.job';
+import { OfflineSnapshotsPruneJob } from './offline-snapshots-prune.job';
 import { PendingUploadsReapJob } from './pending-uploads-reap.job';
 import { PhotoObjectsCleanupJob } from './photo-objects-cleanup.job';
 
 /** catalog's scheduled jobs — the list health is judged against (conventions §7.3). */
-export const SCHEDULED_JOBS = ['pending-uploads-reap', 'photo-objects-cleanup'] as const;
+export const SCHEDULED_JOBS = [
+  'pending-uploads-reap',
+  'photo-objects-cleanup',
+  'map-packs-prune',
+  'offline-snapshots-prune',
+] as const;
 
 /** The job classes; nest-common's `JobsModule` schedules and runs them. */
 @Module({
   imports: [UploadsModule],
-  providers: [PendingUploadsReapJob, PhotoObjectsCleanupJob],
-  exports: [PendingUploadsReapJob, PhotoObjectsCleanupJob],
+  providers: [
+    PendingUploadsReapJob,
+    PhotoObjectsCleanupJob,
+    MapPacksPruneJob,
+    OfflineSnapshotsPruneJob,
+  ],
+  exports: [
+    PendingUploadsReapJob,
+    PhotoObjectsCleanupJob,
+    MapPacksPruneJob,
+    OfflineSnapshotsPruneJob,
+  ],
 })
 export class JobsModule {}

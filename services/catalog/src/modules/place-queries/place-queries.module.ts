@@ -8,5 +8,6 @@ import { PlaceQueriesService } from './place-queries.service';
   imports: [SyncModule],
   controllers: [PlaceQueriesGrpcController],
   providers: [PlaceQueriesService],
+  exports: [PlaceQueriesService],
 })
 export class PlaceQueriesModule {}

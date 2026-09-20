@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import type { ReadinessCheck } from '../../health/readiness';
 
 /** Injection token for the media `StorageProvider`. */
@@ -12,6 +13,12 @@ export interface SignedUpload {
 /** What storage knows about an object. */
 export interface StoredObject {
   readonly bytes: number;
+}
+
+/** One listed object: its path and when it was written. */
+export interface ListedObject {
+  readonly path: string;
+  readonly createdAt: Date;
 }
 
 /**
@@ -30,6 +37,10 @@ export interface StorageProvider {
   stat(objectPath: string): Promise<StoredObject | null>;
   /** The whole object. The caller checks its size first. */
   download(objectPath: string): Promise<Buffer>;
+  /** The object as a stream, for reading one too large to hold (a map pack's archive). */
+  read(objectPath: string): Readable;
+  /** Every object under a prefix, with when it was written. */
+  list(prefix: string): Promise<ListedObject[]>;
   /** Writes an object, replacing any at the path. */
   upload(
     objectPath: string,

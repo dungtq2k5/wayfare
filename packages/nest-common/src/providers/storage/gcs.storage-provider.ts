@@ -1,7 +1,8 @@
 import { Storage } from '@google-cloud/storage';
 import type { Bucket } from '@google-cloud/storage';
 import type { ReadinessCheck } from '../../health/readiness';
-import type { SignedUpload, StorageProvider, StoredObject } from './storage-provider';
+import type { Readable } from 'node:stream';
+import type { ListedObject, SignedUpload, StorageProvider, StoredObject } from './storage-provider';
 
 /** How the GCS client is built (architecture §3.6). */
 export interface GcsOptions {
@@ -63,6 +64,18 @@ export class GcsStorageProvider implements StorageProvider {
   async download(objectPath: string): Promise<Buffer> {
     const [data] = await this.bucket.file(objectPath).download();
     return data;
+  }
+
+  read(objectPath: string): Readable {
+    return this.bucket.file(objectPath).createReadStream({ validation: false });
+  }
+
+  async list(prefix: string): Promise<ListedObject[]> {
+    const [files] = await this.bucket.getFiles({ prefix, autoPaginate: true });
+    return files.map((file) => ({
+      path: file.name,
+      createdAt: new Date(file.metadata.timeCreated ?? 0),
+    }));
   }
 
   async upload(

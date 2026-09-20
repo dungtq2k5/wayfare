@@ -51,11 +51,12 @@ export function submissionAuditRecord(facts: {
   };
 }
 
-/** The `audit.record` input catalog writes for a category or an area (api-endpoints-plan §3.6). */
+/** The `audit.record` input catalog writes for a category, an area or a map pack (api-endpoints-plan §3.6). */
 export function taxonomyAuditRecord(facts: {
   readonly actor: PlaceAuditActor;
   readonly action: AuditAction;
-  readonly resource: AuditResourceType.CATEGORY | AuditResourceType.AREA;
+  readonly resource:
+    AuditResourceType.CATEGORY | AuditResourceType.AREA | AuditResourceType.MAP_PACK;
   readonly resourceId: string;
   readonly metadata?: AuditRecordPayload['metadata'];
   readonly origin: PlaceAuditOrigin;

@@ -8,13 +8,23 @@ import { config } from 'dotenv';
 /** The local console and web origins (architecture §14's CORS_ORIGINS defaults). */
 export const LOCAL_CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:5174'];
 
-/** The CORS rule a browser upload needs: a signed PUT with its two bound headers. */
+/**
+ * The CORS rules the media bucket needs (architecture §6): a browser upload — a signed PUT with
+ * its two bound headers — and a browser's range reads of a map pack, which send `Range` and read
+ * `Content-Range` and `Accept-Ranges`.
+ */
 export function mediaCorsRule(origins: readonly string[]) {
   return [
     {
       origin: [...origins],
       method: ['PUT'],
       responseHeader: ['Content-Type', 'x-goog-content-length-range'],
+      maxAgeSeconds: 3600,
+    },
+    {
+      origin: [...origins],
+      method: ['GET', 'HEAD'],
+      responseHeader: ['Range', 'Content-Range', 'Accept-Ranges', 'Content-Length', 'ETag'],
       maxAgeSeconds: 3600,
     },
   ];
@@ -40,7 +50,7 @@ export async function setupStorage(input: {
     input.print(`✓ bucket ${input.bucket} created`);
   }
   await bucket.setCorsConfiguration(mediaCorsRule(input.corsOrigins));
-  input.print(`✓ CORS: PUT from ${input.corsOrigins.join(', ')}`);
+  input.print(`✓ CORS: PUT and range GETs from ${input.corsOrigins.join(', ')}`);
 }
 
 /** `--cors-origin <origin>`, repeatable. */

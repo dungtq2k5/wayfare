@@ -36,6 +36,9 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   AREA_OVERLAPS: { codes: ['hcmc-d1-core'] },
   AREA_EXCLUDES_PLACES: { count: 1, placeIds: ['01a0b373-d3eb-73c0-bd63-b96a868ab216'] },
   AREA_HAS_LIVE_PLACES: { count: 10 },
+  MAP_PACK_HASH_MISMATCH: { path: 'maps/hcmc-d1-core/0123456789abcdef/map.pmtiles' },
+  MAP_PACK_OBJECT_MISSING: { path: 'maps/hcmc-d1-core/0123456789abcdef/style.json' },
+  MAP_PACK_TOO_LARGE: { bytes: 61_000_000, maxBytes: 60_000_000 },
 };
 
 // The signature forbids a mismatch at compile time; this reaches the runtime check.

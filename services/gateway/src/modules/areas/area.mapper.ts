@@ -12,7 +12,10 @@ export function toAreaResponseDto(area: catalogGrpc.Area): AreaResponseDto {
     center: toGeoPoint(area.center),
     defaultZoom: area.defaultZoom,
     boundary: areaResponseSchema.shape.boundary.parse(JSON.parse(area.boundaryGeojson)),
-    mapPack: null,
+    mapPack:
+      area.mapPack === undefined || area.mapPack === null
+        ? null
+        : { version: area.mapPack.version, bytes: Number(area.mapPack.bytes) },
     datasetVersion: datasetVersionFromWire(area.datasetVersion),
   };
 }

@@ -107,3 +107,10 @@ ALTER TABLE place_submissions ADD CONSTRAINT place_submissions_reviewed_ck
 ALTER TABLE place_submissions DROP CONSTRAINT IF EXISTS place_submissions_update_base_ck;
 ALTER TABLE place_submissions ADD CONSTRAINT place_submissions_update_base_ck
   CHECK ((kind = 'CREATE') = (base_snapshot IS NULL AND base_editable_hash IS NULL));
+
+-- map_packs (rdm-spec C-14): one published pack per area; its zoom range is a range.
+CREATE UNIQUE INDEX IF NOT EXISTS map_packs_one_published
+  ON map_packs (area_id)
+  WHERE status = 'PUBLISHED';
+ALTER TABLE map_packs DROP CONSTRAINT IF EXISTS map_packs_zoom_ck;
+ALTER TABLE map_packs ADD CONSTRAINT map_packs_zoom_ck CHECK (max_zoom >= min_zoom);

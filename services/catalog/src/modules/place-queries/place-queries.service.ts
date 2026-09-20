@@ -4,6 +4,7 @@ import {
   businessDay,
   canonicalPublicCode,
   datasetVersionFromWire,
+  MapPackStatus,
   MAX_NEARBY_RADIUS_M,
   NEARBY_LIMIT_MAX,
   PlaceStatus,
@@ -20,6 +21,7 @@ import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env.schema';
+import { objectsOf, packBytes } from '../map-packs/domain/map-pack-objects';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
 import {
@@ -194,7 +196,7 @@ export class PlaceQueriesService {
     requireDeviceContext(context);
     const fields = parseRpcRequest(getFields, request);
     const place = await this.detail({ id: fields.placeId }, fields.lang.lang);
-    if (place === null || !place.live) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
+    if (!place?.live) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
     return { place: place.detail };
   }
 
@@ -260,7 +262,16 @@ export class PlaceQueriesService {
         ORDER BY sort_order, code`,
       this.sync.cap(),
     ]);
-    return { areas: rows.map((row) => toArea(row, cap)) };
+    const packs = await this.prisma.mapPack.findMany({
+      where: { areaId: { in: rows.map((row) => row.id) }, status: MapPackStatus.PUBLISHED },
+    });
+    const published = new Map(
+      packs.map((pack) => [
+        pack.areaId,
+        { version: pack.version, bytes: packBytes(objectsOf(pack)) },
+      ]),
+    );
+    return { areas: rows.map((row) => toArea(row, cap, published.get(row.id) ?? null)) };
   }
 
   private async requireActiveArea(areaId: string): Promise<void> {
@@ -268,10 +279,45 @@ export class PlaceQueriesService {
       where: { id: areaId },
       select: { isActive: true },
     });
-    if (area === null || !area.isActive) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'AREA' });
+    if (!area?.isActive) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'AREA' });
   }
 
-  private async syncRecords(
+  /**
+   * Summaries of these Places in `requested`, with no origin — no distance, no walking time, never
+   * sponsored. The favourites list reuses them; a Place not found is left out.
+   */
+  async summaries(
+    ids: readonly string[],
+    requested: string | null,
+  ): Promise<Map<string, catalogGrpc.PlaceSummary>> {
+    if (ids.length === 0) return new Map();
+    const [rows, locations] = await Promise.all([
+      this.prisma.place.findMany({
+        where: { id: { in: [...ids] } },
+        select: withLanguages(SUMMARY_PLACE_SELECT, reachableLanguages(requested)),
+      }),
+      this.locations(ids),
+    ]);
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        toPlaceSummary(
+          row,
+          {
+            location: locations.get(row.id)!,
+            distanceM: 0,
+            walkingEtaMinutes: 0,
+            sponsored: false,
+          },
+          requested,
+          this.mediaBase,
+        ),
+      ]),
+    );
+  }
+
+  /** The `/sync/places` records of these Places in `requested`; the offline snapshot reuses them. */
+  async syncRecords(
     ids: readonly string[],
     requested: string | null,
   ): Promise<Map<string, catalogGrpc.PlaceSyncRecord>> {

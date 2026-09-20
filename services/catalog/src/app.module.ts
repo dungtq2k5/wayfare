@@ -17,6 +17,15 @@ import type { CatalogConfig } from './config/env.schema';
 import { AreasModule } from './modules/areas/areas.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { MapPacksPruneJob } from './modules/jobs/map-packs-prune.job';
+import { OfflineSnapshotsPruneJob } from './modules/jobs/offline-snapshots-prune.job';
+import { MapPacksModule } from './modules/map-packs/map-packs.module';
+import { OfflineModule } from './modules/offline/offline.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
+import { DeviceClaimedConsumer } from './modules/device-claimed/device-claimed.consumer';
+import { DeviceClaimedModule } from './modules/device-claimed/device-claimed.module';
+import { DeviceForgottenConsumer } from './modules/device-forgotten/device-forgotten.consumer';
+import { DeviceForgottenModule } from './modules/device-forgotten/device-forgotten.module';
 import { PendingUploadsReapJob } from './modules/jobs/pending-uploads-reap.job';
 import { PhotoObjectsCleanupJob } from './modules/jobs/photo-objects-cleanup.job';
 import { LocalizationFailedConsumer } from './modules/localization-failed/localization-failed.consumer';
@@ -71,6 +80,9 @@ export class AppModule {
         AreasModule,
         CategoriesModule,
         TaxonomyAdminModule,
+        MapPacksModule,
+        OfflineModule,
+        FavoritesModule,
         UploadsModule,
         PlacesModule,
         SubmissionsModule,
@@ -81,20 +93,31 @@ export class AppModule {
         LocalizationFailedModule,
         EntitlementsChangedModule,
         UserErasedModule,
+        DeviceClaimedModule,
+        DeviceForgottenModule,
         LocalizationSourcesModule,
         SchedulerModule.forRootAsync({
           imports: [JobsModule],
-          inject: [ConfigService, PrismaService, PendingUploadsReapJob, PhotoObjectsCleanupJob],
+          inject: [
+            ConfigService,
+            PrismaService,
+            PendingUploadsReapJob,
+            PhotoObjectsCleanupJob,
+            MapPacksPruneJob,
+            OfflineSnapshotsPruneJob,
+          ],
           useFactory: (
             config: CatalogConfig,
             prisma: PrismaService,
             reap: PendingUploadsReapJob,
             cleanup: PhotoObjectsCleanupJob,
+            packs: MapPacksPruneJob,
+            snapshots: OfflineSnapshotsPruneJob,
           ) => ({
             service: SERVICE_NAME,
             redisUrl: config.get('REDIS_URL', { infer: true }),
             db: prisma,
-            jobs: [reap, cleanup],
+            jobs: [reap, cleanup, packs, snapshots],
             enabled: options.jobs ?? true,
           }),
         }),
@@ -143,13 +166,17 @@ export class AppModule {
             LocalizationFailedConsumer,
             EntitlementsChangedConsumer,
             UserErasedConsumer,
+            DeviceClaimedConsumer,
+            DeviceForgottenConsumer,
           ],
           useFactory: (
             ready: LocalizationReadyConsumer,
             failed: LocalizationFailedConsumer,
             entitlements: EntitlementsChangedConsumer,
             erased: UserErasedConsumer,
-          ) => [ready, failed, entitlements, erased],
+            claimed: DeviceClaimedConsumer,
+            forgotten: DeviceForgottenConsumer,
+          ) => [ready, failed, entitlements, erased, claimed, forgotten],
         },
       ],
     };

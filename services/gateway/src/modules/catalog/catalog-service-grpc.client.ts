@@ -20,6 +20,9 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
   readonly submissions: GrpcServiceCaller<catalogGrpc.SubmissionServiceClient>;
   readonly submissionReview: GrpcServiceCaller<catalogGrpc.SubmissionReviewServiceClient>;
   readonly taxonomyAdmin: GrpcServiceCaller<catalogGrpc.TaxonomyAdminServiceClient>;
+  readonly mapPackAdmin: GrpcServiceCaller<catalogGrpc.MapPackAdminServiceClient>;
+  readonly offline: GrpcServiceCaller<catalogGrpc.OfflineServiceClient>;
+  readonly favorites: GrpcServiceCaller<catalogGrpc.FavoriteServiceClient>;
 
   constructor(@Inject(CATALOG_GRPC) grpc: ClientGrpc) {
     this.placeQueries = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_QUERY_SERVICE_NAME);
@@ -29,6 +32,9 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.submissions = new GrpcServiceCaller(grpc, catalogGrpc.SUBMISSION_SERVICE_NAME);
     this.submissionReview = new GrpcServiceCaller(grpc, catalogGrpc.SUBMISSION_REVIEW_SERVICE_NAME);
     this.taxonomyAdmin = new GrpcServiceCaller(grpc, catalogGrpc.TAXONOMY_ADMIN_SERVICE_NAME);
+    this.mapPackAdmin = new GrpcServiceCaller(grpc, catalogGrpc.MAP_PACK_ADMIN_SERVICE_NAME);
+    this.offline = new GrpcServiceCaller(grpc, catalogGrpc.OFFLINE_SERVICE_NAME);
+    this.favorites = new GrpcServiceCaller(grpc, catalogGrpc.FAVORITE_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -39,5 +45,8 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.submissions.init();
     this.submissionReview.init();
     this.taxonomyAdmin.init();
+    this.mapPackAdmin.init();
+    this.offline.init();
+    this.favorites.init();
   }
 }

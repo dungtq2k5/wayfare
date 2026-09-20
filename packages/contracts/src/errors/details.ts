@@ -100,3 +100,11 @@ export const areaExcludesPlacesDetails = z
 
 /** `AREA_HAS_LIVE_PLACES`: how many `PROCESSING` or `ACTIVE` Places the area still holds. */
 export const areaHasLivePlacesDetails = z.object({ count: z.number().int().min(1) }).strict();
+
+/** `MAP_PACK_HASH_MISMATCH`, `MAP_PACK_OBJECT_MISSING`: the object at fault. */
+export const mapPackObjectDetails = z.object({ path: z.string().min(1) }).strict();
+
+/** `MAP_PACK_TOO_LARGE`: the pack's weight and the budget. */
+export const mapPackTooLargeDetails = z
+  .object({ bytes: z.number().int().min(1), maxBytes: z.number().int().min(1) })
+  .strict();

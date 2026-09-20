@@ -194,6 +194,14 @@ export interface Area {
   sortOrder: number;
   /** The sync cap every area shares (rdm-spec §1.7). */
   datasetVersion: string;
+  /** The published map pack; absent without one. */
+  mapPack: AreaMapPack | undefined;
+}
+
+/** The published map pack of an area, as `/areas` announces it. */
+export interface AreaMapPack {
+  version: number;
+  bytes: string;
 }
 
 export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";

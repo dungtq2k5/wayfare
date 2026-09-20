@@ -207,6 +207,12 @@ export class MemoryStorage implements StorageProvider {
         for (const release of this.waiting.splice(0)) release();
     });
   }
+  read(): never {
+    throw new Error('narration streams no objects');
+  }
+  list(): never {
+    throw new Error('narration lists no objects');
+  }
   delete(path: string): Promise<void> {
     this.objects.delete(path);
     return Promise.resolve();

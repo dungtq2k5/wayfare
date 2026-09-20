@@ -302,8 +302,12 @@ export function toCategory(row: CategoryRow): catalogGrpc.Category {
   };
 }
 
-/** An active area, with the sync cap every area shares. */
-export function toArea(row: AreaRow, datasetVersion: bigint): catalogGrpc.Area {
+/** An active area, with the sync cap every area shares and its published map pack, if any. */
+export function toArea(
+  row: AreaRow,
+  datasetVersion: bigint,
+  mapPack: { readonly version: number; readonly bytes: number } | null,
+): catalogGrpc.Area {
   return {
     id: row.id,
     code: row.code,
@@ -313,5 +317,7 @@ export function toArea(row: AreaRow, datasetVersion: bigint): catalogGrpc.Area {
     defaultZoom: row.defaultZoom,
     sortOrder: row.sortOrder,
     datasetVersion: datasetVersion.toString(),
+    mapPack:
+      mapPack === null ? undefined : { version: mapPack.version, bytes: String(mapPack.bytes) },
   };
 }

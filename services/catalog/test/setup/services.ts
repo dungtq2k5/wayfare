@@ -3,6 +3,9 @@ import { AnalyticsLevel, NarrationLanguageScope } from '@wayfare/contracts';
 import type { Entitlements } from '@wayfare/contracts';
 import { AreasService } from '../../src/modules/areas/areas.service';
 import { CategoriesService } from '../../src/modules/categories/categories.service';
+import { FavoritesService } from '../../src/modules/favorites/favorites.service';
+import { MapPacksService } from '../../src/modules/map-packs/map-packs.service';
+import { OfflineService } from '../../src/modules/offline/offline.service';
 import { TaxonomyAdminService } from '../../src/modules/taxonomy-admin/taxonomy-admin.service';
 import type { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
 import type {
@@ -111,6 +114,8 @@ export function catalogServices(
   );
   const sync = new SyncService(prisma);
   const areas = new AreasService(prisma, outbox);
+  const queries = new PlaceQueriesService(prisma, sync, config);
+  const manifestCache = new MemoryCache();
   const categories = new CategoriesService(prisma, outbox);
   const submissions = new SubmissionsService(prisma, outbox, places, billingPort);
   return {
@@ -128,6 +133,10 @@ export function catalogServices(
     areas,
     categories,
     taxonomy: new TaxonomyAdminService(categories, areas),
+    mapPacks: new MapPacksService(prisma, outbox, storage),
+    manifestCache,
+    favorites: new FavoritesService(prisma, queries),
+    offline: new OfflineService(prisma, sync, queries, storage, manifestCache, config),
     config,
     storage,
     uploads,
@@ -136,11 +145,28 @@ export function catalogServices(
     frames,
     sources: new LocalizationSourcesService(prisma),
     sync,
-    queries: new PlaceQueriesService(prisma, sync, config),
+    queries,
     localizations: new LocalizationsService(prisma, outbox, places),
     reap: new PendingUploadsReapJob(prisma, storage),
     cleanup: new PhotoObjectsCleanupJob(prisma, storage),
   };
+}
+
+/** The manifest cache in memory: what Redis would hold, and how often it was asked. */
+export class MemoryCache {
+  readonly values = new Map<string, string>();
+  hits = 0;
+
+  get(key: string): Promise<string | null> {
+    const value = this.values.get(key) ?? null;
+    if (value !== null) this.hits += 1;
+    return Promise.resolve(value);
+  }
+
+  set(key: string, value: string): Promise<'OK'> {
+    this.values.set(key, value);
+    return Promise.resolve('OK');
+  }
 }
 
 /** The socket emitter, recording the frames it would send. */

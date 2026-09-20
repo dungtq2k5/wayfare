@@ -8,6 +8,8 @@ import {
   invalidStateDetails,
   legalVersionOutdatedDetails,
   limitDetails,
+  mapPackObjectDetails,
+  mapPackTooLargeDetails,
   ownerHasActiveObligationsDetails,
   ownerHasLiveVouchersDetails,
   permissionDeniedDetails,
@@ -160,6 +162,9 @@ export const ERRORS = {
   PRICE_BELOW_MINIMUM: { ...unprocessable, details: priceBelowMinimumDetails },
   RECOVERY_EVIDENCE_INSUFFICIENT: unprocessable,
   PERMISSION_RETIRED: { ...unprocessable, details: permissionRetiredDetails },
+  MAP_PACK_HASH_MISMATCH: { ...unprocessable, details: mapPackObjectDetails },
+  MAP_PACK_OBJECT_MISSING: { ...unprocessable, details: mapPackObjectDetails },
+  MAP_PACK_TOO_LARGE: { ...unprocessable, details: mapPackTooLargeDetails },
 
   // 426
   APP_VERSION_UNSUPPORTED: {

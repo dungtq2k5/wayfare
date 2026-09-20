@@ -71,6 +71,11 @@ const DEVICE_ROUTES = new Set([
   'GET /api/v1/places/by-code/{publicCode}',
   'POST /api/v1/narration/on-demand',
   'GET /api/v1/narration/places/{placeId}/status',
+  'GET /api/v1/offline/areas/{areaId}/manifest',
+  'GET /api/v1/offline/areas/{areaId}/manifest/diff',
+  'GET /api/v1/me/favorites',
+  'PUT /api/v1/me/favorites/{placeId}',
+  'DELETE /api/v1/me/favorites/{placeId}',
 ]);
 
 /** Routes with a second documented success: done (200) or pending (202). */
@@ -85,7 +90,7 @@ const NON_JSON = new Map([['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml']]
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(126);
+    expect(names).toHaveLength(134);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/q/'))).toBe(false);

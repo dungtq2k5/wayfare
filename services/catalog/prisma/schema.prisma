@@ -56,6 +56,7 @@ model Place {
   qrScans       PlaceQrScanDaily[]
   openingHours  PlaceOpeningHours[]
   submissions   PlaceSubmission[]
+  favorites     Favorite[]
 
   @@index([syncVersion], map: "places_sync_version_idx")
   @@index([areaId, status], map: "places_area_status_idx")
@@ -127,7 +128,8 @@ model Area {
   createdAt   DateTime                                @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime                                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  places Place[]
+  places   Place[]
+  mapPacks MapPack[]
 
   @@map("areas")
 }
@@ -326,4 +328,54 @@ model OwnerEntitlement {
   updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("owner_entitlements")
+}
+
+/// A device's saved Places (rdm-spec C-13).
+model Favorite {
+  /// ref ➔ identity.devices.id
+  deviceId  String   @map("device_id") @db.Uuid
+  placeId   String   @map("place_id") @db.Uuid
+  /// ref ➔ identity.users.id — from the caller when saved signed in, or `identity.device.claimed`.
+  userId    String?  @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@id([deviceId, placeId])
+  @@index([userId], map: "favorites_user_idx")
+  @@map("favorites")
+}
+
+/// A published, versioned PMTiles map for an area (rdm-spec C-14, ADR 0023).
+model MapPack {
+  id                String    @id @db.Uuid
+  areaId            String    @map("area_id") @db.Uuid
+  version           Int
+  /// MapPackStatus in `@wayfare/contracts`
+  status            String    @db.VarChar(16)
+  pmtilesObjectPath String    @map("pmtiles_object_path") @db.VarChar(512)
+  pmtilesSha256     String    @map("pmtiles_sha256") @db.Char(64)
+  pmtilesBytes      BigInt    @map("pmtiles_bytes")
+  styleObjectPath   String    @map("style_object_path") @db.VarChar(512)
+  /// `MapPackAssets`: `{ style, files }`, each `{ path, sha256, bytes }` — the style (its path is also
+  /// `style_object_path`) and every glyph range and sprite file.
+  assets            Json      @db.JsonB
+  source            String    @db.VarChar(64)
+  sourceDate        DateTime  @map("source_date") @db.Date
+  minZoom           Int       @map("min_zoom") @db.SmallInt
+  maxZoom           Int       @map("max_zoom") @db.SmallInt
+  buildTool         String    @map("build_tool") @db.VarChar(64)
+  /// Stamped when the retention job has deleted a retired pack's objects.
+  objectsDeletedAt  DateTime? @map("objects_deleted_at") @db.Timestamptz(3)
+  publishedAt       DateTime? @map("published_at") @db.Timestamptz(3)
+  retiredAt         DateTime? @map("retired_at") @db.Timestamptz(3)
+  /// ref ➔ identity.users.id
+  createdById       String    @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  area Area @relation(fields: [areaId], references: [id], onDelete: Restrict)
+
+  @@unique([areaId, version], map: "map_packs_area_version_key")
+  @@map("map_packs")
 }

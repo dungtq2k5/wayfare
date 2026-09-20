@@ -21,6 +21,7 @@ import {
 import {
   AudioStatus,
   CategoryAppliesTo,
+  MapPackStatus,
   PlaceInactiveReason,
   PlaceKind,
   PlaceStatus,
@@ -47,6 +48,7 @@ import {
   AudioStatus as ProtoAudioStatus,
   CategoryAppliesTo as ProtoCategoryAppliesTo,
   ContentTier as ProtoContentTier,
+  MapPackStatus as ProtoMapPackStatus,
   MenuCurrency as ProtoMenuCurrency,
   PlaceInactiveReason as ProtoPlaceInactiveReason,
   PlaceKind as ProtoPlaceKind,
@@ -158,6 +160,13 @@ export const categoryAppliesToProto = protoEnumBridge(
   'CategoryAppliesTo',
   CategoryAppliesTo,
   ProtoCategoryAppliesTo,
+);
+
+/** `MapPackStatus` ⇄ `wayfare.catalog.MapPackStatus`. */
+export const mapPackStatusProto = protoEnumBridge(
+  'MapPackStatus',
+  MapPackStatus,
+  ProtoMapPackStatus,
 );
 
 /** `AudioStatus` ⇄ `wayfare.catalog.AudioStatus`. */
@@ -296,6 +305,7 @@ export const PROTO_ENUM_BRIDGES = [
   placeStatusProto,
   placeInactiveReasonProto,
   categoryAppliesToProto,
+  mapPackStatusProto,
   audioStatusProto,
   translationSourceProto,
   uploadPurposeProto,

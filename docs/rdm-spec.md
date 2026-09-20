@@ -910,7 +910,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **device_id** | UUID | PK, ref ➔ identity.devices.id | No FK — devices live in another database. |
 | **place_id** | UUID | PK, FK ➔ places.id, CASCADE | — |
-| **user_id** | UUID | Nullable, ref ➔ identity.users.id, Indexed | **Denormalized from `identity.device.claimed`**, cleared by `identity.user.erased`. Cross-device sync reads `WHERE user_id = ?` and de-duplicates by `place_id`. |
+| **user_id** | UUID | Nullable, ref ➔ identity.users.id, Indexed | **Denormalized from `identity.device.claimed`** for the rows that existed at the claim, and set from the caller's account on every save by a signed-in device; cleared by `identity.user.erased`. Cross-device sync reads `WHERE user_id = ?` and de-duplicates by `place_id`. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - Deleted by the `identity.device.forgotten` consumer. Favourites on a soft-deleted Place are kept and filtered on read, so a restored Place reappears in the list.
@@ -929,12 +929,13 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **pmtiles_sha256** | CHAR(64) | NOT NULL | — |
 | **pmtiles_bytes** | BIGINT | NOT NULL | — |
 | **style_object_path** | VARCHAR(512) | NOT NULL | Style JSON referencing only self-hosted glyphs and sprites. |
-| **assets** | JSONB | NOT NULL | `MapPackAssets`: every glyph range and sprite file with `{ path, sha256, bytes }`. The client verifies each before activation; there are hundreds of glyph files, which is why this is one JSONB list rather than hundreds of rows nobody queries individually. |
+| **assets** | JSONB | NOT NULL | `MapPackAssets`, `{ style, files }`: the style JSON and every glyph range and sprite file, each with `{ path, sha256, bytes }`. The client verifies each before activation; there are hundreds of glyph files, which is why this is one JSONB list rather than hundreds of rows nobody queries individually. |
 | **source** | VARCHAR(64) | NOT NULL | e.g. `geofabrik-vietnam`. |
 | **source_date** | DATE | NOT NULL | Date of the OSM extract. Shown with the attribution. |
 | **min_zoom** | SMALLINT | NOT NULL | — |
 | **max_zoom** | SMALLINT | NOT NULL | `CHECK (max_zoom >= min_zoom)`. |
 | **build_tool** | VARCHAR(64) | NOT NULL | e.g. `planetiler 0.8.x`. Reproducibility. |
+| **objects_deleted_at** | TIMESTAMPTZ(3) | Nullable | Stamped when the retention job has deleted a retired pack's objects. |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **retired_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **created_by_id** | UUID | NOT NULL, ref ➔ identity.users.id | — |
@@ -942,8 +943,10 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Partial unique:** `map_packs_one_published` — `(area_id) WHERE status = 'PUBLISHED'`. Publishing a new version retires the previous one in the same transaction.
+- **Objects live in the media bucket** under `maps/<areaCode>/<buildId>/`, `buildId` being the first 16 hex characters of the archive's SHA-256, so every path is immutable.
+- **Pruning never deletes an object another kept pack still uses.**
 - Retired packs' objects are kept for `MAP_PACK_RETENTION_DAYS` (30), so a client mid-download of the previous version can finish and then update, instead of failing half-way.
-- **There is no offline *content* pack table.** The places / photos / audio half of an offline pack is a manifest computed from C-1, C-4 and C-5 at request time (every asset already carries its `sha256`), versioned by the area's highest `sync_version`, and cached. Storing it would be a second copy of the corpus that could disagree with the first.
+- **There is no offline *content* pack table.** The places / photos / audio half of an offline pack is a manifest computed from C-1, C-4 and C-5 at request time (every asset already carries its `sha256`), versioned by delta sync's cap, and cached — the places part (the area's live Places up to the cap) as an immutable gzipped NDJSON object at `offline/<areaCode>/<lang>/<areaVersion>-<liveCount>.ndjson.gz`, named by the area's own last change and its live count so a change elsewhere reuses it and a Place moving out does not, generated on first request and deleted by a retention job once it is older than the window and no longer current. Storing it in a table would be a second copy of the corpus that could disagree with the first.
 
 #### Table C-15: place_qr_scans_daily
 

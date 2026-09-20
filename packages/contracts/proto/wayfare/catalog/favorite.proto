@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+// A device's saved Places — api-endpoints-plan §2.3, rdm-spec C-13. The caller travels as metadata:
+// a signed-in device reads and removes across every device of its account.
+package wayfare.catalog;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/catalog/place_query.proto";
+import "wayfare/common/page.proto";
+
+service FavoriteService {
+  rpc ListFavorites(ListFavoritesRequest) returns (ListFavoritesResponse);
+  rpc AddFavorite(AddFavoriteRequest) returns (AddFavoriteResponse);
+  rpc RemoveFavorite(RemoveFavoriteRequest) returns (RemoveFavoriteResponse);
+}
+
+message Favorite {
+  string place_id = 1;
+  google.protobuf.Timestamp saved_at = 2;
+  // Distance, walking time and `sponsored` are unset: a favourite has no origin.
+  PlaceSummary place = 3;
+}
+
+message ListFavoritesRequest {
+  wayfare.common.PageRequest page = 1;
+  string lang = 2;
+}
+
+message ListFavoritesResponse {
+  repeated Favorite favorites = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+message AddFavoriteRequest {
+  string place_id = 1;
+}
+
+message AddFavoriteResponse {}
+
+message RemoveFavoriteRequest {
+  string place_id = 1;
+}
+
+message RemoveFavoriteResponse {}

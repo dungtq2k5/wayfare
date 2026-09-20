@@ -70,6 +70,15 @@ export enum MenuCurrency {
   UNRECOGNIZED = -1,
 }
 
+/** Where a map pack stands (rdm-spec C-14). */
+export enum MapPackStatus {
+  MAP_PACK_STATUS_UNSPECIFIED = 0,
+  MAP_PACK_STATUS_BUILDING = 1,
+  MAP_PACK_STATUS_PUBLISHED = 2,
+  MAP_PACK_STATUS_RETIRED = 3,
+  UNRECOGNIZED = -1,
+}
+
 /** Which text a localized record carries (rdm-spec §1.5). */
 export enum ContentTier {
   CONTENT_TIER_UNSPECIFIED = 0,

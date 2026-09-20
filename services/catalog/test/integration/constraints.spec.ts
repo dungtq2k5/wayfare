@@ -99,6 +99,25 @@ describe('catalog schema objects', () => {
     await refuses(constraint, sql());
   });
 
+  /** A map pack row of the fixture area. */
+  const pack = (version: number, status: string, minZoom = 10, maxZoom = 15) =>
+    `INSERT INTO map_packs (id, area_id, version, status, pmtiles_object_path, pmtiles_sha256,
+       pmtiles_bytes, style_object_path, assets, source, source_date, min_zoom, max_zoom,
+       build_tool, created_by_id)
+     SELECT '${newId()}', area_id, ${version}, '${status}', 'maps/a/b/map.pmtiles', '${'a'.repeat(64)}',
+       1, 'maps/a/b/style.json', '{}', 'test', '2026-09-15', ${minZoom}, ${maxZoom}, 'test', '${newId()}'
+     FROM places WHERE id = '${placeId}'`;
+
+  it('map_packs_one_published refuses a second published pack in an area', async () => {
+    await prisma.$executeRawUnsafe(pack(1, 'PUBLISHED'));
+    await refuses('map_packs_one_published', pack(2, 'PUBLISHED'));
+    await prisma.$executeRawUnsafe(pack(3, 'RETIRED'));
+  });
+
+  it('map_packs_zoom_ck refuses a zoom range that runs backwards', async () => {
+    await refuses('map_packs_zoom_ck', pack(10, 'BUILDING', 15, 10));
+  });
+
   it('keeps a public code unique, deleted Places included', async () => {
     const place = await prisma.place.update({
       where: { id: placeId },

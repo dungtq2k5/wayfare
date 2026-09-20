@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+// Map pack registration and publication — api-endpoints-plan §3.6, rdm-spec C-14.
+package wayfare.catalog;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/catalog/place_types.proto";
+
+// The gateway checks `map_pack.manage`; catalog re-hashes every object before accepting a pack.
+service MapPackAdminService {
+  rpc ListMapPacks(ListMapPacksRequest) returns (ListMapPacksResponse);
+  rpc RegisterMapPack(RegisterMapPackRequest) returns (RegisterMapPackResponse);
+  rpc PublishMapPack(PublishMapPackRequest) returns (PublishMapPackResponse);
+}
+
+// One uploaded object: its path in the media bucket, its SHA-256 and its size.
+message MapPackObject {
+  string path = 1;
+  string sha256 = 2;
+  int64 bytes = 3;
+}
+
+message MapPack {
+  string id = 1;
+  string area_id = 2;
+  int32 version = 3;
+  MapPackStatus status = 4;
+  MapPackObject pmtiles = 5;
+  MapPackObject style = 6;
+  repeated MapPackObject assets = 7;
+  int64 total_bytes = 8;
+  string source = 9;
+  // YYYY-MM-DD.
+  string source_date = 10;
+  int32 min_zoom = 11;
+  int32 max_zoom = 12;
+  string build_tool = 13;
+  google.protobuf.Timestamp published_at = 14;
+  google.protobuf.Timestamp retired_at = 15;
+  google.protobuf.Timestamp created_at = 16;
+}
+
+message ListMapPacksRequest {
+  optional string area_id = 1;
+}
+
+message ListMapPacksResponse {
+  repeated MapPack map_packs = 1;
+}
+
+message RegisterMapPackRequest {
+  string area_id = 1;
+  MapPackObject pmtiles = 2;
+  MapPackObject style = 3;
+  repeated MapPackObject assets = 4;
+  string source = 5;
+  string source_date = 6;
+  int32 min_zoom = 7;
+  int32 max_zoom = 8;
+  string build_tool = 9;
+}
+
+message RegisterMapPackResponse {
+  MapPack map_pack = 1;
+}
+
+message PublishMapPackRequest {
+  string map_pack_id = 1;
+}
+
+message PublishMapPackResponse {
+  MapPack map_pack = 1;
+}

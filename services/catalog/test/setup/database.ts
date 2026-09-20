@@ -46,7 +46,7 @@ export function testPrisma(): PrismaService {
  */
 export async function truncateAll(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE places, areas, place_localizations, place_photos, menu_items, menu_item_localizations, pending_uploads, place_qr_scans_daily, place_opening_hours, orphaned_objects, owner_entitlements, outbox_events, processed_events, job_runs RESTART IDENTITY CASCADE',
+    'TRUNCATE places, areas, place_localizations, place_photos, menu_items, menu_item_localizations, pending_uploads, place_qr_scans_daily, place_opening_hours, orphaned_objects, owner_entitlements, favorites, map_packs, outbox_events, processed_events, job_runs RESTART IDENTITY CASCADE',
   );
   const codes = SYSTEM_CATEGORIES.map((entry) => entry.code);
   await prisma.category.deleteMany({ where: { code: { notIn: codes } } });

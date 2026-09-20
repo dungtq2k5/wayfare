@@ -124,8 +124,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<AuditAction, AuditMetadat
     before: ['nameVi', 'defaultZoom', 'sortOrder', 'isActive'],
     after: ['nameVi', 'defaultZoom', 'sortOrder', 'isActive', 'boundaryChanged', 'centerChanged'],
   },
-  [AuditAction.MAP_PACK_REGISTERED]: {},
-  [AuditAction.MAP_PACK_PUBLISHED]: {},
+  [AuditAction.MAP_PACK_REGISTERED]: { after: ['areaId', 'version', 'pmtilesBytes', 'buildTool'] },
+  [AuditAction.MAP_PACK_PUBLISHED]: { before: ['previousVersion'], after: ['version'] },
   [AuditAction.SYNTHESIS_JOB_CREATED]: {
     after: ['targetType', 'targetId', 'trigger', 'langs', 'includeAudio'],
   },

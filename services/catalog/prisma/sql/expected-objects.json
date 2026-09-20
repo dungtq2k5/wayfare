@@ -6,7 +6,8 @@
     "places_active_location_gist",
     "places_owner_live_idx",
     "areas_boundary_gist",
-    "place_submissions_one_pending_update"
+    "place_submissions_one_pending_update",
+    "map_packs_one_published"
   ],
   "constraints": [
     "places_kind_owner_ck",
@@ -26,6 +27,7 @@
     "place_opening_hours_weekday_ck",
     "place_submissions_update_has_place_ck",
     "place_submissions_reviewed_ck",
-    "place_submissions_update_base_ck"
+    "place_submissions_update_base_ck",
+    "map_packs_zoom_ck"
   ]
 }
