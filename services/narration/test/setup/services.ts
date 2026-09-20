@@ -143,6 +143,7 @@ export class FakeTaskQueue {
     return Promise.resolve(this.items.has(`${taskId}-${attempts}`));
   }
 
+  // FIXME Unexpected empty method 'start'.
   start(): void {}
 
   /** The next item by priority, removed; null when empty. */
@@ -186,12 +187,16 @@ export class MemoryStorage implements StorageProvider {
   readonly objects = new Map<string, { data: Buffer; cacheControl: string }>();
   /** When set, uploads wait until this many are pending, then all finish together. */
   barrier: number | null = null;
-  private waiting: (() => void)[] = [];
+  private readonly  waiting: (() => void)[] = [];
 
   signUpload(): never {
     throw new Error('narration signs no uploads');
   }
+  /** When set, `stat` fails instead of answering — an unreachable bucket, not a missing object. */
+  statFailure: Error | null = null;
+
   stat(path: string) {
+    if (this.statFailure !== null) return Promise.reject(this.statFailure);
     const object = this.objects.get(path);
     return Promise.resolve(object === undefined ? null : { bytes: object.data.length });
   }

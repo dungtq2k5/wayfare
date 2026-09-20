@@ -24,6 +24,7 @@ import {
 import type { EventInput, Language } from '@wayfare/contracts';
 import { OutboxService } from '@wayfare/nest-common';
 import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
+import { Counter } from 'prom-client';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
 import type { Prisma } from '../../../generated/prisma/client';
 import { voiceFor } from '../../config/voices';
@@ -130,6 +131,12 @@ function reasonOf(error: unknown): string {
  * active goes through `activate` under the key's advisory lock, and the others follow it
  * (`COALESCED`) and finish with it.
  */
+/** Cached audio rows whose object was gone, so the task synthesized again (rdm-spec N-3). */
+const audioCacheMissingTotal = new Counter({
+  name: 'narration_audio_cache_missing_total',
+  help: 'Audio cache hits whose stored object was missing, re-synthesized.',
+});
+
 @Injectable()
 export class TasksService implements OnApplicationBootstrap {
   private readonly logger = new Logger(TasksService.name);
@@ -521,7 +528,7 @@ export class TasksService implements OnApplicationBootstrap {
         where: { id: task.id },
         select: { status: true, job: { select: { status: true } } },
       });
-      if (now === null || now.status !== RUNNING) return false;
+      if (now?.status !== RUNNING) return false;
       if (now.job.status === PAUSED) {
         await tx.synthesisTask.update({
           where: { id: task.id },
@@ -812,6 +819,18 @@ export class TasksService implements OnApplicationBootstrap {
         },
       });
       if (asset === null) continue;
+      // The row is a claim about a file in a bucket, and the two can disagree — a lost bucket, a
+      // lifecycle rule, a mistaken delete (rdm-spec N-3). A definite not-found is a miss, so the
+      // task synthesizes and stores again over the same path. Any other storage failure is the
+      // task's failure: an unreachable bucket must not re-synthesize every cache hit.
+      if ((await this.storage.stat(asset.objectPath)) === null) {
+        audioCacheMissingTotal.inc();
+        this.logger.warn(
+          { cacheKey, objectPath: asset.objectPath, audioAssetId: asset.id },
+          'a cached audio object is gone; synthesizing again',
+        );
+        continue;
+      }
       await this.advance(task, SynthesisStage.PUBLISH, {
         speechProvider: provider.name,
         voiceId: voice.id,
@@ -947,7 +966,7 @@ export class TasksService implements OnApplicationBootstrap {
         where: { id: task.id },
         select: { status: true, attempts: true, stage: true, job: { select: { status: true } } },
       });
-      if (now === null || now.status !== RUNNING) return;
+      if (now?.status !== RUNNING) return;
       const jobStatus = now.job.status as SynthesisJobStatus;
       if (jobStatus !== SynthesisJobStatus.PAUSED && !LIVE_UNPAUSED.has(jobStatus)) {
         await this.cancelActive(tx, task, fx);

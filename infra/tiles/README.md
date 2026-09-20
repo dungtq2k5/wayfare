@@ -23,6 +23,16 @@ Every input is pinned in `versions.env`. Protomaps removes old daily builds afte
 
 When `BASEMAPS_VERSION` moves, move `BASEMAPS_ASSETS_COMMIT` with it: the style names the font stacks and sprites that commit provides.
 
+## After a lost bucket
+
+The emulator keeps its objects in a named volume, so `docker compose down` and `up` keep them. `docker compose down -v` does not — and then narration's `audio_assets` and catalog's rows still name files that are gone. To come back:
+
+1. `pnpm --filter @wayfare/catalog storage:setup` — the bucket and its CORS rules.
+2. `pnpm tiles:build --area <code>` for every registered pack. The build is deterministic, so the same bytes land on the same `maps/<areaCode>/<buildId>/` paths and the existing rows stay valid; nothing is re-registered. Register a new pack only if a pin in `versions.env` has moved since.
+3. `pnpm recover:narration` — retries the jobs that failed while the bucket was gone, and regenerates the Places whose audio objects went with it.
+
+Photos are not recoverable: the seed commits none, so whatever a walk uploaded is gone for good. Delete the Places that hold them, or replace their photos through the console.
+
 ## Licences and attribution
 
 - **Map data:** © OpenStreetMap contributors, under the [ODbL](https://opendatacommons.org/licenses/odbl/), as processed by [Protomaps](https://protomaps.com). The style's source `attribution` carries both credits, and every client shows it.

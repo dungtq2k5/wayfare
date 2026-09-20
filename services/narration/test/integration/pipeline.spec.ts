@@ -1,4 +1,5 @@
 // A Place's job from catalog's event to its published text and audio (rdm-spec N-1 to N-4).
+import { createHash } from 'node:crypto';
 import {
   NARRATION_LOCALIZATION_READY,
   SynthesisJobStatus,
@@ -6,6 +7,7 @@ import {
   SynthesisTrigger,
 } from '@wayfare/contracts';
 import { menuContentChangedFixture } from '@wayfare/contracts/testing';
+import { register } from 'prom-client';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_MS_PER_CHAR } from '../../src/providers/speech/fake.speech-provider';
 import { splitSsml, placeSsmlBody } from '../../src/modules/tasks/domain/ssml';
@@ -231,5 +233,67 @@ describe('a Place job', () => {
     expect(
       events.every((event) => event.targetType === 'MENU_ITEM' && event.audio === undefined),
     ).toBe(true);
+  });
+});
+
+describe('a cached audio object that is gone (rdm-spec N-3)', () => {
+  /** The place's finished job, and the `en` asset it cached. */
+  async function synthesized() {
+    const place = services.catalog.place();
+    await services.jobs.fromPlaceContent(placeChanged(place.id, place.hash), PLACE_CONSUMER);
+    await services.queue.drain();
+    const asset = await prisma.audioAsset.findFirstOrThrow({ where: { lang: 'en' } });
+    return { place, asset };
+  }
+
+  const regenerate = async (placeId: string) => {
+    await services.jobs.createManualJob(manualRequest(placeId, ['en']), staff());
+    await services.queue.drain();
+  };
+
+  const missingTotal = async () => {
+    const metric = register.getSingleMetric('narration_audio_cache_missing_total');
+    const values = (await metric!.get()).values;
+    return values[0]?.value ?? 0;
+  };
+
+  it('is a miss: the task synthesizes again over the same path and reuses the row', async () => {
+    const { place, asset } = await synthesized();
+    const before = await missingTotal();
+    services.storage.objects.delete(asset.objectPath);
+
+    await regenerate(place.id);
+
+    // Stored again, at the path the cache key names, and published with the hash of those bytes.
+    const stored = services.storage.objects.get(asset.objectPath);
+    expect(stored).toBeDefined();
+    const published = (await readyEvents()).filter(
+      (event) => event.lang === 'en' && event.audio !== undefined,
+    );
+    expect((published.at(-1)!.audio as { sha256: string }).sha256).toBe(
+      createHash('sha256').update(stored!.data).digest('hex'),
+    );
+    // The same row: its path is derived from the cache key, so nothing new is inserted.
+    const rows = await prisma.audioAsset.findMany({ where: { cacheKey: asset.cacheKey } });
+    expect(rows.map((row) => row.id)).toEqual([asset.id]);
+    expect(rows[0]!.lastReferencedAt.getTime()).toBeGreaterThanOrEqual(
+      asset.lastReferencedAt.getTime(),
+    );
+    expect(await missingTotal()).toBe(before + 1);
+  });
+
+  it('fails the task when storage cannot answer, and synthesizes nothing', async () => {
+    const { place, asset } = await synthesized();
+    const before = await missingTotal();
+    services.storage.objects.delete(asset.objectPath);
+    services.storage.statFailure = new Error('storage is unreachable');
+
+    await regenerate(place.id);
+
+    const [, second] = await jobsOf(prisma, place.id);
+    expect(second!.tasks.map((task) => task.status)).toEqual([SynthesisTaskStatus.FAILED]);
+    expect(services.storage.objects.has(asset.objectPath)).toBe(false);
+    expect(await missingTotal()).toBe(before);
+    services.storage.statFailure = null;
   });
 });

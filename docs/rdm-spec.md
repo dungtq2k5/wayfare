@@ -1095,6 +1095,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **last_referenced_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Bumped whenever a `narration.localization.ready` event names this asset. |
 
 - **Long texts are synthesized in chunks.** The final SSML is split at sentence boundaries into chunks under the provider's input limit (Google's is 5 000 bytes), synthesized in order and joined into one file; the key is still over the whole final SSML, and `duration_ms` is the joined file's.
+- **A cache hit verifies its object.** The row is a claim about a file in a bucket, and the two can disagree (a lost local bucket, a lifecycle rule, a mistaken delete): a task stats the object before reusing the row, treats a missing one as a miss, and synthesizes and stores again.
 - **Never updated** except `last_referenced_at`. A cache hit is a lookup on `cache_key`, which is what makes five languages affordable.
 - **Garbage collection:** an asset whose `last_referenced_at` is older than `AUDIO_ASSET_RETENTION_DAYS` (180) is deleted — object first, row second. 180 days comfortably exceeds any offline pack a client could still be verifying.
 

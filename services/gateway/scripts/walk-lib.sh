@@ -87,6 +87,12 @@ catalog_sql() {
     psql -U wayfare -d wayfare_catalog -At -v ON_ERROR_STOP=1 -c "$1")
 }
 
+# narration_sql SQL — runs SQL against the local narration database and prints the bare result.
+narration_sql() {
+  (cd "$repo_root" && docker compose exec -T narration-db \
+    psql -U wayfare -d wayfare_narration -At -v ON_ERROR_STOP=1 -c "$1")
+}
+
 # ready_event PLACE_ID LANG HASH [AUDIO_HASH|none] — a `narration.localization.ready` payload,
 # shaped by the contracts' own fixture (the built package).
 ready_event() {

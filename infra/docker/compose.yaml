@@ -115,7 +115,9 @@ services:
       retries: 20
 
   # The media bucket's emulator (architecture §3.6). `-public-host` makes signed PUTs resolve;
-  # the bucket comes from `pnpm --filter @wayfare/catalog storage:setup`.
+  # the bucket comes from `pnpm --filter @wayfare/catalog storage:setup`. Its objects live in a
+  # named volume — the flags are the emulator's own defaults, the mount is what keeps photos,
+  # audio and map packs across `down` and `up`; `down -v` clears them.
   fake-gcs:
     container_name: wayfare-fake-gcs
     image: fsouza/fake-gcs-server:1.56
@@ -129,7 +131,12 @@ services:
         'http://localhost:4443',
         '-public-host',
         'localhost:4443',
+        '-backend',
+        'filesystem',
+        '-filesystem-root',
+        '/storage',
       ]
+    volumes: ['fake-gcs-data:/storage']
     ports: ['4443:4443']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:4443/storage/v1/b']
@@ -360,6 +367,7 @@ services:
       retries: 30
 
 volumes:
+  fake-gcs-data:
   identity-db:
   catalog-db:
   narration-db:

@@ -27,7 +27,8 @@
     "proto:generate": "pnpm --filter @wayfare/contracts proto:generate",
     "proto:lint": "pnpm --filter @wayfare/contracts proto:lint",
     "proto:breaking": "pnpm --filter @wayfare/contracts proto:breaking",
-    "tiles:build": "bash infra/tiles/build.sh"
+    "tiles:build": "bash infra/tiles/build.sh",
+    "recover:narration": "bash services/gateway/scripts/recover-narration.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
