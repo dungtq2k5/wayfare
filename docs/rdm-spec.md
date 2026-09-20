@@ -1147,15 +1147,16 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **locale** | VARCHAR(16) | NOT NULL | — |
 | **source_hash** | CHAR(64) | NOT NULL | Hash of the English source bundle this translation was made from. |
 | **status** | VARCHAR(16) | NOT NULL | `PENDING \| READY \| FAILED` |
-| **origin** | VARCHAR(16) | NOT NULL | `STATIC \| MACHINE`. Launch languages are `STATIC` — committed in `packages/i18n` and loaded by the seeder, never machine-translated. Long-tail locales are `MACHINE`. |
+| **origin** | VARCHAR(16) | NOT NULL | `STATIC \| MACHINE`. A locale is `STATIC` once its translation is **committed** in `packages/i18n` and loaded by the seeder, and is then never machine-translated; the launch languages are expected to be, and the seed's report names any that are not yet. Everything else is `MACHINE`. |
 | **messages** | JSONB | Nullable | Flat `{ key: ICU string }`. NULL while `PENDING`. |
 | **failed_keys** | VARCHAR(128)[] | NOT NULL, **no column default** | Keys whose machine translation broke an ICU placeholder and fall back to English individually. `{}` when none. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Unique:** `(namespace, locale, source_hash)`.
+- **Launch bundles are system rows:** narration's `db:seed:system` upserts a `STATIC`, `READY` row per namespace and launch locale from `packages/i18n` at the current source hash, in every environment. An uncommitted locale is machine-translated once per `(namespace, source_hash)`: the first request inserts `PENDING`, queues the translation on narration's own work queue — a bundle has no catalog row, no audio and no `ready` event, so it never rides `synthesis_jobs` — and is served English.
 - **Every machine-translated string is validated for placeholder parity** — the set of `{name}` / `{count, plural, …}` arguments must equal the English source's. A translation that drops `{count}` renders "You have  places" in production and passes every test that does not render it; such keys go to `failed_keys` and serve English.
-- Only the three newest `source_hash` rows per `(namespace, locale)` are kept.
+- Only the three newest `source_hash` rows per `(namespace, locale)` are kept, pruned on write.
 
 #### Table N-7: localization_overrides
 

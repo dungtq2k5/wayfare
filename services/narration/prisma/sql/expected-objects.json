@@ -5,7 +5,8 @@
     "synthesis_tasks_one_active",
     "pronunciation_term_lang_key",
     "pronunciation_term_all_key",
-    "localization_overrides_one_active"
+    "localization_overrides_one_active",
+    "ui_bundles_namespace_locale_hash_key"
   ],
   "constraints": [
     "synthesis_jobs_target_ck",

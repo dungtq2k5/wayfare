@@ -23,6 +23,13 @@ export class LocalizationSourcesGrpcController implements catalogGrpc.PlaceServi
     return this.sources.countOwnerPlaces(request);
   }
 
+  listNarrationCandidates(
+    request: catalogGrpc.ListNarrationCandidatesRequest,
+    metadata?: Metadata,
+  ): Promise<catalogGrpc.ListNarrationCandidatesResponse> {
+    return this.sources.listNarrationCandidates(request, unpackCallerContext(metadata));
+  }
+
   searchLocalizedText(
     request: catalogGrpc.SearchLocalizedTextRequest,
     metadata?: Metadata,

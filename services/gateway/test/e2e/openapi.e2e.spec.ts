@@ -70,6 +70,9 @@ const DEVICE_ROUTES = new Set([
   'GET /api/v1/places/{id}',
   'GET /api/v1/places/by-code/{publicCode}',
   'POST /api/v1/narration/on-demand',
+  'POST /api/v1/narration/hotset',
+  'POST /api/v1/narration/prefetch',
+  'GET /api/v1/narration/tts/stream',
   'GET /api/v1/narration/places/{placeId}/status',
   'GET /api/v1/offline/areas/{areaId}/manifest',
   'GET /api/v1/offline/areas/{areaId}/manifest/diff',
@@ -82,18 +85,29 @@ const DEVICE_ROUTES = new Set([
 const TWO_SUCCESSES = new Map([['POST /api/v1/narration/on-demand', ['200', '202']]]);
 
 /** Public reads a CDN may hold. */
-const PUBLIC_READS = new Set(['GET /api/v1/categories', 'GET /api/v1/areas']);
+const PUBLIC_READS = new Set([
+  'GET /api/v1/categories',
+  'GET /api/v1/areas',
+  'GET /api/v1/i18n/bundles/{namespace}/{locale}',
+]);
+
+/**
+ * A `202` carries no body, except where the endpoint plan says what it accepted: a prefetch
+ * answers which ids it queued and which it passed over (api-endpoints-plan §4.1).
+ */
+const ACCEPTED_WITH_DATA = new Set(['POST /api/v1/narration/prefetch']);
 
 /** Bodies that are not the JSON envelope, with their media type. */
 const NON_JSON = new Map([
   ['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml'],
   ['POST /api/v1/admin/narration/pronunciations/preview', 'audio/mpeg'],
+  ['GET /api/v1/narration/tts/stream', 'audio/mpeg'],
 ]);
 
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(142);
+    expect(names).toHaveLength(146);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/q/'))).toBe(false);
@@ -147,7 +161,7 @@ describe('OpenAPI contract', () => {
         expect(operation.responses[status!]?.content, name).toEqual({
           [mediaType]: { schema: { type: 'string' } },
         });
-      else if (status === '204' || status === '202')
+      else if (status === '204' || (status === '202' && !ACCEPTED_WITH_DATA.has(name)))
         expect(operation.responses[status]?.content, name).toBeUndefined();
       else
         expect(

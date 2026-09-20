@@ -14,6 +14,29 @@ import { AudioStatus, PlaceKind, PlaceStatus, TranslationSource } from "./place_
 
 export const protobufPackage = "wayfare.catalog";
 
+/** Distance only, nearest first: boost never reaches narration (ADR 0007). */
+export interface ListNarrationCandidatesRequest {
+  lat: number;
+  lng: number;
+  radiusM: number;
+  limit: number;
+  /** The language whose readiness is reported. */
+  lang: string;
+}
+
+export interface ListNarrationCandidatesResponse {
+  candidates: NarrationCandidate[];
+}
+
+/** One nearby Place: its current source version, and what exists for the requested language. */
+export interface NarrationCandidate {
+  placeId: string;
+  contentHash: string;
+  /** A Place with no row for the language is false, false — not omitted. */
+  textReady: boolean;
+  audioReady: boolean;
+}
+
 export interface SearchLocalizedTextRequest {
   /** The term as written, with its diacritics; matched whole-word, case-insensitively. */
   term: string;
@@ -120,6 +143,13 @@ export interface PlaceServiceClient {
     request: SearchLocalizedTextRequest,
     metadata?: Metadata,
   ): Observable<SearchLocalizedTextResponse>;
+
+  /** The nearest ACTIVE Places and their readiness — what a language switch warms up. */
+
+  listNarrationCandidates(
+    request: ListNarrationCandidatesRequest,
+    metadata?: Metadata,
+  ): Observable<ListNarrationCandidatesResponse>;
 }
 
 /** catalog's service-to-service reads. A tourist route never reaches it. */
@@ -145,11 +175,26 @@ export interface PlaceServiceController {
     request: SearchLocalizedTextRequest,
     metadata?: Metadata,
   ): Promise<SearchLocalizedTextResponse> | Observable<SearchLocalizedTextResponse> | SearchLocalizedTextResponse;
+
+  /** The nearest ACTIVE Places and their readiness — what a language switch warms up. */
+
+  listNarrationCandidates(
+    request: ListNarrationCandidatesRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ListNarrationCandidatesResponse>
+    | Observable<ListNarrationCandidatesResponse>
+    | ListNarrationCandidatesResponse;
 }
 
 export function PlaceServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getLocalizationSource", "countOwnerPlaces", "searchLocalizedText"];
+    const grpcMethods: string[] = [
+      "getLocalizationSource",
+      "countOwnerPlaces",
+      "searchLocalizedText",
+      "listNarrationCandidates",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("PlaceService", method)(constructor.prototype[method], method, descriptor);

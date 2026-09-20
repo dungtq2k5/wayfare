@@ -8,29 +8,42 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OnDemandStatus } from '@wayfare/contracts';
+import type { HotsetResponse, PrefetchResponse } from '@wayfare/contracts';
 import {
   ApiEnvelope,
   ApiErrors,
   Auth,
   Ctx,
+  NoStore,
   PrivateCache,
   RateLimit,
+  SkipEnvelope,
   UsesUpstream,
 } from '@wayfare/nest-common';
 import type { RequestContext } from '@wayfare/nest-common';
 import type { Response } from 'express';
 import { ZodSerializerDto } from 'nestjs-zod';
 import {
+  HotsetResponseDto,
   NarrationStatusResponseDto,
   OnDemandAnsweredResponseDto,
   OnDemandPendingResponseDto,
   OnDemandResponseDto,
+  PrefetchResponseDto,
 } from './dto/narration-response.dto';
 import type { OnDemandAnswer } from './dto/narration-response.dto';
-import { NarrationPlaceParamDto, NarrationStatusQueryDto, OnDemandDto } from './dto/narration.dto';
+import {
+  HotsetDto,
+  NarrationPlaceParamDto,
+  NarrationStatusQueryDto,
+  OnDemandDto,
+  PrefetchDto,
+  StreamQueryDto,
+} from './dto/narration.dto';
 import { NarrationService } from './narration.service';
 
 /** `/narration` — on-demand narration for tourist devices (api-endpoints-plan §4.1). */
@@ -63,6 +76,50 @@ export class NarrationController {
     const answer = await this.narration.onDemand(context, body);
     if (answer.status === OnDemandStatus.PENDING) res.status(HttpStatus.ACCEPTED);
     return answer;
+  }
+
+  @Post('hotset')
+  @HttpCode(HttpStatus.OK)
+  @Auth('DEVICE')
+  @RateLimit('NARRATION_ON_DEMAND')
+  @NoStore()
+  @ApiOperation({
+    summary: 'A language switch: the nearest Places, warmed; the switch waits for a few of them.',
+  })
+  @ApiEnvelope(HotsetResponseDto)
+  @ZodSerializerDto(HotsetResponseDto)
+  hotset(@Ctx() context: RequestContext, @Body() body: HotsetDto): Promise<HotsetResponse> {
+    return this.narration.hotset(context, body);
+  }
+
+  @Post('prefetch')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Auth('DEVICE')
+  @RateLimit('NARRATION_ON_DEMAND')
+  @NoStore()
+  @ApiOperation({
+    summary: 'Warm the Places ahead of the walker, behind everything a tourist taps.',
+  })
+  @ApiEnvelope(PrefetchResponseDto, { status: HttpStatus.ACCEPTED })
+  @ZodSerializerDto(PrefetchResponseDto)
+  prefetch(@Ctx() context: RequestContext, @Body() body: PrefetchDto): Promise<PrefetchResponse> {
+    return this.narration.prefetch(context, body);
+  }
+
+  @Get('tts/stream')
+  @Auth('DEVICE')
+  @RateLimit('NARRATION_ON_DEMAND')
+  @NoStore()
+  @SkipEnvelope()
+  // No static `Content-Type`: the `StreamableFile` carries `audio/mpeg` when there are bytes, and
+  // a refusal stays an ordinary JSON envelope (api-endpoints-plan §4.1).
+  @ApiOperation({
+    summary: 'Audio tier 2: made now if it does not exist, and stored so the next tap is tier 1.',
+  })
+  @ApiEnvelope(null, { status: 200, mediaType: 'audio/mpeg' })
+  @ApiErrors('RESOURCE_NOT_FOUND', 'INVALID_STATE', 'LANGUAGE_NOT_ENTITLED', 'UPSTREAM_UNAVAILABLE')
+  stream(@Ctx() context: RequestContext, @Query() query: StreamQueryDto): Promise<StreamableFile> {
+    return this.narration.stream(context, query);
   }
 
   @Get('places/:placeId/status')

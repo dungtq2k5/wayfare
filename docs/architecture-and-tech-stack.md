@@ -323,6 +323,7 @@ It also holds identity's **revocation state** — each user's token cutoff and t
 - **Forms:** **React Hook Form** + the same **zod** schemas the backend uses, shared via `packages/contracts`. One definition of "a valid place", validated on both sides.
 - **i18n:** **i18next** + **react-i18next** (which works in React Native too).
   - Two independent lanes, per `product-overview.md` §10: **UI strings** (i18next bundles, fetched and cached per locale) and **content locale** (place text + audio from the API). They warm at different speeds and must not block each other.
+  - The bundles' source lives in `packages/i18n/locales/<locale>/<namespace>.json` — `tourist`, `console` and `email` — with **English as the source** and the launch locales committed beside it; `/i18n/bundles/:namespace/:locale` serves them and machine-translates the long tail (rdm-spec N-6). The `tourist` bundle also carries `category.<code>` and `area.<code>`, the names those tables deliberately do not hold.
   - ⚠️ Gotcha: use ICU plural rules from day one. Vietnamese, Chinese, Japanese and Korean have no plural forms; English does. Hand-rolled `count === 1 ? x : y` breaks all four.
   - ⚠️ Gotcha: lazy-load namespaces. Shipping all five languages' strings in the initial bundle is a slow cold start on a hotel Wi-Fi connection, and the long-tail locales make it unbounded.
 - **Styling:** 📌 [ADR 0030](./decisions/0030-tailwind-and-nativewind.md) — **Tailwind CSS 4** on web, **NativeWind 4** on mobile, plus **shadcn/ui** for the console's data-heavy admin screens.

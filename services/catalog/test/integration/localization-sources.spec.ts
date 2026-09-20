@@ -1,5 +1,12 @@
-import { newId, PlaceKind, PlaceStatus } from '@wayfare/contracts';
+import {
+  HOTSET_MAX_PLACES,
+  HOTSET_RADIUS_M,
+  newId,
+  PlaceKind,
+  PlaceStatus,
+} from '@wayfare/contracts';
 import { catalogGrpc, localizationGrpc } from '@wayfare/contracts/grpc';
+import { FIXTURE_INSIDE } from '@wayfare/contracts/testing';
 import { buildAnonymousContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { LocalizationSourcesService } from '../../src/modules/localization-sources/localization-sources.service';
@@ -193,5 +200,126 @@ describe('SearchLocalizedText', () => {
     // `\M` cannot follow `+`, so the right boundary is dropped rather than matching nothing.
     expect((await search('C++')).items.map((match) => match.targetId)).toEqual([place.id]);
     expect((await search('C..')).items).toEqual([]);
+  });
+});
+
+describe('ListNarrationCandidates', () => {
+  const candidates = (over: Partial<catalogGrpc.ListNarrationCandidatesRequest> = {}) =>
+    sources.listNarrationCandidates(
+      {
+        lat: FIXTURE_INSIDE.lat,
+        lng: FIXTURE_INSIDE.lng,
+        radiusM: HOTSET_RADIUS_M,
+        limit: HOTSET_MAX_PLACES,
+        lang: 'ja',
+        ...over,
+      },
+      system,
+    );
+
+  /** A Place `metres` north of the fixture point. */
+  const north = (metres: number) => ({
+    lat: FIXTURE_INSIDE.lat + metres / 111_320,
+    lng: FIXTURE_INSIDE.lng,
+  });
+
+  it('answers the nearest live Places with their readiness, a missing row as false', async () => {
+    const heard = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      location: north(50),
+    });
+    await insertLocalization(prisma, heard.id, 'ja', heard.contentHash);
+    const textOnly = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      location: north(150),
+    });
+    await insertLocalization(prisma, textOnly.id, 'ja', textOnly.contentHash, { audioHash: null });
+    const silent = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      location: north(250),
+    });
+
+    const { candidates: found } = await candidates();
+    expect(found).toEqual([
+      { placeId: heard.id, contentHash: heard.contentHash, textReady: true, audioReady: true },
+      {
+        placeId: textOnly.id,
+        contentHash: textOnly.contentHash,
+        textReady: true,
+        audioReady: false,
+      },
+      // No row for `ja` at all: answered, so the caller knows to warm it (api-endpoints-plan §12.2).
+      { placeId: silent.id, contentHash: silent.contentHash, textReady: false, audioReady: false },
+    ]);
+  });
+
+  it('counts a localization made from older text as not ready', async () => {
+    const moved = await insertPlace(prisma, { areaId: tax.area.id, categoryId: tax.any.id });
+    await insertLocalization(prisma, moved.id, 'ja', 'a'.repeat(64));
+    const [only] = (await candidates()).candidates;
+    expect(only).toMatchObject({ textReady: false, audioReady: false });
+
+    // Text of the current version whose audio is a version behind is text-ready only (C-4).
+    await prisma.placeLocalization.updateMany({
+      where: { placeId: moved.id, lang: 'ja' },
+      data: { sourceContentHash: moved.contentHash },
+    });
+    expect((await candidates()).candidates[0]).toMatchObject({
+      textReady: true,
+      audioReady: false,
+    });
+  });
+
+  it('ignores boost, distance and the radius aside, and skips what a tourist cannot reach', async () => {
+    const near = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      location: north(100),
+    });
+    // Only a Venue may carry boost, and it makes no difference here.
+    const boosted = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      kind: PlaceKind.VENUE,
+      location: north(400),
+      discoveryBoost: 100,
+    });
+    await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      location: north(400),
+      status: PlaceStatus.DRAFT,
+    });
+    await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      location: north(400),
+      deleted: true,
+    });
+    await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.any.id,
+      location: north(900),
+    });
+
+    // The boosted Place is further away, so it comes second: narration never sees boost (ADR 0007).
+    const ordered = (await candidates({ radiusM: 500 })).candidates.map((row) => row.placeId);
+    expect(ordered).toEqual([near.id, boosted.id]);
+    expect((await candidates({ limit: 1 })).candidates.map((row) => row.placeId)).toEqual([
+      near.id,
+    ]);
+  });
+
+  it('refuses a radius or a size beyond the hotset bounds, and an unknown language', async () => {
+    expect((await errorOf(candidates({ radiusM: HOTSET_RADIUS_M + 1 }))).code).toBe(
+      'VALIDATION_FAILED',
+    );
+    expect((await errorOf(candidates({ limit: HOTSET_MAX_PLACES + 1 }))).code).toBe(
+      'VALIDATION_FAILED',
+    );
+    expect((await errorOf(candidates({ lang: 'xx' }))).code).toBe('VALIDATION_FAILED');
   });
 });

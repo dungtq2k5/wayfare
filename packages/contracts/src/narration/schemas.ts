@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { AudioStatus } from '../catalog/enums';
 import { zPlaceAudio } from '../catalog/sync';
+import { PREFETCH_MAX_PLACES } from '../catalog/limits';
 import { zUuidV7 } from '../common/ids';
-import { zRequestedLanguage } from '../common/languages';
+import { MAX_LANGUAGE_CODE_LENGTH, zRequestedLanguage } from '../common/languages';
 import { zSha256Hex } from '../events/event-definition';
 import {
   LocalizationTargetType,
@@ -10,6 +11,8 @@ import {
   SynthesisStage,
   SynthesisTaskStatus,
   SynthesisTrigger,
+  UiBundleNamespace,
+  UiBundleStatus,
 } from './enums';
 
 const zInstant = z.iso.datetime({ offset: true });
@@ -152,3 +155,70 @@ export const zVoiceCatalogue = z
   .strict();
 /** One language's voices. */
 export type VoiceCatalogue = z.output<typeof zVoiceCatalogue>;
+
+/** `POST /narration/hotset` body — a language switch's warmup (api-endpoints-plan §4.1). */
+export const zHotsetRequest = z
+  .object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    lang: zRequestedLanguage,
+  })
+  .strict();
+/** A hotset request. */
+export type HotsetRequest = z.output<typeof zHotsetRequest>;
+
+/**
+ * What the warmup found: the Places a tourist can already hear, the ones being made, and how many
+ * of them the switch waits for — the count travels so the client never holds it.
+ */
+export const zHotsetResponse = z
+  .object({
+    ready: z.array(zUuidV7),
+    pending: z.array(zUuidV7),
+    requiredReadyCount: z.number().int().min(0),
+  })
+  .strict();
+/** A hotset answer. */
+export type HotsetResponse = z.output<typeof zHotsetResponse>;
+
+/** `POST /narration/prefetch` body: at most `PREFETCH_MAX_PLACES` ids (api-endpoints-plan §4.1). */
+export const zPrefetchRequest = z
+  .object({
+    placeIds: z.array(zUuidV7).min(1).max(PREFETCH_MAX_PLACES),
+    lang: zRequestedLanguage,
+  })
+  .strict();
+/** A prefetch request. */
+export type PrefetchRequest = z.output<typeof zPrefetchRequest>;
+
+/** What the prefetch queued, and what it passed over: already ready, unknown or not live. */
+export const zPrefetchResponse = z
+  .object({ queued: z.array(zUuidV7), skipped: z.array(zUuidV7) })
+  .strict();
+/** A prefetch answer. */
+export type PrefetchResponse = z.output<typeof zPrefetchResponse>;
+
+/** `GET /narration/tts/stream` query — audio tier 2 (api-endpoints-plan §4.1). */
+export const zStreamRequest = z.object({ placeId: zUuidV7, lang: zRequestedLanguage }).strict();
+/** A stream request. */
+export type StreamRequest = z.output<typeof zStreamRequest>;
+
+/**
+ * `GET /i18n/bundles/:namespace/:locale` (api-endpoints-plan §4.2). `PENDING` carries the English
+ * strings, so a client renders something immediately and asks again after `retryAfterMs`.
+ */
+export const zUiBundleResponse = z
+  .object({
+    namespace: z.enum(UiBundleNamespace),
+    locale: z.string().min(2).max(MAX_LANGUAGE_CODE_LENGTH),
+    status: z.enum([UiBundleStatus.READY, UiBundleStatus.PENDING]),
+    sourceHash: zSha256Hex,
+    messages: z.record(z.string(), z.string()),
+    /** Keys whose translation broke an ICU placeholder and are served in English (rdm-spec N-6). */
+    failedKeys: z.array(z.string()),
+    /** `PENDING` only. */
+    retryAfterMs: z.number().int().min(0).nullable(),
+  })
+  .strict();
+/** One UI string bundle. */
+export type UiBundleResponse = z.output<typeof zUiBundleResponse>;

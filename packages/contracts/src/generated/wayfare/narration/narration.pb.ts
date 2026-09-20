@@ -59,6 +59,45 @@ export interface GetNarrationStatusResponse {
   stale: boolean;
 }
 
+/** The nearest Places a language switch warms up (api-endpoints-plan §4.1). */
+export interface HotsetRequest {
+  lat: number;
+  lng: number;
+  lang: string;
+}
+
+export interface HotsetResponse {
+  /** Places a tourist can hear now. */
+  ready: string[];
+  /** Places being made. */
+  pending: string[];
+  /** How many of them the switch waits for. */
+  requiredReadyCount: number;
+}
+
+/** Background warmup ahead of the walker. */
+export interface PrefetchRequest {
+  placeIds: string[];
+  lang: string;
+}
+
+export interface PrefetchResponse {
+  queued: string[];
+  /** Already ready, unknown or not live. */
+  skipped: string[];
+}
+
+export interface GetStreamAudioRequest {
+  placeId: string;
+  lang: string;
+}
+
+/** Audio tier 2: the whole clip, stored through the ordinary path on its way out. */
+export interface GetStreamAudioResponse {
+  audio: Uint8Array;
+  contentType: string;
+}
+
 export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
 
 /** On-demand audio and its status. The device travels as metadata. */
@@ -101,3 +140,86 @@ export function NarrationServiceControllerMethods() {
 }
 
 export const NARRATION_SERVICE_NAME = "NarrationService";
+
+/** Warming Places up: a language switch, and the walk ahead. The device travels as metadata. */
+
+export interface HotsetServiceClient {
+  /** A language switch's warmup: the nearest Places, and jobs for the ones not ready. */
+
+  hotset(request: HotsetRequest, metadata?: Metadata): Observable<HotsetResponse>;
+
+  /** Background warmup of the Places ahead of the walker. */
+
+  prefetch(request: PrefetchRequest, metadata?: Metadata): Observable<PrefetchResponse>;
+}
+
+/** Warming Places up: a language switch, and the walk ahead. The device travels as metadata. */
+
+export interface HotsetServiceController {
+  /** A language switch's warmup: the nearest Places, and jobs for the ones not ready. */
+
+  hotset(
+    request: HotsetRequest,
+    metadata?: Metadata,
+  ): Promise<HotsetResponse> | Observable<HotsetResponse> | HotsetResponse;
+
+  /** Background warmup of the Places ahead of the walker. */
+
+  prefetch(
+    request: PrefetchRequest,
+    metadata?: Metadata,
+  ): Promise<PrefetchResponse> | Observable<PrefetchResponse> | PrefetchResponse;
+}
+
+export function HotsetServiceControllerMethods() {
+  return function (constructor: Function) {
+    const grpcMethods: string[] = ["hotset", "prefetch"];
+    for (const method of grpcMethods) {
+      const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
+      GrpcMethod("HotsetService", method)(constructor.prototype[method], method, descriptor);
+      Object.defineProperty(constructor.prototype, method, descriptor);
+    }
+    const grpcStreamMethods: string[] = [];
+    for (const method of grpcStreamMethods) {
+      const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
+      GrpcStreamMethod("HotsetService", method)(constructor.prototype[method], method, descriptor);
+      Object.defineProperty(constructor.prototype, method, descriptor);
+    }
+  };
+}
+
+export const HOTSET_SERVICE_NAME = "HotsetService";
+
+/** Audio tier 2. Unary: the bytes are made whole, stored, then answered. */
+
+export interface TtsStreamServiceClient {
+  getStreamAudio(request: GetStreamAudioRequest, metadata?: Metadata): Observable<GetStreamAudioResponse>;
+}
+
+/** Audio tier 2. Unary: the bytes are made whole, stored, then answered. */
+
+export interface TtsStreamServiceController {
+  getStreamAudio(
+    request: GetStreamAudioRequest,
+    metadata?: Metadata,
+  ): Promise<GetStreamAudioResponse> | Observable<GetStreamAudioResponse> | GetStreamAudioResponse;
+}
+
+export function TtsStreamServiceControllerMethods() {
+  return function (constructor: Function) {
+    const grpcMethods: string[] = ["getStreamAudio"];
+    for (const method of grpcMethods) {
+      const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
+      GrpcMethod("TtsStreamService", method)(constructor.prototype[method], method, descriptor);
+      Object.defineProperty(constructor.prototype, method, descriptor);
+    }
+    const grpcStreamMethods: string[] = [];
+    for (const method of grpcStreamMethods) {
+      const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
+      GrpcStreamMethod("TtsStreamService", method)(constructor.prototype[method], method, descriptor);
+      Object.defineProperty(constructor.prototype, method, descriptor);
+    }
+  };
+}
+
+export const TTS_STREAM_SERVICE_NAME = "TtsStreamService";

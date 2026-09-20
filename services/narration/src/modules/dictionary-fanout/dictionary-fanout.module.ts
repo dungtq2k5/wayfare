@@ -32,9 +32,13 @@ export class FanoutQueue implements FanoutQueuePort, OnApplicationShutdown {
     });
   }
 
-  /** Queues a term's fan-out; a repeat for the same term and position replaces the waiting one. */
+  /**
+   * Queues a term's fan-out; a repeat for the same term and position replaces the waiting one.
+   * The id is dash-joined: BullMQ refuses a custom id whose colons do not split it in three, and
+   * a term is staff's to type — one with a colon in it would otherwise fail the write.
+   */
   add(item: FanoutItem, delayMs?: number): Promise<void> {
-    const id = `${item.term}:${item.langs.join(',')}:${item.attempt}`;
+    const id = `${item.term.replaceAll(':', ' ')}-${item.langs.join(',')}-${item.attempt}`;
     return this.queue.add(id, item, { ...(delayMs === undefined ? {} : { delayMs }) });
   }
 

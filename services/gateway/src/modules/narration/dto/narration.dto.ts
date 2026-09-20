@@ -1,4 +1,11 @@
-import { zOnDemandRequest, zRequestedLanguage, zUuidV7 } from '@wayfare/contracts';
+import {
+  zHotsetRequest,
+  zOnDemandRequest,
+  zPrefetchRequest,
+  zRequestedLanguage,
+  zStreamRequest,
+  zUuidV7,
+} from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -16,3 +23,12 @@ export const narrationStatusQuerySchema = z.object({ lang: zRequestedLanguage })
 
 /** Validated `?lang=`. */
 export class NarrationStatusQueryDto extends createZodDto(narrationStatusQuerySchema) {}
+
+/** `POST /narration/hotset` body — the language switch's warmup (api-endpoints-plan §4.1). */
+export class HotsetDto extends createZodDto(zHotsetRequest) {}
+
+/** `POST /narration/prefetch` body: at most three ids. */
+export class PrefetchDto extends createZodDto(zPrefetchRequest) {}
+
+/** `GET /narration/tts/stream` query — audio tier 2. */
+export class StreamQueryDto extends createZodDto(zStreamRequest) {}

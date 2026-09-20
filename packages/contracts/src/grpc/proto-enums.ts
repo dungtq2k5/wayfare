@@ -30,8 +30,19 @@ import {
   UploadPurpose,
 } from '../catalog/enums';
 import { ContentTier } from '../catalog/localization';
-import { OverrideStatus, ReplacementType } from '../narration/enums';
+import {
+  OverrideStatus,
+  ReplacementType,
+  UiBundleStatus,
+  LocalizationTargetType,
+  SynthesisJobStatus,
+  SynthesisStage,
+  SynthesisTaskStatus,
+  SynthesisTrigger,
+  TranslationSource,
+} from '../narration/enums';
 import { OverrideStatus as ProtoOverrideStatus } from '../generated/wayfare/narration/correction.pb';
+import { UiBundleStatus as ProtoUiBundleStatus } from '../generated/wayfare/narration/i18n.pb';
 import { ReplacementType as ProtoReplacementType } from '../generated/wayfare/narration/pronunciation.pb';
 import { protoEnumBridge } from '../common/proto-enum-bridge';
 import { SessionClient as ProtoSessionClient } from '../generated/wayfare/identity/auth.pb';
@@ -64,14 +75,6 @@ import {
 } from '../generated/wayfare/catalog/submission.pb';
 import { UploadPurpose as ProtoUploadPurpose } from '../generated/wayfare/catalog/upload.pb';
 import { MenuCurrency } from '../money/display-price';
-import {
-  LocalizationTargetType,
-  SynthesisJobStatus,
-  SynthesisStage,
-  SynthesisTaskStatus,
-  SynthesisTrigger,
-  TranslationSource,
-} from '../narration/enums';
 import { OnDemandStatus } from '../narration/schemas';
 import { LocalizationTargetType as ProtoLocalizationTargetType } from '../generated/wayfare/common/localization.pb';
 import { OnDemandStatus as ProtoOnDemandStatus } from '../generated/wayfare/narration/narration.pb';
@@ -184,6 +187,13 @@ export const overrideStatusProto = protoEnumBridge(
   'OverrideStatus',
   OverrideStatus,
   ProtoOverrideStatus,
+);
+
+/** `UiBundleStatus` ⇄ `wayfare.narration.UiBundleStatus`. */
+export const uiBundleStatusProto = protoEnumBridge(
+  'UiBundleStatus',
+  UiBundleStatus,
+  ProtoUiBundleStatus,
 );
 
 /** `AudioStatus` ⇄ `wayfare.catalog.AudioStatus`. */
@@ -325,6 +335,7 @@ export const PROTO_ENUM_BRIDGES = [
   mapPackStatusProto,
   replacementTypeProto,
   overrideStatusProto,
+  uiBundleStatusProto,
   audioStatusProto,
   translationSourceProto,
   uploadPurposeProto,

@@ -21,6 +21,10 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { CorrectionsModule } from './modules/corrections/corrections.module';
 import { DictionaryFanoutModule } from './modules/dictionary-fanout/dictionary-fanout.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { UiBundleJobsModule } from './modules/ui-bundle-jobs/ui-bundle-jobs.module';
+import { UiBundlesModule } from './modules/ui-bundles/ui-bundles.module';
+import { HotsetModule } from './modules/hotset/hotset.module';
+import { TtsStreamModule } from './modules/tts-stream/tts-stream.module';
 import { PronunciationsModule } from './modules/pronunciations/pronunciations.module';
 import { MenuContentConsumer } from './modules/menu-content/menu-content.consumer';
 import { MenuContentModule } from './modules/menu-content/menu-content.module';
@@ -28,6 +32,7 @@ import { NarrationModule } from './modules/narration/narration.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { PlaceContentConsumer } from './modules/place-content/place-content.consumer';
 import { PlaceContentModule } from './modules/place-content/place-content.module';
+import { SynthesisModule } from './modules/synthesis/synthesis.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { ProgressModule } from './modules/progress/progress.module';
@@ -70,11 +75,16 @@ export class AppModule {
         CatalogModule,
         BillingModule,
         ProgressModule,
+        SynthesisModule,
         TasksModule.forRoot({ worker: jobs }),
         JobsModule,
         DictionaryFanoutModule.forRoot({ worker: jobs }),
         PronunciationsModule,
         CorrectionsModule,
+        UiBundleJobsModule.forRoot({ worker: jobs }),
+        UiBundlesModule,
+        HotsetModule,
+        TtsStreamModule,
         NarrationModule,
         PlaceContentModule,
         MenuContentModule,

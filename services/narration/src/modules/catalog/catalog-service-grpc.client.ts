@@ -43,6 +43,22 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     );
   }
 
+  /** The nearest live Places and their readiness in one language — the hotset's candidates. */
+  listNarrationCandidates(input: {
+    readonly lat: number;
+    readonly lng: number;
+    readonly radiusM: number;
+    readonly limit: number;
+    readonly lang: string;
+  }): Promise<catalogGrpc.ListNarrationCandidatesResponse> {
+    return this.places.call(
+      'listNarrationCandidates',
+      { ...input },
+      { kind: 'anonymous', origin: SYSTEM_ORIGIN },
+      { deadlineMs: SOURCE_DEADLINE_MS },
+    );
+  }
+
   /** One page of live localizations whose text holds `term`, whole-word (api §12.2). */
   searchLocalizedText(input: {
     readonly term: string;

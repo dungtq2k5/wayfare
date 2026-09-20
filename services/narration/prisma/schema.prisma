@@ -192,3 +192,23 @@ model JobRun {
 
   @@map("job_runs")
 }
+
+/// A translated UI string bundle — rdm-spec N-6. Served to both apps; the launch locales are seeded.
+model UiBundle {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  namespace  String   @db.VarChar(32)
+  locale     String   @db.VarChar(16)
+  /// The English source this translation was made from.
+  sourceHash String   @map("source_hash") @db.Char(64)
+  status     String   @db.VarChar(16)
+  origin     String   @db.VarChar(16)
+  /// Flat `{ key: ICU string }`; NULL while PENDING.
+  messages   Json?
+  /// Keys whose translation broke an ICU placeholder and fall back to English individually.
+  failedKeys String[] @map("failed_keys") @db.VarChar(128)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([namespace, locale, sourceHash], map: "ui_bundles_namespace_locale_hash_key")
+  @@map("ui_bundles")
+}

@@ -13,9 +13,14 @@ import {
 } from '@wayfare/contracts/grpc';
 import type { billingGrpc, catalogGrpc } from '@wayfare/contracts/grpc';
 import { OutboxService } from '@wayfare/nest-common';
+import type { Redis } from 'ioredis';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
 import type { BillingServiceGrpcClient } from '../../src/modules/billing/billing-service-grpc.client';
 import type { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
+import { HotsetService } from '../../src/modules/hotset/hotset.service';
+import { UiBundleJobsService } from '../../src/modules/ui-bundle-jobs/ui-bundle-jobs.service';
+import type { BundleItem } from '../../src/modules/ui-bundle-jobs/domain/bundle-queue';
+import { UiBundlesService } from '../../src/modules/ui-bundles/ui-bundles.service';
 import { JobsService } from '../../src/modules/jobs/jobs.service';
 import { NarrationService } from '../../src/modules/narration/narration.service';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
@@ -28,6 +33,8 @@ import { PronunciationsService } from '../../src/modules/pronunciations/pronunci
 import { LocalizationOverridesPruneJob } from '../../src/modules/scheduled/localization-overrides-prune.job';
 import { SynthesisRecoverJob } from '../../src/modules/scheduled/synthesis-recover.job';
 import type { TaskQueue } from '../../src/modules/tasks/tasks.module';
+import { SynthesisService } from '../../src/modules/synthesis/synthesis.service';
+import { TtsStreamService } from '../../src/modules/tts-stream/tts-stream.service';
 import { TasksService } from '../../src/modules/tasks/tasks.service';
 import { configuredChains } from '../../src/providers/configured-providers';
 import type { ProviderChains } from '../../src/providers/configured-providers';
@@ -126,6 +133,29 @@ export class FakeCatalog {
     return Promise.resolve(this.sources.get(id) ?? { notFound: {} });
   }
 
+  /** What `ListNarrationCandidates` answers, in order; the hotset reads it. */
+  candidates: catalogGrpc.NarrationCandidate[] = [];
+  /** The requests the hotset made, so a test can read the radius and the size it asked for. */
+  readonly candidateCalls: {
+    lat: number;
+    lng: number;
+    radiusM: number;
+    limit: number;
+    lang: string;
+  }[] = [];
+
+  listNarrationCandidates(input: {
+    lat: number;
+    lng: number;
+    radiusM: number;
+    limit: number;
+    lang: string;
+  }): Promise<catalogGrpc.ListNarrationCandidatesResponse> {
+    this.candidateCalls.push(input);
+    if (this.down) return Promise.reject(new Error('14 UNAVAILABLE: catalog is down'));
+    return Promise.resolve({ candidates: this.candidates.slice(0, input.limit) });
+  }
+
   /** What `SearchLocalizedText` finds, per term; the fan-out pages through it. */
   readonly matches = new Map<string, catalogGrpc.LocalizedTextMatch[]>();
   /** Pages that reject before answering — an unreachable catalog mid-fan-out. */
@@ -160,6 +190,27 @@ export class FakeFanoutQueue {
   run: (item: FanoutItem) => Promise<void> = () => Promise.resolve();
 
   add(item: FanoutItem, delayMs?: number): Promise<void> {
+    this.items.push({ item, ...(delayMs === undefined ? {} : { delayMs }) });
+    return Promise.resolve();
+  }
+
+  // FIXME Unexpected empty method 'start'.
+  start(): void {}
+
+  /** Runs every queued item, including any the run itself queues. */
+  async drain(): Promise<void> {
+    for (let next = this.items.shift(); next !== undefined; next = this.items.shift()) {
+      await this.run(next.item);
+    }
+  }
+}
+
+/** The UI bundle queue in memory, drained on request. */
+export class FakeBundleQueue {
+  readonly items: { item: BundleItem; delayMs?: number }[] = [];
+  run: (item: BundleItem) => Promise<void> = () => Promise.resolve();
+
+  add(item: BundleItem, delayMs?: number): Promise<void> {
     this.items.push({ item, ...(delayMs === undefined ? {} : { delayMs }) });
     return Promise.resolve();
   }
@@ -281,6 +332,38 @@ export class MemoryStorage implements StorageProvider {
   }
 }
 
+/**
+ * A Redis the stream's lock can use: `SET … PX … NX`, `EXISTS` and `DEL`, in memory. The expiry is
+ * honoured on read, so a test can let a lock lapse without waiting for it.
+ */
+export class FakeRedis {
+  readonly keys = new Map<string, number>();
+
+  private live(key: string): boolean {
+    const expiry = this.keys.get(key);
+    if (expiry === undefined) return false;
+    if (expiry <= Date.now()) {
+      this.keys.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  set(key: string, _value: string, _px: 'PX', ttlMs: number, _nx: 'NX'): Promise<'OK' | null> {
+    if (this.live(key)) return Promise.resolve(null);
+    this.keys.set(key, Date.now() + ttlMs);
+    return Promise.resolve('OK');
+  }
+
+  exists(key: string): Promise<number> {
+    return Promise.resolve(this.live(key) ? 1 : 0);
+  }
+
+  del(key: string): Promise<number> {
+    return Promise.resolve(this.keys.delete(key) ? 1 : 0);
+  }
+}
+
 /** A Redis the voice cache can use: nothing cached, writes ignored. */
 const noCache = {
   get: () => Promise.resolve(null),
@@ -348,12 +431,14 @@ export function narrationServices(
     configuredChains({ TRANSLATION_PROVIDER_ORDER: ['fake'], TTS_PROVIDER_ORDER: ['fake'] });
   const health = new ProvidersHealthService(chains, noCache as never);
   const client = catalog as unknown as CatalogServiceGrpcClient;
+  const synthesis = new SynthesisService(prisma, health, storage);
   const tasks = new TasksService(
     prisma,
     outbox,
     client,
     health,
     new ProgressService(frames),
+    synthesis,
     queue as unknown as TaskQueue,
     storage,
   );
@@ -374,7 +459,29 @@ export function narrationServices(
   const pronunciations = new PronunciationsService(prisma, outbox, health, fanout);
   const corrections = new CorrectionsService(prisma, outbox, client, jobs, tasks);
   const overridesPrune = new LocalizationOverridesPruneJob(prisma);
+  const hotset = new HotsetService(client, jobs, tasks);
+  const bundleQueue = new FakeBundleQueue();
+  const bundleJobs = new UiBundleJobsService(bundleQueue, prisma, synthesis);
+  bundleQueue.run = (item) => bundleJobs.run(item);
+  const bundles = new UiBundlesService(prisma, bundleJobs);
+  const redis = new FakeRedis();
+  const ttsStream = new TtsStreamService(
+    prisma,
+    outbox,
+    client,
+    billing as unknown as BillingServiceGrpcClient,
+    synthesis,
+    redis as unknown as Redis,
+    storage,
+  );
   return {
+    bundles,
+    bundleJobs,
+    bundleQueue,
+    hotset,
+    redis,
+    ttsStream,
+    synthesis,
     fanoutQueue,
     fanout,
     pronunciations,

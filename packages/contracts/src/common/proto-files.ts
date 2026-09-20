@@ -34,6 +34,7 @@ export const PROTO_FILES = {
     'wayfare/narration/synthesis_admin.proto',
     'wayfare/narration/pronunciation.proto',
     'wayfare/narration/correction.proto',
+    'wayfare/narration/i18n.proto',
   ],
   billing: [
     'wayfare/billing/entitlement.proto',

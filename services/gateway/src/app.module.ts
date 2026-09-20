@@ -25,6 +25,7 @@ import { StripeWebhooksModule } from './modules/stripe-webhooks/stripe-webhooks.
 import { AdminPlacesModule } from './modules/admin-places/admin-places.module';
 import { AdminAreasModule } from './modules/admin-areas/admin-areas.module';
 import { AdminLocalizationsModule } from './modules/admin-localizations/admin-localizations.module';
+import { I18nModule } from './modules/i18n/i18n.module';
 import { AdminMapPacksModule } from './modules/admin-map-packs/admin-map-packs.module';
 import { AdminPronunciationsModule } from './modules/admin-pronunciations/admin-pronunciations.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
@@ -113,6 +114,7 @@ export class AppModule {
         AdminSubmissionsModule,
         AdminCategoriesModule,
         AdminAreasModule,
+        I18nModule,
         AdminMapPacksModule,
         AdminPronunciationsModule,
         AdminLocalizationsModule,

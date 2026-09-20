@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -85,7 +84,8 @@ export class AdminPronunciationsController {
   @RateLimit('PRONUNCIATION_PREVIEW')
   @NoStore()
   @SkipEnvelope()
-  @Header('Content-Type', 'audio/mpeg')
+  // No static `Content-Type`: the `StreamableFile` carries `audio/mpeg` when there are bytes, so
+  // a refusal is still an ordinary JSON envelope.
   @ApiOperation({ summary: 'How a sentence sounds with these entries. Nothing is stored.' })
   @ApiEnvelope(null, { status: 200, mediaType: 'audio/mpeg' })
   @ApiErrors('INVALID_STATE')

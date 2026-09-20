@@ -16,6 +16,32 @@ service PlaceService {
   rpc CountOwnerPlaces(CountOwnerPlacesRequest) returns (CountOwnerPlacesResponse);
   // Live localizations whose text holds a term, whole-word — what a dictionary edit re-voices.
   rpc SearchLocalizedText(SearchLocalizedTextRequest) returns (SearchLocalizedTextResponse);
+  // The nearest ACTIVE Places and their readiness — what a language switch warms up.
+  rpc ListNarrationCandidates(ListNarrationCandidatesRequest)
+      returns (ListNarrationCandidatesResponse);
+}
+
+// Distance only, nearest first: boost never reaches narration (ADR 0007).
+message ListNarrationCandidatesRequest {
+  double lat = 1;
+  double lng = 2;
+  int32 radius_m = 3;
+  int32 limit = 4;
+  // The language whose readiness is reported.
+  string lang = 5;
+}
+
+message ListNarrationCandidatesResponse {
+  repeated NarrationCandidate candidates = 1;
+}
+
+// One nearby Place: its current source version, and what exists for the requested language.
+message NarrationCandidate {
+  string place_id = 1;
+  string content_hash = 2;
+  // A Place with no row for the language is false, false — not omitted.
+  bool text_ready = 3;
+  bool audio_ready = 4;
 }
 
 message SearchLocalizedTextRequest {

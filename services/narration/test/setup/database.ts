@@ -34,7 +34,7 @@ export function testPrisma(): PrismaService {
 /** Empties every narration table between specs (conventions §17.2). */
 export async function truncateAll(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE synthesis_jobs, synthesis_tasks, audio_assets, translation_cache, pronunciation_entries, localization_overrides, outbox_events, processed_events, job_runs RESTART IDENTITY CASCADE',
+    'TRUNCATE synthesis_jobs, synthesis_tasks, audio_assets, translation_cache, pronunciation_entries, localization_overrides, ui_bundles, outbox_events, processed_events, job_runs RESTART IDENTITY CASCADE',
   );
 }
 

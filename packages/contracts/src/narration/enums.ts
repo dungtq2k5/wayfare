@@ -99,6 +99,15 @@ export enum UiBundleStatus {
 /** Every `UiBundleStatus` value. */
 export const UI_BUNDLE_STATUSES = Object.values(UiBundleStatus);
 
+/** Which app's strings a bundle holds — rdm-spec N-6 `namespace`. */
+export enum UiBundleNamespace {
+  TOURIST = 'tourist',
+  CONSOLE = 'console',
+}
+
+/** Every `UiBundleNamespace` value. */
+export const UI_BUNDLE_NAMESPACES = Object.values(UiBundleNamespace);
+
 /** Where a UI string bundle came from — rdm-spec N-6 `origin`. */
 export enum UiBundleOrigin {
   STATIC = 'STATIC',

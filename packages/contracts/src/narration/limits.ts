@@ -27,3 +27,9 @@ export const MAX_DICTIONARY_FANOUT_TARGETS = 2_000;
 
 /** How many targets the fan-out turns into jobs per transaction. */
 export const DICTIONARY_FANOUT_BATCH = 50;
+
+/** The longest a live stream may spend making audio before it gives up (api-endpoints-plan §4.1). */
+export const TTS_STREAM_TIMEOUT_MS = 25_000;
+
+/** How many source versions of one bundle are kept, newest first (rdm-spec N-6). */
+export const UI_BUNDLE_KEEP_VERSIONS = 3;

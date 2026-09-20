@@ -27,6 +27,7 @@ export interface AccountContext {
   /** The session family the access token belongs to. */
   readonly sessionId: string;
   readonly deviceId: string | null;
+  // ASK Why not `permissionCode[]` instead of `string[]`?
   readonly permissions: readonly string[];
   readonly ownerVerified: boolean;
   readonly emailVerified: boolean;

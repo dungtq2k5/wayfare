@@ -148,6 +148,9 @@ export class NarrationStub {
   readonly synthesisAdmin = new StubCaller();
   readonly pronunciations = new StubCaller();
   readonly corrections = new StubCaller();
+  readonly hotset = new StubCaller();
+  readonly ttsStream = new StubCaller();
+  readonly uiBundles = new StubCaller();
 
   onModuleInit(): void {}
 
@@ -157,6 +160,9 @@ export class NarrationStub {
       this.synthesisAdmin,
       this.pronunciations,
       this.corrections,
+      this.hotset,
+      this.ttsStream,
+      this.uiBundles,
     ]) {
       caller.calls.length = 0;
       caller.handlers = {};

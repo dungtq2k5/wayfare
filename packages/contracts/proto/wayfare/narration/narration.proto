@@ -11,6 +11,19 @@ service NarrationService {
   rpc GetNarrationStatus(GetNarrationStatusRequest) returns (GetNarrationStatusResponse);
 }
 
+// Warming Places up: a language switch, and the walk ahead. The device travels as metadata.
+service HotsetService {
+  // A language switch's warmup: the nearest Places, and jobs for the ones not ready.
+  rpc Hotset(HotsetRequest) returns (HotsetResponse);
+  // Background warmup of the Places ahead of the walker.
+  rpc Prefetch(PrefetchRequest) returns (PrefetchResponse);
+}
+
+// Audio tier 2. Unary: the bytes are made whole, stored, then answered.
+service TtsStreamService {
+  rpc GetStreamAudio(GetStreamAudioRequest) returns (GetStreamAudioResponse);
+}
+
 // What an on-demand request found.
 enum OnDemandStatus {
   ON_DEMAND_STATUS_UNSPECIFIED = 0;
@@ -53,4 +66,43 @@ message GetNarrationStatusResponse {
   optional wayfare.catalog.AudioStatus audio_status = 2;
   NarrationAudio audio = 3;
   bool stale = 4;
+}
+
+// The nearest Places a language switch warms up (api-endpoints-plan §4.1).
+message HotsetRequest {
+  double lat = 1;
+  double lng = 2;
+  string lang = 3;
+}
+
+message HotsetResponse {
+  // Places a tourist can hear now.
+  repeated string ready = 1;
+  // Places being made.
+  repeated string pending = 2;
+  // How many of them the switch waits for.
+  int32 required_ready_count = 3;
+}
+
+// Background warmup ahead of the walker.
+message PrefetchRequest {
+  repeated string place_ids = 1;
+  string lang = 2;
+}
+
+message PrefetchResponse {
+  repeated string queued = 1;
+  // Already ready, unknown or not live.
+  repeated string skipped = 2;
+}
+
+message GetStreamAudioRequest {
+  string place_id = 1;
+  string lang = 2;
+}
+
+// Audio tier 2: the whole clip, stored through the ordinary path on its way out.
+message GetStreamAudioResponse {
+  bytes audio = 1;
+  string content_type = 2;
 }

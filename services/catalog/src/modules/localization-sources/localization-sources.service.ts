@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import {
+  AudioStatus,
+  HOTSET_MAX_PLACES,
+  HOTSET_RADIUS_M,
   LocalizationTargetType,
   MAX_PRONUNCIATION_TERM_LENGTH,
   PLACE_LIMIT_STATUSES,
@@ -28,6 +31,7 @@ import {
   toLocalizationSourceMenuItem,
   toLocalizationSourcePlace,
   toLocalizedTextMatch,
+  toNarrationCandidate,
 } from './localization-source.mapper';
 
 const sourceFields = z.object({ targetType: z.number(), targetId: zUuidV7 });
@@ -56,6 +60,17 @@ const wholeWord = (term: string): string => {
   return `${left}${escaped}${right}`;
 };
 const ownerField = z.object({ ownerUserId: zUuidV7 });
+
+/** `ListNarrationCandidates`: a point, how far around it, and how many (api-endpoints-plan §4.1). */
+const candidateFields = z
+  .object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    radiusM: z.number().int().min(1).max(HOTSET_RADIUS_M),
+    limit: z.number().int().min(1).max(HOTSET_MAX_PLACES),
+    lang: zLanguage,
+  })
+  .strict();
 
 /**
  * What narration reads before localizing (api-endpoints-plan §12.2): the target's text as it is
@@ -110,7 +125,7 @@ export class LocalizationSourcesService {
       limit: request.page?.limit === 0 ? undefined : request.page?.limit,
     });
     const after = query.cursor === undefined ? null : decodeCursor(query.cursor);
-    if (query.cursor !== undefined && (after === null || after.key === undefined)) {
+    if (query.cursor !== undefined && (after?.key === undefined)) {
       throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/cursor', code: 'invalid_value' }] });
     }
     const pattern = wholeWord(query.term);
@@ -157,6 +172,45 @@ export class LocalizationSourcesService {
             : undefined,
       },
     };
+  }
+
+  /**
+   * The nearest live Places and what exists for one language (api-endpoints-plan §12.2): what a
+   * language switch warms up. **Distance only** — `NearbyPlaces` reorders by discovery boost, and
+   * boost never reaches narration (ADR 0007), so this is its own query. Readiness follows C-4: the
+   * text counts when its row was made from the Place's current version, the audio when the served
+   * file was too; a Place with no row for the language answers `false, false` rather than dropping
+   * out, so the caller sees every Place it must warm.
+   */
+  async listNarrationCandidates(
+    request: catalogGrpc.ListNarrationCandidatesRequest,
+    _context: RequestContext,
+  ): Promise<catalogGrpc.ListNarrationCandidatesResponse> {
+    const fields = parseRpcRequest(candidateFields, request);
+    const live: string = PlaceStatus.ACTIVE;
+    const ready: string = AudioStatus.READY;
+    // longitude first
+    const rows = await this.prisma.$queryRaw<
+      { placeId: string; contentHash: string; textReady: boolean; audioReady: boolean }[]
+    >`
+      WITH origin AS (
+        SELECT ST_SetSRID(ST_MakePoint(${fields.lng}, ${fields.lat}), 4326)::geography AS point
+      )
+      SELECT p.id AS "placeId", p.content_hash AS "contentHash",
+             (l.source_content_hash = p.content_hash) IS TRUE AS "textReady",
+             (l.source_content_hash = p.content_hash
+               AND l.audio_status = ${ready}
+               AND l.audio_source_content_hash = p.content_hash
+               AND l.audio_object_path IS NOT NULL
+               AND l.audio_sha256 IS NOT NULL) IS TRUE AS "audioReady"
+      FROM places p
+      CROSS JOIN origin
+      LEFT JOIN place_localizations l ON l.place_id = p.id AND l.lang = ${fields.lang}
+      WHERE p.status = ${live} AND p.deleted_at IS NULL
+        AND ST_DWithin(p.location, origin.point, ${fields.radiusM})
+      ORDER BY p.location <-> origin.point, p.id
+      LIMIT ${fields.limit}`;
+    return { candidates: rows.map(toNarrationCandidate) };
   }
 
   /**

@@ -1,4 +1,9 @@
-import { zNarrationStatus, zOnDemandResponse } from '@wayfare/contracts';
+import {
+  zHotsetResponse,
+  zNarrationStatus,
+  zOnDemandResponse,
+  zPrefetchResponse,
+} from '@wayfare/contracts';
 import type { OnDemandResponse, OnDemandStatus } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
@@ -27,3 +32,9 @@ export class NarrationStatusResponseDto extends createZodDto(zNarrationStatus) {
 
 /** An on-demand answer, as a type. */
 export type OnDemandAnswer = OnDemandResponse;
+
+/** What a language switch found (api-endpoints-plan §4.1). */
+export class HotsetResponseDto extends createZodDto(zHotsetResponse) {}
+
+/** What a prefetch queued, and what it passed over. */
+export class PrefetchResponseDto extends createZodDto(zPrefetchResponse) {}

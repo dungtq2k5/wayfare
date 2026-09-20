@@ -713,6 +713,9 @@ importers:
       '@wayfare/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@wayfare/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@wayfare/nest-common':
         specifier: workspace:*
         version: link:../../packages/nest-common

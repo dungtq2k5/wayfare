@@ -78,7 +78,7 @@ export class PronunciationsService {
       targetLang: request.targetLang,
     });
     const after = query.cursor === undefined ? null : decodeCursor(query.cursor);
-    if (query.cursor !== undefined && (after?.key === undefined)) {
+    if (query.cursor !== undefined && after?.key === undefined) {
       throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/cursor', code: 'invalid_value' }] });
     }
     const rows = await this.prisma.pronunciationEntry.findMany({

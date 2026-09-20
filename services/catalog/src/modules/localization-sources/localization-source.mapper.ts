@@ -120,3 +120,21 @@ export function toLocalizedTextMatch(row: {
     sourceContentHash: row.sourceContentHash,
   };
 }
+
+/** A nearby Place and its readiness, as the candidates query returns them. */
+export interface NarrationCandidateRow {
+  readonly placeId: string;
+  readonly contentHash: string;
+  readonly textReady: boolean;
+  readonly audioReady: boolean;
+}
+
+/** One nearby Place, as the hotset reads it (api-endpoints-plan §12.2). */
+export function toNarrationCandidate(row: NarrationCandidateRow): catalogGrpc.NarrationCandidate {
+  return {
+    placeId: row.placeId,
+    contentHash: row.contentHash,
+    textReady: row.textReady,
+    audioReady: row.audioReady,
+  };
+}

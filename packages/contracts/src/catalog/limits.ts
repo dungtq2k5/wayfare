@@ -92,3 +92,9 @@ export const HOTSET_RADIUS_M = 1500;
 
 /** Language-switch warmup size (product-overview §9, api-endpoints-plan §4.1). */
 export const HOTSET_MAX_PLACES = 10;
+
+/** How many Places a language switch waits for before it completes (api-endpoints-plan §4.1). */
+export const HOTSET_REQUIRED_READY = 3;
+
+/** How many Places one background prefetch may name (api-endpoints-plan §4.1). */
+export const PREFETCH_MAX_PLACES = 3;
