@@ -21,6 +21,11 @@ import { NarrationService } from '../../src/modules/narration/narration.service'
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { ProgressService } from '../../src/modules/progress/progress.service';
 import { ProvidersHealthService } from '../../src/modules/providers-health/providers-health.service';
+import { CorrectionsService } from '../../src/modules/corrections/corrections.service';
+import { DictionaryFanoutService } from '../../src/modules/dictionary-fanout/dictionary-fanout.service';
+import type { FanoutItem } from '../../src/modules/dictionary-fanout/domain/fanout-queue';
+import { PronunciationsService } from '../../src/modules/pronunciations/pronunciations.service';
+import { LocalizationOverridesPruneJob } from '../../src/modules/scheduled/localization-overrides-prune.job';
 import { SynthesisRecoverJob } from '../../src/modules/scheduled/synthesis-recover.job';
 import type { TaskQueue } from '../../src/modules/tasks/tasks.module';
 import { TasksService } from '../../src/modules/tasks/tasks.service';
@@ -40,6 +45,8 @@ export function localizationState(
   const ready = (audio.status ?? AudioStatus.READY) === AudioStatus.READY && audioHash !== null;
   return {
     lang,
+    name: `name-${lang}`,
+    description: `description-${lang}`,
     sourceContentHash: hash,
     translationSource: translationSourceProto.toProto(
       lang === 'vi' ? TranslationSource.SOURCE : TranslationSource.MACHINE,
@@ -118,6 +125,53 @@ export class FakeCatalog {
     if (this.down) return Promise.reject(new Error('14 UNAVAILABLE: catalog is down'));
     return Promise.resolve(this.sources.get(id) ?? { notFound: {} });
   }
+
+  /** What `SearchLocalizedText` finds, per term; the fan-out pages through it. */
+  readonly matches = new Map<string, catalogGrpc.LocalizedTextMatch[]>();
+  /** Pages that reject before answering — an unreachable catalog mid-fan-out. */
+  searchFailures = 0;
+
+  searchLocalizedText(input: {
+    term: string;
+    langs: readonly string[];
+    cursor?: string;
+    limit: number;
+  }): Promise<catalogGrpc.SearchLocalizedTextResponse> {
+    if (this.searchFailures > 0) {
+      this.searchFailures -= 1;
+      return Promise.reject(new Error('14 UNAVAILABLE: catalog is down'));
+    }
+    const all = (this.matches.get(input.term) ?? []).filter(
+      (match) => input.langs.length === 0 || input.langs.includes(match.lang),
+    );
+    const from = input.cursor === undefined ? 0 : Number(input.cursor);
+    const items = all.slice(from, from + input.limit);
+    const next = from + items.length;
+    return Promise.resolve({
+      items,
+      page: { nextCursor: next < all.length ? String(next) : undefined },
+    });
+  }
+}
+
+/** The dictionary fan-out queue in memory: items in order, run on request. */
+export class FakeFanoutQueue {
+  readonly items: { item: FanoutItem; delayMs?: number }[] = [];
+  run: (item: FanoutItem) => Promise<void> = () => Promise.resolve();
+
+  add(item: FanoutItem, delayMs?: number): Promise<void> {
+    this.items.push({ item, ...(delayMs === undefined ? {} : { delayMs }) });
+    return Promise.resolve();
+  }
+
+  start(): void {}
+
+  /** Runs every queued item, including any the run itself queues. */
+  async drain(): Promise<void> {
+    for (let next = this.items.shift(); next !== undefined; next = this.items.shift()) {
+      await this.run(next.item);
+    }
+  }
 }
 
 /** The synthesis queue in memory: items by id, drained by priority on request. */
@@ -187,7 +241,7 @@ export class MemoryStorage implements StorageProvider {
   readonly objects = new Map<string, { data: Buffer; cacheControl: string }>();
   /** When set, uploads wait until this many are pending, then all finish together. */
   barrier: number | null = null;
-  private readonly  waiting: (() => void)[] = [];
+  private readonly waiting: (() => void)[] = [];
 
   signUpload(): never {
     throw new Error('narration signs no uploads');
@@ -314,7 +368,18 @@ export function narrationServices(
     config,
   );
   const recover = new SynthesisRecoverJob(tasks, queue as unknown as TaskQueue);
+  const fanoutQueue = new FakeFanoutQueue();
+  const fanout = new DictionaryFanoutService(fanoutQueue, client, jobs, tasks);
+  fanoutQueue.run = (item) => fanout.run(item);
+  const pronunciations = new PronunciationsService(prisma, outbox, health, fanout);
+  const corrections = new CorrectionsService(prisma, outbox, client, jobs, tasks);
+  const overridesPrune = new LocalizationOverridesPruneJob(prisma);
   return {
+    fanoutQueue,
+    fanout,
+    pronunciations,
+    corrections,
+    overridesPrune,
     catalog,
     billing,
     queue,

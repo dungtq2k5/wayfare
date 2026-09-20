@@ -1,6 +1,13 @@
-import type { AudioStatus, PlaceKind, PlaceStatus, TranslationSource } from '@wayfare/contracts';
+import type {
+  AudioStatus,
+  LocalizationTargetType,
+  PlaceKind,
+  PlaceStatus,
+  TranslationSource,
+} from '@wayfare/contracts';
 import {
   audioStatusProto,
+  localizationTargetTypeProto,
   placeKindProto,
   placeStatusProto,
   translationSourceProto,
@@ -20,6 +27,8 @@ export const SOURCE_PLACE_SELECT = {
   localizations: {
     select: {
       lang: true,
+      name: true,
+      description: true,
       sourceContentHash: true,
       translationSource: true,
       audioStatus: true,
@@ -63,6 +72,8 @@ export function toLocalizationSourcePlace(
     ...(row.ownerUserId === null ? {} : { ownerUserId: row.ownerUserId }),
     localizations: row.localizations.map((localization) => ({
       lang: localization.lang,
+      name: localization.name,
+      description: localization.description,
       sourceContentHash: localization.sourceContentHash,
       translationSource: translationSourceProto.toProto(
         localization.translationSource as TranslationSource,
@@ -92,5 +103,20 @@ export function toLocalizationSourceMenuItem(
     contentHash: row.contentHash,
     nameVi: row.nameVi,
     ...(row.descriptionVi === null ? {} : { descriptionVi: row.descriptionVi }),
+  };
+}
+
+/** One localization row whose text holds the term (api-endpoints-plan §12.2). */
+export function toLocalizedTextMatch(row: {
+  readonly targetType: string;
+  readonly targetId: string;
+  readonly lang: string;
+  readonly sourceContentHash: string;
+}): catalogGrpc.LocalizedTextMatch {
+  return {
+    targetType: localizationTargetTypeProto.toProto(row.targetType as LocalizationTargetType),
+    targetId: row.targetId,
+    lang: row.lang,
+    sourceContentHash: row.sourceContentHash,
   };
 }

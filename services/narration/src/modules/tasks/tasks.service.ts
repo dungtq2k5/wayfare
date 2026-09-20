@@ -695,16 +695,27 @@ export class TasksService implements OnApplicationBootstrap {
     if (task.lang === SOURCE_LANGUAGE) {
       return shaped(source.name, source.description, TranslationSource.SOURCE, null);
     }
-    const override = await this.prisma.localizationOverride.findFirst({
+    // Every correction held for this language: the one made for the text being localized is used,
+    // and one made for an older version is retired here (rdm-spec N-7) — the task holds both
+    // hashes, so nothing has to sweep the table later.
+    const held = await this.prisma.localizationOverride.findMany({
       where: {
         targetType: task.targetType,
         targetId: task.targetId!,
         lang: task.lang,
-        sourceContentHash: task.sourceContentHash,
         status: OverrideStatus.ACTIVE,
       },
-      select: { name: true, description: true },
+      select: { id: true, name: true, description: true, sourceContentHash: true },
     });
+    const override = held.find((row) => row.sourceContentHash === task.sourceContentHash) ?? null;
+    const stale = held.filter((row) => row.sourceContentHash !== task.sourceContentHash);
+    if (stale.length > 0) {
+      await this.prisma.localizationOverride.updateMany({
+        where: { id: { in: stale.map((row) => row.id) } },
+        // No `reverted_by_id`: superseded by a source change, not by a person.
+        data: { status: OverrideStatus.REVERTED },
+      });
+    }
     const name =
       override === null
         ? await this.translateField(task.lang, source.name)

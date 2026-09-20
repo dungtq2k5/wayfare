@@ -47,6 +47,8 @@ export const RATE_LIMITS = {
   EMAIL_CHECK: { limit: 30, windowMs: HOUR_MS, keys: ['userId'] },
   // National ID reveals, on top of each one's audit row: bounds what one staff session can read.
   PII_REVEAL: { limit: 20, windowMs: HOUR_MS, keys: ['userId'] },
+  // "Does it sound right now?" before saving an entry: each one is a speech call (§4.4).
+  PRONUNCIATION_PREVIEW: { limit: 10, windowMs: MINUTE_MS, keys: ['userId'] },
   AUTHENTICATED: { limit: 600, windowMs: MINUTE_MS, keys: ['userId'] },
 } as const satisfies Record<string, RateLimitSpec>;
 

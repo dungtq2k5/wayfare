@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AudioAssetsGcJob } from './audio-assets-gc.job';
+import { LocalizationOverridesPruneJob } from './localization-overrides-prune.job';
 import { SynthesisJobsPruneJob } from './synthesis-jobs-prune.job';
 import { SynthesisRecoverJob } from './synthesis-recover.job';
 import { TranslationCachePruneJob } from './translation-cache-prune.job';
@@ -10,6 +11,7 @@ export const SCHEDULED_JOBS = [
   'synthesis-jobs-prune',
   'audio-assets-gc',
   'translation-cache-prune',
+  'localization-overrides-prune',
 ] as const;
 
 /** The job classes; nest-common's `JobsModule` schedules and runs them. */
@@ -19,7 +21,14 @@ export const SCHEDULED_JOBS = [
     SynthesisJobsPruneJob,
     AudioAssetsGcJob,
     TranslationCachePruneJob,
+    LocalizationOverridesPruneJob,
   ],
-  exports: [SynthesisRecoverJob, SynthesisJobsPruneJob, AudioAssetsGcJob, TranslationCachePruneJob],
+  exports: [
+    SynthesisRecoverJob,
+    SynthesisJobsPruneJob,
+    AudioAssetsGcJob,
+    TranslationCachePruneJob,
+    LocalizationOverridesPruneJob,
+  ],
 })
 export class ScheduledModule {}

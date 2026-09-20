@@ -133,11 +133,18 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<AuditAction, AuditMetadat
   [AuditAction.SYNTHESIS_JOB_RESUMED]: { before: ['status'] },
   [AuditAction.SYNTHESIS_JOB_CANCELLED]: { before: ['status'] },
   [AuditAction.SYNTHESIS_JOB_RETRIED]: { after: ['retriedTasks'] },
-  [AuditAction.PRONUNCIATION_CREATED]: {},
-  [AuditAction.PRONUNCIATION_UPDATED]: {},
-  [AuditAction.PRONUNCIATION_DELETED]: {},
-  [AuditAction.LOCALIZATION_EDITED]: {},
-  [AuditAction.LOCALIZATION_REVERTED]: {},
+  [AuditAction.PRONUNCIATION_CREATED]: {
+    after: ['term', 'targetLang', 'replacementType', 'isActive'],
+  },
+  [AuditAction.PRONUNCIATION_UPDATED]: {
+    after: ['term', 'targetLang', 'replacementType', 'isActive'],
+  },
+  [AuditAction.PRONUNCIATION_DELETED]: { before: ['term', 'targetLang'] },
+  // Never the corrected text itself.
+  [AuditAction.LOCALIZATION_EDITED]: {
+    after: ['targetType', 'targetId', 'lang', 'sourceContentHash'],
+  },
+  [AuditAction.LOCALIZATION_REVERTED]: { before: ['lang', 'sourceContentHash'] },
   [AuditAction.BILLING_CHECKOUT_STARTED]: { after: ['planPriceId'] },
   [AuditAction.BILLING_PORTAL_OPENED]: {},
   [AuditAction.BOOSTS_UPDATED]: {},

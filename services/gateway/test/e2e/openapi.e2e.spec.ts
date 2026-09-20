@@ -85,12 +85,15 @@ const TWO_SUCCESSES = new Map([['POST /api/v1/narration/on-demand', ['200', '202
 const PUBLIC_READS = new Set(['GET /api/v1/categories', 'GET /api/v1/areas']);
 
 /** Bodies that are not the JSON envelope, with their media type. */
-const NON_JSON = new Map([['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml']]);
+const NON_JSON = new Map([
+  ['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml'],
+  ['POST /api/v1/admin/narration/pronunciations/preview', 'audio/mpeg'],
+]);
 
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(134);
+    expect(names).toHaveLength(142);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/q/'))).toBe(false);

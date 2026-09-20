@@ -4,5 +4,5 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["src", "generated", "test", "scripts", "prisma.config.ts"]
+  "include": ["src", "generated", "prisma/seed", "test", "scripts", "prisma.config.ts"]
 }

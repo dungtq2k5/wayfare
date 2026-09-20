@@ -29,7 +29,12 @@ export const PROTO_FILES = {
     'wayfare/catalog/offline.proto',
     'wayfare/catalog/favorite.proto',
   ],
-  narration: ['wayfare/narration/narration.proto', 'wayfare/narration/synthesis_admin.proto'],
+  narration: [
+    'wayfare/narration/narration.proto',
+    'wayfare/narration/synthesis_admin.proto',
+    'wayfare/narration/pronunciation.proto',
+    'wayfare/narration/correction.proto',
+  ],
   billing: [
     'wayfare/billing/entitlement.proto',
     'wayfare/billing/billing.proto',

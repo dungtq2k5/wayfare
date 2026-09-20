@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+// The pronunciation dictionary — api-endpoints-plan §4.4, rdm-spec N-5.
+package wayfare.narration;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/common/page.proto";
+
+// How a term is read aloud. The gateway checks `pronunciation.manage`.
+service PronunciationService {
+  rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+  rpc CreateEntry(CreateEntryRequest) returns (CreateEntryResponse);
+  rpc UpdateEntry(UpdateEntryRequest) returns (UpdateEntryResponse);
+  rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+  // Synthesizes one sentence with the saved dictionary plus the request's draft entries. The
+  // audio is returned, never stored.
+  rpc PreviewAudio(PreviewAudioRequest) returns (PreviewAudioResponse);
+}
+
+// SSML `<sub alias>` or `<phoneme>` (rdm-spec N-5).
+enum ReplacementType {
+  REPLACEMENT_TYPE_UNSPECIFIED = 0;
+  REPLACEMENT_TYPE_SUB = 1;
+  REPLACEMENT_TYPE_PHONEME = 2;
+}
+
+message PronunciationEntry {
+  string id = 1;
+  string term = 2;
+  // Absent: every non-`vi` language.
+  optional string target_lang = 3;
+  ReplacementType replacement_type = 4;
+  string replacement = 5;
+  optional string alphabet = 6;
+  optional string note = 7;
+  bool is_active = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// One entry as a write states it; `id` and the timestamps are the server's.
+message PronunciationDraft {
+  string term = 1;
+  optional string target_lang = 2;
+  ReplacementType replacement_type = 3;
+  string replacement = 4;
+  optional string alphabet = 5;
+  optional string note = 6;
+  optional bool is_active = 7;
+}
+
+message ListEntriesRequest {
+  wayfare.common.PageRequest page = 1;
+  optional string q = 2;
+  optional string target_lang = 3;
+}
+
+message ListEntriesResponse {
+  repeated PronunciationEntry entries = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+message CreateEntryRequest {
+  PronunciationDraft entry = 1;
+}
+
+message CreateEntryResponse {
+  PronunciationEntry entry = 1;
+}
+
+// Only the fields sent change; never the term or its language.
+message UpdateEntryRequest {
+  string entry_id = 1;
+  optional ReplacementType replacement_type = 2;
+  optional string replacement = 3;
+  optional string alphabet = 4;
+  optional string note = 5;
+  optional bool is_active = 6;
+}
+
+message UpdateEntryResponse {
+  PronunciationEntry entry = 1;
+}
+
+message DeleteEntryRequest {
+  string entry_id = 1;
+}
+
+message DeleteEntryResponse {}
+
+message PreviewAudioRequest {
+  string text = 1;
+  // The requested tag, as sent.
+  string lang = 2;
+  // Applied on top of the saved dictionary, saved or not.
+  repeated PronunciationDraft entries = 3;
+}
+
+message PreviewAudioResponse {
+  bytes audio = 1;
+  string content_type = 2;
+}

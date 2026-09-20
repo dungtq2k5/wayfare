@@ -18,7 +18,10 @@ import { envSchema } from './config/env.schema';
 import type { NarrationConfig } from './config/env.schema';
 import { BillingModule } from './modules/billing/billing.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { CorrectionsModule } from './modules/corrections/corrections.module';
+import { DictionaryFanoutModule } from './modules/dictionary-fanout/dictionary-fanout.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { PronunciationsModule } from './modules/pronunciations/pronunciations.module';
 import { MenuContentConsumer } from './modules/menu-content/menu-content.consumer';
 import { MenuContentModule } from './modules/menu-content/menu-content.module';
 import { NarrationModule } from './modules/narration/narration.module';
@@ -33,6 +36,7 @@ import { AudioAssetsGcJob } from './modules/scheduled/audio-assets-gc.job';
 import { ScheduledModule } from './modules/scheduled/scheduled.module';
 import { SynthesisJobsPruneJob } from './modules/scheduled/synthesis-jobs-prune.job';
 import { SynthesisRecoverJob } from './modules/scheduled/synthesis-recover.job';
+import { LocalizationOverridesPruneJob } from './modules/scheduled/localization-overrides-prune.job';
 import { TranslationCachePruneJob } from './modules/scheduled/translation-cache-prune.job';
 import { StorageModule } from './modules/storage/storage.module';
 import { TasksModule } from './modules/tasks/tasks.module';
@@ -68,6 +72,9 @@ export class AppModule {
         ProgressModule,
         TasksModule.forRoot({ worker: jobs }),
         JobsModule,
+        DictionaryFanoutModule.forRoot({ worker: jobs }),
+        PronunciationsModule,
+        CorrectionsModule,
         NarrationModule,
         PlaceContentModule,
         MenuContentModule,
@@ -80,6 +87,7 @@ export class AppModule {
             SynthesisJobsPruneJob,
             AudioAssetsGcJob,
             TranslationCachePruneJob,
+            LocalizationOverridesPruneJob,
           ],
           useFactory: (
             config: NarrationConfig,
@@ -88,11 +96,12 @@ export class AppModule {
             prune: SynthesisJobsPruneJob,
             gc: AudioAssetsGcJob,
             cachePrune: TranslationCachePruneJob,
+            overridesPrune: LocalizationOverridesPruneJob,
           ) => ({
             service: SERVICE_NAME,
             redisUrl: config.get('REDIS_URL', { infer: true }),
             db: prisma,
-            jobs: [recover, prune, gc, cachePrune],
+            jobs: [recover, prune, gc, cachePrune, overridesPrune],
             enabled: jobs,
           }),
         }),

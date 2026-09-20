@@ -140,6 +140,7 @@ Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, 
 | Current-password checks (`PATCH /auth/password`, `POST /auth/email/change`) | userId | 10 / 15 min (`PASSWORD_CHECK`) |
 | Verification email re-sends | userId | 5 / hour (`EMAIL_REQUEST`) |
 | Delivery address checks (`POST /admin/users/:id/email-deliveries/check`) | userId | 30 / hour (`EMAIL_CHECK`) |
+| Pronunciation previews (`POST /admin/narration/pronunciations/preview`) | userId | 10 / min (`PRONUNCIATION_PREVIEW`) — each one is a provider call |
 | National ID reveals (`POST /admin/owner-registrations/:id/national-id/reveal`) | userId | 20 / hour (`PII_REVEAL`) — on top of the audit row, so a stolen staff session cannot read the whole queue |
 | Everything else authenticated | userId | 600 / min |
 
@@ -481,20 +482,20 @@ Pause, resume, cancel and retry on a job in the wrong state answer `409 SYNTHESI
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
 | GET | `/admin/narration/pronunciations` | `?q=&targetLang=`, page style. | perm:`pronunciation.manage` |
-| POST | `/admin/narration/pronunciations` ✎ | `{ term, targetLang?, replacementType, replacement, alphabet?, note? }`. `409` on duplicate term/language. Creates `DICTIONARY_CHANGED` jobs for affected localizations (rdm-spec N-5). | perm:`pronunciation.manage` |
+| POST | `/admin/narration/pronunciations` ✎ | `{ term, targetLang?, replacementType, replacement, alphabet?, note? }`. `409 PRONUNCIATION_TERM_EXISTS` on a duplicate term and language. The `DICTIONARY_CHANGED` fan-out (rdm-spec N-5) is queued, not part of the request: a worker pages `SearchLocalizedText` and creates jobs at the lowest priority, capped, so one term touching every Place cannot outrank a tourist's on-demand narration. | perm:`pronunciation.manage` |
 | PATCH | `/admin/narration/pronunciations/:id` ✎ | Same side effect. | perm:`pronunciation.manage` |
-| DELETE | `/admin/narration/pronunciations/:id` ✎ | Same side effect. | perm:`pronunciation.manage` |
-| POST | `/admin/narration/pronunciations/preview` | `{ text, lang, entries?: [draft entry] }` → `audio/mpeg` of the text with the dictionary (plus draft entries) applied. Not stored, not cached, rate-limited — this is the "does it sound right now?" button, and it must be usable before saving. | perm:`pronunciation.manage` |
+| DELETE | `/admin/narration/pronunciations/:id` ✎ | Same side effect, with the term as it was — removing an entry changes exactly the same texts. | perm:`pronunciation.manage` |
+| POST | `/admin/narration/pronunciations/preview` | `{ text, lang, entries?: [draft entry] }` → `audio/mpeg` of the text with the dictionary (plus draft entries) applied. Not stored, not cached, rate-limited (`PRONUNCIATION_PREVIEW`, §0.9), text capped at `MAX_PREVIEW_CHARS`, and `409 INVALID_STATE` (`status: 'NO_VOICE'`) for a language with no pinned voice — this is the "does it sound right now?" button, and it must be usable before saving. | perm:`pronunciation.manage` |
 
 *Audit actions:* `PRONUNCIATION_CREATED`, `PRONUNCIATION_UPDATED`, `PRONUNCIATION_DELETED`.
 
 ### 4.5 Translation corrections — `/admin/narration/localizations`
 
-*Backed by:* N-7 ([ADR 0050](./decisions/0050-staff-translation-corrections.md)). Places, Tours and menu items only — never voucher offers, never `vi`.
+*Backed by:* N-7 ([ADR 0050](./decisions/0050-staff-translation-corrections.md)). Places, Tours and menu items only — never voucher offers, never `vi`; both are `400`.
 
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
-| GET | `/admin/narration/localizations/:targetType/:targetId` | Every language: current machine text, the active correction if any, whether a correction was **superseded** by a Vietnamese change (*"human correction superseded, review"*), and audio readiness. | perm:`localization.edit` |
+| GET | `/admin/narration/localizations/:targetType/:targetId` | Every language: current machine text, the active correction if any, whether a correction was **superseded** by a Vietnamese change (`supersededByHash`, shown as *"human correction superseded, review"*), and audio readiness. | perm:`localization.edit` |
 | PUT | `/admin/narration/localizations/:targetType/:targetId/:lang` ✎ | `{ sourceContentHash, name, description }`. `409 LOCALIZATION_SOURCE_CHANGED` if the Vietnamese changed since the editor loaded it. Stores the override and enqueues a `HUMAN_EDIT` job. **For a Place, tourists keep the previous text and audio until the corrected audio is ready; both are published together.** Tours and menu items apply at once. | perm:`localization.edit` |
 | DELETE | `/admin/narration/localizations/:targetType/:targetId/:lang` ✎ | Revert to machine translation (`HUMAN_REVERT` job), same together-rule. | perm:`localization.edit` |
 
@@ -853,6 +854,7 @@ gRPC packages are `wayfare.<service>`, protos in `packages/contracts/proto/wayfa
 | `identity.AuthService.GetTokenCutoff(userId)` | gateway (on a revocation-cache miss, §0.1) | a revoked token must never pass on a stale answer | **`503` on account routes**; public routes are unaffected |
 | `identity.OwnerService.GetOwnerVerification(userId)` | catalog (accept `owner_user_id`), billing (open account) | `{ verified, live }` (`live`: neither deactivated nor erased) — a write must not reference an unverified or departed owner | **refuse the write** (`503`) |
 | `catalog.PlaceService.BatchGetPlaceSummaries(ids)` | billing (boosts, offers), analytics (dashboard names) | validate kind, owner and status before a money-related write | refuse the write; dashboards show ids |
+| `catalog.PlaceService.SearchLocalizedText(term, langs?, cursor, limit)` | narration (the dictionary fan-out) | the localizations of `ACTIVE`, non-deleted targets whose name or description contains the term as a **whole word**, case-insensitively and with diacritics, across Places and menu items, paged | the fan-out stops and reports; nothing is regenerated |
 | `catalog.PlaceService.GetLocalizationSource(targetType, targetId)` | narration — called with a system context; returns the target's current `content_hash`, Vietnamese text, status, `deleted`, and per-language localization and audio state (audio as an object path, never a URL), or `not_found` for a target that never existed or a deleted menu item | the job must translate the text *as it is now*, not as an event described it | task retries with backoff |
 | `catalog.PlaceService.SearchLocalizedText(term, lang?)` | narration (dictionary edits) | find affected localizations | the dictionary save succeeds; regeneration retries |
 | `catalog.PlaceService.CountOwnerPlaces(ownerUserId)` | billing (plan apply dry run) | projection | the dry run reports the dimension as not evaluated |

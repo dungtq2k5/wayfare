@@ -6,6 +6,7 @@ package wayfare.catalog;
 
 import "wayfare/catalog/place_types.proto";
 import "wayfare/common/localization.proto";
+import "wayfare/common/page.proto";
 
 // catalog's service-to-service reads. A tourist route never reaches it.
 service PlaceService {
@@ -13,6 +14,30 @@ service PlaceService {
   rpc GetLocalizationSource(GetLocalizationSourceRequest) returns (GetLocalizationSourceResponse);
   // An owner's Venues that count against their place limit (rdm-spec C-1) — billing's projections.
   rpc CountOwnerPlaces(CountOwnerPlacesRequest) returns (CountOwnerPlacesResponse);
+  // Live localizations whose text holds a term, whole-word — what a dictionary edit re-voices.
+  rpc SearchLocalizedText(SearchLocalizedTextRequest) returns (SearchLocalizedTextResponse);
+}
+
+message SearchLocalizedTextRequest {
+  // The term as written, with its diacritics; matched whole-word, case-insensitively.
+  string term = 1;
+  // Empty means every language.
+  repeated string langs = 2;
+  wayfare.common.PageRequest page = 3;
+}
+
+message SearchLocalizedTextResponse {
+  repeated LocalizedTextMatch items = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+// One localization row whose text holds the term.
+message LocalizedTextMatch {
+  wayfare.common.LocalizationTargetType target_type = 1;
+  string target_id = 2;
+  string lang = 3;
+  // The source version this row was made from (rdm-spec C-4).
+  string source_content_hash = 4;
 }
 
 message CountOwnerPlacesRequest {
@@ -60,6 +85,9 @@ message LocalizationState {
   optional string audio_sha256 = 7;
   optional int32 audio_bytes = 8;
   optional int32 audio_duration_ms = 9;
+  // The text served now, which the correction screen shows beside its correction (§4.5).
+  string name = 10;
+  string description = 11;
 }
 
 message LocalizationSourceMenuItem {

@@ -146,11 +146,18 @@ export class CatalogStub {
 export class NarrationStub {
   readonly narration = new StubCaller();
   readonly synthesisAdmin = new StubCaller();
+  readonly pronunciations = new StubCaller();
+  readonly corrections = new StubCaller();
 
   onModuleInit(): void {}
 
   reset(): void {
-    for (const caller of [this.narration, this.synthesisAdmin]) {
+    for (const caller of [
+      this.narration,
+      this.synthesisAdmin,
+      this.pronunciations,
+      this.corrections,
+    ]) {
       caller.calls.length = 0;
       caller.handlers = {};
     }

@@ -108,3 +108,8 @@ export const mapPackObjectDetails = z.object({ path: z.string().min(1) }).strict
 export const mapPackTooLargeDetails = z
   .object({ bytes: z.number().int().min(1), maxBytes: z.number().int().min(1) })
   .strict();
+
+/** `PRONUNCIATION_TERM_EXISTS`: the entry that already covers this term and language. */
+export const pronunciationTermExistsDetails = z
+  .object({ term: z.string().min(1), targetLang: z.string().min(1).nullable() })
+  .strict();

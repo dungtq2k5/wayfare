@@ -37,6 +37,18 @@ export type RpcErrorDetailsArgs<C extends ErrorCode> =
   ErrorDetails<C> extends undefined ? [] : [details: ErrorDetails<C>];
 
 /**
+ * JSON with every non-ASCII character escaped. gRPC metadata values are ASCII only, and details
+ * carry real text — a Vietnamese term, a name. `JSON.parse` reads the escapes back unchanged.
+ */
+function asciiJson(value: unknown): string {
+  return JSON.stringify(value).replace(
+    /[\u0080-\uffff]/g,
+    // FIXME `String.raw` should be used to avoid escaping `\`.
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+
+/**
  * The only way to throw across gRPC (conventions §6.4). Both statuses come from `ERRORS[code]`, so
  * one code never travels with two. Carries the code (`wf-error-code`), its HTTP status
  * (`wf-http-status`) and any details as JSON (`wf-error-details`) in trailing metadata. Details
@@ -58,7 +70,7 @@ export function rpcError<C extends ErrorCode>(
         cause: parsed?.error,
       });
     }
-    metadata.set(ERROR_DETAILS_METADATA_KEY, JSON.stringify(parsed.data));
+    metadata.set(ERROR_DETAILS_METADATA_KEY, asciiJson(parsed.data));
   }
   const error: RpcErrorObject = {
     code: GRPC_STATUS_BY_NAME[spec.grpc],

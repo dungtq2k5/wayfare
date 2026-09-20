@@ -90,6 +90,8 @@ export function localizationSourcePlaceFixture(
     localizations: [
       {
         lang: 'en',
+        name: 'Ben Thanh Market',
+        description: 'A market since 1914.',
         sourceContentHash: HASH,
         translationSource: ProtoTranslationSource.TRANSLATION_SOURCE_MACHINE,
         audioStatus: ProtoAudioStatus.AUDIO_STATUS_READY,

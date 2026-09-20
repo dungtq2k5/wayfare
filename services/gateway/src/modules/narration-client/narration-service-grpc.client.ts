@@ -15,14 +15,20 @@ export const NARRATION_GRPC = Symbol('NARRATION_GRPC');
 export class NarrationServiceGrpcClient implements OnModuleInit {
   readonly narration: GrpcServiceCaller<narrationGrpc.NarrationServiceClient>;
   readonly synthesisAdmin: GrpcServiceCaller<narrationGrpc.SynthesisAdminServiceClient>;
+  readonly pronunciations: GrpcServiceCaller<narrationGrpc.PronunciationServiceClient>;
+  readonly corrections: GrpcServiceCaller<narrationGrpc.CorrectionServiceClient>;
 
   constructor(@Inject(NARRATION_GRPC) grpc: ClientGrpc) {
     this.narration = new GrpcServiceCaller(grpc, narrationGrpc.NARRATION_SERVICE_NAME);
     this.synthesisAdmin = new GrpcServiceCaller(grpc, narrationGrpc.SYNTHESIS_ADMIN_SERVICE_NAME);
+    this.pronunciations = new GrpcServiceCaller(grpc, narrationGrpc.PRONUNCIATION_SERVICE_NAME);
+    this.corrections = new GrpcServiceCaller(grpc, narrationGrpc.CORRECTION_SERVICE_NAME);
   }
 
   onModuleInit(): void {
     this.narration.init();
     this.synthesisAdmin.init();
+    this.pronunciations.init();
+    this.corrections.init();
   }
 }

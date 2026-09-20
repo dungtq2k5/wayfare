@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+// Staff translation corrections — api-endpoints-plan §4.5, rdm-spec N-7, ADR 0050.
+package wayfare.narration;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/common/localization.proto";
+
+// The correction screen and its two writes. The gateway checks `localization.edit`.
+service CorrectionService {
+  rpc GetLocalizationOverview(GetLocalizationOverviewRequest)
+      returns (GetLocalizationOverviewResponse);
+  rpc PutCorrection(PutCorrectionRequest) returns (PutCorrectionResponse);
+  rpc RevertCorrection(RevertCorrectionRequest) returns (RevertCorrectionResponse);
+}
+
+// Where a correction stands (rdm-spec N-7).
+enum OverrideStatus {
+  OVERRIDE_STATUS_UNSPECIFIED = 0;
+  OVERRIDE_STATUS_ACTIVE = 1;
+  OVERRIDE_STATUS_REVERTED = 2;
+}
+
+message Correction {
+  string id = 1;
+  wayfare.common.LocalizationTargetType target_type = 2;
+  string target_id = 3;
+  string lang = 4;
+  string source_content_hash = 5;
+  string name = 6;
+  optional string description = 7;
+  OverrideStatus status = 8;
+  // True when the target's text has moved on: kept, but no longer used.
+  bool superseded_by_hash = 9;
+  string edited_by_id = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message GetLocalizationOverviewRequest {
+  wayfare.common.LocalizationTargetType target_type = 1;
+  string target_id = 2;
+}
+
+message GetLocalizationOverviewResponse {
+  // The JSON of `zLocalizationOverview`: the served text per language beside its correction.
+  string overview_json = 1;
+}
+
+message PutCorrectionRequest {
+  wayfare.common.LocalizationTargetType target_type = 1;
+  string target_id = 2;
+  string lang = 3;
+  string source_content_hash = 4;
+  string name = 5;
+  optional string description = 6;
+}
+
+message PutCorrectionResponse {
+  Correction correction = 1;
+}
+
+message RevertCorrectionRequest {
+  wayfare.common.LocalizationTargetType target_type = 1;
+  string target_id = 2;
+  string lang = 3;
+}
+
+message RevertCorrectionResponse {}

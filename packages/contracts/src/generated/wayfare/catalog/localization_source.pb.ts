@@ -9,9 +9,32 @@ import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { LocalizationTargetType } from "../common/localization.pb";
+import { CursorPage, PageRequest } from "../common/page.pb";
 import { AudioStatus, PlaceKind, PlaceStatus, TranslationSource } from "./place_types.pb";
 
 export const protobufPackage = "wayfare.catalog";
+
+export interface SearchLocalizedTextRequest {
+  /** The term as written, with its diacritics; matched whole-word, case-insensitively. */
+  term: string;
+  /** Empty means every language. */
+  langs: string[];
+  page: PageRequest | undefined;
+}
+
+export interface SearchLocalizedTextResponse {
+  items: LocalizedTextMatch[];
+  page: CursorPage | undefined;
+}
+
+/** One localization row whose text holds the term. */
+export interface LocalizedTextMatch {
+  targetType: LocalizationTargetType;
+  targetId: string;
+  lang: string;
+  /** The source version this row was made from (rdm-spec C-4). */
+  sourceContentHash: string;
+}
 
 export interface CountOwnerPlacesRequest {
   ownerUserId: string;
@@ -57,7 +80,12 @@ export interface LocalizationState {
   audioObjectPath?: string | undefined;
   audioSha256?: string | undefined;
   audioBytes?: number | undefined;
-  audioDurationMs?: number | undefined;
+  audioDurationMs?:
+    | number
+    | undefined;
+  /** The text served now, which the correction screen shows beside its correction (§4.5). */
+  name: string;
+  description: string;
 }
 
 export interface LocalizationSourceMenuItem {
@@ -85,6 +113,13 @@ export interface PlaceServiceClient {
   /** An owner's Venues that count against their place limit (rdm-spec C-1) — billing's projections. */
 
   countOwnerPlaces(request: CountOwnerPlacesRequest, metadata?: Metadata): Observable<CountOwnerPlacesResponse>;
+
+  /** Live localizations whose text holds a term, whole-word — what a dictionary edit re-voices. */
+
+  searchLocalizedText(
+    request: SearchLocalizedTextRequest,
+    metadata?: Metadata,
+  ): Observable<SearchLocalizedTextResponse>;
 }
 
 /** catalog's service-to-service reads. A tourist route never reaches it. */
@@ -103,11 +138,18 @@ export interface PlaceServiceController {
     request: CountOwnerPlacesRequest,
     metadata?: Metadata,
   ): Promise<CountOwnerPlacesResponse> | Observable<CountOwnerPlacesResponse> | CountOwnerPlacesResponse;
+
+  /** Live localizations whose text holds a term, whole-word — what a dictionary edit re-voices. */
+
+  searchLocalizedText(
+    request: SearchLocalizedTextRequest,
+    metadata?: Metadata,
+  ): Promise<SearchLocalizedTextResponse> | Observable<SearchLocalizedTextResponse> | SearchLocalizedTextResponse;
 }
 
 export function PlaceServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getLocalizationSource", "countOwnerPlaces"];
+    const grpcMethods: string[] = ["getLocalizationSource", "countOwnerPlaces", "searchLocalizedText"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("PlaceService", method)(constructor.prototype[method], method, descriptor);

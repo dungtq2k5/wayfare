@@ -39,6 +39,7 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   MAP_PACK_HASH_MISMATCH: { path: 'maps/hcmc-d1-core/0123456789abcdef/map.pmtiles' },
   MAP_PACK_OBJECT_MISSING: { path: 'maps/hcmc-d1-core/0123456789abcdef/style.json' },
   MAP_PACK_TOO_LARGE: { bytes: 61_000_000, maxBytes: 60_000_000 },
+  PRONUNCIATION_TERM_EXISTS: { term: 'Bến Thành', targetLang: 'en' },
 };
 
 // The signature forbids a mismatch at compile time; this reaches the runtime check.
@@ -53,6 +54,16 @@ describe('rpcError', () => {
     );
   });
 
+  it('escapes non-ASCII details, which gRPC metadata cannot carry', () => {
+    const term = 'Bến Thành';
+    const metadata = loose('PRONUNCIATION_TERM_EXISTS', { term, targetLang: 'en' }).getError() as {
+      metadata: Metadata;
+    };
+    const raw = String(metadata.metadata.get('wf-error-details')[0]);
+    expect(raw).toMatch(/^[\x20-\x7e]*$/);
+    expect(JSON.parse(raw)).toEqual({ term, targetLang: 'en' });
+  });
+
   it.each(ERROR_CODES)('%s travels with its registered statuses', (code) => {
     const error = loose(code, VALID_DETAILS[code]).getError() as RpcErrorObject;
     expect(error.code).toBe(GRPC_STATUS_BY_NAME[ERRORS[code].grpc]);
@@ -60,8 +71,10 @@ describe('rpcError', () => {
     expect(error.metadata.get('wf-error-code')).toEqual([code]);
     expect(error.metadata.get('wf-http-status')).toEqual([String(ERRORS[code].http)]);
     const details = VALID_DETAILS[code];
-    expect(error.metadata.get('wf-error-details')).toEqual(
-      details === undefined ? [] : [JSON.stringify(details)],
+    const sent = error.metadata.get('wf-error-details');
+    // Sent as ASCII-escaped JSON, so a reader parses back exactly what was thrown.
+    expect(sent.map((value) => JSON.parse(String(value)) as unknown)).toEqual(
+      details === undefined ? [] : [details],
     );
   });
 

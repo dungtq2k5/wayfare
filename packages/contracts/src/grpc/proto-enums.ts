@@ -30,6 +30,9 @@ import {
   UploadPurpose,
 } from '../catalog/enums';
 import { ContentTier } from '../catalog/localization';
+import { OverrideStatus, ReplacementType } from '../narration/enums';
+import { OverrideStatus as ProtoOverrideStatus } from '../generated/wayfare/narration/correction.pb';
+import { ReplacementType as ProtoReplacementType } from '../generated/wayfare/narration/pronunciation.pb';
 import { protoEnumBridge } from '../common/proto-enum-bridge';
 import { SessionClient as ProtoSessionClient } from '../generated/wayfare/identity/auth.pb';
 import { Platform as ProtoPlatform } from '../generated/wayfare/identity/device.pb';
@@ -169,6 +172,20 @@ export const mapPackStatusProto = protoEnumBridge(
   ProtoMapPackStatus,
 );
 
+/** `ReplacementType` ⇄ `wayfare.narration.ReplacementType`. */
+export const replacementTypeProto = protoEnumBridge(
+  'ReplacementType',
+  ReplacementType,
+  ProtoReplacementType,
+);
+
+/** `OverrideStatus` ⇄ `wayfare.narration.OverrideStatus`. */
+export const overrideStatusProto = protoEnumBridge(
+  'OverrideStatus',
+  OverrideStatus,
+  ProtoOverrideStatus,
+);
+
 /** `AudioStatus` ⇄ `wayfare.catalog.AudioStatus`. */
 export const audioStatusProto = protoEnumBridge('AudioStatus', AudioStatus, ProtoAudioStatus);
 
@@ -306,6 +323,8 @@ export const PROTO_ENUM_BRIDGES = [
   placeInactiveReasonProto,
   categoryAppliesToProto,
   mapPackStatusProto,
+  replacementTypeProto,
+  overrideStatusProto,
   audioStatusProto,
   translationSourceProto,
   uploadPurposeProto,

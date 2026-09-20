@@ -1133,7 +1133,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Partial uniques:** `pronunciation_term_lang_key` — `(term, target_lang) WHERE target_lang IS NOT NULL`; `pronunciation_term_all_key` — `(term) WHERE target_lang IS NULL`. Two, because Postgres does not treat NULLs as equal.
 - **Applied longest-term-first, whole-word**, to the translated text immediately before synthesis. A language-specific entry beats the NULL entry for the same term.
-- **An edit creates `DICTIONARY_CHANGED` jobs** for every localization whose text contains the term (found through catalog's `SearchLocalizedText` RPC). The cache key (N-3) then decides what actually re-synthesises.
+- **An edit creates `DICTIONARY_CHANGED` jobs** for every localization whose text contains the term (found through catalog's `SearchLocalizedText` RPC). The fan-out runs on a queue, not in the request, at the lowest priority and capped at `MAX_DICTIONARY_FANOUT_TARGETS` (it reports and warns when it stops); a delete or deactivation fans out with the term as it was. The cache key (N-3) then decides what actually re-synthesises.
 - Hard-deleted; the audit log keeps the history.
 
 #### Table N-6: ui_bundles
@@ -1177,9 +1177,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Partial unique:** `localization_overrides_one_active` — `(target_type, target_id, lang, source_content_hash) WHERE status = 'ACTIVE'`. A new correction for the same source version reverts the previous one in the same transaction.
-- **Task building consults this table first.** When an `ACTIVE` override matches the current hash, the task skips `TRANSLATE` and synthesises from the override — so a pronunciation or voice change re-synthesises the human text and never re-translates it.
+- **Task building consults this table first, and retires what it finds stale.** An `ACTIVE` override whose `source_content_hash` is not the target's current one is marked `REVERTED` by that task (no `reverted_by_id`: superseded by a source change), and the task translates as usual — so no sweep needs every target's current hash. When an `ACTIVE` override matches the current hash, the task skips `TRANSLATE` and synthesises from the override — so a pronunciation or voice change re-synthesises the human text and never re-translates it.
 - **For `PLACE`, text and audio are published together**: the task emits a single `narration.localization.ready` carrying the corrected text *and* its new audio, so catalog never shows words the narration does not say. The Place stays `ACTIVE` throughout. Tours and menu items are text-only and publish immediately.
-- Superseded and reverted rows are kept for 400 days as a starting point for re-correction, then pruned.
+- Superseded and reverted rows are kept for `LOCALIZATION_OVERRIDE_RETENTION_DAYS` (400) as a starting point for re-correction, then deleted by the daily `localization-overrides-prune` job; an `ACTIVE` override whose hash the target still has is never pruned.
 
 ### 3.4 `billing` — plans, subscriptions, entitlements, vouchers
 

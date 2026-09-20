@@ -42,4 +42,23 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
       { deadlineMs: SOURCE_DEADLINE_MS },
     );
   }
+
+  /** One page of live localizations whose text holds `term`, whole-word (api §12.2). */
+  searchLocalizedText(input: {
+    readonly term: string;
+    readonly langs: readonly string[];
+    readonly cursor?: string;
+    readonly limit: number;
+  }): Promise<catalogGrpc.SearchLocalizedTextResponse> {
+    return this.places.call(
+      'searchLocalizedText',
+      {
+        term: input.term,
+        langs: [...input.langs],
+        page: { cursor: input.cursor, limit: input.limit },
+      },
+      { kind: 'anonymous', origin: SYSTEM_ORIGIN },
+      { deadlineMs: SOURCE_DEADLINE_MS },
+    );
+  }
 }
