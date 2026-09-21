@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+// What billing reads before letting an owner move money — api-endpoints-plan §12.2, ADR 0052.
+// Internal: never routed, called with a system context.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+
+// An account's security state. A cached "no restriction" is exactly the window a takeover uses,
+// so this is always read live and a failure refuses the restricted action.
+service AccountSecurityService {
+  rpc GetSecurityState(GetSecurityStateRequest) returns (GetSecurityStateResponse);
+}
+
+message GetSecurityStateRequest {
+  string user_id = 1;
+}
+
+message GetSecurityStateResponse {
+  // While a live email-change revert could still undo the address.
+  google.protobuf.Timestamp revert_pending_until = 1;
+  // When the password, address or sessions last changed — the payout cooldown's start.
+  google.protobuf.Timestamp credentials_changed_at = 2;
+}

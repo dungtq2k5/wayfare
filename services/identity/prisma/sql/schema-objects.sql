@@ -49,3 +49,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS owner_registrations_one_pending
 ALTER TABLE owner_registrations DROP CONSTRAINT IF EXISTS owner_registrations_reviewed_ck;
 ALTER TABLE owner_registrations ADD CONSTRAINT owner_registrations_reviewed_ck
   CHECK ((status IN ('APPROVED', 'REJECTED')) = (reviewed_at IS NOT NULL));
+
+-- account_recoveries (rdm-spec I-14): one live case per owner.
+CREATE UNIQUE INDEX IF NOT EXISTS account_recoveries_one_live
+  ON account_recoveries (user_id)
+  WHERE status IN ('PENDING_APPROVAL', 'ON_HOLD', 'LINK_SENT');
+
+-- At least two checks passed, and one of them was the phone callback.
+ALTER TABLE account_recoveries DROP CONSTRAINT IF EXISTS account_recoveries_evidence_ck;
+ALTER TABLE account_recoveries ADD CONSTRAINT account_recoveries_evidence_ck
+  CHECK (cardinality(evidence_codes) >= 2 AND 'PHONE_CALLBACK' = ANY(evidence_codes));
+
+-- Nobody approves a case they opened.
+ALTER TABLE account_recoveries DROP CONSTRAINT IF EXISTS account_recoveries_four_eyes_ck;
+ALTER TABLE account_recoveries ADD CONSTRAINT account_recoveries_four_eyes_ck
+  CHECK (approved_by_id IS NULL OR approved_by_id <> opened_by_id);

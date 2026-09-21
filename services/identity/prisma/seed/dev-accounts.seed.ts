@@ -4,8 +4,8 @@
 //
 // - the seed editor ("Wayfare seed"): owns every seeded catalog row; deactivated, no password, no
 //   role, so neither sign-in nor a password reset reaches it;
-// - moderator@wayfare.test (USER, CONTENT_MODERATOR) and tourist@wayfare.test (USER), verified,
-//   only when SEED_ACCOUNT_PASSWORD is set.
+// - admin@wayfare.test (USER, ADMIN), moderator@wayfare.test (USER, CONTENT_MODERATOR) and
+//   tourist@wayfare.test (USER), verified, only when SEED_ACCOUNT_PASSWORD is set.
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
@@ -26,6 +26,9 @@ import { hashPassword, zNewPassword } from '../../src/modules/tokens/domain/pass
 
 /** The development accounts, with the roles a real one of each kind holds. */
 export const DEV_ACCOUNTS = [
+  // An `ADMIN` opens an account recovery and a `SUPER_ADMIN` approves it, so a local stack needs
+  // both (api-endpoints-plan §1.10).
+  { email: 'admin@wayfare.test', roles: [SystemRole.USER, SystemRole.ADMIN] },
   { email: 'moderator@wayfare.test', roles: [SystemRole.USER, 'CONTENT_MODERATOR'] },
   { email: 'tourist@wayfare.test', roles: [SystemRole.USER] },
 ] as const;

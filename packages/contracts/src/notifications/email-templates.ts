@@ -12,13 +12,18 @@ const zInstant = z.iso.datetime({ offset: true });
 /** A reviewer's decision, as the outcome emails report it. */
 export const zReviewDecision = z.enum(['APPROVED', 'REJECTED']);
 
-/** The stages of an account recovery that email the owner (api-endpoints-plan §1.10). */
-export const ACCOUNT_RECOVERY_NOTICE_STAGES = [
-  'HOLD_STARTED',
-  'LINK_SENT',
+/**
+ * The stages of a recovery that is still live (api-endpoints-plan §1.10). Their mails carry a
+ * cancel link, which is what separates them from the outcome stages below.
+ */
+export const ACCOUNT_RECOVERY_NOTICE_STAGES = ['HOLD_STARTED', 'LINK_SENT'] as const;
+
+/** The stages that end a recovery. Nothing is left to cancel, so their mail has one link. */
+export const ACCOUNT_RECOVERY_OUTCOME_STAGES = [
   'COMPLETED',
   'CANCELLED',
   'REJECTED',
+  'EXPIRED',
 ] as const;
 
 /** Upper bound of a seller's display name — the registered business name (rdm-spec I-8 `business_name`). */
@@ -78,6 +83,12 @@ export const EMAIL_TEMPLATE_DATA = {
       holdUntil: zInstant.optional(),
     })
     .strict(),
+  [EmailTemplate.ACCOUNT_RECOVERY_OUTCOME]: z
+    .object({
+      recoveryId: zUuidV7,
+      stage: z.enum(ACCOUNT_RECOVERY_OUTCOME_STAGES),
+    })
+    .strict(),
   [EmailTemplate.VOUCHER_MOVED]: z
     .object({ voucherId: zUuidV7, offerTitle: z.string().min(1).max(MAX_OFFER_TITLE_LENGTH) })
     .strict(),
@@ -109,6 +120,7 @@ export const EMAIL_TEMPLATE_LINKS = {
   [EmailTemplate.PAYMENT_FAILED]: [],
   [EmailTemplate.ENTITLEMENTS_REDUCED]: ['action'],
   [EmailTemplate.ACCOUNT_RECOVERY_NOTICE]: ['action', 'cancel'],
+  [EmailTemplate.ACCOUNT_RECOVERY_OUTCOME]: ['action'],
   [EmailTemplate.VOUCHER_MOVED]: ['action'],
   [EmailTemplate.VOUCHER_REFUNDED]: ['action'],
 } as const satisfies Record<EmailTemplate, readonly EmailLinkSlot[]>;
@@ -128,4 +140,5 @@ export const EMAIL_SECURITY_TEMPLATES: ReadonlySet<EmailTemplate> = new Set([
   EmailTemplate.EMAIL_CHANGE,
   EmailTemplate.EMAIL_CHANGED_NOTICE,
   EmailTemplate.ACCOUNT_RECOVERY_NOTICE,
+  EmailTemplate.ACCOUNT_RECOVERY_OUTCOME,
 ]);

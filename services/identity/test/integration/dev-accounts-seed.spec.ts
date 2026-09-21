@@ -27,7 +27,7 @@ const rolesOf = async (email: string) =>
 describe('seed:dev (identity)', () => {
   it('creates the deactivated seed editor and the two accounts, then writes nothing', async () => {
     const lines = await seedDevAccounts(prisma, { password: PASSWORD });
-    expect(lines.filter((line) => line.startsWith('created'))).toHaveLength(3);
+    expect(lines.filter((line) => line.startsWith('created'))).toHaveLength(4);
     expect(
       await prisma.user.findUniqueOrThrow({ where: { id: SEED_EDITOR_USER_ID } }),
     ).toMatchObject({
@@ -40,6 +40,8 @@ describe('seed:dev (identity)', () => {
       (await prisma.user.findUniqueOrThrow({ where: { id: SEED_EDITOR_USER_ID } })).deletedAt,
     ).not.toBeNull();
     expect(await rolesOf(SEED_EDITOR_EMAIL)).toEqual([]);
+    // An ADMIN opens a recovery and a SUPER_ADMIN approves it (api-endpoints-plan §1.10).
+    expect(await rolesOf('admin@wayfare.test')).toEqual([SystemRole.ADMIN, SystemRole.USER]);
     expect(await rolesOf('moderator@wayfare.test')).toEqual(['CONTENT_MODERATOR', SystemRole.USER]);
     expect(await rolesOf('tourist@wayfare.test')).toEqual([SystemRole.USER]);
 
@@ -55,6 +57,7 @@ describe('seed:dev (identity)', () => {
     const lines = await seedDevAccounts(prisma, { password: null });
     expect(lines).toEqual([
       `created ${SEED_EDITOR_EMAIL} (the seed editor, deactivated)`,
+      'skipped admin@wayfare.test (SEED_ACCOUNT_PASSWORD is unset)',
       'skipped moderator@wayfare.test (SEED_ACCOUNT_PASSWORD is unset)',
       'skipped tourist@wayfare.test (SEED_ACCOUNT_PASSWORD is unset)',
     ]);

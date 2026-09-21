@@ -47,6 +47,9 @@ model User {
   notifications              Notification[]
   ownerRegistrations         OwnerRegistration[] @relation("OwnerRegistrationApplicant")
   reviewedOwnerRegistrations OwnerRegistration[] @relation("OwnerRegistrationReviewer")
+  accountRecoveries          AccountRecovery[]   @relation("AccountRecoverySubject")
+  openedRecoveries           AccountRecovery[]   @relation("AccountRecoveryOpener")
+  approvedRecoveries         AccountRecovery[]   @relation("AccountRecoveryApprover")
 
   @@index([deletedAt])
   @@map("users")
@@ -347,4 +350,36 @@ model JobRun {
   updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("job_runs")
+}
+
+/// A support-assisted recovery of an owner account whose login email is lost — rdm-spec I-14.
+model AccountRecovery {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  /// AccountRecoveryStatus in `@wayfare/contracts`; set by the create path, never defaulted.
+  status           String    @db.VarChar(24)
+  /// Normalized. Written to `users.email` only when the link sent to it is consumed.
+  requestedEmail   String    @map("requested_email") @db.VarChar(254)
+  /// Codes only — never a phone number, card digits or invoice amounts. No column default.
+  evidenceCodes    String[]  @map("evidence_codes") @db.VarChar(32)
+  supportReference String    @map("support_reference") @db.VarChar(64)
+  openedById       String    @map("opened_by_id") @db.Uuid
+  approvedById     String?   @map("approved_by_id") @db.Uuid
+  /// Required on rejection.
+  decisionNote     String?   @map("decision_note")
+  holdUntil        DateTime? @map("hold_until") @db.Timestamptz(3)
+  /// SHA-256 of the token every hold notice carries; cleared when the case ends.
+  cancelTokenHash  String?   @unique(map: "account_recoveries_cancel_token_key") @map("cancel_token_hash") @db.Char(64)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User  @relation("AccountRecoverySubject", fields: [userId], references: [id], onDelete: Restrict)
+  openedBy   User  @relation("AccountRecoveryOpener", fields: [openedById], references: [id], onDelete: Restrict)
+  approvedBy User? @relation("AccountRecoveryApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([status, createdAt])
+  @@map("account_recoveries")
 }

@@ -504,9 +504,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE, Indexed | — |
-| **purpose** | VARCHAR(32) | NOT NULL | `PASSWORD_RESET \| EMAIL_VERIFICATION \| EMAIL_CHANGE \| EMAIL_CHANGE_REVERT \| ACCOUNT_SETUP` — `ACCOUNT_SETUP` is a new staff account's first-password link. |
+| **purpose** | VARCHAR(32) | NOT NULL | `PASSWORD_RESET \| EMAIL_VERIFICATION \| EMAIL_CHANGE \| EMAIL_CHANGE_REVERT \| ACCOUNT_SETUP \| ACCOUNT_RECOVERY` — `ACCOUNT_SETUP` is a new staff account's first-password link; `ACCOUNT_RECOVERY` is the completion link of a support-assisted recovery (I-14), bound to the requested address. |
 | **token_hash** | CHAR(64) | NOT NULL, **UNIQUE** | SHA-256, looked up by value. |
-| **target_email** | VARCHAR(254) | NOT NULL | The address the link was sent to. **Binding every token to its address** is what makes a link die with the inbox it went to: except for `EMAIL_CHANGE` (the new address) and `EMAIL_CHANGE_REVERT` (the old address it restores), a token is consumable only while `target_email` equals `users.email`. For `EMAIL_CHANGE`, `users.email` is written only when the token for that exact address is consumed. |
+| **target_email** | VARCHAR(254) | NOT NULL | The address the link was sent to. **Binding every token to its address** is what makes a link die with the inbox it went to: except for the off-address purposes — `EMAIL_CHANGE` (the new address), `EMAIL_CHANGE_REVERT` (the old address it restores) and `ACCOUNT_RECOVERY` (the requested address the account does not hold yet) — a token is consumable only while `target_email` equals `users.email`. For `EMAIL_CHANGE`, `users.email` is written only when the token for that exact address is consumed. |
 | **expires_at** | TIMESTAMPTZ(3) | NOT NULL | 1 h for reset, 24 h for verification and email change, **72 h** for account setup (a welcome mail is often opened the next day), **7 d** (`EMAIL_CHANGE_REVERT_TTL_DAYS`) for a revert — a victim may not notice for days. |
 | **used_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **invalidated_at** | TIMESTAMPTZ(3) | Nullable | Set on every older outstanding token of the same purpose when a new one is issued. Separate from `used_at` so "consumed" and "superseded" stay distinguishable. |
@@ -593,7 +593,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | Field | Type | Constraints / Default | Description & business logic |
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Also sent to the provider as the idempotency key and as a message tag, so a webhook maps back without storing the address. |
-| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| ACCOUNT_SETUP \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| VOUCHER_MOVED \| VOUCHER_REFUNDED` |
+| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| ACCOUNT_SETUP \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| ACCOUNT_RECOVERY_OUTCOME \| VOUCHER_MOVED \| VOUCHER_REFUNDED` |
 | **recipient_user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | NULL only for a staff invite to someone with no account. |
 | **event_id** | UUID | NOT NULL | The triggering outbox event — or, for an email carrying an action token, that token's id (I-9). |
 | **to_email_masked** | VARCHAR(254) | Nullable | `a***e@example.com`. Shows support *which* address it went to — which differs from `users.email` after a change. NULL after erasure. |
@@ -627,13 +627,15 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **approved_by_id** | UUID | Nullable, FK ➔ users.id, RESTRICT | Holds `user.email.recover.approve`. `CHECK (approved_by_id IS NULL OR approved_by_id <> opened_by_id)` — nobody approves a case they opened. |
 | **decision_note** | TEXT | Nullable | Required on rejection. |
 | **hold_until** | TIMESTAMPTZ(3) | Nullable | Approval time + `RECOVERY_HOLD_HOURS` (72). The owner may cancel from any reachable channel until then. |
-| **cancel_token_hash** | CHAR(64) | Nullable, **UNIQUE** | SHA-256 of the token in the "cancel this recovery" link sent with the hold notices, usable without signing in. |
+| **cancel_token_hash** | CHAR(64) | Nullable, **UNIQUE** | SHA-256 of the token in the "cancel this recovery" link sent with the hold notices, usable without signing in. It lives here, not in I-9, because every notice carries the same token and it must die with the case; the **completion** token is an ordinary I-9 token (`ACCOUNT_RECOVERY`) bound to the requested address. |
 | **expires_at** | TIMESTAMPTZ(3) | NOT NULL | Opening time + `RECOVERY_EXPIRY_DAYS` (14). |
 | **completed_at** | TIMESTAMPTZ(3) | Nullable | Consuming the link sets the email, marks it verified, revokes sessions, forces a new password and stamps `credentials_changed_at`. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Partial unique:** `account_recoveries_one_live` — `(user_id) WHERE status IN ('PENDING_APPROVAL','ON_HOLD','LINK_SENT')`.
+- **A terminal transition clears `cancel_token_hash`**, so the cancel link dies with the case rather than sitting unique but dead; completion also invalidates every live I-9 token of the account.
+- **A recovery restores access, nothing more:** it changes the login address, the password, the sessions and `credentials_changed_at`. Places, submissions, subscriptions and payouts are untouched, and the payout cooldown ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)) guards the money afterwards.
 - Never deleted; every transition is also audited.
 
 ### 3.2 `catalog` — places, content, tours, sync (PostGIS)

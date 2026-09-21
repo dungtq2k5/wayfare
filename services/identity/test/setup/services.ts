@@ -5,6 +5,10 @@ import type { SocketEventKey, SocketPayload } from '@wayfare/contracts';
 import { OutboxService, rpcError } from '@wayfare/nest-common';
 import { AccessService } from '../../src/modules/access/access.service';
 import { AccountLinksService } from '../../src/modules/account-links/account-links.service';
+import { AccountRecoveriesService } from '../../src/modules/account-recoveries/account-recoveries.service';
+import { AccountSecurityService } from '../../src/modules/account-security/account-security.service';
+import { AdminRecoveriesService } from '../../src/modules/admin-recoveries/admin-recoveries.service';
+import { AccountRecoveriesAdvanceJob } from '../../src/modules/scheduled/account-recoveries-advance.job';
 import { AdminUsersService } from '../../src/modules/admin-users/admin-users.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import type { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
@@ -116,6 +120,31 @@ export function identityServices(
   );
   const frames = new FrameRecorder();
   const notifications = new NotificationsService(prisma, frames);
+  const adminRecoveries = new AdminRecoveriesService(
+    prisma,
+    outbox,
+    notifications,
+    email,
+    dispatcher,
+  );
+  const accountRecoveries = new AccountRecoveriesService(
+    prisma,
+    outbox,
+    links,
+    sessions,
+    tokens,
+    notifications,
+    email,
+    dispatcher,
+  );
+  const recoveriesAdvance = new AccountRecoveriesAdvanceJob(
+    prisma,
+    outbox,
+    links,
+    email,
+    dispatcher,
+  );
+  const accountSecurity = new AccountSecurityService(prisma);
   const ownerReview = new OwnerReviewService(
     prisma,
     outbox,
@@ -127,6 +156,10 @@ export function identityServices(
     config,
   );
   return {
+    adminRecoveries,
+    accountRecoveries,
+    recoveriesAdvance,
+    accountSecurity,
     config,
     tokens,
     access,

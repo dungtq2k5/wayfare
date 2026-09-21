@@ -25,6 +25,8 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
   readonly notifications: GrpcServiceCaller<identityGrpc.NotificationServiceClient>;
   readonly owner: GrpcServiceCaller<identityGrpc.OwnerServiceClient>;
   readonly ownerReview: GrpcServiceCaller<identityGrpc.OwnerReviewServiceClient>;
+  readonly adminRecoveries: GrpcServiceCaller<identityGrpc.RecoveryAdminServiceClient>;
+  readonly recoveries: GrpcServiceCaller<identityGrpc.RecoveryServiceClient>;
 
   constructor(@Inject(IDENTITY_GRPC) grpc: ClientGrpc) {
     this.devices = new GrpcServiceCaller(grpc, identityGrpc.DEVICE_SERVICE_NAME);
@@ -38,6 +40,8 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
     this.emailWebhooks = new GrpcServiceCaller(grpc, identityGrpc.EMAIL_WEBHOOK_SERVICE_NAME);
     this.notifications = new GrpcServiceCaller(grpc, identityGrpc.NOTIFICATION_SERVICE_NAME);
     this.owner = new GrpcServiceCaller(grpc, identityGrpc.OWNER_SERVICE_NAME);
+    this.adminRecoveries = new GrpcServiceCaller(grpc, identityGrpc.RECOVERY_ADMIN_SERVICE_NAME);
+    this.recoveries = new GrpcServiceCaller(grpc, identityGrpc.RECOVERY_SERVICE_NAME);
     this.ownerReview = new GrpcServiceCaller(grpc, identityGrpc.OWNER_REVIEW_SERVICE_NAME);
   }
 
@@ -54,5 +58,7 @@ export class IdentityServiceGrpcClient implements OnModuleInit {
     this.notifications.init();
     this.owner.init();
     this.ownerReview.init();
+    this.adminRecoveries.init();
+    this.recoveries.init();
   }
 }

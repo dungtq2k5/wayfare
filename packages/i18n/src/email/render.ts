@@ -56,6 +56,10 @@ export function renderEmail<T extends EmailTemplate>(
 ): RenderedEmail {
   const values = EMAIL_TEMPLATE_DATA[template].parse(data) as Record<string, unknown>;
   const message = emailMessage(template, locale);
+  // A stage is a code in the data and a phrase in the mail: nobody should read `HOLD_STARTED`.
+  if (message.stages !== undefined && typeof values.stage === 'string') {
+    values.stage = message.stages[values.stage] ?? values.stage;
+  }
   const subject = required(message.subject, values, `${template}.subject`);
   const preheader = required(message.preheader, values, `${template}.preheader`);
   const paragraphs = message.body.flatMap((paragraph) => {

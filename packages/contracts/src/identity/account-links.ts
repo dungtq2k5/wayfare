@@ -8,6 +8,12 @@ export const ACCOUNT_LINK_PATHS = {
   setupAccount: '/setup-account',
   confirmEmailChange: '/confirm-email-change',
   revertEmailChange: '/revert-email-change',
+  /** Where a mail sends someone who simply needs to sign in again. */
+  signIn: '/sign-in',
+  /** The "this wasn't me" link every hold notice carries. */
+  cancelRecovery: '/recovery/cancel',
+  /** The link to the requested address once the hold has passed. */
+  completeRecovery: '/recovery/complete',
   /** The owner's application status; opened without a token. */
   ownerRegistration: '/owner/registration',
   /** The owner's plan page; opened without a token. */

@@ -16,6 +16,8 @@ export interface ActionTokenRow {
 const OFF_ADDRESS_PURPOSES = [
   ActionTokenPurpose.EMAIL_CHANGE,
   ActionTokenPurpose.EMAIL_CHANGE_REVERT,
+  // A recovery's link is bound to the address being claimed, which the account does not hold yet.
+  ActionTokenPurpose.ACCOUNT_RECOVERY,
 ] as const;
 
 /**

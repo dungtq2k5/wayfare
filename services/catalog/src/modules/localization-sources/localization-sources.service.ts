@@ -125,7 +125,7 @@ export class LocalizationSourcesService {
       limit: request.page?.limit === 0 ? undefined : request.page?.limit,
     });
     const after = query.cursor === undefined ? null : decodeCursor(query.cursor);
-    if (query.cursor !== undefined && (after?.key === undefined)) {
+    if (query.cursor !== undefined && after?.key === undefined) {
       throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/cursor', code: 'invalid_value' }] });
     }
     const pattern = wholeWord(query.term);

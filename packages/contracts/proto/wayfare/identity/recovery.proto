@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+// Support-assisted account recovery — api-endpoints-plan §1.10, rdm-spec I-14.
+package wayfare.identity;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/common/page.proto";
+
+// Where a recovery stands (rdm-spec I-14).
+enum AccountRecoveryStatus {
+  ACCOUNT_RECOVERY_STATUS_UNSPECIFIED = 0;
+  ACCOUNT_RECOVERY_STATUS_PENDING_APPROVAL = 1;
+  ACCOUNT_RECOVERY_STATUS_ON_HOLD = 2;
+  ACCOUNT_RECOVERY_STATUS_LINK_SENT = 3;
+  ACCOUNT_RECOVERY_STATUS_COMPLETED = 4;
+  ACCOUNT_RECOVERY_STATUS_CANCELLED = 5;
+  ACCOUNT_RECOVERY_STATUS_REJECTED = 6;
+  ACCOUNT_RECOVERY_STATUS_EXPIRED = 7;
+}
+
+// A check that passed before a recovery was opened. Codes only, never raw values.
+enum RecoveryEvidenceCode {
+  RECOVERY_EVIDENCE_CODE_UNSPECIFIED = 0;
+  RECOVERY_EVIDENCE_CODE_PHONE_CALLBACK = 1;
+  RECOVERY_EVIDENCE_CODE_BUSINESS_DETAILS_MATCH = 2;
+  RECOVERY_EVIDENCE_CODE_BILLING_KNOWLEDGE = 3;
+}
+
+// The staff side. The gateway checks the route's permission; identity checks the rules it alone
+// can know — the subject being a verified owner, and nobody approving their own case.
+service RecoveryAdminService {
+  rpc OpenRecovery(OpenRecoveryRequest) returns (OpenRecoveryResponse);
+  rpc ListRecoveries(ListRecoveriesRequest) returns (ListRecoveriesResponse);
+  rpc ApproveRecovery(ApproveRecoveryRequest) returns (ApproveRecoveryResponse);
+  rpc RejectRecovery(RejectRecoveryRequest) returns (RejectRecoveryResponse);
+}
+
+// The owner's side: stopping a recovery, and finishing one. Both reach identity unauthenticated.
+service RecoveryService {
+  rpc CancelRecovery(CancelRecoveryRequest) returns (CancelRecoveryResponse);
+  rpc CompleteRecovery(CompleteRecoveryRequest) returns (CompleteRecoveryResponse);
+}
+
+// A case as staff read it.
+message Recovery {
+  string id = 1;
+  string user_id = 2;
+  AccountRecoveryStatus status = 3;
+  string requested_email = 4;
+  repeated RecoveryEvidenceCode evidence_codes = 5;
+  string support_reference = 6;
+  string opened_by_id = 7;
+  optional string approved_by_id = 8;
+  optional string decision_note = 9;
+  google.protobuf.Timestamp hold_until = 10;
+  google.protobuf.Timestamp expires_at = 11;
+  google.protobuf.Timestamp completed_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message OpenRecoveryRequest {
+  // The account being recovered; it must be a live, verified owner.
+  string user_id = 1;
+  string requested_email = 2;
+  repeated RecoveryEvidenceCode evidence_codes = 3;
+  string support_reference = 4;
+}
+
+message OpenRecoveryResponse {
+  Recovery recovery = 1;
+}
+
+message ListRecoveriesRequest {
+  wayfare.common.PageNumberRequest page = 1;
+  // Unspecified means every status.
+  AccountRecoveryStatus status = 2;
+}
+
+message ListRecoveriesResponse {
+  repeated Recovery recoveries = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+message ApproveRecoveryRequest {
+  string recovery_id = 1;
+}
+
+message ApproveRecoveryResponse {
+  Recovery recovery = 1;
+}
+
+message RejectRecoveryRequest {
+  string recovery_id = 1;
+  string decision_note = 2;
+}
+
+message RejectRecoveryResponse {
+  Recovery recovery = 1;
+}
+
+message CancelRecoveryRequest {
+  string recovery_id = 1;
+  // From a hold notice; absent when the case's own owner is signed in.
+  optional string token = 2;
+}
+
+message CancelRecoveryResponse {}
+
+message CompleteRecoveryRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message CompleteRecoveryResponse {}

@@ -15,6 +15,8 @@ export const PROTO_FILES = {
     'wayfare/identity/email_webhook.proto',
     'wayfare/identity/notification.proto',
     'wayfare/identity/owner.proto',
+    'wayfare/identity/recovery.proto',
+    'wayfare/identity/account_security.proto',
   ],
   catalog: [
     'wayfare/catalog/place_types.proto',

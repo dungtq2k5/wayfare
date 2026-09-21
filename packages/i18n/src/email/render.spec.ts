@@ -26,6 +26,7 @@ const SAMPLE_DATA: Record<EmailTemplate, Record<string, unknown>> = {
   PAYMENT_FAILED: { attemptCount: 2, nextAttemptAt: '2026-09-23T00:00:00.000Z' },
   ENTITLEMENTS_REDUCED: { entitlementsVersion: 2, reduced: [] },
   ACCOUNT_RECOVERY_NOTICE: { recoveryId: ID, stage: 'LINK_SENT' },
+  ACCOUNT_RECOVERY_OUTCOME: { recoveryId: ID, stage: 'COMPLETED' },
   VOUCHER_MOVED: { voucherId: ID, offerTitle: 'Bánh mì' },
   VOUCHER_REFUNDED: { orderId: ID, voucherCount: 2, reason: 'VENUE_UNAVAILABLE' },
 };

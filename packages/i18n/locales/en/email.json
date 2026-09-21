@@ -81,14 +81,34 @@
     "action": "See what changed"
   },
   "ACCOUNT_RECOVERY_NOTICE": {
-    "subject": "Account recovery for your Wayfare account",
-    "preheader": "Someone is recovering access to your account.",
+    "subject": "Someone is recovering access to your Wayfare account",
+    "preheader": "If this wasn't you, stop it now.",
     "body": [
-      "An account recovery for your Wayfare account reached the stage {{stage}}.",
-      "If you did not ask for this, cancel it now."
+      "Support has opened a recovery for the Wayfare account at this address, so its owner can sign in from a different email address.",
+      "Nothing about your account has changed. You can stop this until {{holdUntil}}.",
+      "If you did not ask for this, cancel it with the second link below. Your account stays exactly as it is."
     ],
     "action": "Open the recovery",
-    "cancel": "Cancel this recovery"
+    "cancel": "Cancel this recovery",
+    "stages": {
+      "HOLD_STARTED": "waiting",
+      "LINK_SENT": "ready to finish"
+    }
+  },
+  "ACCOUNT_RECOVERY_OUTCOME": {
+    "subject": "Your Wayfare account recovery: {{stage}}",
+    "preheader": "The recovery of your account has ended.",
+    "body": [
+      "The account recovery for your Wayfare account is {{stage}}.",
+      "If this was not you, contact support straight away — and if you can still sign in, change your password."
+    ],
+    "action": "Sign in",
+    "stages": {
+      "COMPLETED": "complete — the account now uses its new email address",
+      "CANCELLED": "cancelled — nothing was changed",
+      "REJECTED": "rejected — nothing was changed",
+      "EXPIRED": "expired — nobody finished it in time, and nothing was changed"
+    }
   },
   "VOUCHER_MOVED": {
     "subject": "Your voucher was moved to your account",

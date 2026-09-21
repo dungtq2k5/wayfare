@@ -56,6 +56,10 @@ import {
   EmailDeliveryStatus as ProtoEmailDeliveryStatus,
   EmailTemplate as ProtoEmailTemplate,
 } from '../generated/wayfare/identity/admin_user.pb';
+import {
+  AccountRecoveryStatus as ProtoAccountRecoveryStatus,
+  RecoveryEvidenceCode as ProtoRecoveryEvidenceCode,
+} from '../generated/wayfare/identity/recovery.pb';
 import { ActionTokenPurpose as ProtoActionTokenPurpose } from '../generated/wayfare/identity/password.pb';
 import { OwnerRegistrationStatus as ProtoOwnerRegistrationStatus } from '../generated/wayfare/identity/owner.pb';
 import {
@@ -85,10 +89,12 @@ import {
   SynthesisTrigger as ProtoSynthesisTrigger,
 } from '../generated/wayfare/narration/synthesis_admin.pb';
 import {
+  AccountRecoveryStatus,
   ActionTokenPurpose,
   LegalDocument,
   OwnerRegistrationStatus,
   Platform,
+  RecoveryEvidenceCode,
 } from '../identity/enums';
 import { EmailBounceType, EmailDeliveryStatus, EmailTemplate } from '../notifications/types';
 import { LegalParty } from '../identity/legal';
@@ -187,6 +193,20 @@ export const overrideStatusProto = protoEnumBridge(
   'OverrideStatus',
   OverrideStatus,
   ProtoOverrideStatus,
+);
+
+/** `AccountRecoveryStatus` ⇄ `wayfare.identity.AccountRecoveryStatus`. */
+export const accountRecoveryStatusProto = protoEnumBridge(
+  'AccountRecoveryStatus',
+  AccountRecoveryStatus,
+  ProtoAccountRecoveryStatus,
+);
+
+/** `RecoveryEvidenceCode` ⇄ `wayfare.identity.RecoveryEvidenceCode`. */
+export const recoveryEvidenceCodeProto = protoEnumBridge(
+  'RecoveryEvidenceCode',
+  RecoveryEvidenceCode,
+  ProtoRecoveryEvidenceCode,
 );
 
 /** `UiBundleStatus` ⇄ `wayfare.narration.UiBundleStatus`. */
@@ -336,6 +356,8 @@ export const PROTO_ENUM_BRIDGES = [
   replacementTypeProto,
   overrideStatusProto,
   uiBundleStatusProto,
+  accountRecoveryStatusProto,
+  recoveryEvidenceCodeProto,
   audioStatusProto,
   translationSourceProto,
   uploadPurposeProto,

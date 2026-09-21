@@ -4,7 +4,8 @@
     "action_tokens_live_revert_idx",
     "email_deliveries_one_per_event",
     "notifications_unread_idx",
-    "owner_registrations_one_pending"
+    "owner_registrations_one_pending",
+    "account_recoveries_one_live"
   ],
   "constraints": [
     "users_email_lower_ck",
@@ -12,6 +13,8 @@
     "users_locked_until_ck",
     "legal_acceptances_party_ck",
     "sessions_client_ck",
-    "owner_registrations_reviewed_ck"
+    "owner_registrations_reviewed_ck",
+    "account_recoveries_evidence_ck",
+    "account_recoveries_four_eyes_ck"
   ]
 }

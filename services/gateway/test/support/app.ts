@@ -82,6 +82,8 @@ export class IdentityStub {
   readonly notifications = new StubCaller();
   readonly owner = new StubCaller();
   readonly ownerReview = new StubCaller();
+  readonly adminRecoveries = new StubCaller();
+  readonly recoveries = new StubCaller();
 
   onModuleInit(): void {}
 
@@ -99,6 +101,8 @@ export class IdentityStub {
       this.notifications,
       this.owner,
       this.ownerReview,
+      this.adminRecoveries,
+      this.recoveries,
     ]) {
       caller.calls.length = 0;
       caller.handlers = {};

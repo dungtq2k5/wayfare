@@ -41,6 +41,8 @@ export enum ActionTokenPurpose {
   EMAIL_CHANGE_REVERT = 'EMAIL_CHANGE_REVERT',
   /** A new staff account's first-password link. */
   ACCOUNT_SETUP = 'ACCOUNT_SETUP',
+  /** The link sent to the requested address once a recovery's hold has passed (rdm-spec I-14). */
+  ACCOUNT_RECOVERY = 'ACCOUNT_RECOVERY',
 }
 
 /** Every `ActionTokenPurpose` value. */

@@ -93,4 +93,52 @@ describe('identity schema objects (rdm-spec §5)', () => {
     );
     await insert('REJECTED', new Date());
   });
+
+  it('account_recoveries_one_live refuses a second live case for one owner', async () => {
+    const userId = await insertUser();
+    const staffId = await insertUser();
+    const insert = (status: string) => prisma.$executeRaw`
+      INSERT INTO account_recoveries
+        (id, user_id, status, requested_email, evidence_codes, support_reference, opened_by_id,
+         expires_at)
+      VALUES (${newId()}::uuid, ${userId}::uuid, ${status}, ${`new${newId()}@example.com`},
+              ARRAY['PHONE_CALLBACK', 'BILLING_KNOWLEDGE']::varchar[], 'TICKET-1',
+              ${staffId}::uuid, now() + interval '14 days')`;
+    await insert('PENDING_APPROVAL');
+    // A case that ended leaves the way clear for the next one.
+    await insert('CANCELLED');
+    expect(await violated(() => insert('ON_HOLD'))).toContain('account_recoveries_one_live');
+  });
+
+  it('account_recoveries_evidence_ck wants two checks, one of them the phone callback', async () => {
+    const userId = await insertUser();
+    const staffId = await insertUser();
+    const insert = (codes: string[]) => prisma.$executeRaw`
+      INSERT INTO account_recoveries
+        (id, user_id, status, requested_email, evidence_codes, support_reference, opened_by_id,
+         expires_at)
+      VALUES (${newId()}::uuid, ${userId}::uuid, 'CANCELLED', ${`new${newId()}@example.com`},
+              ${codes}::varchar[], 'TICKET-1', ${staffId}::uuid, now() + interval '14 days')`;
+    expect(await violated(() => insert(['PHONE_CALLBACK']))).toContain(
+      'account_recoveries_evidence_ck',
+    );
+    expect(await violated(() => insert(['BUSINESS_DETAILS_MATCH', 'BILLING_KNOWLEDGE']))).toContain(
+      'account_recoveries_evidence_ck',
+    );
+    await insert(['PHONE_CALLBACK', 'BILLING_KNOWLEDGE']);
+  });
+
+  it('account_recoveries_four_eyes_ck refuses an approver who opened the case', async () => {
+    const userId = await insertUser();
+    const staffId = await insertUser();
+    const insert = (approverId: string) => prisma.$executeRaw`
+      INSERT INTO account_recoveries
+        (id, user_id, status, requested_email, evidence_codes, support_reference, opened_by_id,
+         approved_by_id, expires_at)
+      VALUES (${newId()}::uuid, ${userId}::uuid, 'ON_HOLD', ${`new${newId()}@example.com`},
+              ARRAY['PHONE_CALLBACK', 'BILLING_KNOWLEDGE']::varchar[], 'TICKET-1',
+              ${staffId}::uuid, ${approverId}::uuid, now() + interval '14 days')`;
+    expect(await violated(() => insert(staffId))).toContain('account_recoveries_four_eyes_ck');
+    await insert(await insertUser());
+  });
 });

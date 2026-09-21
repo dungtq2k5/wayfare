@@ -81,14 +81,34 @@
     "action": "Xem thay đổi"
   },
   "ACCOUNT_RECOVERY_NOTICE": {
-    "subject": "Khôi phục tài khoản Wayfare của bạn",
-    "preheader": "Có người đang khôi phục quyền truy cập tài khoản của bạn.",
+    "subject": "Có người đang khôi phục quyền truy cập tài khoản Wayfare của bạn",
+    "preheader": "Nếu không phải bạn, hãy dừng lại ngay.",
     "body": [
-      "Yêu cầu khôi phục tài khoản Wayfare của bạn đã đến giai đoạn {{stage}}.",
-      "Nếu bạn không yêu cầu, hãy hủy ngay."
+      "Bộ phận hỗ trợ đã mở một yêu cầu khôi phục cho tài khoản Wayfare ở địa chỉ này, để chủ tài khoản đăng nhập bằng một địa chỉ email khác.",
+      "Tài khoản của bạn chưa thay đổi gì. Bạn có thể dừng việc này đến {{holdUntil}}.",
+      "Nếu bạn không yêu cầu, hãy huỷ bằng liên kết thứ hai bên dưới. Tài khoản sẽ giữ nguyên."
     ],
     "action": "Mở yêu cầu khôi phục",
-    "cancel": "Hủy yêu cầu khôi phục"
+    "cancel": "Huỷ yêu cầu này",
+    "stages": {
+      "HOLD_STARTED": "đang chờ",
+      "LINK_SENT": "sẵn sàng hoàn tất"
+    }
+  },
+  "ACCOUNT_RECOVERY_OUTCOME": {
+    "subject": "Yêu cầu khôi phục tài khoản Wayfare: {{stage}}",
+    "preheader": "Yêu cầu khôi phục tài khoản của bạn đã kết thúc.",
+    "body": [
+      "Yêu cầu khôi phục tài khoản Wayfare của bạn {{stage}}.",
+      "Nếu không phải bạn, hãy liên hệ hỗ trợ ngay — và nếu vẫn đăng nhập được, hãy đổi mật khẩu."
+    ],
+    "action": "Đăng nhập",
+    "stages": {
+      "COMPLETED": "đã hoàn tất — tài khoản nay dùng địa chỉ email mới",
+      "CANCELLED": "đã huỷ — không có gì thay đổi",
+      "REJECTED": "đã bị từ chối — không có gì thay đổi",
+      "EXPIRED": "đã hết hạn — không ai hoàn tất kịp thời và không có gì thay đổi"
+    }
   },
   "VOUCHER_MOVED": {
     "subject": "Voucher của bạn đã được chuyển vào tài khoản",

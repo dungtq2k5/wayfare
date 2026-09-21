@@ -33,11 +33,15 @@ import { NotificationCreateModule } from './modules/notification-create/notifica
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PlaceStatusConsumer } from './modules/place-status/place-status.consumer';
 import { PlaceStatusModule } from './modules/place-status/place-status.module';
+import { AccountRecoveriesAdvanceJob } from './modules/scheduled/account-recoveries-advance.job';
 import { NotificationsPruneJob } from './modules/scheduled/notifications-prune.job';
 import { OwnerPiiRedactJob } from './modules/scheduled/owner-pii-redact.job';
 import { ScheduledModule } from './modules/scheduled/scheduled.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { OwnerRegistrationsModule } from './modules/owner-registrations/owner-registrations.module';
+import { AccountSecurityModule } from './modules/account-security/account-security.module';
+import { AccountRecoveriesModule } from './modules/account-recoveries/account-recoveries.module';
+import { AdminRecoveriesModule } from './modules/admin-recoveries/admin-recoveries.module';
 import { OwnerReviewModule } from './modules/owner-review/owner-review.module';
 import { CONSUMERS, EventSpine, OutboxModule } from './modules/outbox/outbox.module';
 import { PasswordModule } from './modules/password/password.module';
@@ -102,19 +106,29 @@ export class AppModule {
         SubmissionReviewedModule,
         OwnerRegistrationsModule,
         OwnerReviewModule,
+        AdminRecoveriesModule,
+        AccountRecoveriesModule,
+        AccountSecurityModule,
         SchedulerModule.forRootAsync({
           imports: [ScheduledModule],
-          inject: [ConfigService, PrismaService, NotificationsPruneJob, OwnerPiiRedactJob],
+          inject: [
+            ConfigService,
+            PrismaService,
+            NotificationsPruneJob,
+            OwnerPiiRedactJob,
+            AccountRecoveriesAdvanceJob,
+          ],
           useFactory: (
             config: IdentityConfig,
             prisma: PrismaService,
             prune: NotificationsPruneJob,
             redact: OwnerPiiRedactJob,
+            recoveries: AccountRecoveriesAdvanceJob,
           ) => ({
             service: 'identity',
             redisUrl: config.get('REDIS_URL', { infer: true }),
             db: prisma,
-            jobs: [prune, redact],
+            jobs: [prune, redact, recoveries],
             enabled: options.jobs ?? true,
           }),
         }),

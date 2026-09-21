@@ -1,4 +1,5 @@
 export * from './account-links';
+export * from './account-recovery';
 export * from './auth-claims';
 export * from './email';
 export * from './enums';

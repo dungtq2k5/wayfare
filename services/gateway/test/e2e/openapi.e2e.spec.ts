@@ -50,6 +50,8 @@ const UNLIMITED = new Set<string>();
 /** The routes that document no security: public ones without the refresh cookie. */
 const NO_SECURITY = new Set([
   'POST /api/v1/devices',
+  'POST /api/v1/account-recoveries/{id}/cancel',
+  'POST /api/v1/account-recoveries/complete',
   'POST /api/v1/devices/token',
   'POST /api/v1/auth/register',
   'POST /api/v1/auth/login',
@@ -107,7 +109,7 @@ const NON_JSON = new Map([
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(146);
+    expect(names).toHaveLength(152);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/q/'))).toBe(false);

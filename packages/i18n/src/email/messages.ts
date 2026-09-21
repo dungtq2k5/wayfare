@@ -4,7 +4,10 @@ import { z } from 'zod';
 import { BUNDLE_LOCALES, readBundle } from '../locales';
 import type { BundleLocale } from '../locales';
 
-/** One template's messages. `action` / `cancel` label its link slots. */
+/**
+ * One template's messages. `action` / `cancel` label its link slots, and `stages` names the values
+ * a `stage` may take — a template whose data carries one renders the phrase, never the code.
+ */
 export const emailMessageSchema = z
   .object({
     subject: z.string().min(1),
@@ -12,6 +15,7 @@ export const emailMessageSchema = z
     body: z.array(z.string().min(1)).min(1),
     action: z.string().min(1).optional(),
     cancel: z.string().min(1).optional(),
+    stages: z.record(z.string(), z.string().min(1)).optional(),
   })
   .strict();
 
@@ -35,7 +39,7 @@ export const EMAIL_BUNDLES: Readonly<Record<BundleLocale, EmailBundle>> = Object
 export function emailMessage(template: EmailTemplate, locale: BundleLocale): EmailMessage {
   const fallback = EMAIL_BUNDLES.en[template];
   if (fallback === undefined) throw new Error(`The en bundle has no ${template} messages`);
-  return { ...fallback, ...(EMAIL_BUNDLES[locale][template] ?? {}) };
+  return { ...fallback, ...EMAIL_BUNDLES[locale][template] };
 }
 
 /** The templates and keys a locale lacks, as `TEMPLATE.key` — for the completeness test. */

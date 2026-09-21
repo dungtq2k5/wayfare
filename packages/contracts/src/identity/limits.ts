@@ -16,6 +16,15 @@ export const PAYOUT_CHANGE_COOLDOWN_DAYS = 7;
 /** How long the old address may revert an email change (rdm-spec I-9, api-endpoints-plan §1.2). */
 export const EMAIL_CHANGE_REVERT_TTL_DAYS = 7;
 
+/** The wait between an approved recovery and its link (rdm-spec I-14, api-endpoints-plan §1.10). */
+export const RECOVERY_HOLD_HOURS = 72;
+
+/** When an unfinished recovery expires (rdm-spec I-14). */
+export const RECOVERY_EXPIRY_DAYS = 14;
+
+/** Upper bound of the support ticket a recovery names (rdm-spec I-14 `support_reference`). */
+export const MAX_SUPPORT_REFERENCE_LENGTH = 64;
+
 /** Each action token's lifetime (rdm-spec I-9). */
 export const ACTION_TOKEN_TTL_MS: Readonly<Record<ActionTokenPurpose, number>> = {
   [ActionTokenPurpose.PASSWORD_RESET]: HOUR_MS,
@@ -24,13 +33,10 @@ export const ACTION_TOKEN_TTL_MS: Readonly<Record<ActionTokenPurpose, number>> =
   [ActionTokenPurpose.EMAIL_CHANGE_REVERT]: EMAIL_CHANGE_REVERT_TTL_DAYS * DAY_MS,
   // A welcome mail is often opened the next day.
   [ActionTokenPurpose.ACCOUNT_SETUP]: 72 * HOUR_MS,
+  // The case's own `expires_at` is the real limit, and completion checks it; this is the outer
+  // bound, long enough that a link never dies before the case it belongs to (rdm-spec I-14).
+  [ActionTokenPurpose.ACCOUNT_RECOVERY]: RECOVERY_EXPIRY_DAYS * DAY_MS,
 };
-
-/** The wait between an approved recovery and its link (rdm-spec I-14, api-endpoints-plan §1.10). */
-export const RECOVERY_HOLD_HOURS = 72;
-
-/** When an unfinished recovery expires (rdm-spec I-14). */
-export const RECOVERY_EXPIRY_DAYS = 14;
 
 /** An account's access token lifetime (product-overview §9, api-endpoints-plan §1.1). */
 export const ACCOUNT_ACCESS_TOKEN_TTL_MS = 30 * MINUTE_MS;
