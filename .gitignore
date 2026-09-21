@@ -11,3 +11,4 @@ docs/archive/
 cspell.json
 # The tile pipeline's downloads and builds (`pnpm tiles:build`).
 infra/tiles/.cache/
+graphify-out/
