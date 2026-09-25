@@ -187,6 +187,7 @@ export function placeDetailFixture(overrides: Partial<PlaceDetail> = {}): PlaceD
     phone: undefined,
     websiteUrl: undefined,
     syncVersion: '42',
+    isFavorite: false,
     ...overrides,
   };
 }

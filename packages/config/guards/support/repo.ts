@@ -39,6 +39,29 @@ export function pascalCase(kebab: string): string {
     .join('');
 }
 
+/** The body of a `## N.` section, up to the next `## `. */
+export function section(markdown: string, number: number): string {
+  // FIXME `String.raw` should be used to avoid escaping `\`.
+  const start = markdown.search(new RegExp(`^## ${number}\\. `, 'm'));
+  if (start < 0) throw new Error(`section §${number} not found`);
+  const rest = markdown.slice(start + 1);
+  const end = rest.search(/^## /m);
+  return end < 0 ? markdown.slice(start) : markdown.slice(start, start + 1 + end);
+}
+
+/** Every table row's cells, in order, skipping the header separator. */
+export function tableRows(markdown: string): string[][] {
+  return markdown
+    .split('\n')
+    .filter((line) => line.startsWith('|') && !/^\|\s*:?-/.test(line))
+    .map((line) =>
+      line
+        .split(/(?<!\\)\|/)
+        .slice(1, -1)
+        .map((cell) => cell.trim()),
+    );
+}
+
 /** Markdown `##` headings, skipping fenced code blocks. */
 export function sectionHeadings(markdown: string): string[] {
   const headings: string[] = [];

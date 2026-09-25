@@ -215,7 +215,7 @@ describe('GET /places', () => {
   it('detail: the composition without billing, and an ETag', async () => {
     const res = await phone(`/places/${placeId}?lang=en`);
     expect(res.status).toBe(200);
-    expect(res.headers.etag).toBe(`"${placeId}:en:42"`);
+    expect(res.headers.etag).toBe(`"${placeId}:en:42:false"`);
     expect(res.body.data).toMatchObject({ offers: [], isFavorite: false, menu: null });
     expect(res.body).not.toHaveProperty('meta');
     const cached = await phone(`/places/${placeId}?lang=en`).set(
@@ -223,6 +223,21 @@ describe('GET /places', () => {
       res.headers.etag!,
     );
     expect(cached.status).toBe(304);
+  });
+
+  it('detail: favouriting moves the ETag, so a re-read with the old one is not 304', async () => {
+    const first = await phone(`/places/${placeId}?lang=en`);
+    expect(first.body.data.isFavorite).toBe(false);
+
+    gateway.catalog.placeQueries.handlers.getPlace = () =>
+      Promise.resolve({ place: placeDetailFixture({ isFavorite: true }) });
+    const stale = await phone(`/places/${placeId}?lang=en`).set(
+      'If-None-Match',
+      first.headers.etag!,
+    );
+    expect(stale.status).toBe(200);
+    expect(stale.body.data.isFavorite).toBe(true);
+    expect(stale.headers.etag).not.toBe(first.headers.etag);
   });
 
   it('by code: canonicalized first, and an unavailable Place explained', async () => {

@@ -730,6 +730,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `MIN_SUPPORTED_APP_VERSION` | gateway | Semver; a mobile build below it gets `426 APP_VERSION_UNSUPPORTED`. `0.0.0` by default. Configuration, not a constant, so a floor moves without a client release |
 | `CATALOG_GRPC_URL` | gateway | catalog's gRPC address |
 | `NARRATION_GRPC_URL` | gateway | narration's gRPC address |
+| `IDENTITY_GRPC_URL` | billing | identity's gRPC address, for the verified-owner reconcile |
 | `BILLING_GRPC_URL` | gateway, catalog, identity, narration | billing's gRPC address — entitlements, obligations, the owner summary |
 | `CATALOG_GRPC_URL` | billing | catalog's gRPC address, for the plan dry run's place counts |
 | `PUBLIC_QR_BASE_URL` | gateway, catalog's QR rendering | the host printed on every QR sticker (`https://go.wayfare.app`), mapped to the gateway; **it can never change** once stickers exist |

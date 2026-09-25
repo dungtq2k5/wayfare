@@ -42,7 +42,12 @@ beforeEach(async () => {
 afterAll(() => prisma.$disconnect());
 
 async function person(
-  data: { isEmailVerified?: boolean; ownerVerifiedAt?: Date; deletedAt?: Date } = {},
+  data: {
+    isEmailVerified?: boolean;
+    ownerVerifiedAt?: Date;
+    deletedAt?: Date;
+    erasedAt?: Date;
+  } = {},
 ): Promise<AccountContext> {
   const row = await prisma.user.create({
     data: { email: freshEmail(), isEmailVerified: true, ...data },
@@ -172,6 +177,7 @@ describe('applying', () => {
     const results = await Promise.allSettled([apply(), apply()]);
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     const rejected = results.find((result) => result.status === 'rejected');
+    // FIXME Property 'reason' does not exist on type 'PromiseSettledResult<string>'.
     expect((await errorOf(Promise.reject(rejected!.reason as Error))).code).toBe(
       'REGISTRATION_ALREADY_PENDING',
     );
@@ -390,6 +396,7 @@ describe('approval', () => {
     const results = await Promise.allSettled([approve(id), reject(id, 'Duplicate.')]);
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     const lost = results.find((result) => result.status === 'rejected');
+    // FIXME Property 'reason' does not exist on type 'PromiseRejectedResult | PromiseFulfilledResult<ApproveRegistrationResponse> | PromiseFulfilledResult<RejectRegistrationResponse>'.
     expect((await errorOf(Promise.reject(lost!.reason as Error))).code).toBe('INVALID_STATE');
     expect(await prisma.notification.count()).toBe(1);
   });
@@ -537,5 +544,39 @@ describe('erasure', () => {
     expect(
       redacted.map((payload) => (payload.resource as { id: string }).id).toSorted(compareStrings),
     ).toEqual([earlier, open].toSorted(compareStrings));
+  });
+});
+
+describe('listVerifiedOwnerIds', () => {
+  it('answers live, verified owners only — never an unverified, deactivated or erased one', async () => {
+    const now = new Date();
+    const verified = await person({ ownerVerifiedAt: now });
+    await person(); // never applied
+    await person({ ownerVerifiedAt: now, deletedAt: now }); // deactivated
+    await person({ ownerVerifiedAt: now, deletedAt: now, erasedAt: now }); // erased
+
+    const answer = await services.registrations.listVerifiedOwnerIds({ page: { limit: 20 } });
+    expect(answer.ownerUserIds).toEqual([verified.userId]);
+    expect(answer.page).toEqual({});
+  });
+
+  it('pages keyset on the id, oldest first, with an opaque cursor', async () => {
+    const now = new Date();
+    const owners = [
+      await person({ ownerVerifiedAt: now }),
+      await person({ ownerVerifiedAt: now }),
+      await person({ ownerVerifiedAt: now }),
+    ];
+    const sorted = owners.map((o) => o.userId).toSorted(compareStrings);
+
+    const first = await services.registrations.listVerifiedOwnerIds({ page: { limit: 2 } });
+    expect(first.ownerUserIds).toEqual(sorted.slice(0, 2));
+    expect(first.page?.nextCursor).toBeTruthy();
+
+    const second = await services.registrations.listVerifiedOwnerIds({
+      page: { limit: 2, cursor: first.page?.nextCursor },
+    });
+    expect(second.ownerUserIds).toEqual(sorted.slice(2));
+    expect(second.page).toEqual({});
   });
 });

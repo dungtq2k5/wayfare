@@ -18,6 +18,7 @@ import { AccountsModule } from './modules/accounts/accounts.module';
 import { BillingEventsModule } from './modules/billing-events/billing-events.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { EntitlementsModule } from './modules/entitlements/entitlements.module';
+import { IdentityModule } from './modules/identity/identity.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { OwnerVerifiedConsumer } from './modules/owner-verified/owner-verified.consumer';
 import { EntitlementsChangedConsumer } from './modules/entitlements-changed/entitlements-changed.consumer';
@@ -28,6 +29,7 @@ import { PlansModule } from './modules/plans/plans.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { RedisLifecycle, RedisModule } from './modules/redis/redis.module';
+import { BillingAccountsReconcileJob } from './modules/scheduled/billing-accounts-reconcile.job';
 import { BillingEventsPruneJob } from './modules/scheduled/billing-events-prune.job';
 import { BillingWebhooksRecoverJob } from './modules/scheduled/billing-webhooks-recover.job';
 import { ScheduledModule } from './modules/scheduled/scheduled.module';
@@ -66,6 +68,7 @@ export class AppModule {
         RedisModule,
         PaymentsModule,
         CatalogModule,
+        IdentityModule,
         SystemPlansModule,
         EntitlementsModule,
         WebhookQueueModule.forRoot({ worker: jobs }),
@@ -80,17 +83,24 @@ export class AppModule {
         EntitlementsChangedModule,
         SchedulerModule.forRootAsync({
           imports: [ScheduledModule],
-          inject: [ConfigService, PrismaService, BillingWebhooksRecoverJob, BillingEventsPruneJob],
+          inject: [
+            ConfigService,
+            PrismaService,
+            BillingWebhooksRecoverJob,
+            BillingEventsPruneJob,
+            BillingAccountsReconcileJob,
+          ],
           useFactory: (
             config: BillingConfig,
             prisma: PrismaService,
             recover: BillingWebhooksRecoverJob,
             prune: BillingEventsPruneJob,
+            reconcile: BillingAccountsReconcileJob,
           ) => ({
             service: SERVICE_NAME,
             redisUrl: config.get('REDIS_URL', { infer: true }),
             db: prisma,
-            jobs: [recover, prune],
+            jobs: [recover, prune, reconcile],
             enabled: jobs,
           }),
         }),

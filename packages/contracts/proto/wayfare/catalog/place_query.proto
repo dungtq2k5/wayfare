@@ -121,6 +121,8 @@ message PlaceDetail {
   optional string website_url = 17;
   // The ETag's version.
   int64 sync_version = 18;
+  // The calling device, or the signed-in account on any of its devices, has saved this Place.
+  bool is_favorite = 19;
 }
 
 // One photo in display order.

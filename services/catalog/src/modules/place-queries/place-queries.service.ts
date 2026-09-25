@@ -163,6 +163,7 @@ export class PlaceQueriesService {
     const ranked = rankNearby(candidates).slice(0, fields.limit);
     const rows = await this.prisma.place.findMany({
       where: { id: { in: ranked.map((item) => item.id) } },
+      // FIXME Type '{ readonly photos: { readonly select: { readonly variants: true; }; readonly orderBy: readonly [{ readonly sortOrder: "asc"; }, { readonly id: "asc"; }]; readonly take: 1; }; readonly id: true; readonly kind: true; ... 7 more ...; readonly localizations: { ...; }; }' is not assignable to type 'PlaceSelect<DefaultArgs>'.
       select: withLanguages(SUMMARY_PLACE_SELECT, reachableLanguages(fields.lang.lang)),
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
@@ -173,6 +174,7 @@ export class PlaceQueriesService {
         const distanceM = Math.round(item.distanceM);
         return [
           toPlaceSummary(
+            // FIXME Argument of type '{ areaId: string; publicCode: string; id: string; kind: string; ownerUserId: string | null; categoryId: string; nameVi: string; descriptionVi: string; contentHash: string; addressVi: string | null; ... 17 more ...; deletedById: string | null; }' is not assignable to parameter of type '{ areaId: string; publicCode: string; id: string; kind: string; nameVi: string; descriptionVi: string; contentHash: string; priceBand: number | null; category: { code: string; }; localizations: { ...; }[]; photos: { ...; }[]; }'.
             row,
             {
               location: { lat: item.lat, lng: item.lng },
@@ -193,9 +195,14 @@ export class PlaceQueriesService {
     request: catalogGrpc.GetPlaceRequest,
     context: RequestContext,
   ): Promise<catalogGrpc.GetPlaceResponse> {
-    requireDeviceContext(context);
+    const deviceId = requireDeviceContext(context);
     const fields = parseRpcRequest(getFields, request);
-    const place = await this.detail({ id: fields.placeId }, fields.lang.lang);
+    const place = await this.detail(
+      { id: fields.placeId },
+      fields.lang.lang,
+      deviceId,
+      context.kind === 'account' ? context.userId : null,
+    );
     if (!place?.live) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
     return { place: place.detail };
   }
@@ -205,9 +212,14 @@ export class PlaceQueriesService {
     request: catalogGrpc.GetPlaceByCodeRequest,
     context: RequestContext,
   ): Promise<catalogGrpc.GetPlaceByCodeResponse> {
-    requireDeviceContext(context);
+    const deviceId = requireDeviceContext(context);
     const fields = parseRpcRequest(byCodeFields, request);
-    const place = await this.detail({ publicCode: fields.publicCode }, fields.lang.lang);
+    const place = await this.detail(
+      { publicCode: fields.publicCode },
+      fields.lang.lang,
+      deviceId,
+      context.kind === 'account' ? context.userId : null,
+    );
     if (place === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
     if (!place.live) throw rpcError('PLACE_UNAVAILABLE');
     return { place: place.detail };
@@ -340,6 +352,8 @@ export class PlaceQueriesService {
   private async detail(
     where: Prisma.PlaceWhereUniqueInput,
     requested: string | null,
+    deviceId: string,
+    userId: string | null,
   ): Promise<{ live: false } | { live: true; detail: catalogGrpc.PlaceDetail } | null> {
     const langs = reachableLanguages(requested);
     const select = withLanguages(DETAIL_PLACE_SELECT, langs);
@@ -354,11 +368,27 @@ export class PlaceQueriesService {
     });
     if (row === null) return null;
     if (row.status !== ACTIVE || row.deletedAt !== null) return { live: false };
-    const locations = await this.locations([row.id]);
+    const [locations, isFavorite] = await Promise.all([
+      this.locations([row.id]),
+      this.isFavorite(row.id, deviceId, userId),
+    ]);
     return {
       live: true,
-      detail: toPlaceDetail(row, locations.get(row.id)!, requested, this.mediaBase),
+      detail: toPlaceDetail(row, locations.get(row.id)!, requested, this.mediaBase, isFavorite),
     };
+  }
+
+  /** Whether the calling device, or the signed-in account on any of its devices, saved the Place. */
+  private async isFavorite(
+    placeId: string,
+    deviceId: string,
+    userId: string | null,
+  ): Promise<boolean> {
+    const saved = await this.prisma.favorite.findFirst({
+      where: { placeId, OR: userId === null ? [{ deviceId }] : [{ deviceId }, { userId }] },
+      select: { deviceId: true },
+    });
+    return saved !== null;
   }
 
   private async locations(ids: readonly string[]): Promise<Map<string, GeoPoint>> {

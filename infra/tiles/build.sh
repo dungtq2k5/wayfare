@@ -73,6 +73,13 @@ if [[ ! -d $basemaps ]]; then
     tar xz -C "$(dirname "$basemaps")"
 fi
 
+# Protomaps removes old daily builds; fail with the fix rather than deep inside `extract`.
+build_status=$(curl -sS -o /dev/null -w '%{http_code}' -I "$PROTOMAPS_BUILD_URL")
+[[ $build_status == 200 ]] || {
+  echo "✗ the pinned Protomaps build is gone ($build_status): move PROTOMAPS_BUILD_DATE forward (README)" >&2
+  exit 1
+}
+
 # The archive: only the area's tiles, from zoom MIN_ZOOM to the build's maximum.
 "$cli" extract "$PROTOMAPS_BUILD_URL" "$out/map.pmtiles" --bbox="$margin_bbox" \
   --minzoom="$MIN_ZOOM" --maxzoom="$MAX_ZOOM" --quiet

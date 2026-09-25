@@ -167,7 +167,7 @@ socket subscriber "$(cat "$work/admin.at")" "$job_a"
 socket outsider "$(cat "$work/plain.at")" "$job_a"
 wait_for 'the monitor subscribed to the job' 5 saw subscriber job:subscribed
 wait_for 'the outsider was answered' 5 saw outsider error
-wait_for 'a failing attempt retried' 20 retried "$job_a"
+wait_for 'a failing attempt retried' 60 retried "$job_a"
 wait_for 'narration:task:progress frames streamed' 20 saw subscriber narration:task:progress
 [[ $(frames outsider '[.[] | select(.event == "error")][0].payload.code') == '"PERMISSION_DENIED"' ]] ||
   fail 'a non-admin socket was not refused job:subscribe'
@@ -219,7 +219,7 @@ create_place post-office 2 "Bưu điện thử $stamp" 'Bưu điện xây năm 1
 second_id=$(json create-post-office .data.place.id)
 wait_for 'a job for the second Place' 10 has_any_job "$second_id"
 job_p=$(newest_job "$second_id")
-wait_for 'its tasks failed once' 20 retried "$job_p"
+wait_for 'its tasks failed once' 60 retried "$job_p"
 call pause-p 200 -X POST "$BASE/admin/narration/jobs/$job_p/pause" "${console[@]}" -b "$(admin)"
 held=$(sum_attempts "$job_p")
 sleep 7

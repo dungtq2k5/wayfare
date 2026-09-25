@@ -36,4 +36,10 @@ export class OwnerRegistrationsGrpcController implements identityGrpc.OwnerServi
   ): Promise<identityGrpc.GetOwnerVerificationResponse> {
     return this.registrations.getOwnerVerification(request);
   }
+
+  listVerifiedOwnerIds(
+    request: identityGrpc.ListVerifiedOwnerIdsRequest,
+  ): Promise<identityGrpc.ListVerifiedOwnerIdsResponse> {
+    return this.registrations.listVerifiedOwnerIds(request);
+  }
 }

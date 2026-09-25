@@ -190,6 +190,11 @@ call fav-a-again 204 -X PUT "$BASE/me/favorites/$favorite_a" "${mobile[@]}" -H "
 [[ $(catalog_sql "SELECT count(*) FROM favorites WHERE device_id = '$(cat "$work/phone.id")'") == 1 ]] ||
   fail 'PUT twice made two rows'
 echo '✓ PUT twice → one row'
+call detail-favorited 200 "$BASE/places/$favorite_a?lang=en" "${mobile[@]}" -H "$(bearer phone)"
+[[ $(json detail-favorited .data.isFavorite) == true ]] || fail 'the saving device does not see isFavorite'
+call detail-unfavorited 200 "$BASE/places/$favorite_b?lang=en" "${mobile[@]}" -H "$(bearer phone)"
+[[ $(json detail-unfavorited .data.isFavorite) == false ]] || fail 'a Place never saved answers isFavorite: true'
+echo '✓ the detail carries isFavorite for the saving device'
 owner_email=$(jq -r '.owners[] | select(.slug == "owner-1") | .email' "$repo_root/services/identity/prisma/seed/pilot-d4/owners.json")
 for device in phone tablet; do
   call "$device-login" 200 -X POST "$BASE/auth/login" "${mobile[@]}" -H "$(bearer "$device")" \
@@ -200,6 +205,10 @@ favorites_of() { curl -sS "$BASE/me/favorites?lang=en" "${mobile[@]}" -H "$(bear
 has() { [[ $(favorites_of "$1") == "$2" ]]; }
 wait_for "the tablet sees the phone's favourite once the phone is claimed" 10 \
   has tablet-account "[\"$favorite_a\"]"
+call detail-account 200 "$BASE/places/$favorite_a?lang=en" "${mobile[@]}" -H "$(bearer tablet-account)"
+[[ $(json detail-account .data.isFavorite) == true ]] ||
+  fail "the account's other device does not see isFavorite"
+echo '✓ isFavorite is shared with the account, on a device that never saved it itself'
 call fav-b 204 -X PUT "$BASE/me/favorites/$favorite_b" "${mobile[@]}" -H "$(bearer tablet-account)"
 expected=$(jq -nc --arg a "$favorite_a" --arg b "$favorite_b" '[$a, $b] | sort')
 has phone-account "$expected" || fail "the phone does not see the tablet's new favourite at once"

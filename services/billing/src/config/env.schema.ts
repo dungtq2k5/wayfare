@@ -27,6 +27,8 @@ export const envSchema = z
     OPS_PORT: zPort,
     METRICS_PORT: zPort,
     CATALOG_GRPC_URL: z.string().min(1),
+    IDENTITY_GRPC_URL: z.string().min(1),
+    // FIXME Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.
     // Checkout's success and cancel pages, the portal's return page.
     CONSOLE_URL: z.url().transform((value) => value.replace(/\/+$/, '')),
     APP_VERSION: z.string().default('0.0.0-dev'),

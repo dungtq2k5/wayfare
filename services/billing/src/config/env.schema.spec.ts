@@ -11,6 +11,7 @@ const valid = {
   OPS_PORT: '3104',
   METRICS_PORT: '9104',
   CATALOG_GRPC_URL: 'localhost:20052',
+  IDENTITY_GRPC_URL: 'localhost:20051',
   CONSOLE_URL: 'http://localhost:5173/',
   STRIPE_WEBHOOK_SECRET: 'whsec_local',
 };

@@ -101,10 +101,10 @@ services/gateway/src/modules/places/
 
 | Layer | Returns | May import |
 | :---- | :---- | :---- |
-| `*.controller.ts` | whatever its service returned | its service — **never** a client, **never** a mapper |
+| `*.controller.ts` | whatever its service returned | its service —**never** a client, **never** a mapper |
 | `*.service.ts` | a response DTO | the client and the mapper |
-| `*.mapper.ts` | a DTO or a proto request | proto types, DTOs, `packages/contracts` |
-| `*-grpc.client.ts` | the generated proto message | generated proto types — **never** a DTO, **never** a mapper |
+| `*.mapper.ts` | a DTO or a proto request | proto types, DTOs,`packages/contracts` |
+| `*-grpc.client.ts` | the generated proto message | generated proto types —**never** a DTO, **never** a mapper |
 
 - **A pass-through service is expected.** Most gateway services are one-line delegations; that is the layer doing its job, and it is where the first composition lands instead of a controller.
 - The gateway **MUST NOT** re-export a proto type as a response. Response DTOs are narrow and written for the client.
@@ -121,11 +121,11 @@ A table belongs to the service that owns its domain in rdm-spec §1.1, **whether
 | :---- | :---- |
 | A value shared by two services, or by a service and a client (an enum, a limit, an error code) | `packages/contracts/src/<topic>.ts` |
 | A JetStream subject and its payload schema | `packages/contracts/src/events/<publisher>.events.ts` |
-| A `.proto` | `packages/contracts/proto/wayfare/<service>/<name>.proto` |
+| A`.proto` | `packages/contracts/proto/wayfare/<service>/<name>.proto` |
 | Logic that must run identically on mobile, web and in a test (geofence, fallback chains, ranking) | `packages/core/src/<topic>/` |
 | A pure domain rule used by one service | `services/<svc>/src/modules/<mod>/domain/` |
 | A Nest guard, interceptor or decorator shared by services | `packages/nest-common/src/<kind>/` |
-| A React component used by `web` and `console` | `packages/ui/src/` |
+| A React component used by`web` and `console` | `packages/ui/src/` |
 | An i18n message | `packages/i18n/locales/<locale>/<namespace>.json` |
 | A provider adapter (the one file that imports a vendor SDK) | `services/<svc>/src/providers/<kind>/<vendor>.<kind>-provider.ts` — outside `modules/`; an adapter two services use lives in `packages/nest-common/src/providers/<kind>/`, exported from its own subpath (`@wayfare/nest-common/<kind>`) so services that do not use it never load its SDK |
 | SQL Prisma cannot express | `services/<svc>/prisma/sql/schema-objects.sql` ([ADR 0045](./decisions/0045-schema-objects-prisma-cannot-express-live-in-committed-sql.md)) |
@@ -283,7 +283,6 @@ As defined in api-endpoints-plan §0.4. A global interceptor wraps success as `{
 
 - A non-list response that needs `meta` (a composed route's `meta.degraded`) returns `WithMeta.of(data, meta)`; `Paged` is its list-shaped subclass.
 - **`@SkipEnvelope()`** (nest-common) exempts a controller or handler from the envelope. It is for **ops routes only** — `/health`, `/health/ready`, `/version` — which are unwrapped on every service (api-endpoints-plan §13). An API route **MUST NOT** use it: clients branch on the envelope's shape.
-
 - **Conditional reads** go through nest-common's `@ETagged()` helper: the handler returns its value with a version, the helper sets `ETag`, and a matching `If-None-Match` answers `304` with no body, bypassing the envelope and response validation. **A binary response lets its `StreamableFile` carry the content type**, never a static `@Header('Content-Type', …)`: the static header is applied before the handler runs, so a refusal comes back labelled as audio with a JSON body. **Public cache headers** (`@PublicCache(seconds)`) are allowed only on anonymous, account-independent reads (`/categories`, `/areas`); `@PrivateCache(seconds)` sets a short private cache on a device read (the narration status) and is refused on a `PUBLIC` route; every other route is `private, no-store` or unset.
 - Handlers **MUST** return raw data, or `{ data, meta }` via the `Paged` helper. Returning `{ data }` yourself double-wraps.
 - Every thrown error **MUST** carry an `ErrorCode` from `packages/contracts`. A new code is added there, with its `details` schema, and to the client i18n bundle in the same PR.
@@ -310,11 +309,11 @@ Tokens are verified in `requestContextMiddleware` (§4.1); guards only judge wha
 | Marker | Admits | Never on |
 | :---- | :---- | :---- |
 | `PUBLIC` | anyone; a bad token is ignored | anything reading account data |
-| `DEVICE` | a device token, or an account token carrying `deviceId` | console-only routes |
+| `DEVICE` | a device token, or an account token carrying`deviceId` | console-only routes |
 | `USER` (`alsoDevice` for `USER + DEVICE`) | an account token | `/auth/login`, `/auth/register`, `/auth/refresh`, `/devices*` except `/devices/me*` |
-| `USER_EMAIL` | an account with `emailVerified`; otherwise `403 EMAIL_NOT_VERIFIED` | `/auth/email/verify*` — it would deadlock the account |
-| `OWNER` | an account with `ownerVerified` and `owner.access`; otherwise `403 PERMISSION_DENIED { required: ['owner.access'] }` | `/owner/registration` — a not-yet-verified owner must reach it |
-| `STAFF` | an active venue-staff membership for the addressed seller | anything but `/staff/*` |
+| `USER_EMAIL` | an account with`emailVerified`; otherwise `403 EMAIL_NOT_VERIFIED` | `/auth/email/verify*` — it would deadlock the account |
+| `OWNER` | an account with`ownerVerified` and `owner.access`; otherwise `403 PERMISSION_DENIED { required: ['owner.access'] }` | `/owner/registration` — a not-yet-verified owner must reach it |
+| `STAFF` | an active venue-staff membership for the addressed seller | anything but`/staff/*` |
 | `SIGNATURE` | anyone; the route verifies the provider signature itself | anything but provider webhooks |
 
 - `@RequirePermission(a, b)` means **any of**. A route needing two grants stacks the decorator twice.
@@ -367,7 +366,6 @@ Every route **MUST** declare its response with **`@ApiEnvelope(Dto, { status?, l
 - The package is unversioned, so `buf lint`'s `PACKAGE_VERSION_SUFFIX` rule is disabled; `buf breaking` against `main` runs in CI and is the only thing between a proto edit and a wire-incompatible deploy. A breaking change is allowed only with every caller changed in the same PR.
 - **Enum members are prefixed with the enum name** (`PLACE_STATUS_ACTIVE`) and the zero member is `…_UNSPECIFIED`. Protobuf enum values share one namespace per package.
 - **Every RPC has its own request and response message** (`Login` → `LoginRequest` / `LoginResponse`), even when two would be identical — `buf lint` requires it, and it keeps one RPC's response free to grow. A shape several responses share is its own message, nested inside them (`LoginResponse { Session session = 1; }`).
-
 - **The proto loader runs with `oneofs: false`** (`GRPC_LOADER_OPTIONS` in nest-common). With `oneofs: true`, every proto3 `optional` field arrives with a synthetic `_fieldName` key, which the strict request schemas reject — a failure only a real gRPC round trip shows, so the contract suites include one.
 
 ### 6.2 Calling a peer
@@ -420,9 +418,9 @@ A code whose registry entry has no `details` schema takes no second argument —
 | `INVALID_ARGUMENT` | 400 | bad input the edge could not catch |
 | `UNAUTHENTICATED` | 401 | bad or stale credentials |
 | `PERMISSION_DENIED` | 403 | authenticated but not allowed |
-| `NOT_FOUND` | 404 | missing — **and** not the caller's (§4.3) |
+| `NOT_FOUND` | 404 | missing —**and** not the caller's (§4.3) |
 | `ALREADY_EXISTS` | 409 | uniqueness |
-| `FAILED_PRECONDITION` | 409; 410 for a spent token, 422 for a business-rule refusal, 426 for an unsupported app version — set per code in `ERRORS` | illegal transition, stale edit, limits |
+| `FAILED_PRECONDITION` | 409; 410 for a spent token, 422 for a business-rule refusal, 426 for an unsupported app version — set per code in`ERRORS` | illegal transition, stale edit, limits |
 | `RESOURCE_EXHAUSTED` | 429 | rate limit, quota |
 | `UNAVAILABLE` | 503 | a peer is down |
 | `DEADLINE_EXCEEDED` | 504 | a peer is too slow |
@@ -464,7 +462,6 @@ Every durable consumer is a `JetStreamConsumer` subclass registered in the servi
   | Payload can never succeed (fails schema, references nothing) | `throw new PoisonMessage(reason)` | `term`, copied to the dead-letter stream, alerted |
 
   Throwing a transient error for a message that can never succeed is a poison loop that burns the delivery budget on every restart.
-
 - Each consumer configures **both** `ack_wait` longer than its slowest legitimate run and a `backoff` schedule — each backoff entry replaces `ack_wait` for that attempt, so a short one redelivers a message still in progress.
 
 ### 7.3 Background work: BullMQ, recorded
@@ -615,7 +612,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS place_submissions_one_pending_update
 | Value | Function | Why |
 | :---- | :---- | :---- |
 | `users.password_hash` | argon2id (`hashPassword` / `verifyPassword`) | low-entropy human secret |
-| device secrets, refresh tokens, action tokens, voucher secrets | SHA-256 hex (`hashToken`) | 256-bit random, **looked up by value** through a unique index — a salted KDF cannot be indexed |
+| device secrets, refresh tokens, action tokens, voucher secrets | SHA-256 hex (`hashToken`) | 256-bit random,**looked up by value** through a unique index — a salted KDF cannot be indexed |
 | low-entropy identifiers looked up by value — voucher short codes, email addresses in delivery records | HMAC-SHA-256 with a server key (`keyedHash(purpose, value)`) | looked up by value, but guessable from a list — an unkeyed SHA-256 of an email or a 40-bit code is reversed by hashing candidates; the key makes a leaked table useless on its own |
 | content, file and cache fingerprints | SHA-256 hex (`sha256Hex`) | identity, not secrecy |
 
@@ -889,7 +886,7 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 
 ## 16. Comments and docblocks
 
-| | Docblock `/** */` | Comment `//` |
+| | Docblock`/** */` | Comment`//` |
 | :---- | :---- | :---- |
 | Answers | What is this and how do I use it? | What must I not get wrong on this line? |
 | Audience | the caller, reading it on hover | whoever edits this line next |
@@ -914,8 +911,8 @@ Keep it proportional: a one-line constant gets one line.
 | :---- | :---- | :---- | :---- |
 | **Unit — core** | geofence decisions, fallback chains, ranking, money arithmetic | synthetic inputs, no I/O | `packages/core/**/*.spec.ts` |
 | **Unit — service** | a use case's branches and invariants | `PrismaService` and peers mocked | `*.service.spec.ts` beside the source |
-| **Integration** | services against real Postgres/PostGIS: filters, partial indexes, `CHECK`s, raw SQL, transactions, the outbox row | the service's `_test` database | `services/<svc>/test/integration/` |
-| **Contract** | a gRPC server and a real client over the generated code; an event payload against its schema on both sides | in-process server, `_test` database | `services/<svc>/test/contract/` |
+| **Integration** | services against real Postgres/PostGIS: filters, partial indexes,`CHECK`s, raw SQL, transactions, the outbox row | the service's`_test` database | `services/<svc>/test/integration/` |
+| **Contract** | a gRPC server and a real client over the generated code; an event payload against its schema on both sides | in-process server,`_test` database | `services/<svc>/test/contract/` |
 | **Gateway e2e** | guards, validation, envelope, cookies, error mapping | gRPC peers stubbed | `services/gateway/test/e2e/` |
 | **Web e2e** | console flows | Playwright against Compose | `apps/console/e2e/` |
 | **Mobile e2e** | onboarding, QR, language switch, playback UI | Maestro | `apps/mobile/.maestro/` |
@@ -925,7 +922,6 @@ Keep it proportional: a one-line constant gets one line.
 
 - **Test projects are declared in the root `vitest.config.mts`** (`test.projects`) — Vitest 4 has no `vitest.workspace.ts`. Several integration projects' global setups can share one process, so a setup **reads its service's `.env` into a local object and never writes `process.env`**; otherwise one service's migrations run against another's database. Integration and contract tests use the separate test broker (`NATS_URL_TEST`) as well as the `_test` database.
 - **Vitest transforms with SWC** (`unplugin-swc`, with decorator metadata on) in every Nest package. Vitest's default transform emits no decorator metadata, so Nest's dependency injection resolves `undefined` and the failure looks like a broken provider rather than a test setup problem.
-
 - **Test names state the invariant**, present tense, no "should": `it('supersedes the previous pending update for the same place')`. One word in CAPS for what makes the case worth its own test: `it('refuses a CONCURRENT second redemption')`.
 - Shared test helpers come from two entry points, which only test files, `test/`, `scripts/` and `prisma/seed/` may import (a lint rule enforces it): **`@wayfare/contracts/testing`** — the event fixtures, client-safe like the rest of contracts — and **`@wayfare/nest-common/testing`** — context builders, `generateTestSigningKeys()` and a fake Redis, which need Node.
 - **Never mock** the class under test, pure functions from `packages/contracts` or `packages/core`, or Prisma in an integration test.
@@ -967,14 +963,17 @@ Rules for writing one:
 
 | Guard | Rule it enforces |
 | :---- | :---- |
-| `adr-structure.spec.ts` | Every ADR matches `docs/decisions/TEMPLATE.md`: file name, title number, status line, sections, mutual `Supersedes` / `Superseded by`, and a row in `docs/README.md` |
+| `adr-structure.spec.ts` | Every ADR matches`docs/decisions/TEMPLATE.md`: file name, title number, status line, sections, mutual `Supersedes` / `Superseded by`, and a row in `docs/README.md` |
 | `archive-references.spec.ts` | Nothing tracked cites the git-ignored archive, by path, by relative link, as "doc NN", or by a working doc's decision label in parentheses (a D-number in round brackets) — cite the ADR or spec section instead |
-| `dto-naming.spec.ts` | §15 DTO names: `…ResponseDto` only in `*-response.dto.ts`, built with `createZodDto`, inside `dto/` |
+| `dto-naming.spec.ts` | §15 DTO names:`…ResponseDto` only in `*-response.dto.ts`, built with `createZodDto`, inside `dto/` |
 | `mapper-naming.spec.ts` | §15 mapper names, checked against the real target and source types |
-| `module-files.spec.ts` | Every file under `services/*/src/modules/` has a known role for its kind of service, with the matching class name; `domain/` files stay free of Nest and Prisma; no `*.repository.ts` ([ADR 0054](./decisions/0054-services-use-prisma-directly-without-a-repository-layer.md)) |
-| `env-contract.spec.ts` | §13: the env schema, `.env.example` and architecture §14 list the same variables |
-| `rdm-enum-sync.spec.ts` | Every enumerated column in rdm-spec has a TypeScript enum in `packages/contracts` with exactly its values, and every mapping still points at a real column. It reads a value list in any of rdm-spec's spellings (§0) |
-| `api-contract-sync.spec.ts` | api-endpoints-plan's permission block and role grants, its `NNN CODE` pairs and its JetStream subjects agree with `PERMISSIONS`, `SYSTEM_ROLE_GRANTS`, `ERRORS` and `EVENT_REGISTRY` |
+| `module-files.spec.ts` | Every file under`services/*/src/modules/` has a known role for its kind of service, with the matching class name; `domain/` files stay free of Nest and Prisma; no `*.repository.ts` ([ADR 0054](./decisions/0054-services-use-prisma-directly-without-a-repository-layer.md)) |
+| `env-contract.spec.ts` | §13: the env schema,`.env.example` and architecture §14 list the same variables |
+| `rdm-enum-sync.spec.ts` | Every enumerated column in rdm-spec has a TypeScript enum in`packages/contracts` with exactly its values, and every mapping still points at a real column. It reads a value list in any of rdm-spec's spellings (§0) |
+| `api-contract-sync.spec.ts` | api-endpoints-plan's permission block and role grants, its`NNN CODE` pairs and its JetStream subjects agree with `PERMISSIONS`, `SYSTEM_ROLE_GRANTS`, `ERRORS` and `EVENT_REGISTRY` |
+| `event-topology.spec.ts` | api-endpoints-plan §10's event table against the code: each subject's publisher against the service whose outbox adds it, and each consumer the table names against the classes that declare`readonly event` for that subject. A cell marked *(Phase 3)* or *(ai)* must still be missing; building it without removing the mark fails too. It also holds every `AuditAction`, `NotificationType` and `EmailTemplate` to being produced under `services/*/src` or listed in `PHASE_3_OWED`. It reads source text, never the DI graph |
+
+**A walk never forges state another service reacts to:** it may insert by SQL only rows its own service alone reads, and creates anything that publishes an event — a verified owner, a subscription — through the API, or the other services never hear of it. **The live counterpart.** Guards and in-process tests stub the service on the other side of every boundary, and three defects have slipped past them for exactly that reason. After the walks (`pnpm walks`, every walk in dependency order), **`pnpm verify:spine`** reads the running stack: every Phase 2 subject has messages in its stream, every declared durable exists with nothing pending after a quiet period, the `DLQ` holds nothing from the run, and every service-emitted socket frame reaches a real client through Redis. It is a local command until the whole stack runs in CI.
 
 ---
 

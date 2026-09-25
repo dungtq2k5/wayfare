@@ -1,7 +1,7 @@
 import { businessDay, newId, PlaceKind, PlaceStatus, SYSTEM_CATEGORIES } from '@wayfare/contracts';
 import { catalogGrpc } from '@wayfare/contracts/grpc';
 import { FIXTURE_INSIDE } from '@wayfare/contracts/testing';
-import { buildAnonymousContext } from '@wayfare/nest-common/testing';
+import { buildAccountContext, buildAnonymousContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { NEARBY_CANDIDATE_CAP } from '../../src/modules/place-queries/place-queries.service';
 import {
@@ -24,7 +24,7 @@ import {
 import { catalogServices } from '../setup/services';
 
 const prisma = testPrisma();
-const { queries, places } = catalogServices(prisma);
+const { queries, places, favorites } = catalogServices(prisma);
 const TIER = catalogGrpc.ContentTier;
 let tax: Awaited<ReturnType<typeof taxonomy>>;
 
@@ -168,6 +168,33 @@ describe('GetPlace, GetPlaceByCode, ResolvePublicCode', () => {
     });
     const { place: silent } = await queries.getPlace({ placeId: place!.id, lang: 'en' }, device());
     expect(silent!.localization!.audio).toBeUndefined();
+  });
+
+  it('answers isFavorite for the saving device, and for another device of its account', async () => {
+    const owner = await insertPlace(prisma, { areaId: tax.area.id, categoryId: tax.any.id });
+    await insertLocalization(prisma, owner.id, 'en', owner.contentHash);
+    const saver = device();
+    const stranger = device();
+
+    const before = await queries.getPlace({ placeId: owner.id, lang: 'en' }, saver);
+    expect(before.place!.isFavorite).toBe(false);
+
+    await favorites.addFavorite({ placeId: owner.id }, saver);
+    const after = await queries.getPlace({ placeId: owner.id, lang: 'en' }, saver);
+    expect(after.place!.isFavorite).toBe(true);
+    // A device that never saved it sees nothing.
+    expect(
+      (await queries.getPlace({ placeId: owner.id, lang: 'en' }, stranger)).place!.isFavorite,
+    ).toBe(false);
+
+    // Signed in, another device of the same account sees the same favourite.
+    const userId = newId();
+    const signedInSaver = buildAccountContext({ userId, deviceId: saver.deviceId });
+    await favorites.addFavorite({ placeId: owner.id }, signedInSaver);
+    const otherDevice = buildAccountContext({ userId, deviceId: newId() });
+    expect(
+      (await queries.getPlace({ placeId: owner.id, lang: 'en' }, otherDevice)).place!.isFavorite,
+    ).toBe(true);
   });
 
   it('serves a Venue menu in the requested language', async () => {

@@ -40,15 +40,15 @@ export class ProgressService {
   constructor(@Inject(SOCKET_EMITTER) private readonly emitter: Pick<SocketEmitter, 'toRoom'>) {}
 
   jobStatus(job: JobFrameRow): void {
-    // A UI bundle has no target, and no monitor frame yet.
-    if (job.targetId === null) return;
+    // Non-null: `target_id` is NULL only for a `UI_BUNDLE` job, and bundle translation runs on its
+    // own queue, never as a synthesis job, so every row this reads has a target.
     this.emitter.toRoom(
       [SOCKET_ROOMS.adminNarration, SOCKET_ROOMS.job(job.id)],
       'narrationJobStatus',
       {
         jobId: job.id,
         targetType: job.targetType as LocalizationTargetType,
-        targetId: job.targetId,
+        targetId: job.targetId!,
         status: job.status as SynthesisJobStatus,
         completedTasks: job.completedTasks,
         failedTasks: job.failedTasks,

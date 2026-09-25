@@ -1,5 +1,6 @@
 // The billing use cases wired by hand over the test database — the same graph Nest builds, with
 // the fake payments provider, an in-memory webhook queue and a catalog that counts from a map.
+import { compareStrings } from '@wayfare/contracts';
 import { OutboxService } from '@wayfare/nest-common';
 import Stripe from 'stripe';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
@@ -7,10 +8,12 @@ import { AccountsService } from '../../src/modules/accounts/accounts.service';
 import { BillingEventsService } from '../../src/modules/billing-events/billing-events.service';
 import type { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
 import { EntitlementsService } from '../../src/modules/entitlements/entitlements.service';
+import type { IdentityServiceGrpcClient } from '../../src/modules/identity/identity-service-grpc.client';
 import { PlansService } from '../../src/modules/plans/plans.service';
+import { BillingAccountsReconcileJob } from '../../src/modules/scheduled/billing-accounts-reconcile.job';
 import { SellerService } from '../../src/modules/seller/seller.service';
-import { UserErasedConsumer } from '../../src/modules/user-erased/user-erased.consumer';
 import { SubscriptionsService } from '../../src/modules/subscriptions/subscriptions.service';
+import { UserErasedConsumer } from '../../src/modules/user-erased/user-erased.consumer';
 import type {
   WebhookItem,
   WebhookQueue,
@@ -34,6 +37,7 @@ export class RecordingQueue {
     return Promise.resolve(this.items.some(({ item }) => item.billingEventId === billingEventId));
   }
 
+  // FIXME Unexpected empty method 'start'.
   start(): void {}
 
   /** The items added so far, emptying the list. */
@@ -49,6 +53,22 @@ export class FakeCatalog {
 
   countOwnerPlaces(ownerUserId: string): Promise<number | null> {
     return Promise.resolve(this.down ? null : (this.counts.get(ownerUserId) ?? 0));
+  }
+}
+
+/** Verified owner ids identity would answer; keyset-paged the same opaque-cursor way the job reads. */
+export class FakeIdentity {
+  readonly verifiedOwnerIds: string[] = [];
+
+  listVerifiedOwnerIds(page: {
+    cursor?: string;
+    limit: number;
+  }): Promise<{ ownerUserIds: string[]; page: { nextCursor?: string } }> {
+    const sorted = [...this.verifiedOwnerIds].sort(compareStrings);
+    const start = page.cursor === undefined ? 0 : sorted.indexOf(page.cursor) + 1;
+    const slice = sorted.slice(start, start + page.limit);
+    const nextCursor = start + page.limit < sorted.length ? slice.at(-1) : undefined;
+    return Promise.resolve({ ownerUserIds: slice, page: { nextCursor } });
   }
 }
 
@@ -77,10 +97,12 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
   const payments = new FakePaymentsProvider();
   const queue = new RecordingQueue();
   const catalog = new FakeCatalog();
+  const identity = new FakeIdentity();
   const redis = new MemoryRedis();
   const verifier = new StripeWebhookVerifier(config);
   const entitlements = new EntitlementsService(prisma, outbox);
   const catalogClient = catalog as unknown as CatalogServiceGrpcClient;
+  const identityClient = identity as unknown as IdentityServiceGrpcClient;
   const webhooks = new WebhooksService(
     prisma,
     outbox,
@@ -96,9 +118,16 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
     payments,
     queue,
     catalog,
+    identity,
     redis,
     entitlements,
     webhooks,
+    reconcile: new BillingAccountsReconcileJob(
+      prisma,
+      identityClient,
+      entitlements,
+      queue as unknown as WebhookQueue,
+    ),
     subscriptions: new SubscriptionsService(prisma, outbox, payments, catalogClient, redis, config),
     plans: new PlansService(prisma, outbox, payments, entitlements, catalogClient),
     accounts: new AccountsService(prisma, outbox, entitlements),

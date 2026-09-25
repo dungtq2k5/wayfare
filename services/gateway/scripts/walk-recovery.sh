@@ -60,6 +60,38 @@ nudge_job() {
     identity-jobs account-recoveries-advance) >/dev/null
 }
 
+agreement=$(cd "$repo_root/packages/contracts" && node -e \
+  'process.stdout.write(require("./dist").LEGAL_DOCUMENT_VERSIONS.OWNER_AGREEMENT)')
+
+# refresh_owner WHO — rotates WHO's session and keeps the new tokens (the refresh token rotates
+# too, so every call here, not just the first, has to save both).
+refresh_owner() {
+  call "$1-refresh" 200 -X POST "$BASE/auth/refresh" "${console[@]}" -b "wf_rt=$(cat "$work/$1.rt")"
+  cookie_value "$1-refresh" wf_at >"$work/$1.at"
+  cookie_value "$1-refresh" wf_rt >"$work/$1.rt"
+}
+
+# verify_owner WHO EMAIL NATIONAL_ID — the real path to a verified owner: follows the
+# registration mail, applies, and has the super admin approve it, so `identity.owner.verified`
+# actually publishes. A walk never forges state another service reacts to (conventions §17).
+# Approval bumps WHO's token cutoff, so it refreshes again after — the same reason a reconnect
+# after approval carries a fresh `ownerVerified` claim (api-endpoints-plan §9).
+verify_owner() {
+  local who=$1 email=$2 national_id=$3 token
+  token=$(mail_token "$email" 'Confirm your email')
+  call "$who-verify" 204 -X POST "$BASE/auth/email/verify" "${console[@]}" \
+    -d "$(body --arg t "$token" '{token: $t}')"
+  refresh_owner "$who"
+  call "$who-apply" 201 -X POST "$BASE/owner/registration" "${console[@]}" -b "$(as "$who")" \
+    -d "$(body --arg n "Quán thử $who $stamp" --arg v "$agreement" --arg id "$national_id" '{
+      businessName: $n, businessAddress: "12 Lê Lợi, Quận 1", contactName: "Nguyễn Văn An",
+      contactPhone: "+84901234567", nationalId: $id, ownerAgreementVersion: $v}')"
+  call "$who-approve" 200 -X POST \
+    "$BASE/admin/owner-registrations/$(json "$who-apply" .data.registration.id)/approve" \
+    "${console[@]}" -b "$(as super)" -d '{}'
+  refresh_owner "$who"
+}
+
 reset_local_state
 stamp=$(date +%s)
 owner_email="owner-recovery-$stamp@example.com"
@@ -75,10 +107,11 @@ call owner-register 201 -X POST "$BASE/auth/register" "${console[@]}" \
   -d "$(body --arg e "$owner_email" --arg p "$owner_password" \
     '{email: $e, password: $p, preferredLocale: "en", termsVersion: "2026-09-01"}')"
 cookie_value owner-register wf_at >"$work/owner.at"
+cookie_value owner-register wf_rt >"$work/owner.rt"
 json owner-register .data.user.id >"$work/owner.id"
 owner_id=$(cat "$work/owner.id")
 # A verified owner is the only kind of account this flow recovers (rdm-spec I-14).
-identity_sql "UPDATE users SET is_email_verified = true, owner_verified_at = now() WHERE id = '$owner_id'" >/dev/null
+verify_owner owner "$owner_email" '079 301 001 234'
 echo "✓ owner $owner_email is verified"
 
 step '1. the admin opens a case, and the refusals hold'
@@ -117,11 +150,14 @@ call admin-approve 403 -X POST "$BASE/admin/email-recoveries/$recovery_id/approv
 [[ $(json admin-approve .error.code) == PERMISSION_DENIED ]] || fail 'an ADMIN was not refused the approval permission'
 # And a super admin who opened a case cannot approve that one either — identity's four-eyes rule,
 # with the database's check behind it. A second owner keeps the one-live index out of the way.
+owner2_email="owner2-recovery-$stamp@example.com"
 call owner2-register 201 -X POST "$BASE/auth/register" "${console[@]}" \
-  -d "$(body --arg e "owner2-recovery-$stamp@example.com" --arg p "$owner_password" \
+  -d "$(body --arg e "$owner2_email" --arg p "$owner_password" \
     '{email: $e, password: $p, preferredLocale: "en", termsVersion: "2026-09-01"}')"
+cookie_value owner2-register wf_at >"$work/owner2.at"
+cookie_value owner2-register wf_rt >"$work/owner2.rt"
 owner2_id=$(json owner2-register .data.user.id)
-identity_sql "UPDATE users SET is_email_verified = true, owner_verified_at = now() WHERE id = '$owner2_id'" >/dev/null
+verify_owner owner2 "$owner2_email" '079 301 001 235'
 call open-by-super 201 -X POST "$BASE/admin/users/$owner2_id/email-recoveries" "${console[@]}" -b "$(as super)" \
   -d "$(body --arg e "owner2-recovery-$stamp-new@example.com" \
     '{requestedEmail: $e, evidenceCodes: ["PHONE_CALLBACK", "BILLING_KNOWLEDGE"], supportReference: "TICKET-0"}')"
@@ -131,7 +167,7 @@ call self-approve 403 -X POST "$BASE/admin/email-recoveries/$(json open-by-super
 echo '✓ an ADMIN → 403 PERMISSION_DENIED; the super admin on their own case → 403 RECOVERY_SELF_APPROVAL'
 # Nothing about the recovery reached the owner between opening and approval.
 [[ $(mail_count "$owner_email" 'recover') == 0 ]] || fail 'the owner heard about the recovery before approval'
-[[ $(identity_sql "SELECT count(*) FROM notifications WHERE recipient_user_id = '$owner_id'") == 0 ]] ||
+[[ $(identity_sql "SELECT count(*) FROM notifications WHERE recipient_user_id = '$owner_id' AND type = 'ACCOUNT_RECOVERY_PENDING'") == 0 ]] ||
   fail 'the bell rang before approval'
 echo '✓ nothing about the recovery sent before approval'
 

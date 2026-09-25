@@ -14,8 +14,8 @@ const required = <T>(value: T | null, field: string): T => {
 };
 
 /**
- * A Place's tourist view. Billing is not deployed: no offers, and no degraded flag — an absent
- * feature is not a degraded one (api-endpoints-plan §2.1).
+ * A Place's tourist view. Offers are Phase 3, not "until billing is deployed" — `offers` is `[]`
+ * with no degraded flag, an absent feature being not a degraded one (api-endpoints-plan §2.1).
  */
 export function toPlaceDetailResponseDto(
   place: catalogGrpc.PlaceDetail | undefined | null,
@@ -62,6 +62,6 @@ export function toPlaceDetailResponseDto(
     phone: place.phone ?? null,
     websiteUrl: place.websiteUrl ?? null,
     offers: [],
-    isFavorite: false,
+    isFavorite: place.isFavorite,
   };
 }

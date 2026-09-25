@@ -29,7 +29,11 @@ export class PlacesService {
     return response.places.map(toPlaceSummary);
   }
 
-  /** A live Place, tagged `"<id>:<lang>:<sync_version>"` (api-endpoints-plan §2.1). */
+  /**
+   * A live Place, tagged `"<id>:<lang>:<sync_version>:<isFavorite>"` — favouriting changes no
+   * content, and the tag must still move, or a re-read after toggling it answers `304` with the
+   * caller's own stale value (api-endpoints-plan §2.1).
+   */
   async get(
     context: RequestContext,
     placeId: string,
@@ -42,7 +46,7 @@ export class PlacesService {
     );
     return ETaggedResult.of(
       toPlaceDetailResponseDto(response.place),
-      `${placeId}:${lang.tag}:${response.place?.syncVersion ?? ''}`,
+      `${placeId}:${lang.tag}:${response.place?.syncVersion ?? ''}:${response.place?.isFavorite ?? false}`,
     );
   }
 

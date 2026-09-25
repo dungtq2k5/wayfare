@@ -12,7 +12,7 @@ import {
 } from '@wayfare/contracts';
 import type { ErrorCode, EventPublisher } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
-import { readRepoFile } from './support/repo';
+import { readRepoFile, section, tableRows } from './support/repo';
 
 /**
  * Registry codes api-endpoints-plan never writes as `NNN CODE`. Each must stay absent from the
@@ -42,27 +42,6 @@ export interface CodeContract {
   readonly errors: Readonly<Record<string, { readonly http: number }>>;
   readonly codesWithoutPairs: ReadonlySet<string>;
   readonly subjects: readonly { readonly subject: string; readonly publisher: EventPublisher }[];
-}
-
-/** The body of a `## N.` section, up to the next `## `. */
-function section(markdown: string, number: number): string {
-  const start = markdown.search(new RegExp(`^## ${number}\\. `, 'm'));
-  if (start < 0) throw new Error(`api-endpoints-plan §${number} not found`);
-  const rest = markdown.slice(start + 1);
-  const end = rest.search(/^## /m);
-  return end < 0 ? markdown.slice(start) : markdown.slice(start, start + 1 + end);
-}
-
-function tableRows(markdown: string): string[][] {
-  return markdown
-    .split('\n')
-    .filter((line) => line.startsWith('|') && !/^\|\s*:?-/.test(line))
-    .map((line) =>
-      line
-        .split(/(?<!\\)\|/)
-        .slice(1, -1)
-        .map((cell) => cell.trim()),
-    );
 }
 
 const backticked = (text: string): string[] =>

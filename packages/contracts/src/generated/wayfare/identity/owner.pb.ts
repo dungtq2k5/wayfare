@@ -9,7 +9,7 @@ import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { PageNumberMeta, PageNumberRequest } from "../common/page.pb";
+import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from "../common/page.pb";
 
 export const protobufPackage = "wayfare.identity";
 
@@ -174,6 +174,15 @@ export interface GetOwnerVerificationResponse {
   live: boolean;
 }
 
+export interface ListVerifiedOwnerIdsRequest {
+  page: PageRequest | undefined;
+}
+
+export interface ListVerifiedOwnerIdsResponse {
+  ownerUserIds: string[];
+  page: CursorPage | undefined;
+}
+
 export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /** The caller's own applications. The caller travels as metadata. */
@@ -200,6 +209,16 @@ export interface OwnerServiceClient {
     request: GetOwnerVerificationRequest,
     metadata?: Metadata,
   ): Observable<GetOwnerVerificationResponse>;
+
+  /**
+   * Internal (api-endpoints-plan §12.2): live, verified owners, paged — billing's daily reconcile
+   * reads it to open any account the event stream's retention lost.
+   */
+
+  listVerifiedOwnerIds(
+    request: ListVerifiedOwnerIdsRequest,
+    metadata?: Metadata,
+  ): Observable<ListVerifiedOwnerIdsResponse>;
 }
 
 /** The caller's own applications. The caller travels as metadata. */
@@ -229,6 +248,16 @@ export interface OwnerServiceController {
     request: GetOwnerVerificationRequest,
     metadata?: Metadata,
   ): Promise<GetOwnerVerificationResponse> | Observable<GetOwnerVerificationResponse> | GetOwnerVerificationResponse;
+
+  /**
+   * Internal (api-endpoints-plan §12.2): live, verified owners, paged — billing's daily reconcile
+   * reads it to open any account the event stream's retention lost.
+   */
+
+  listVerifiedOwnerIds(
+    request: ListVerifiedOwnerIdsRequest,
+    metadata?: Metadata,
+  ): Promise<ListVerifiedOwnerIdsResponse> | Observable<ListVerifiedOwnerIdsResponse> | ListVerifiedOwnerIdsResponse;
 }
 
 export function OwnerServiceControllerMethods() {
@@ -238,6 +267,7 @@ export function OwnerServiceControllerMethods() {
       "listMyRegistrations",
       "withdrawRegistration",
       "getOwnerVerification",
+      "listVerifiedOwnerIds",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

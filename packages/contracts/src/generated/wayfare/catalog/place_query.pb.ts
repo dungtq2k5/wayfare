@@ -126,6 +126,8 @@ export interface PlaceDetail {
     | undefined;
   /** The ETag's version. */
   syncVersion: string;
+  /** The calling device, or the signed-in account on any of its devices, has saved this Place. */
+  isFavorite: boolean;
 }
 
 /** One photo in display order. */

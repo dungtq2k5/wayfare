@@ -1243,7 +1243,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | Field | Type | Constraints / Default | Description & business logic |
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
-| **owner_user_id** | UUID | NOT NULL, **UNIQUE** | ref ➔ identity.users.id. Created by the `identity.owner.verified` consumer, on `FREE`. |
+| **owner_user_id** | UUID | NOT NULL, **UNIQUE** | ref ➔ identity.users.id. Created by the `identity.owner.verified` consumer, on `FREE` — and by the daily `billing-accounts-reconcile` job, which pages identity's verified owners and opens any account that is missing, because the event stream's retention is shorter than an account's life. |
 | **stripe_customer_id** | VARCHAR(255) | Nullable, **UNIQUE** | Created lazily on first checkout. NULL for an owner who has never paid. |
 | **plan_id** | UUID | NOT NULL, FK ➔ plans.id, RESTRICT | The plan whose grants apply — not necessarily the plan being paid for (see status mapping). |
 | **plan_price_id** | UUID | Nullable, FK ➔ plan_prices.id, SET NULL | The subscribed price. It stays set after a cancellation, while `plan_id` falls back to `FREE`, until a new subscription replaces it. |

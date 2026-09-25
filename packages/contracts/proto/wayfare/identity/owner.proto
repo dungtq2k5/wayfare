@@ -23,6 +23,9 @@ service OwnerService {
   // Internal (api-endpoints-plan §12.2): whether an owner is still verified and live, asked by
   // catalog on every approval that writes a Venue's owner.
   rpc GetOwnerVerification(GetOwnerVerificationRequest) returns (GetOwnerVerificationResponse);
+  // Internal (api-endpoints-plan §12.2): live, verified owners, paged — billing's daily reconcile
+  // reads it to open any account the event stream's retention lost.
+  rpc ListVerifiedOwnerIds(ListVerifiedOwnerIdsRequest) returns (ListVerifiedOwnerIdsResponse);
 }
 
 // The review queue. The gateway checks the route's permission; identity checks the rules it alone
@@ -183,4 +186,13 @@ message GetOwnerVerificationResponse {
   bool verified = 1;
   // Neither deactivated nor erased.
   bool live = 2;
+}
+
+message ListVerifiedOwnerIdsRequest {
+  wayfare.common.PageRequest page = 1;
+}
+
+message ListVerifiedOwnerIdsResponse {
+  repeated string owner_user_ids = 1;
+  wayfare.common.CursorPage page = 2;
 }

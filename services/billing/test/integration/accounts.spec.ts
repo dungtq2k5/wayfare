@@ -265,3 +265,30 @@ describe('admin accounts and seller obligations', () => {
     expect(await services.seller.countLiveVouchers({ placeId: newId() })).toEqual({ count: 0 });
   });
 });
+
+describe('billing-accounts-reconcile', () => {
+  it('opens a FREE account for a verified owner with none; a second run creates nothing', async () => {
+    const ownerUserId = newId();
+    services.identity.verifiedOwnerIds.push(ownerUserId);
+
+    expect(await services.reconcile.run()).toEqual({ opened: 1 });
+    const accounts = await prisma.billingAccount.findMany({ where: { ownerUserId } });
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]).toMatchObject({
+      subscriptionStatus: SubscriptionStatus.NONE,
+      entitlementsVersion: 1n,
+    });
+    expect(await outboxPayloads(prisma, BILLING_ENTITLEMENTS_CHANGED.subject)).toEqual([
+      expect.objectContaining({ ownerUserId, entitlementsVersion: 1, previous: null }),
+    ]);
+
+    expect(await services.reconcile.run()).toEqual({ opened: 0 });
+    expect(await prisma.billingAccount.count({ where: { ownerUserId } })).toBe(1);
+  });
+
+  it('opens nothing for an id identity does not name', async () => {
+    const untouched = newId();
+    expect(await services.reconcile.run()).toEqual({ opened: 0 });
+    expect(await prisma.billingAccount.count({ where: { ownerUserId: untouched } })).toBe(0);
+  });
+});

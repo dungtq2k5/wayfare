@@ -8,11 +8,14 @@ import {
   LegalDocument,
   OwnerRegistrationStatus,
   parseEnum,
+  zCursorQuery,
   zOwnerRegistrationInput,
   zUuidV7,
 } from '@wayfare/contracts';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import {
+  decodeCursor,
+  encodeCursor,
   encryptPii,
   isUniqueConstraintViolation,
   OutboxService,
@@ -40,6 +43,7 @@ const PENDING: string = OwnerRegistrationStatus.PENDING;
 
 const withdrawFields = z.object({ registrationId: zUuidV7 });
 const ownerVerificationFields = z.object({ userId: zUuidV7 });
+const listVerifiedOwnerIdsFields = z.object({ page: zCursorQuery });
 
 /** What erasure's step reports. */
 export interface RegistrationErasure {
@@ -221,6 +225,44 @@ export class OwnerRegistrationsService {
     return {
       verified: user?.ownerVerifiedAt != null,
       live: user?.deletedAt === null && user.erasedAt === null,
+    };
+  }
+
+  /**
+   * Live, verified owner ids, keyset-paged on the id (api-endpoints-plan §12.2): billing's daily
+   * reconcile pages every one, opening a `FREE` account for any id with none — the guarantee
+   * behind `identity.owner.verified`, whose stream a retention window can outlive. Internal,
+   * answered for any caller context.
+   */
+  async listVerifiedOwnerIds(
+    request: identityGrpc.ListVerifiedOwnerIdsRequest,
+  ): Promise<identityGrpc.ListVerifiedOwnerIdsResponse> {
+    const { page } = parseRpcRequest(listVerifiedOwnerIdsFields, request);
+    const after = page.cursor === undefined ? null : decodeCursor(page.cursor);
+    if (page.cursor !== undefined && after === null) {
+      throw rpcError('VALIDATION_FAILED', {
+        issues: [{ path: '/page/cursor', code: 'invalid_format' }],
+      });
+    }
+    const rows = await this.prisma.user.findMany({
+      where: {
+        ownerVerifiedAt: { not: null },
+        deletedAt: null,
+        erasedAt: null,
+        ...(after === null ? {} : { id: { gt: after.id } }),
+      },
+      orderBy: { id: 'asc' },
+      take: page.limit + 1,
+      select: { id: true },
+    });
+    const ids = rows.slice(0, page.limit);
+    const last = ids.at(-1);
+    return {
+      ownerUserIds: ids.map((row) => row.id),
+      page:
+        rows.length > page.limit && last !== undefined
+          ? { nextCursor: encodeCursor({ id: last.id }) }
+          : {},
     };
   }
 

@@ -238,6 +238,7 @@ export function toPlaceDetail(
   location: GeoPoint,
   requested: string | null,
   mediaBase: string,
+  isFavorite: boolean,
 ): catalogGrpc.PlaceDetail {
   return {
     id: row.id,
@@ -288,6 +289,7 @@ export function toPlaceDetail(
     ...(row.phone === null ? {} : { phone: row.phone }),
     ...(row.websiteUrl === null ? {} : { websiteUrl: row.websiteUrl }),
     syncVersion: row.syncVersion.toString(),
+    isFavorite,
   };
 }
 
