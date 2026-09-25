@@ -144,7 +144,7 @@ Import by package name, **never by a relative path across a package or service b
 ```ts
 // ✓
 import { newId, contentHash, businessDay, ErrorCode } from '@wayfare/contracts';
-import { evaluateGeofences } from '@wayfare/core/geofence';
+import { evaluateGeofences } from '@wayfare/core';
 
 // ✗
 import { contentHash } from '../../../../packages/contracts/src/hashing';
@@ -173,7 +173,7 @@ export function evaluateGeofences(places: GeofencePlace[]) {
 }
 ```
 
-An `eslint` boundary rule enforces the import ban. The geofence suite enforces the rest: it replays recorded traces and asserts decisions, which only works if nothing inside reads a clock.
+`LocationFix` is `{ t, lat, lng, accuracyM }`, `t` in epoch ms; `reconcile()` takes the same object without `fix`. An `eslint` boundary rule enforces the import ban, and a second one fails any read of `Date`, `setTimeout`, `setInterval`, `fetch` or `Math.random` outside a spec. The geofence suite enforces the rest: it replays recorded traces and asserts decisions, which only works if nothing inside reads a clock.
 
 ### 3.3 `packages/contracts` is the single source of shared values
 
@@ -938,8 +938,8 @@ Keep it proportional: a one-line constant gets one line.
 
 The single most important test suite in the repository.
 
-- Fixtures are recorded or synthesised traces: `[{ t, lat, lng, accuracyM }]` plus the Places in play.
-- Required cases, each its own fixture: jitter across a boundary (fires once); two overlapping radii (priority wins); a Venue overlapping an Editorial Place (Editorial wins; commercial cap respected); a boosted Venue beside an unboosted one (**boost has no effect**); sitting inside a radius for ten minutes (cooldown holds); two Venues within ten minutes (the second is suppressed); a GPS gap then re-acquisition (reconcile recovers); a Place whose `autoNarrationEnabled` is false (never auto-fires).
+- Fixtures are recorded or synthesised traces: `[{ t, lat, lng, accuracyM }]` plus the Places in play, one JSON file per case — `{ places, trace, expect: [{ t, placeId }] }` — replayed by one harness that also runs the safety reconcile on its configured interval.
+- Required cases, each its own fixture: jitter across a boundary (fires once); two overlapping radii (priority wins); a Venue overlapping an Editorial Place (Editorial wins; commercial cap respected); a boosted Venue beside an unboosted one (**boost has no effect**); sitting inside a radius for ten minutes (cooldown holds); two Venues within ten minutes (the second is suppressed); a GPS gap then re-acquisition (reconcile recovers); a Place whose `autoNarrationEnabled` is false (never auto-fires); a fix worse than `locateMaxAccuracyM` inside a radius (starts no debounce); a single stale sample inside (never confirms); a capped Venue beside an eligible Place (the eligible one still fires); standing inside a capped Venue until the window frees (the reconcile fires it).
 - Coverage of `packages/core/geofence` ≥ 90 %, and every branch of the priority resolution covered.
 
 ### 17.4 Guard specs
@@ -973,7 +973,7 @@ Rules for writing one:
 | `api-contract-sync.spec.ts` | api-endpoints-plan's permission block and role grants, its`NNN CODE` pairs and its JetStream subjects agree with `PERMISSIONS`, `SYSTEM_ROLE_GRANTS`, `ERRORS` and `EVENT_REGISTRY` |
 | `event-topology.spec.ts` | api-endpoints-plan §10's event table against the code: each subject's publisher against the service whose outbox adds it, and each consumer the table names against the classes that declare`readonly event` for that subject. A cell marked *(Phase 3)* or *(ai)* must still be missing; building it without removing the mark fails too. It also holds every `AuditAction`, `NotificationType` and `EmailTemplate` to being produced under `services/*/src` or listed in `PHASE_3_OWED`. It reads source text, never the DI graph |
 
-**A walk never forges state another service reacts to:** it may insert by SQL only rows its own service alone reads, and creates anything that publishes an event — a verified owner, a subscription — through the API, or the other services never hear of it. **The live counterpart.** Guards and in-process tests stub the service on the other side of every boundary, and three defects have slipped past them for exactly that reason. After the walks (`pnpm walks`, every walk in dependency order), **`pnpm verify:spine`** reads the running stack: every Phase 2 subject has messages in its stream, every declared durable exists with nothing pending after a quiet period, the `DLQ` holds nothing from the run, and every service-emitted socket frame reaches a real client through Redis. It is a local command until the whole stack runs in CI.
+**A walk never forges state another service reacts to:** it may insert by SQL only rows its own service alone reads, and creates anything that publishes an event — a verified owner, a subscription — through the API, or the other services never hear of it. A walk's write **changes the value on every run** — writing back what an earlier run left there is a no-op that emits nothing, and the assertion waiting for its event fails for no real reason. A walk that restarts a service **stops the instance already running first**; otherwise the new one loses the port and the old one keeps passing health checks. **The live counterpart.** Guards and in-process tests stub the service on the other side of every boundary, and three defects have slipped past them for exactly that reason. After the walks (`pnpm walks`, every walk in dependency order), **`pnpm verify:spine`** reads the running stack: every Phase 2 subject has messages in its stream, every declared durable exists with nothing pending after a quiet period, the `DLQ` holds nothing from the run, and every service-emitted socket frame reaches a real client through Redis. It is a local command until the whole stack runs in CI.
 
 ---
 

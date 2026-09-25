@@ -1,0 +1,14 @@
+{
+  "places": [
+    {
+      "id": "p1",
+      "kind": "EDITORIAL",
+      "location": { "lat": 10.0, "lng": 106.0 },
+      "triggerRadiusM": 30,
+      "narrationPriority": 50,
+      "autoNarrationEnabled": true
+    }
+  ],
+  "trace": [{ "t": 0, "lat": 10.0, "lng": 106.0, "accuracyM": 10 }],
+  "expect": []
+}

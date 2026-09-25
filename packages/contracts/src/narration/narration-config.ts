@@ -25,6 +25,7 @@ export const NARRATION_CONFIG = {
   commercialNarrationWindowMs: 10 * MINUTE_MS,
   commercialNarrationsPerWindow: 1,
   safetyReconcileIntervalMs: 5_000,
+  gpsGapMs: 15_000,
   prefetchBatchSize: 3,
   prefetchMinIntervalMs: 30_000,
   prefetchBackoffMs: [30_000, 60_000, 120_000],

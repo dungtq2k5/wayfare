@@ -593,16 +593,16 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 
 ### 12.2 The geofence test harness
 
-🎓 Build a fixture format of `[timestamp, lat, lng, accuracy]` traces and replay them through the engine in Vitest. Encode the nasty cases as fixtures rather than discovering them outdoors:
+🎓 Build a fixture format of `{ t, lat, lng, accuracyM }` traces (conventions §17.3) and replay them through the engine in Vitest. Encode the nasty cases as fixtures rather than discovering them outdoors:
 
 - Jitter across a radius boundary (should not fire twice).
 - Two overlapping radii with different `narrationPriority` (correct winner).
 - A Venue and an Editorial Place overlapping (Editorial wins; commercial cap respected).
 - Sitting still inside a radius for ten minutes (cooldown holds).
-- A language switch mid-narration (stale audio discarded).
+- A language switch mid-narration (stale audio discarded) — the player's suite, not the engine's.
 - A GPS hole in a tunnel, then re-acquisition (safety reconcile recovers).
 
-**Coverage target:** ≥80% on `packages/core`. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
+**Coverage target:** ≥ 90 % lines and branches on `packages/core`. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
 
 ---
 

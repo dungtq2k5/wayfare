@@ -251,6 +251,41 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
+      // packages/core takes time and randomness as arguments (conventions §3.2): an import ban
+      // cannot see a global, so Date/timers/fetch/Math.random are banned here too.
+      files: ['packages/core/src/**'],
+      ignores: ['**/*.spec.ts'],
+      rules: {
+        'no-restricted-globals': [
+          'error',
+          {
+            name: 'Date',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+          {
+            name: 'setTimeout',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+          {
+            name: 'setInterval',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+          {
+            name: 'fetch',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+        ],
+        'no-restricted-properties': [
+          'error',
+          {
+            object: 'Math',
+            property: 'random',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+        ],
+      },
+    },
+    {
       files: ['**/*.spec.ts', '**/test/**'],
       rules: {
         '@typescript-eslint/unbound-method': 'off',

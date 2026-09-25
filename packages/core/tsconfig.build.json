@@ -5,5 +5,5 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "exclude": ["**/*.spec.ts"]
+  "exclude": ["**/*.spec.ts", "src/geofence/trace-generator.ts"]
 }

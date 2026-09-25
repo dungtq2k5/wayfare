@@ -64,7 +64,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['packages/core/src/**/*.ts'],
-      exclude: ['**/*.spec.ts', '**/index.ts'],
+      exclude: ['**/*.spec.ts', '**/index.ts', '**/geofence/trace-generator.ts'],
       thresholds: { lines: 90, branches: 90 },
     },
     projects: [

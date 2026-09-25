@@ -136,6 +136,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@turf/distance':
+        specifier: ^7.4.0
+        version: 7.4.0
       '@wayfare/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -543,7 +546,7 @@ importers:
     devDependencies:
       '@nestjs/cli':
         specifier: 11.0.24
-        version: 11.0.24(@swc/cli@0.8.1(@swc/core@1.16.2)(chokidar@5.0.0))(@swc/core@1.16.2)(@types/node@24.13.5)(prettier@3.9.7)
+        version: 11.0.24(@swc/cli@0.8.1(@swc/core@1.16.2)(chokidar@4.0.3))(@swc/core@1.16.2)(@types/node@24.13.5)(prettier@3.9.7)
       '@nestjs/testing':
         specifier: 11.2.5
         version: 11.2.5(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.5)(@nestjs/microservices@11.2.5)(@nestjs/platform-express@11.2.5)
@@ -758,13 +761,13 @@ importers:
         version: 3.4.0
       '@nestjs/cli':
         specifier: 11.0.24
-        version: 11.0.24(@swc/cli@0.8.1(@swc/core@1.16.2)(chokidar@4.0.3))(@swc/core@1.16.2)(@types/node@24.13.5)(prettier@3.9.7)
+        version: 11.0.24(@swc/cli@0.8.1(@swc/core@1.16.2)(chokidar@5.0.0))(@swc/core@1.16.2)(@types/node@24.13.5)(prettier@3.9.7)
       '@nestjs/testing':
         specifier: 11.2.5
         version: 11.2.5(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.5)(@nestjs/microservices@11.2.5)(@nestjs/platform-express@11.2.5)
       '@swc/cli':
         specifier: ^0.8.1
-        version: 0.8.1(@swc/core@1.16.2)(chokidar@4.0.3)
+        version: 0.8.1(@swc/core@1.16.2)(chokidar@5.0.0)
       '@types/node':
         specifier: ^24.13.5
         version: 24.13.5
@@ -2722,6 +2725,15 @@ packages:
     resolution: {integrity: sha512-rM+cFO1P8iAHXdasOdMyK9nDk0UGII7VEFLIA8+jwv/+rh48pnVBbF2OSjJDBOw57pxNLIOEDA0JyKcarTBcIw==}
     cpu: [arm64]
     os: [win32]
+
+  '@turf/distance@7.4.0':
+    resolution: {integrity: sha512-ODkopQDG1m/U6Mx7OMmShncaCvneomwX3lZY1CDA7x40bhDdTTRYP/n/6LicZVyIO4/oK+aXkov4NOtWYthA2g==}
+
+  '@turf/helpers@7.4.0':
+    resolution: {integrity: sha512-7PAwLZqOdRzTI5g9bHvUwlloAXPDH/mlajtryk0tw4ZwGMtmXsAyF4QundsAMfy4u48Fyd3AUqMXY0SMxqJGWg==}
+
+  '@turf/invariant@7.4.0':
+    resolution: {integrity: sha512-OAsc3qdNx+tRqzWmMNFMnVlWWACIqnYqIejZKvb2oKkKPYJJrURPXZ6OdrGD58ljJMolLoqwIZGSx3VndaEjxg==}
 
   '@types/aws-lambda@8.10.163':
     resolution: {integrity: sha512-+4zuoEB3S8RIhimtOFT7zAEk2SbpwrKjjGl9CyYnQR6k08uynxfauIIB0pDU1ssr05F8oyGiETwpn+8eXZMqPw==}
@@ -8353,6 +8365,7 @@ snapshots:
       - bare-abort-controller
       - react-native-b4a
       - supports-color
+    optional: true
 
   '@swc/cli@0.8.1(@swc/core@1.16.2)(chokidar@5.0.0)':
     dependencies:
@@ -8459,6 +8472,24 @@ snapshots:
 
   '@turbo/windows-arm64@2.10.13':
     optional: true
+
+  '@turf/distance@7.4.0':
+    dependencies:
+      '@turf/helpers': 7.4.0
+      '@turf/invariant': 7.4.0
+      '@types/geojson': 7946.0.16
+      tslib: 2.8.1
+
+  '@turf/helpers@7.4.0':
+    dependencies:
+      '@types/geojson': 7946.0.16
+      tslib: 2.8.1
+
+  '@turf/invariant@7.4.0':
+    dependencies:
+      '@turf/helpers': 7.4.0
+      '@types/geojson': 7946.0.16
+      tslib: 2.8.1
 
   '@types/aws-lambda@8.10.163': {}
 

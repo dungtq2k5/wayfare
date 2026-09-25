@@ -163,7 +163,9 @@ Priority: **P0** = the core product, must exist. **P1** = complete product. **P2
 - Client-side geofence engine evaluates the tourist's position against Place trigger radii.
 - **Debounce** before confirming an `ENTER` (GPS jitter must not fire narration).
 - **Cooldown** per Place per device (no spam when the tourist sits down inside a radius).
-- **Priority resolution** when several Places are in range: highest `narrationPriority`, then nearest. This is editorial only — see §8.3.
+- **Priority resolution** when several Places are in range: **Editorial Places before Venues**, then the highest `narrationPriority`, then the nearest. This is editorial only — see §8.3. Eligibility is decided first (auto-narration on, not in cooldown, the commercial cap free for a Venue), so a suppressed Venue never blocks another Place.
+- **One narration per visit:** a Place fires once when the tourist enters; staying inside never re-fires it, even after the cooldown — leaving and coming back does.
+- **One decision at a time, nothing dropped:** the engine chooses at most one Place per evaluation. The others still inside and eligible fire on the following evaluations — the next fix or the next safety reconcile — in the same order; one the tourist has left by then does not. A Place's cooldown counts from when the engine chose it, since the engine never knows when the audio ends.
 - **Commercial narration cap:** at most one Venue narration per 10 minutes of walking, counted separately from Editorial Places. Without this, a food street becomes an ad loop even with honest ranking.
 - A safety reconcile pass so a missed event self-heals instead of hanging.
 - Dynamic geofence re-registration: only the nearest N Places are registered with the OS at any time (see §14 — the OS caps this).
@@ -294,10 +296,10 @@ Four layers of defence, so the tourist never sees a blank screen:
 2. Location updates arrive, throttled.
 3. Geofence engine finds the tourist is inside the trigger radius of *Cô Ba's noodle stall*.
 4. It waits out the **debounce** window. Still inside → confirm `ENTER`.
-5. Two other Places are also in range. Priority sort picks the winner by `narrationPriority`, then distance.
+5. Two other Places are also in range. Priority sort picks the winner — Editorial before Venue, then `narrationPriority`, then distance — and the Place's cooldown starts. The other two follow on the next evaluations while the tourist is still inside them.
 6. Narration queue is empty → play. Tier 1: the audio file is already in the device cache → starts in milliseconds.
 7. Phone vibrates once, lock screen shows a now-playing card with the Place name.
-8. Narration finishes. The Place enters **cooldown**. Analytics (if consented) records a completed listen.
+8. Narration finishes; the Place has been in **cooldown** since step 5. Analytics (if consented) records a completed listen.
 9. Tourist walks on. `EXIT` fires. Meanwhile the app has quietly prefetched narration for the next three un-synthesised Places ahead.
 
 ### J3 — QR fallback (indoors, GPS useless)
@@ -456,6 +458,7 @@ These are **product** decisions, not implementation details. They must be config
 | Narration cooldown | 5 min | Tourist sits down inside a radius; must not loop. |
 | Commercial narration cap | 1 Venue narration / 10 min | Stops a commercial street becoming an ad loop. Editorial Places are exempt. |
 | Safety reconcile interval | 5 s | Self-heals a dropped event instead of hanging silently. |
+| GPS gap | 15 s | A half-finished entry older than this is dropped, so the fix before a tunnel never confirms a Place after it. |
 | Nearby prefetch | top 3 per batch, ≥30 s between batches | Warms audio ahead of the walker without hammering TTS. |
 | Prefetch backoff on 429 | 30 s → 60 s → 120 s → … cap 10 min | Be a good citizen of our own rate limiter. |
 | Hotset radius / size | 1500 m / 10 places | The realistic "next 20 minutes of walking". |
