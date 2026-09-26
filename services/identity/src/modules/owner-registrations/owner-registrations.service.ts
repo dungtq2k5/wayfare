@@ -23,6 +23,7 @@ import {
   piiLast4,
   requireAccountContext,
   rpcError,
+  SYSTEM_ORIGIN,
 } from '@wayfare/nest-common';
 import type { AccountContext, RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
@@ -288,8 +289,7 @@ export class OwnerRegistrationsService {
     tx: Prisma.TransactionClient,
     userId: string,
     now: Date,
-    // FIXME Do not use an object literal as default for parameter `origin`.
-    origin: AuditOrigin = { ip: null, userAgent: null },
+    origin: AuditOrigin = SYSTEM_ORIGIN,
   ): Promise<RegistrationErasure> {
     const rows = await tx.ownerRegistration.findMany({
       where: { userId },

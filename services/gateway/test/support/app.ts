@@ -64,8 +64,9 @@ export class StubCaller {
     return handler(request as never, context);
   }
 
-  // FIXME Unexpected empty method 'init'.
-  init(): void {}
+  init(): void {
+    // nothing to open: the stub has no connection of its own
+  }
 }
 
 /** identity, stubbed (conventions §17.1: gRPC peers are stubbed in the gateway e2e suite). */

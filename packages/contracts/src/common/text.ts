@@ -1,6 +1,16 @@
 import { compareStrings } from './sorting';
 
 /**
+ * Strips every trailing `/`, without a regex: `.replace(/\/+$/, '')` retries from every slash in
+ * the run, quadratic for a long one (conventions §3.1's second-consumer bar — six call sites).
+ */
+export function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end--;
+  return value.slice(0, end);
+}
+
+/**
  * Normalizes user text before validation, hashing and storage (conventions §11.1): line endings
  * become `\n`, then NFC; runs of other whitespace collapse to one space; each line loses its
  * trailing whitespace; three or more newlines become two; the whole is trimmed. Paragraphs survive.

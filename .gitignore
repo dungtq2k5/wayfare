@@ -4,6 +4,8 @@ dist/
 coverage/
 *.tsbuildinfo
 .env
+.env.sonar
+.scannerwork/
 services/*/generated/
 # Throwaway local signing keys written by `pnpm keys:dev`.
 services/*/.keys/
@@ -14,3 +16,5 @@ infra/tiles/.cache/
 graphify-out/
 # The closing run's reports (`pnpm closing-run`).
 /.cache/
+.mcp.json
+.sonar-config.json

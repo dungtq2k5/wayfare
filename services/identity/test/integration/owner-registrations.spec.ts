@@ -176,8 +176,9 @@ describe('applying', () => {
   it('serializes two concurrent applications by one user: one wins, one conflicts', async () => {
     const results = await Promise.allSettled([apply(), apply()]);
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    const rejected = results.find((result) => result.status === 'rejected');
-    // FIXME Property 'reason' does not exist on type 'PromiseSettledResult<string>'.
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
     expect((await errorOf(Promise.reject(rejected!.reason as Error))).code).toBe(
       'REGISTRATION_ALREADY_PENDING',
     );
@@ -395,8 +396,9 @@ describe('approval', () => {
     const id = await apply();
     const results = await Promise.allSettled([approve(id), reject(id, 'Duplicate.')]);
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    const lost = results.find((result) => result.status === 'rejected');
-    // FIXME Property 'reason' does not exist on type 'PromiseRejectedResult | PromiseFulfilledResult<ApproveRegistrationResponse> | PromiseFulfilledResult<RejectRegistrationResponse>'.
+    const lost = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
     expect((await errorOf(Promise.reject(lost!.reason as Error))).code).toBe('INVALID_STATE');
     expect(await prisma.notification.count()).toBe(1);
   });

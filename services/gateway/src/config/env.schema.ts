@@ -1,3 +1,4 @@
+import { trimTrailingSlashes } from '@wayfare/contracts';
 import { zLogLevel, zNodeEnv, zPort, zPublicKeysEnv } from '@wayfare/nest-common';
 import type { TypedConfigService } from '@wayfare/nest-common';
 import { z } from 'zod';
@@ -9,7 +10,7 @@ const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const zBooleanString = z.enum(['true', 'false']).transform((value) => value === 'true');
 
 /** An origin (and optional path) with no trailing slash. */
-const zBaseUrl = z.url({ protocol: /^https?$/ }).transform((value) => value.replace(/\/+$/, ''));
+const zBaseUrl = z.url({ protocol: /^https?$/ }).transform((value) => trimTrailingSlashes(value));
 
 /** gateway's environment, parsed once at boot (conventions §13, architecture §14). */
 export const envSchema = z

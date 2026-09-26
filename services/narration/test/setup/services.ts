@@ -194,8 +194,9 @@ export class FakeFanoutQueue {
     return Promise.resolve();
   }
 
-  // FIXME Unexpected empty method 'start'.
-  start(): void {}
+  start(): void {
+    // nothing to start: the test runs the queued items itself
+  }
 
   /** Runs every queued item, including any the run itself queues. */
   async drain(): Promise<void> {
@@ -248,8 +249,9 @@ export class FakeTaskQueue {
     return Promise.resolve(this.items.has(`${taskId}-${attempts}`));
   }
 
-  // FIXME Unexpected empty method 'start'.
-  start(): void {}
+  start(): void {
+    // nothing to start: the test runs the queued items itself
+  }
 
   /** The next item by priority, removed; null when empty. */
   take(): { taskId: string; attempts: number } | null {

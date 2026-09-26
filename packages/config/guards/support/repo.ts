@@ -41,8 +41,7 @@ export function pascalCase(kebab: string): string {
 
 /** The body of a `## N.` section, up to the next `## `. */
 export function section(markdown: string, number: number): string {
-  // FIXME `String.raw` should be used to avoid escaping `\`.
-  const start = markdown.search(new RegExp(`^## ${number}\\. `, 'm'));
+  const start = markdown.search(new RegExp(String.raw`^## ${number}\. `, 'm'));
   if (start < 0) throw new Error(`section §${number} not found`);
   const rest = markdown.slice(start + 1);
   const end = rest.search(/^## /m);

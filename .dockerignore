@@ -8,7 +8,17 @@
 **/.env.*
 !**/.env.example
 .git
+.gitignore
+.gitattributes
 .github
 docs
 .kilo
 cspell.json
+graphify-out/
+/.cache/
+.scannerwork/
+.claude/
+.mcp.json
+.sonar-config.json
+.sonar-project.properties
+.vscode/

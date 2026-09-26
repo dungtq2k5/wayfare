@@ -1,3 +1,4 @@
+import { trimTrailingSlashes } from '@wayfare/contracts';
 import { zLogLevel, zNodeEnv, zPort } from '@wayfare/nest-common';
 import type { TypedConfigService } from '@wayfare/nest-common';
 import { z } from 'zod';
@@ -28,9 +29,8 @@ export const envSchema = z
     METRICS_PORT: zPort,
     CATALOG_GRPC_URL: z.string().min(1),
     IDENTITY_GRPC_URL: z.string().min(1),
-    // FIXME Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.
     // Checkout's success and cancel pages, the portal's return page.
-    CONSOLE_URL: z.url().transform((value) => value.replace(/\/+$/, '')),
+    CONSOLE_URL: z.url().transform((value) => trimTrailingSlashes(value)),
     APP_VERSION: z.string().default('0.0.0-dev'),
     GIT_SHA: z.string().default('unknown'),
     BUILT_AT: z.string().default('unknown'),

@@ -8,6 +8,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   'packages/config/guards/archive-references.spec.ts':
     'this spec has to spell the patterns it forbids',
   '.gitignore': 'it has to spell the path in order to ignore it',
+  'sonar-project.properties': 'it has to spell the path in order to exclude it from analysis',
 };
 
 const SKIPPED = [/(^|\/)generated\//, /(^|\/)dist\//, /^pnpm-lock\.yaml$/];

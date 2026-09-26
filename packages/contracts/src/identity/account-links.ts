@@ -1,3 +1,5 @@
+import { trimTrailingSlashes } from '../common/text';
+
 /**
  * The pages an emailed account link opens, relative to the console or web app base
  * (api-endpoints-plan §1.2).
@@ -30,7 +32,6 @@ export type AccountLinkPath = keyof typeof ACCOUNT_LINK_PATHS;
  * the page reads it, strips it, and posts it in a body (api-endpoints-plan §1.2).
  */
 export function accountLink(base: string, path: AccountLinkPath, token?: string): string {
-  // FIXME Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.
-  const url = `${base.replace(/\/+$/, '')}${ACCOUNT_LINK_PATHS[path]}`;
+  const url = `${trimTrailingSlashes(base)}${ACCOUNT_LINK_PATHS[path]}`;
   return token === undefined ? url : `${url}#token=${encodeURIComponent(token)}`;
 }

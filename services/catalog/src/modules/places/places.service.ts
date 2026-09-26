@@ -33,6 +33,7 @@ import {
   SubmissionKind,
   SubmissionStatus,
   SynthesisTrigger,
+  trimTrailingSlashes,
   UploadPurpose,
   zMenuInput,
   zOpeningHours,
@@ -196,8 +197,7 @@ const deactivateFields = z.object({
 
 const qrFields = z.object({
   placeId: zUuidV7,
-  // FIXME Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.
-  qrBaseUrl: z.url({ protocol: /^https?$/ }).transform((value) => value.replace(/\/+$/, '')),
+  qrBaseUrl: z.url({ protocol: /^https?$/ }).transform((value) => trimTrailingSlashes(value)),
 });
 
 const listFields = z.object({

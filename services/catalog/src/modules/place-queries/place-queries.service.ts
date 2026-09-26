@@ -163,7 +163,6 @@ export class PlaceQueriesService {
     const ranked = rankNearby(candidates).slice(0, fields.limit);
     const rows = await this.prisma.place.findMany({
       where: { id: { in: ranked.map((item) => item.id) } },
-      // FIXME Type '{ readonly photos: { readonly select: { readonly variants: true; }; readonly orderBy: readonly [{ readonly sortOrder: "asc"; }, { readonly id: "asc"; }]; readonly take: 1; }; readonly id: true; readonly kind: true; ... 7 more ...; readonly localizations: { ...; }; }' is not assignable to type 'PlaceSelect<DefaultArgs>'.
       select: withLanguages(SUMMARY_PLACE_SELECT, reachableLanguages(fields.lang.lang)),
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
@@ -174,7 +173,6 @@ export class PlaceQueriesService {
         const distanceM = Math.round(item.distanceM);
         return [
           toPlaceSummary(
-            // FIXME Argument of type '{ areaId: string; publicCode: string; id: string; kind: string; ownerUserId: string | null; categoryId: string; nameVi: string; descriptionVi: string; contentHash: string; addressVi: string | null; ... 17 more ...; deletedById: string | null; }' is not assignable to parameter of type '{ areaId: string; publicCode: string; id: string; kind: string; nameVi: string; descriptionVi: string; contentHash: string; priceBand: number | null; category: { code: string; }; localizations: { ...; }[]; photos: { ...; }[]; }'.
             row,
             {
               location: { lat: item.lat, lng: item.lng },

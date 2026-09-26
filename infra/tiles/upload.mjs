@@ -31,7 +31,9 @@ for (const name of ['out', 'area', 'area-id', 'basemaps']) {
 }
 const versions = parse(readFileSync(join(here, 'versions.env')));
 const env = parse(readFileSync(join(catalogDir, '.env')));
-const base = env.GCS_PUBLIC_BASE_URL.replace(/\/+$/, '');
+let baseEnd = env.GCS_PUBLIC_BASE_URL.length;
+while (baseEnd > 0 && env.GCS_PUBLIC_BASE_URL[baseEnd - 1] === '/') baseEnd--;
+const base = env.GCS_PUBLIC_BASE_URL.slice(0, baseEnd);
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const archive = readFileSync(join(args.out, 'map.pmtiles'));

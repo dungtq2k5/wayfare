@@ -37,8 +37,9 @@ export class RecordingQueue {
     return Promise.resolve(this.items.some(({ item }) => item.billingEventId === billingEventId));
   }
 
-  // FIXME Unexpected empty method 'start'.
-  start(): void {}
+  start(): void {
+    // nothing to start: the test runs the queued items itself
+  }
 
   /** The items added so far, emptying the list. */
   take(): WebhookItem[] {

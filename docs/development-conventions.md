@@ -137,7 +137,7 @@ A table belongs to the service that owns its domain in rdm-spec §1.1, **whether
 
 ### 3.1 Search before you write
 
-Before writing a helper, **MUST** search `packages/`. Timestamps, money arithmetic, content hashing, email normalization, id generation, geohash snapping and business-day conversion already exist, and a second implementation is a disagreement waiting for the one input where the two differ.
+Before writing a helper, **MUST** search `packages/`. Timestamps, money arithmetic, content hashing, email normalization, id generation, geohash snapping, business-day conversion and trailing-slash trimming (`trimTrailingSlashes`, no regex) already exist, and a second implementation is a disagreement waiting for the one input where the two differ.
 
 Import by package name, **never by a relative path across a package or service boundary**:
 
@@ -818,6 +818,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 - `pino` through `nestjs-pino`, JSON, one logger per class. Every line carries `requestId`/trace id automatically.
 - Levels: `debug` for developer aid; `info` for lifecycle (boot, job run); `warn` for handled-but-suspicious (a replayed refresh token, a poison message); `error` for a bug or a failed dependency, with the error object.
+- Once listening, each service logs its endpoints at `info`, one line from its `main.ts` using the address actually bound (`app.getUrl()`): the gateway its HTTP URL, plus `/docs` when Swagger is enabled; the others their gRPC URL and ops URL.
 - A security-relevant event is logged at `warn` or above **and** written to the audit log.
 - **MUST NOT** log inside a loop over rows; log the summary.
 
@@ -898,6 +899,8 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 - **MUST** — cite rdm-spec tables and ADRs by identifier (`rdm-spec C-11`, `ADR 0039`) when a piece of code implements one. Those identifiers never move; section numbers of working documents do.
 - **MUST NOT** — start a docblock line with a bare `@` (a decorator or package name). Backtick it.
 - **MUST NOT** — place a docblock where it attaches to the wrong declaration: between a property's decorators and its name, above a group of enum members, or above a section banner.
+- **MUST NOT** — commit a `TODO` or `FIXME`: fix it, or record the work where work is tracked.
+- **MUST** — a lint suppression names its rule and its reason on the same line: `// NOSONAR: S1234, <reason>`, `// eslint-disable-next-line <rule> -- <reason>`. A bare suppression cannot be reviewed, because nobody can tell whether it is still needed.
 
 Keep it proportional: a one-line constant gets one line.
 

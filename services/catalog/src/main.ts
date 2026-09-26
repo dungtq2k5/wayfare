@@ -1,4 +1,5 @@
 import './instrumentation'; // FIRST: tracing patches pg, grpc and http before they load
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Transport } from '@nestjs/microservices';
@@ -48,6 +49,7 @@ async function bootstrap(): Promise<void> {
   shutdown.add(() => new Promise<void>((resolve) => metrics.close(() => resolve())));
   await app.startAllMicroservices();
   await app.listen(config.get('OPS_PORT', { infer: true }));
+  new Logger('Bootstrap').log(`catalog listening on gRPC ${grpcUrl}, ops ${await app.getUrl()}`);
   await spine.start();
 }
 

@@ -1,4 +1,4 @@
-import { MAX_CONCURRENT_TTS_JOBS } from '@wayfare/contracts';
+import { MAX_CONCURRENT_TTS_JOBS, trimTrailingSlashes } from '@wayfare/contracts';
 import { isProductionEnv, zLogLevel, zNodeEnv, zPort } from '@wayfare/nest-common';
 import type { TypedConfigService } from '@wayfare/nest-common';
 import { z } from 'zod';
@@ -56,7 +56,7 @@ export const envSchema = z
     GCS_BUCKET_MEDIA: z.string().min(3).max(222),
     GCS_API_ENDPOINT: optional(z.url()),
     GOOGLE_APPLICATION_CREDENTIALS: optional(z.string().min(1)),
-    GCS_PUBLIC_BASE_URL: z.url().transform((value) => value.replace(/\/+$/, '')),
+    GCS_PUBLIC_BASE_URL: z.url().transform((value) => trimTrailingSlashes(value)),
     // Providers (conventions §11.5): a fallback is configuration, not an `if`.
     TRANSLATION_PROVIDER_ORDER: zOrder(TRANSLATION_PROVIDER_NAMES),
     TTS_PROVIDER_ORDER: zOrder(SPEECH_PROVIDER_NAMES),

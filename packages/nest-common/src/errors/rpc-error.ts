@@ -43,8 +43,7 @@ export type RpcErrorDetailsArgs<C extends ErrorCode> =
 function asciiJson(value: unknown): string {
   return JSON.stringify(value).replace(
     /[\u0080-\uffff]/g,
-    // FIXME `String.raw` should be used to avoid escaping `\`.
-    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+    (char) => String.raw`\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
   );
 }
 

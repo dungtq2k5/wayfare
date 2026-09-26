@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeLang, zLanguage, zRequestedLanguage } from './languages';
-import { canonicalJson, CanonicalJsonError, normalizeText } from './text';
+import { canonicalJson, CanonicalJsonError, normalizeText, trimTrailingSlashes } from './text';
 import { businessDay } from './time';
 
 describe('normalizeLang', () => {
@@ -60,6 +60,26 @@ describe('normalizeText', () => {
 
   it('collapses inner whitespace, keeps paragraphs, trims', () => {
     expect(normalizeText('  one \t two  \n\n\n\nthree   \n')).toBe('one two\n\nthree');
+  });
+});
+
+describe('trimTrailingSlashes', () => {
+  it.each([
+    ['', ''],
+    ['/', ''],
+    ['a', 'a'],
+    ['a/', 'a'],
+    ['a///', 'a'],
+    ['a/b/', 'a/b'],
+  ])('%s → %s', (value, expected) => {
+    expect(trimTrailingSlashes(value)).toBe(expected);
+  });
+
+  it('returns at once for a long run of slashes not at the end', () => {
+    const value = '/'.repeat(50_000) + 'x';
+    const start = performance.now();
+    expect(trimTrailingSlashes(value)).toBe(value);
+    expect(performance.now() - start).toBeLessThan(50);
   });
 });
 

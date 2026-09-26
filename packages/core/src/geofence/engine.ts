@@ -75,7 +75,7 @@ function candidatesFor(
  * One location fix in, at most one decision out. No clock, timer, network or storage of its own
  * (conventions §3.2); implements the geofence rules of product §F2 and the harness of §17.3.
  */
-export function evaluateGeofences(input: { // NOSONAR
+export function evaluateGeofences(input: {
   now: number;
   fix: LocationFix;
   places: readonly GeofencePlace[];

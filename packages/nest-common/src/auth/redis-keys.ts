@@ -25,7 +25,6 @@ export const CUTOFF_REJECT_ALL = Number.MAX_SAFE_INTEGER;
  */
 export const TOKEN_CUTOFF_TTL_MS = ACCOUNT_ACCESS_TOKEN_TTL_MS + 60_000;
 
-// FIXME Use `export…from` to re-export `REVOKED_FAMILY_TTL_MS`.
 /** A family marker lives one access-token lifetime — no token of the family can outlive it. */
 export const REVOKED_FAMILY_TTL_MS = ACCOUNT_ACCESS_TOKEN_TTL_MS;
 

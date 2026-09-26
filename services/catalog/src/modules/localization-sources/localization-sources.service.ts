@@ -51,12 +51,9 @@ const WORD_EDGE = /[\p{L}\p{N}_]/u;
  * would match nothing at all.
  */
 const wholeWord = (term: string): string => {
-  // FIXME `String.raw` should be used to avoid escaping `\`.
-  const escaped = term.replaceAll(/[\\^$.|?*+()[\]{}]/g, '\\$&');
-  // FIXME `String.raw` should be used to avoid escaping `\`.
-  const left = WORD_EDGE.test(term.slice(0, 1)) ? '\\m' : '';
-  // FIXME `String.raw` should be used to avoid escaping `\`.
-  const right = WORD_EDGE.test(term.slice(-1)) ? '\\M' : '';
+  const escaped = term.replaceAll(/[\\^$.|?*+()[\]{}]/g, String.raw`\$&`);
+  const left = WORD_EDGE.test(term.slice(0, 1)) ? String.raw`\m` : '';
+  const right = WORD_EDGE.test(term.slice(-1)) ? String.raw`\M` : '';
   return `${left}${escaped}${right}`;
 };
 const ownerField = z.object({ ownerUserId: zUuidV7 });

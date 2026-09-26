@@ -52,10 +52,8 @@ export function canonicalPublicCode(value: string): string | null {
   const folded = value
     .trim()
     .toUpperCase()
-    // FIXME Prefer `String#replaceAll()` over `String#replace()`.
-    .replace(/-/g, '')
-    // FIXME Prefer `String#replaceAll()` over `String#replace()`.
-    .replace(/O/g, '0')
+    .replaceAll('-', '')
+    .replaceAll('O', '0')
     .replace(/[IL]/g, '1');
   return PUBLIC_CODE_PATTERN.test(folded) ? folded : null;
 }

@@ -19,8 +19,7 @@ export function escapeXml(text: string): string {
   return text.replace(/[&<>"']/g, (character) => `&#${character.codePointAt(0)};`);
 }
 
-// FIXME `String.raw` should be used to avoid escaping `\`.
-const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /**
  * The rules for `lang`: its own entries and the every-language ones, a language-specific entry

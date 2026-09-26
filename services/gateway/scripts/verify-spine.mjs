@@ -76,8 +76,7 @@ const joinedSources = [...allSources.values()].join('\n');
 // Every subject actually published: an `outbox.add`/`addMany` call anywhere in services/*/src.
 const publishedSubjects = EVENT_DEFINITIONS.filter((definition) => {
   const constant = definition.subject.toUpperCase().replaceAll('.', '_');
-  // FIXME `String.raw` should be used to avoid escaping `\`.
-  return new RegExp(`outbox\\.(?:add|addMany)\\(tx, ${constant}\\b`).test(joinedSources);
+  return new RegExp(String.raw`outbox\.(?:add|addMany)\(tx, ${constant}\b`).test(joinedSources);
 });
 
 // Every declared consumer: `readonly event = X` in a `*.consumer.ts`, the service from its path.

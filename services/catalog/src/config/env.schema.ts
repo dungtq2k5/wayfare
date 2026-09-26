@@ -1,3 +1,4 @@
+import { trimTrailingSlashes } from '@wayfare/contracts';
 import { zLogLevel, zNodeEnv, zPort } from '@wayfare/nest-common';
 import type { TypedConfigService } from '@wayfare/nest-common';
 import { z } from 'zod';
@@ -31,7 +32,7 @@ export const envSchema = z.object({
   // Local only: a throwaway signing key file. Unset in Cloud Run, where IAM signBlob signs.
   GOOGLE_APPLICATION_CREDENTIALS: optional(z.string().min(1)),
   // Where clients fetch media: the CDN in front of the bucket; the emulator locally.
-  GCS_PUBLIC_BASE_URL: z.url().transform((value) => value.replace(/\/+$/, '')),
+  GCS_PUBLIC_BASE_URL: z.url().transform((value) => trimTrailingSlashes(value)),
 });
 
 /** The validated environment. */
