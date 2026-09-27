@@ -62,7 +62,7 @@ export const envSchema = z
     BUILT_AT: z.string().default('unknown'),
     // Transactional email (conventions §11.4).
     EMAIL_PROVIDER: z.enum(['resend', 'smtp']),
-    EMAIL_FROM: z.string().regex(/^[^<>]+ <[^<>\s]+@[^<>\s]+>$/, 'Expected `Name <address>`'),
+    EMAIL_FROM: z.string().regex(/^[^<>]+ <[^<>\s@]+@[^<>\s]+>$/, 'Expected `Name <address>`'),
     // Required with no default: staging runs as production, so NODE_ENV cannot decide this.
     EMAIL_DELIVERY_MODE: z.enum(['restricted', 'open']),
     EMAIL_NONPROD_ALLOWLIST: optional(
@@ -97,6 +97,13 @@ export const envSchema = z
       require('RESEND_WEBHOOK_SECRET', 'EMAIL_PROVIDER=resend');
     }
     if (env.EMAIL_PROVIDER === 'smtp') require('SMTP_URL', 'EMAIL_PROVIDER=smtp');
+    if (env.NODE_ENV === 'production' && env.EMAIL_PROVIDER === 'smtp') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMAIL_PROVIDER'],
+        message: 'EMAIL_PROVIDER must be resend in production',
+      });
+    }
   });
 
 /** The validated environment. */

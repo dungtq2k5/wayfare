@@ -138,28 +138,26 @@ export class EntitlementsService {
     const current = grantsOf(account);
     const planned = plannedGrantsWrite(current, Number(account.entitlementsVersion), next);
     const pin = options.pin === undefined ? {} : { entitlementsPinned: options.pin };
-    if (!planned.changed) {
-      if (options.pin !== undefined && options.pin !== account.entitlementsPinned) {
-        await tx.billingAccount.update({
-          where: { id: account.id },
-          data: pin,
-          select: { id: true },
-        });
-      }
-      return planned;
+    if (planned.changed) {
+      await tx.billingAccount.update({
+        where: { id: account.id },
+        data: { ...grantColumns(next), entitlementsVersion: BigInt(planned.version), ...pin },
+        select: { id: true },
+      });
+      await this.outbox.add(tx, BILLING_ENTITLEMENTS_CHANGED, {
+        occurredAt: now.toISOString(),
+        ownerUserId: account.ownerUserId,
+        entitlementsVersion: planned.version,
+        entitlements: next,
+        previous: current,
+      });
+    } else if (options.pin !== undefined && options.pin !== account.entitlementsPinned) {
+      await tx.billingAccount.update({
+        where: { id: account.id },
+        data: pin,
+        select: { id: true },
+      });
     }
-    await tx.billingAccount.update({
-      where: { id: account.id },
-      data: { ...grantColumns(next), entitlementsVersion: BigInt(planned.version), ...pin },
-      select: { id: true },
-    });
-    await this.outbox.add(tx, BILLING_ENTITLEMENTS_CHANGED, {
-      occurredAt: now.toISOString(),
-      ownerUserId: account.ownerUserId,
-      entitlementsVersion: planned.version,
-      entitlements: next,
-      previous: current,
-    });
     return planned;
   }
 

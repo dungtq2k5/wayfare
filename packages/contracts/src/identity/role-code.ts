@@ -22,8 +22,8 @@ export function roleCodeFromName(name: string): string {
     .replace(/\p{M}/gu, '')
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  const base = folded.slice(0, MAX_BASE_LENGTH).replace(/_+$/, '');
+    .replace(/^_|_$/g, '');
+  const base = folded.slice(0, MAX_BASE_LENGTH).replace(/_$/, '');
   return `${PREFIX}${base === '' ? FALLBACK_BASE : base}`;
 }
 

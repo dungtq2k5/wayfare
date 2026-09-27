@@ -10,17 +10,18 @@ function skipQuote(message: string, start: number): number {
 /** The index of the `}` closing the `{` at `open`, or the end of the message. */
 function matchBrace(message: string, open: number): number {
   let depth = 0;
-  for (let index = open; index < message.length; index += 1) {
+  let index = open;
+  while (index < message.length) {
     const char = message[index];
     if (char === "'") {
       index = skipQuote(message, index);
-      continue;
-    }
-    if (char === '{') depth += 1;
-    else if (char === '}') {
+    } else if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
       depth -= 1;
       if (depth === 0) return index;
     }
+    index += 1;
   }
   return message.length;
 }
@@ -28,56 +29,65 @@ function matchBrace(message: string, open: number): number {
 /** The index of `separator` at the top level of `part`, or -1. */
 function topLevelIndex(part: string, separator: string): number {
   let depth = 0;
-  for (let index = 0; index < part.length; index += 1) {
+  let index = 0;
+  while (index < part.length) {
     const char = part[index];
     if (char === "'") {
       index = skipQuote(part, index);
-      continue;
+    } else if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+    } else if (depth === 0 && char === separator) {
+      return index;
     }
-    if (char === '{') depth += 1;
-    else if (char === '}') depth -= 1;
-    else if (depth === 0 && char === separator) return index;
+    index += 1;
   }
   return -1;
 }
 
 /** Arguments inside a plural's or a select's option bodies — `one {# of {total}}` holds `total`. */
 function collectOptions(options: string, names: Set<string>): void {
-  for (let index = 0; index < options.length; index += 1) {
+  let index = 0;
+  while (index < options.length) {
     if (options[index] === "'") {
       index = skipQuote(options, index);
-      continue;
+    } else if (options[index] === '{') {
+      const end = matchBrace(options, index);
+      collect(options.slice(index + 1, end), names);
+      index = end;
     }
-    if (options[index] !== '{') continue;
-    const end = matchBrace(options, index);
-    collect(options.slice(index + 1, end), names);
-    index = end;
+    index += 1;
   }
 }
 
 /** Every argument name in a message, options included. */
 function collect(message: string, names: Set<string>): void {
-  for (let index = 0; index < message.length; index += 1) {
+  let index = 0;
+  while (index < message.length) {
     if (message[index] === "'") {
       index = skipQuote(message, index);
-      continue;
-    }
-    if (message[index] !== '{') continue;
-    const end = matchBrace(message, index);
-    const inner = message.slice(index + 1, end);
-    const comma = topLevelIndex(inner, ',');
-    const name = (comma === -1 ? inner : inner.slice(0, comma)).trim();
-    if (name !== '') names.add(name);
-    if (comma !== -1) {
-      const rest = inner.slice(comma + 1);
-      const typeEnd = topLevelIndex(rest, ',');
-      const type = (typeEnd === -1 ? rest : rest.slice(0, typeEnd)).trim();
-      // `number`, `date` and `time` carry a style, not a submessage; the choices do.
-      if (typeEnd !== -1 && (type === 'plural' || type === 'select' || type === 'selectordinal')) {
-        collectOptions(rest.slice(typeEnd + 1), names);
+    } else if (message[index] === '{') {
+      const end = matchBrace(message, index);
+      const inner = message.slice(index + 1, end);
+      const comma = topLevelIndex(inner, ',');
+      const name = (comma === -1 ? inner : inner.slice(0, comma)).trim();
+      if (name !== '') names.add(name);
+      if (comma !== -1) {
+        const rest = inner.slice(comma + 1);
+        const typeEnd = topLevelIndex(rest, ',');
+        const type = (typeEnd === -1 ? rest : rest.slice(0, typeEnd)).trim();
+        // `number`, `date` and `time` carry a style, not a submessage; the choices do.
+        if (
+          typeEnd !== -1 &&
+          (type === 'plural' || type === 'select' || type === 'selectordinal')
+        ) {
+          collectOptions(rest.slice(typeEnd + 1), names);
+        }
       }
+      index = end;
     }
-    index = end;
+    index += 1;
   }
 }
 

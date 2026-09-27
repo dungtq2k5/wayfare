@@ -7,10 +7,12 @@ import { join } from 'node:path';
  * The repository root. Every git call runs from here: the Vitest project's root is
  * `packages/config`, and `git ls-files` from there would list only that package.
  */
-export const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-  cwd: __dirname,
-  encoding: 'utf8',
-}).trim();
+const repoRootOptions = { cwd: __dirname, encoding: 'utf8' } as const;
+export const REPO_ROOT = execFileSync(
+  'git', // NOSONAR: S4036, guard tooling runs the developer's own git
+  ['rev-parse', '--show-toplevel'],
+  repoRootOptions,
+).trim();
 
 /**
  * Tracked and untracked-but-not-ignored files matching the pathspecs, repo-relative. Ignored files
@@ -18,7 +20,7 @@ export const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
  */
 export function listFiles(...pathspecs: string[]): string[] {
   const output = execFileSync(
-    'git',
+    'git', // NOSONAR: S4036, guard tooling runs the developer's own git
     ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...pathspecs],
     { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );

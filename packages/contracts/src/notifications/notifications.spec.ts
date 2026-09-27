@@ -105,6 +105,7 @@ describe('advanceDeliveryStatus', () => {
 
   it('covers every pair without throwing', () => {
     for (const current of EMAIL_DELIVERY_STATUSES)
-      for (const next of EMAIL_DELIVERY_STATUSES) advanceDeliveryStatus(current, next);
+      for (const next of EMAIL_DELIVERY_STATUSES)
+        expect(() => advanceDeliveryStatus(current, next)).not.toThrow();
   });
 });

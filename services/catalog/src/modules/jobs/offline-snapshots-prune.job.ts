@@ -29,7 +29,7 @@ export class OfflineSnapshotsPruneJob implements ScheduledJob {
     }
     let deleted = 0;
     for (const objects of folders.values()) {
-      const newest = objects.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+      const newest = objects.reduce((a, b) => (b.createdAt > a.createdAt ? b : a), objects[0]!);
       for (const object of objects) {
         if (object === newest || object.createdAt.getTime() > before) continue;
         await this.storage.delete(object.path);

@@ -21,7 +21,7 @@ services:
     environment:
       <<: *postgres-env
       POSTGRES_DB: wayfare_identity
-    ports: ['15433:5432']
+    ports: ['127.0.0.1:15433:5432']
     volumes:
       - identity-db:/var/lib/postgresql/data
       - ./postgres-init/identity.sh:/docker-entrypoint-initdb.d/20-identity.sh:ro
@@ -34,7 +34,7 @@ services:
     environment:
       <<: *postgres-env
       POSTGRES_DB: wayfare_catalog
-    ports: ['15434:5432']
+    ports: ['127.0.0.1:15434:5432']
     volumes:
       - catalog-db:/var/lib/postgresql/data
       - ./postgres-init/catalog.sh:/docker-entrypoint-initdb.d/20-catalog.sh:ro
@@ -46,7 +46,7 @@ services:
     environment:
       <<: *postgres-env
       POSTGRES_DB: wayfare_narration
-    ports: ['15435:5432']
+    ports: ['127.0.0.1:15435:5432']
     volumes:
       - narration-db:/var/lib/postgresql/data
       - ./postgres-init/narration.sh:/docker-entrypoint-initdb.d/20-narration.sh:ro
@@ -58,7 +58,7 @@ services:
     environment:
       <<: *postgres-env
       POSTGRES_DB: wayfare_billing
-    ports: ['15436:5432']
+    ports: ['127.0.0.1:15436:5432']
     volumes:
       - billing-db:/var/lib/postgresql/data
       - ./postgres-init/billing.sh:/docker-entrypoint-initdb.d/20-billing.sh:ro
@@ -69,7 +69,7 @@ services:
     container_name: wayfare-redis
     image: redis:7-alpine
     command: ['redis-server', '--maxmemory-policy', 'noeviction']
-    ports: ['16379:6379']
+    ports: ['127.0.0.1:16379:6379']
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -81,7 +81,7 @@ services:
     container_name: wayfare-nats
     image: nats:2-alpine
     command: ['-js', '-sd', '/data', '--http_port', '8222']
-    ports: ['14222:4222', '18222:8222']
+    ports: ['127.0.0.1:14222:4222', '127.0.0.1:18222:8222']
     volumes:
       - nats-data:/data
     healthcheck:
@@ -96,7 +96,7 @@ services:
     container_name: wayfare-nats-test
     image: nats:2-alpine
     command: ['-js', '-sd', '/tmp/jetstream', '--http_port', '8222']
-    ports: ['14223:4222']
+    ports: ['127.0.0.1:14223:4222']
     tmpfs: ['/tmp/jetstream']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:8222/healthz?js-enabled-only=true']
@@ -107,7 +107,7 @@ services:
   mailpit:
     container_name: wayfare-mailpit
     image: axllent/mailpit:v1.31
-    ports: ['1025:1025', '8025:8025']
+    ports: ['127.0.0.1:1025:1025', '127.0.0.1:8025:8025']
     healthcheck:
       test: ['CMD', '/mailpit', 'readyz']
       interval: 5s
@@ -137,7 +137,7 @@ services:
         '/storage',
       ]
     volumes: ['fake-gcs-data:/storage']
-    ports: ['4443:4443']
+    ports: ['127.0.0.1:4443:4443']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:4443/storage/v1/b']
       interval: 5s
@@ -147,7 +147,7 @@ services:
   jaeger:
     container_name: wayfare-jaeger
     image: jaegertracing/jaeger:2.21.0
-    ports: ['4317:4317', '4318:4318', '16686:16686']
+    ports: ['127.0.0.1:4317:4317', '127.0.0.1:4318:4318', '127.0.0.1:16686:16686']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:13133/status']
       interval: 5s
@@ -187,7 +187,7 @@ services:
       OTEL_TRACES_SAMPLER: parentbased_always_on
       OTEL_SERVICE_NAME: identity
       SMTP_URL: smtp://mailpit:1025
-    ports: ['3101:3101']
+    ports: ['127.0.0.1:3101:3101']
     depends_on:
       identity-db: { condition: service_healthy }
       mailpit: { condition: service_healthy }
@@ -228,7 +228,7 @@ services:
       OTEL_SERVICE_NAME: catalog
     volumes:
       - ../../services/catalog/.keys:/keys:ro
-    ports: ['3102:3102']
+    ports: ['127.0.0.1:3102:3102']
     depends_on:
       catalog-db: { condition: service_healthy }
       fake-gcs: { condition: service_healthy }
@@ -271,7 +271,7 @@ services:
       OTEL_SERVICE_NAME: narration
     volumes:
       - ../../services/catalog/.keys:/keys:ro
-    ports: ['3103:3103']
+    ports: ['127.0.0.1:3103:3103']
     depends_on:
       narration-db: { condition: service_healthy }
       fake-gcs: { condition: service_healthy }
@@ -312,7 +312,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_TRACES_SAMPLER: parentbased_always_on
       OTEL_SERVICE_NAME: billing
-    ports: ['3104:3104']
+    ports: ['127.0.0.1:3104:3104']
     depends_on:
       billing-db: { condition: service_healthy }
       nats: { condition: service_healthy }
@@ -353,7 +353,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_TRACES_SAMPLER: parentbased_always_on
       OTEL_SERVICE_NAME: gateway
-    ports: ['13000:3000']
+    ports: ['127.0.0.1:13000:3000']
     depends_on:
       redis: { condition: service_healthy }
       identity: { condition: service_healthy }

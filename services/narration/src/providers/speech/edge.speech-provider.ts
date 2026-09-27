@@ -65,11 +65,12 @@ export function withVoice(ssml: string, voice: VoiceSpec): string {
     .replace(/<\/speak>\s*$/, '')
     .replace(/<sub alias="([^"]*)">[^<]*<\/sub>/g, '$1')
     .replace(/<phoneme[^>]*>([^<]*)<\/phoneme>/g, '$1')
+    .replace(/\s+/g, ' ')
     .replace(
-      /([.!?…。！？])?\s*<break[^>]*\/>\s*/g,
+      /([.!?…。！？])? ?<break[^>]*\/> ?/g,
       (_, stop: string | undefined) => `${stop ?? '.'} `,
     )
-    .replace(/<[^>]+>/g, '');
+    .replace(/<[^<>]*>/g, '');
   return (
     `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${voice.languageCode}">` +
     `<voice name="${voice.id}">${body}</voice></speak>`

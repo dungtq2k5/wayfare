@@ -63,13 +63,13 @@ echo "✓ $area: box $bbox, with a 500 m margin $margin_bbox"
 cli=$cache/pmtiles-$PMTILES_VERSION/pmtiles
 if [[ ! -x $cli ]]; then
   mkdir -p "$(dirname "$cli")"
-  curl -sSfL "https://github.com/protomaps/go-pmtiles/releases/download/v$PMTILES_VERSION/go-pmtiles_${PMTILES_VERSION}_Linux_x86_64.tar.gz" |
+  curl -sSfL --proto '=https' --tlsv1.2 "https://github.com/protomaps/go-pmtiles/releases/download/v$PMTILES_VERSION/go-pmtiles_${PMTILES_VERSION}_Linux_x86_64.tar.gz" |
     tar xz -C "$(dirname "$cli")" pmtiles
 fi
 basemaps=$cache/basemaps-$BASEMAPS_VERSION/package
 if [[ ! -d $basemaps ]]; then
   mkdir -p "$(dirname "$basemaps")"
-  curl -sSfL "https://registry.npmjs.org/@protomaps/basemaps/-/basemaps-$BASEMAPS_VERSION.tgz" |
+  curl -sSfL --proto '=https' --tlsv1.2 "https://registry.npmjs.org/@protomaps/basemaps/-/basemaps-$BASEMAPS_VERSION.tgz" |
     tar xz -C "$(dirname "$basemaps")"
 fi
 
@@ -103,7 +103,7 @@ mapfile -t ranges < <(cd "$root/services/catalog" && node -e '
 for stack in "${stacks[@]}"; do
   mkdir -p "$out/fonts/$stack"
   for range in "${ranges[@]}"; do
-    curl -sSfL -o "$out/fonts/$stack/$range.pbf" "$assets/fonts/${stack// /%20}/$range.pbf"
+    curl -sSfL --proto '=https' --tlsv1.2 -o "$out/fonts/$stack/$range.pbf" "$assets/fonts/${stack// /%20}/$range.pbf"
   done
 done
 # U+1E00–1EFF (7680-7935) is what Vietnamese names need; a pack without it is refused here.
@@ -113,7 +113,7 @@ done
 echo "✓ glyphs: ${#stacks[@]} font stacks × ${#ranges[@]} ranges (U+1E00–1EFF included)"
 mkdir -p "$out/sprites/v4"
 for file in "$BASEMAPS_FLAVOR.json" "$BASEMAPS_FLAVOR.png" "$BASEMAPS_FLAVOR@2x.json" "$BASEMAPS_FLAVOR@2x.png"; do
-  curl -sSfL -o "$out/sprites/v4/$file" "$assets/sprites/v4/$file"
+  curl -sSfL --proto '=https' --tlsv1.2 -o "$out/sprites/v4/$file" "$assets/sprites/v4/$file"
 done
 echo '✓ sprites'
 

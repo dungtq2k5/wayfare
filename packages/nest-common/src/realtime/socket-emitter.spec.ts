@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { Logger } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
 import { SocketEmitter } from './socket-emitter';
 
 describe('SocketEmitter', () => {
@@ -20,8 +21,11 @@ describe('SocketEmitter', () => {
 
 describe('SocketEmitter on a failing Redis', () => {
   it('catches a rejected publish', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const emitter = new SocketEmitter({ publish: () => Promise.reject(new Error('offline')) });
     emitter.toRoom('job:1', 'jobSubscribed', { jobId: '01990000-0000-7000-8000-000000000001' });
     await new Promise((resolve) => setImmediate(resolve));
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
   });
 });

@@ -900,7 +900,7 @@ New global filters and interceptors take `isProduction` as a constructor argumen
 - **MUST NOT** — start a docblock line with a bare `@` (a decorator or package name). Backtick it.
 - **MUST NOT** — place a docblock where it attaches to the wrong declaration: between a property's decorators and its name, above a group of enum members, or above a section banner.
 - **MUST NOT** — commit a `TODO` or `FIXME`: fix it, or record the work where work is tracked.
-- **MUST** — a lint suppression names its rule and its reason on the same line: `// NOSONAR: S1234, <reason>`, `// eslint-disable-next-line <rule> -- <reason>`. A bare suppression cannot be reviewed, because nobody can tell whether it is still needed.
+- **MUST** — a lint suppression names its rule and its reason on the same line: `// NOSONAR: S1234, <reason>`, `// eslint-disable-next-line <rule> -- <reason>`. A bare suppression cannot be reviewed, because nobody can tell whether it is still needed. A suppression a file cannot carry (a YAML value, a SQL migration) goes in the analysis configuration's ignore list (`sonar.issue.ignore.multicriteria` in `sonar-project.properties`, which the SonarCloud scanner reads) with a `#` comment giving its reason — never only in SonarCloud's UI, where no diff shows it. `NOSONAR` works only on the exact line Sonar flags, not the line above; where Prettier would move a trailing comment off a multi-line call, the call's object argument goes into a named variable first, so the flagged line stays one line.
 
 Keep it proportional: a one-line constant gets one line.
 

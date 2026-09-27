@@ -184,7 +184,7 @@ async function waitFor(what, seconds, predicate) {
 }
 
 async function call(name, method, path, token, body) {
-  const response = await fetch(`${BASE}${path}`, {
+  const options = {
     method,
     headers: {
       'content-type': 'application/json',
@@ -192,7 +192,8 @@ async function call(name, method, path, token, body) {
       ...(token === undefined ? {} : { cookie: `wf_at=${token}` }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+  };
+  const response = await fetch(`${BASE}${path}`, options); // NOSONAR: S7044 S8476, a local verification script calling the operator's own ROOT
   const json = await response.json().catch(() => ({}));
   if (response.status >= 400)
     findings.push(`${name}: HTTP ${response.status} ${JSON.stringify(json)}`);

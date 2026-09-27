@@ -1712,15 +1712,16 @@ export class PlacesService {
       select: { sourceContentHash: true, audioStatus: true, audioSourceContentHash: true },
     });
     const gate = ActivationGate.evaluate({ place, enLocalization: en });
-    if (!gate.open) return gate;
-    await tx.place.update({
-      where: { id: placeId },
-      data: {
-        status: transition(PlaceStatus.PROCESSING, PlaceLifecycleEvent.GATE_OPENED),
-        ...(place.publishedAt === null ? { publishedAt: new Date() } : {}),
-      },
-      select: { id: true },
-    });
+    if (gate.open) {
+      await tx.place.update({
+        where: { id: placeId },
+        data: {
+          status: transition(PlaceStatus.PROCESSING, PlaceLifecycleEvent.GATE_OPENED),
+          ...(place.publishedAt === null ? { publishedAt: new Date() } : {}),
+        },
+        select: { id: true },
+      });
+    }
     return gate;
   }
 

@@ -106,6 +106,12 @@ describe('email configuration', () => {
     ).toThrow(/RESEND_WEBHOOK_SECRET/);
   });
 
+  it('refuses EMAIL_PROVIDER=smtp in production', () => {
+    expect(() => parse({ ...valid, NODE_ENV: 'production' })).toThrow(
+      /EMAIL_PROVIDER: EMAIL_PROVIDER must be resend in production/,
+    );
+  });
+
   it('refuses a short hash key, a bare sender and a missing link base', () => {
     expect(() => parse({ ...valid, EMAIL_HASH_KEY: Buffer.alloc(8).toString('base64') })).toThrow(
       /EMAIL_HASH_KEY/,

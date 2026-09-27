@@ -28,12 +28,13 @@ export class NodemailerEmailProvider extends EmailProvider {
 
   constructor(smtpUrl: string) {
     super();
-    this.transport = createTransport({
+    const options = {
       url: smtpUrl,
       connectionTimeout: EMAIL_SEND_TIMEOUT_MS,
       greetingTimeout: EMAIL_SEND_TIMEOUT_MS,
       socketTimeout: EMAIL_SEND_TIMEOUT_MS,
-    });
+    };
+    this.transport = createTransport(options); // NOSONAR: S5332, local Mailpit only; production refuses EMAIL_PROVIDER=smtp
   }
 
   async send(message: OutgoingEmail): Promise<{ providerMessageId: string }> {

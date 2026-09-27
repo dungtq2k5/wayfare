@@ -4,8 +4,7 @@ import type { LocationFix } from './types';
 function seededRandom(seed: number): () => number {
   let state = seed;
   return () => {
-    // FIXMNE Use `Math.trunc` instead of `| 0`.
-    state = (state + 0x6d2b79f5) | 0;
+    state = (state + 0x6d2b79f5) | 0; // NOSONAR: S7767, mulberry32 needs the int32 wrap of | 0; Math.trunc does not wrap
     let t = state;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
