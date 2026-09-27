@@ -602,7 +602,7 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 - A language switch mid-narration (stale audio discarded) — the player's suite, not the engine's.
 - A GPS hole in a tunnel, then re-acquisition (safety reconcile recovers).
 
-**Coverage target:** ≥ 90 % lines and branches on `packages/core`. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
+**Coverage target:** ≥ 90 % lines and branches on `packages/core`. SonarCloud's quality gate reads the same report (`lcov`) and counts coverage on `packages/core/src` only. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
 
 ---
 

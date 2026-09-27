@@ -66,6 +66,8 @@ export default defineConfig({
       include: ['packages/core/src/**/*.ts'],
       exclude: ['**/*.spec.ts', '**/index.ts', '**/geofence/trace-generator.ts'],
       thresholds: { lines: 90, branches: 90 },
+      // lcov is read by the SonarCloud scanner (`pnpm sonar`, architecture §12.2).
+      reporter: ['text', 'html', 'lcov'],
     },
     projects: [
       unit('contracts', './packages/contracts', ['src/**/*.spec.ts']),

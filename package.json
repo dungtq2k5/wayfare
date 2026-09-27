@@ -15,6 +15,7 @@
     "format:check": "prettier --check .",
     "test": "turbo run db:generate && vitest run --project 'unit:*'",
     "test:coverage": "vitest run --project unit:core --coverage",
+    "sonar": "set -a && . ./.env.sonar && set +a && pnpm test:coverage && npx @sonar/scan",
     "test:integration": "turbo run db:generate && vitest run --project 'integration:*'",
     "db:generate": "turbo run db:generate",
     "db:deploy": "turbo run db:deploy --concurrency=1",
