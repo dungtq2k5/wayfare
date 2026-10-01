@@ -18,3 +18,4 @@ graphify-out/
 /.cache/
 .mcp.json
 .sonar-config.json
+.claude/

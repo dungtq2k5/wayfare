@@ -20,7 +20,7 @@ export function wakeUpRegions(
 ): WakeUpRegion[] {
   return places
     .filter((place) => place.autoNarrationEnabled)
-    .toSorted(
+    .sort(
       (a, b) =>
         turfDistance([fix.lng, fix.lat], [a.location.lng, a.location.lat], { units: 'meters' }) -
         turfDistance([fix.lng, fix.lat], [b.location.lng, b.location.lat], { units: 'meters' }),
