@@ -33,8 +33,8 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
 - **Pinned majors:** NestJS **11**, Prisma **7**, TypeScript **5.9**, ESLint **9**, Vitest **4** (verified: Nest 11.2.5, Prisma 7.10.0, TypeScript 5.9.3). **`@nestjs/config` is pinned at 4.0.4:** 12.x ships ES modules only, which the CommonJS services ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)) do not load, and moving to it is an upgrade decision like any other major. A newer major (Nest 12, Prisma 8, TypeScript 7) is an upgrade decision, never a side effect of `pnpm add`. **`@nestjs/websockets` and `@nestjs/platform-socket.io` are pinned at 11.2.5** for the same reason (12.x is ES modules only), and **every Nest service depends on `@nestjs/websockets` at that version**, not only the gateway: otherwise pnpm resolves a second copy of `@nestjs/core` and `@nestjs/microservices` for the services without it, and errors thrown from nest-common stop mapping to gRPC codes.
 - **Build tool (backend):** **SWC** via the Nest CLI builder, with `typeCheck: true`, for every service **except the gateway**, which builds with `tsc`. 📌 [ADR 0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md). Vitest uses `unplugin-swc` so tests get the decorator metadata Nest's DI needs.
   - ⚠️ Gotcha: under SWC, type-only imports must be written `import type`, or they can turn into runtime `require`s and a circular-import crash at boot.
-- **Build tool (web):** **Vite 7.x** with `vite-plugin-pwa`
-  - *Why:* instant HMR for the React apps, and the PWA plugin generates the manifest and wires Workbox into our service worker via `injectManifest`.
+- **Web framework:** **Next.js** (App Router), rendered on the server, for both web apps. 📌 [ADR 0060](./decisions/0060-the-web-apps-are-nextjs.md)
+  - *Why:* a Place page opened from a QR sticker arrives already rendered, fast on mobile data and with a real link preview — and since [ADR 0059](./decisions/0059-the-native-app-is-android-only.md) that page is the whole of Wayfare for an iPhone user. The Next.js server calls only the gateway's public API; it is never a second backend.
 - **Code quality:** **ESLint 9** (flat config) + **Prettier**, plus **lint-staged** on a pre-commit hook. One shared config package; no per-app bikeshedding.
 - **Commits:** **Conventional Commits**, enforced by commitlint.
 
@@ -46,8 +46,8 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
 wayfare/
 ├─ apps/
 │  ├─ mobile/            # Expo / React Native — tourist app (primary surface)
-│  ├─ web/               # Vite React PWA — tourist web
-│  └─ console/           # Vite React SPA — owner portal + admin console
+│  ├─ web/               # Next.js PWA — tourist web
+│  └─ console/           # Next.js — owner portal + admin console
 ├─ services/
 │  ├─ gateway/           # NestJS — the only public HTTP surface (BFF)
 │  ├─ identity/          # NestJS — accounts, devices, tokens, RBAC, PII
@@ -331,9 +331,9 @@ It also holds identity's **revocation state** — each user's token cutoff and t
 
 ### 4.2 Web-specific (`apps/web`, `apps/console`)
 
-- **Router:** **React Router 7** in framework mode.
+- **Router:** Next.js's **App Router**. Server components render what a link opens (a Place, a tour, an area) and the console's first paint, from the gateway's public API through the Orval client; MapLibre, the service worker, IndexedDB, the packs and audio are client components.
 - **Maps:** **MapLibre GL JS** 📌 [ADR 0024](./decisions/0024-maplibre-on-both-platforms.md) — hardware-accelerated vector maps, no vendor lock-in, free.
-- **Offline:** **Workbox** via `vite-plugin-pwa` in `injectManifest` mode (we hand-write `sw.js`; the plugin injects the precache manifest).
+- **Offline:** **Workbox** through **Serwist** (`@serwist/next`, the maintained successor of `next-pwa`): we hand-write the service worker, Serwist injects the precache manifest. The offline entry point is a precached client-rendered shell; a server-rendered page is available offline only once cached.
   - Strategies: app shell precache; `CacheFirst` for audio and images with per-language sharded cache names and LRU expiration; `NetworkFirst` for place data; `StaleWhileRevalidate` for map style and glyphs.
   - ⚠️ Gotcha: `purgeOnQuotaError: true` on the runtime caches. When the disk fills during an offline-pack install, Workbox must sacrifice the small runtime caches to preserve the explicitly downloaded pack — not the other way round.
   - The app and the service worker talk over `postMessage`: pin the active language shard, activate/deactivate an audio or map pack, and flush stale chunk caches after a deploy.
@@ -349,22 +349,22 @@ It also holds identity's **revocation state** — each user's token cutoff and t
 | Structured local data | IndexedDB (`idb`) | **`expo-sqlite`** |
 | Offline pack files | Cache API | `expo-file-system` (document directory) |
 | Background work | Service worker | `expo-task-manager` + `expo-background-task` |
-| Secret storage | httpOnly cookie | **`expo-secure-store`** (Keychain / Keystore) |
+| Secret storage | httpOnly cookie | **`expo-secure-store`** (Android Keystore) |
 
-- **Framework:** **Expo SDK 54+** with **expo-router** (file-based routing, typed routes).
+- **Framework:** **Expo SDK 54+** with **expo-router** (file-based routing, typed routes). 📌 [ADR 0059](./decisions/0059-the-native-app-is-android-only.md) — **Android only**; an iPhone user's Wayfare is the web PWA.
 - 📌 **[ADR 0025](./decisions/0025-expo-development-builds-not-expo-go.md) — Expo *development builds*, not Expo Go.** Background location, background audio, MapLibre Native and the Stripe SDK all require custom native code that Expo Go cannot load. Set up `eas build --profile development` immediately; discovering this later costs a sprint.
 - **Location:** **`expo-location`** + **`expo-task-manager`**
   - `watchPositionAsync` for foreground; `startLocationUpdatesAsync` with a registered TaskManager task for background.
   - Tuning knobs that are the whole battery story: `accuracy`, `distanceInterval`/`timeInterval`, `activityType`, `pausesUpdatesAutomatically`, and Android's `foregroundService` config (a persistent notification is **mandatory** — and it is also honest UX).
-  - ⚠️ **Gotcha — OS geofence limits.** `Location.startGeofencingAsync` is capped at roughly **20 regions on iOS** and **100 on Android**. A city has hundreds of places, so OS geofencing cannot be the primary mechanism. 📌 [ADR 0026](./decisions/0026-our-own-geofence-engine.md): run **our own** engine (`packages/core`) over the background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves.
-  - ⚠️ Gotcha — iOS requires `NSLocationAlwaysAndWhenInUseUsageDescription` plus the `location` background mode, and App Store review requires a written justification for "Always" access. Write that copy early.
-  - 🔬 **Spike, and this is the highest-priority unknown in the project:** background location + our engine + audio playback, on a real Android device *and* a real iPhone, screen off, walking outdoors. Everything else in the plan depends on the answer.
+  - ⚠️ **Gotcha — OS geofence limits.** `Location.startGeofencingAsync` is capped at roughly **100 regions on Android**. A city has hundreds of places, so OS geofencing cannot be the primary mechanism. 📌 [ADR 0026](./decisions/0026-our-own-geofence-engine.md): run **our own** engine (`packages/core`) over the background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves.
+  - 🔬 **Spike, and this is the highest-priority unknown in the project:** background location + our engine + audio playback, on a real Android device, screen off, walking outdoors. Everything else in the plan depends on the answer. **Verified so far, on Android with a simulated route** (Expo SDK 57, React Native 0.86, `expo-location` and `expo-audio` 57): with the app in the background, the TaskManager task receives a fix every ~5 s, the engine decides on the phone exactly as it does in Node, and narration audio starts and finishes from the background. A JavaScript timer does not run while the app is in the background, so there the engine is called only when a fix arrives. Still open: the outdoor walk with real GPS and the screen confirmed off, and the battery measurement.
 - **Geospatial maths:** **`@turf/turf`** — `distance`, `booleanPointInPolygon`, `bearing`. Runs identically in RN, the browser and Node, which is why the geofence engine is portable and testable. Import per-function (`@turf/distance`) to keep the mobile bundle small.
 - **Maps:** **`@maplibre/maplibre-react-native`**
   - *Why:* the same vector tiles, the same style JSON and the same offline pack as the web app. `react-native-maps` (Google/Apple maps) would mean a second map implementation, a second offline strategy, and a Google Maps bill.
-  - 🔬 **Spike:** reading a **PMTiles** archive from local storage in MapLibre Native. Well-trodden on the web, much less so in RN. Fallbacks if it resists: serve the pack from a tiny in-app local HTTP server, use MapLibre Native's own offline region download, or accept raster tiles for the offline case only.
+  - ✅ **Verified on Android** (`@maplibre/maplibre-react-native` 11.4, Expo SDK 57): a `pmtiles://` source pointing at the archive in the app's document directory, with the style's URL prefix swapped for the pack's directory, draws the District 1 pack in airplane mode with Vietnamese diacritics intact — no fallback needed.
+  - *The original spike:* reading a **PMTiles** archive from local storage in MapLibre Native. Well-trodden on the web, much less so in RN. Fallbacks if it resists: serve the pack from a tiny in-app local HTTP server, use MapLibre Native's own offline region download, or accept raster tiles for the offline case only.
 - **Audio:** **`expo-audio`** (the modern replacement for `expo-av`)
-  - Must be configured for **background playback** plus lock-screen / Now Playing controls: `staysActiveInBackground`, iOS `UIBackgroundModes: ["audio"]`, and an Android media notification.
+  - Must be configured for **background playback** plus lock-screen / Now Playing controls: `staysActiveInBackground` and an Android media notification.
   - Must handle **audio focus**: duck or pause on an incoming call or another app's audio, then resume. A travel app that fights with the user's music gets uninstalled.
 - **On-device TTS (audio tier 3):** **`expo-speech`** — the last-resort offline fallback. Lower quality, always available, zero bytes.
 - **QR scanning:** **`expo-camera`** with barcode scanning enabled (`expo-barcode-scanner` is deprecated and merged into it).
@@ -446,7 +446,7 @@ The `billing` service owns a single `POST /webhooks/stripe` endpoint.
 ### 5.5 Two things to resolve before promising anything
 
 1. ⚠️ **Tax.** Setting `automatic_tax: { enabled: true }` without an active Stripe Tax registration in the customer's jurisdiction collects **zero** tax and returns **no error**. If we charge Vietnamese businesses VAT, or international tourists, confirm the registration situation first — see `product-overview.md` §14.
-2. ⚠️ **App-store rules on digital goods.** Apple and Google require their own in-app purchase for digital content consumed inside a native app. Real-world goods and services (vouchers — R3) are exempt and may use Stripe. R1 is a B2B subscription sold on the web console and is fine. **R4 is the problem** — keep it web-only or drop it.
+2. ⚠️ **App-store rules on digital goods.** Google Play requires its own in-app purchase for digital content consumed inside a native app (the only native store: [ADR 0059](./decisions/0059-the-native-app-is-android-only.md)). Real-world goods and services (vouchers — R3) are exempt and may use Stripe. R1 is a B2B subscription sold on the web console and is fine. **R4 is the problem** — keep it web-only or drop it.
 
 ---
 
@@ -532,7 +532,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 - **Tokens:** **`node:crypto`** for JWT signing and verification — EdDSA is `crypto.sign(null, …)` / `crypto.verify(null, …)` over the JWS signing input, in one small shared module with `kid`, `iss`, `aud` and `exp` checks. No JWT library: the maintained one (`jose` 6) is ESM-only, the services are CommonJS ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)), and the whole need is a few dozen lines. Access tokens are **EdDSA-signed by `identity` and only verified elsewhere** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Access token 30 min, refresh token 7 days with **rotation** and reuse detection.
 - **Transport of tokens:**
   - Web console → **httpOnly, `Secure`, `SameSite=Lax` cookies**. JavaScript cannot read them, so an XSS cannot exfiltrate a session.
-  - Mobile → bearer token from **`expo-secure-store`** (Keychain / Keystore).
+  - Mobile → bearer token from **`expo-secure-store`** (Android Keystore).
   - The gateway accepts both.
 - **Anonymous devices are first-class.** Per `product-overview.md` §3.1, the device is the primary identity and `userId` is nullable. `identity` issues a device token on first launch with no credentials, and account creation *claims* the device rather than replacing it. Design the tables this way from the first migration.
 - **Authorization:** a **static permission catalogue in code** + **dynamic roles in the database**. Route guards declare the permission (`place:delete`), never the role. Permissions are embedded in the access token so the common path needs no database round-trip — accept the tradeoff consciously: a permission change takes effect within one access-token lifetime.
@@ -634,7 +634,7 @@ Set this up while there is nothing to break, not once there is everything to bre
 
 **`mobile.yml` — on merge to `main` or on a tag**
 
-1. `eas build --profile preview --platform all` (Android APK + iOS simulator build for testers)
+1. `eas build --profile preview --platform android` (an Android APK for testers)
 2. On a release tag: `eas build --profile production` then `eas submit`
 3. **EAS Update** for JS-only changes, so a copy fix does not need a store review
 
@@ -659,7 +659,7 @@ Given the commitment to GCS and the Google ecosystem, the aligned choice is Goog
 - **NATS:** a small container on Cloud Run or Compute Engine. There is no managed NATS on GCP.
 - **Object storage:** **GCS**, behind Cloud CDN for the audio, images and PMTiles archives.
 - **Secrets:** **Secret Manager**, read by Cloud Run at deploy time.
-- **Web apps:** **Firebase Hosting** — preview channels per PR come free, which is genuinely useful for review.
+- **Web apps:** **Firebase App Hosting** (Next.js on Cloud Run underneath) 📌 [ADR 0060](./decisions/0060-the-web-apps-are-nextjs.md). Plain Firebase Hosting's free per-PR preview channels are not assumed to carry over.
 - **Mobile:** **EAS Build** → internal distribution for testers.
 
 Fly.io or Render remain perfectly reasonable alternatives if Cloud Run's cold starts or the VPC connector become an irritation; the containers are portable either way.
@@ -743,8 +743,8 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `NODE_ENV` | every service | `development`, `test` or `production`; drives `isProduction` (production silence, Swagger off) |
 | `SENTRY_DSN` | all apps + services | separate DSN per surface |
 | `EXPO_PUBLIC_API_URL` | mobile | ⚠️ `EXPO_PUBLIC_*` is **baked into the bundle** — public values only |
-| `VITE_API_URL`, `VITE_STRIPE_PUBLISHABLE_KEY` | web, console | ⚠️ same: `VITE_*` ships to the browser |
+| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | web, console | ⚠️ same: `NEXT_PUBLIC_*` ships to the browser |
 
-⚠️ The last two rows are a recurring accident. Anything prefixed `EXPO_PUBLIC_` or `VITE_` is compiled into the client bundle and is public. A secret key in one of those is a secret key on the internet.
+⚠️ The last two rows are a recurring accident. Anything prefixed `EXPO_PUBLIC_` or `NEXT_PUBLIC_` is compiled into the client bundle and is public. A secret key in one of those is a secret key on the internet.
 
 Note there is no map tile API key — that is deliberate (§6).

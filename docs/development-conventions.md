@@ -179,6 +179,8 @@ export function evaluateGeofences(places: GeofencePlace[]) {
 
 `packages/contracts` is imported by the mobile, web and console apps as well as the services, so it **MUST NOT** import `node:*` or any Node-only package. Ids come from the `uuid` package; anything needing `node:crypto` (`generateToken`, `hashToken`, `keyedHash`) lives in `packages/nest-common`.
 
+Code the mobile app runs — `packages/contracts`, `packages/core`, `packages/i18n` and `apps/mobile` — **MUST NOT** use the ES2023 array-by-copy methods (`toSorted`, `toReversed`, `toSpliced`, `with`): Hermes, the app's JavaScript engine, does not have them (verified on a device: Expo SDK 57, React Native 0.86). Sort a copy instead: `[...ids].sort(compareStrings)`.
+
 - An enumerated domain value is a TypeScript `enum` there, plus a derived `readonly` array for validation.
 - A literal map used as keys (socket event names, cache scopes, subject names) is `as const` plus a derived union — a client matches these against plain string literals, which a TypeScript `enum` refuses.
 - Every limit that the edge validates and the database bounds is **one constant** imported by both the zod schema and cited in the rdm-spec column — never a `255` typed twice.
@@ -202,7 +204,7 @@ export const MAX_TRIGGER_RADIUS_M = 100;
 ```
 
 - **A field typed `string` where a union exists is a bug.** Narrow at the boundary by parsing (zod), never by casting at the point of use — a cast moves the failure, a parse removes it.
-- **Every sort of machine strings passes `compareStrings`** from `@wayfare/contracts` — `ids.toSorted(compareStrings)`. It compares UTF-16 code units, the same order as `<`, Postgres `COLLATE "C"` and `ORDER BY id`, and the same on every host and runtime. Two strings compare equal only when they are identical. A bare `sort()` is a lint error (`@typescript-eslint/require-array-sort-compare`, with `ignoreStringArrays: false`); numbers pass their own `(a, b) => a - b`. **MUST NOT** sort machine strings with `localeCompare`: its order depends on the ICU version, and it treats some distinct strings as equal. A list shown to a person is the opposite case — sorted with an `Intl.Collator` for their content language, from `packages/i18n`.
+- **Every sort of machine strings passes `compareStrings`** from `@wayfare/contracts` — `ids.toSorted(compareStrings)`, or `[...ids].sort(compareStrings)` in code the mobile app runs (§3.3). It compares UTF-16 code units, the same order as `<`, Postgres `COLLATE "C"` and `ORDER BY id`, and the same on every host and runtime. Two strings compare equal only when they are identical. A bare `sort()` is a lint error (`@typescript-eslint/require-array-sort-compare`, with `ignoreStringArrays: false`); numbers pass their own `(a, b) => a - b`. **MUST NOT** sort machine strings with `localeCompare`: its order depends on the ICU version, and it treats some distinct strings as equal. A list shown to a person is the opposite case — sorted with an `Intl.Collator` for their content language, from `packages/i18n`.
 - **Server-only shared values live in `packages/nest-common`, not here** — `NODE_ENVS` / `NodeEnv`, `LOG_LEVELS` / `LogLevel`, and the env-schema fields built on them (§13). No client reads them.
 
 ---
@@ -677,7 +679,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 [ADR 0031](./decisions/0031-stripe-is-the-only-payment-provider.md), [ADR 0041](./decisions/0041-stripe-webhooks-are-idempotent-and-order-guarded.md).
 
 - One `StripeClient` provider per service that talks to Stripe, instantiated with `new Stripe(key, { apiVersion })` — the version pinned in configuration. **MUST NOT** use a module-level global key.
-- Keys are **restricted** (`rk_`). A secret or restricted key **MUST NOT** appear in any client package, including behind an `EXPO_PUBLIC_` or `VITE_` variable.
+- Keys are **restricted** (`rk_`). A secret or restricted key **MUST NOT** appear in any client package, including behind an `EXPO_PUBLIC_` or `NEXT_PUBLIC_` variable.
 - **MUST NOT** pass `payment_method_types` to any call. Methods are configured in the Dashboard.
 - Checkout Sessions pass `integration_identifier` and an idempotency key.
 - **Voucher checkout passes the voucher `payment_method_configuration` (`STRIPE_VOUCHER_PMC_ID`), which allows instant methods only.** Subscription checkout uses the default configuration. Either way, never `payment_method_types` ([ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)).
@@ -770,7 +772,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 ### 12.4 Environment and secrets
 
-- Values prefixed `EXPO_PUBLIC_` or `VITE_` are **compiled into the bundle and public**. Only URLs, publishable keys and feature flags may use them.
+- Values prefixed `EXPO_PUBLIC_` or `NEXT_PUBLIC_` are **compiled into the bundle and public**. Only URLs, publishable keys and feature flags may use them. A Next.js server-only variable has no prefix and is read only in server code — and the web apps' servers hold no secret at all (ADR 0060).
 - The console **MUST** send `X-Wayfare-Client: console` and `credentials: 'include'`; the generated client is configured once to do so.
 
 ### 12.5 Accessibility

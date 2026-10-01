@@ -69,7 +69,7 @@ And the **owner** of a small local place has a symmetrical problem: real tourist
 
 | # | Actor | Auth | Primary surface | What they care about |
 | :---- | :---- | :---- | :---- | :---- |
-| **A1** | **Tourist** (end user) | **Anonymous by default.** Optional account, required only to purchase or sync across devices. | Mobile app (primary), Web PWA (secondary) | Hearing the right story at the right moment, in their language, without burning battery or data. |
+| **A1** | **Tourist** (end user) | **Anonymous by default.** Optional account, required only to purchase or sync across devices. | Android app (primary), Web PWA (secondary, and the only Wayfare on iPhone) | Hearing the right story at the right moment, in their language, without burning battery or data. |
 | **A2** | **Venue Owner** (paying customer) | Account + email verification + **manual identity verification by an admin** | Web console → Owner Portal | Getting listed, looking good, being found, selling vouchers, getting paid, seeing their own stats. |
 | **A3** | **Content Moderator / Admin** | Account + role + permissions | Web console → Admin Console | Approving owners and submissions, keeping data clean, running TTS jobs, watching the platform. |
 | **A4** | **Super Admin** | Bootstrapped account | Web console → Admin Console | Roles, permissions, system config, audit, billing oversight. |
@@ -91,17 +91,17 @@ An account is introduced only when it buys the tourist something concrete: a pur
 
 We ship **three** front-end surfaces from one monorepo.
 
-### 4.1 `apps/mobile` — Tourist app (React Native / Expo) — **primary surface**
+### 4.1 `apps/mobile` — Tourist app (React Native / Expo, Android) — **primary surface**
 
-The one that matters. Native app because the core feature (background GPS + geofence + background audio) is only reliably possible natively.
+The one that matters. Native app because the core feature (background GPS + geofence + background audio) is only reliably possible natively. It ships on **Android only** ([ADR 0059](./decisions/0059-the-native-app-is-android-only.md)): on an iPhone, Wayfare is the web PWA below, so the walking experience is Android's alone.
 
 Screens: Splash / language picker → Map → Nearby list → Place detail → Now-playing narration → QR scanner → Tours → Offline downloads → Purchases → Settings.
 
-### 4.2 `apps/web` — Tourist web PWA (React + Vite)
+### 4.2 `apps/web` — Tourist web PWA (Next.js)
 
 Same content, degraded capability. It exists because (a) a tourist should be able to try Wayfare from a QR sticker on a bus stop without installing anything, and (b) it is the cheapest way to demo the product. Browser geolocation only works with the tab open, so the PWA offers **manual "narrate this place"** and **QR activation** instead of true background geofencing.
 
-### 4.3 `apps/console` — Web console (React + Vite)
+### 4.3 `apps/console` — Web console (Next.js)
 
 One React application, two role-gated areas:
 
@@ -612,11 +612,10 @@ Hotel/flight booking · table reservations · food delivery · ride hailing · u
 
 | Risk | Impact | Mitigation |
 | :---- | :---- | :---- |
-| **OS geofence region limits.** iOS allows ~20 monitored regions, Android ~100. A city has hundreds of Places. | Core feature silently stops working past 20 places. | Do not use OS geofencing as the primary mechanism. Run our **own** engine over a background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves. **Spike this first.** |
-| **Background location on iOS.** Requires "Always" authorization, background modes, a persuasive App Store justification, and does not work in Expo Go at all. | Cannot demo the core feature; possible App Store rejection. | Move to an Expo **development build** immediately. Write the permission rationale copy early. Have a screen-on fallback path for the demo. |
+| **OS geofence region limits.** Android allows ~100 monitored regions. A city has hundreds of Places. | Core feature silently stops working past 100 places. | Do not use OS geofencing as the primary mechanism. Run our **own** engine over a background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves. **Spike this first.** |
 | **Battery drain.** Continuous GPS is the fastest way to get uninstalled. | Product is unusable in the real world. | Throttling, distance filters, reduced accuracy when stationary, and a measured battery test. |
 | **Unofficial TTS / translation endpoints.** The free Microsoft Edge TTS and Google Translate wrappers are undocumented internal endpoints, not products. They can break or rate-limit without notice. | Audio generation stops without warning. | Wrap both behind a provider interface with **two** implementations from day one; keep a paid fallback (Azure Speech / Google Cloud TTS) configured and tested. Pre-generate and store audio so a provider outage never affects tourists, only authoring. |
-| **PMTiles offline vector tiles on React Native.** Well-trodden on the web, much less so in RN. | The offline map — a headline feature — may not work on mobile. | Spike in Phase 1. Fallbacks: a small in-app local HTTP server serving the pack, MapLibre Native's own offline region download, or raster tiles for the offline case. |
-| **App-store rules on digital goods.** Apple and Google require their own IAP for digital content consumed in the app. Premium content (R4) is digital content. Real-world goods and services (vouchers, R3) are exempt and may use Stripe. | R4 gets the app rejected, or loses 30%. | Keep R4 out of the native app (web-only purchase), or drop R4. R1 (B2B subscription sold on the web console) and R3 (real-world vouchers) are both fine with Stripe. |
+| **PMTiles offline vector tiles on React Native.** Well-trodden on the web, much less so in RN. | The offline map — a headline feature — may not work on mobile. | Spike in Phase 1. Fallbacks: a small in-app local HTTP server serving the pack, MapLibre Native's own offline region download, or raster tiles for the offline case. **Outcome on Android:** works without a fallback (local `pmtiles://` in MapLibre Native). |
+| **App-store rules on digital goods.** Google Play requires its own IAP for digital content consumed in the app. Premium content (R4) is digital content. Real-world goods and services (vouchers, R3) are exempt and may use Stripe. | R4 gets the app rejected, or loses 30%. | Keep R4 out of the native app (web-only purchase), or drop R4. R1 (B2B subscription sold on the web console) and R3 (real-world vouchers) are both fine with Stripe. |
 | **Stripe availability and tax in Vietnam.** Stripe's support for Vietnamese connected accounts and payouts directly constrains R3, and VAT treatment on R1 is unresolved. | R3 cannot ship; or we under-collect tax silently. | Verify before promising payouts to owners. Do not enable `automatic_tax` without confirming an active registration (§8.6). |
 | **Scope.** This document describes more product than a small team ships quickly. | Everything half-done; nothing demonstrable. | Phase 1 is sacred and small. Nothing from Phase 2 starts until the walking demo works. |

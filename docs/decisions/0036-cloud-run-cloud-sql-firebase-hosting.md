@@ -1,6 +1,6 @@
 # 0036 — Staging runs on Cloud Run, Cloud SQL and Firebase Hosting
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** —
+**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0060](./0060-the-web-apps-are-nextjs.md) (in part)
 
 ## Context
 
