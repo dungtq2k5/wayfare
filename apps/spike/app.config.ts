@@ -46,6 +46,8 @@ const config: ExpoConfig = {
     ],
     '@maplibre/maplibre-react-native',
     'expo-audio',
+    // The gateway and fake-gcs are plain http behind `adb reverse`; release builds block that.
+    ['expo-build-properties', { android: { usesCleartextTraffic: true } }],
   ],
   extra: {
     eas: {
