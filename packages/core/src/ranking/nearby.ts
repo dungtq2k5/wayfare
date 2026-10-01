@@ -34,8 +34,8 @@ const byDistance = (a: NearbyCandidate, b: NearbyCandidate): number =>
  * break on the plain distance, then the id.
  */
 export function rankNearby<T extends NearbyCandidate>(items: readonly T[]): RankedNearby<T>[] {
-  const plainIndex = new Map(items.toSorted(byDistance).map((item, index) => [item, index]));
-  const ranked = items.toSorted((a, b) => rankDistance(a) - rankDistance(b) || byDistance(a, b));
+  const plainIndex = new Map([...items].sort(byDistance).map((item, index) => [item, index]));
+  const ranked = [...items].sort((a, b) => rankDistance(a) - rankDistance(b) || byDistance(a, b));
   // Walking back, an item is sponsored when some item ranked after it came first by distance.
   const sponsored = new Array<boolean>(ranked.length);
   let lowestLater = Number.POSITIVE_INFINITY;

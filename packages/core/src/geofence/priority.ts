@@ -47,5 +47,5 @@ export function resolvePriority(
 ): GeofencePlace | null {
   const eligible = candidates.filter((candidate) => isEligible(candidate, state, config, now));
   if (eligible.length === 0) return null;
-  return eligible.toSorted(byPriority)[0]!.place;
+  return eligible.sort(byPriority)[0]!.place;
 }

@@ -67,7 +67,7 @@ function canonical(value: unknown, path: string): string {
       }
       const entries = Object.entries(value)
         .filter(([, item]) => item !== undefined) // an unset optional field is not a content change
-        .toSorted(([a], [b]) => compareStrings(a, b));
+        .sort(([a], [b]) => compareStrings(a, b));
       return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonical(item, `${path}.${key}`)}`).join(',')}}`;
     }
     default:

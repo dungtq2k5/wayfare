@@ -60,6 +60,9 @@ export function wayfareConfig({ tsconfigRootDir }) {
         '**/node_modules/**',
         'docs/**',
         '**/*.d.ts',
+        // A throwaway device spike: holding it to the product's lint bar would cost more than
+        // the spike itself. Prettier still formats it.
+        'apps/spike/**',
       ],
     },
     js.configs.recommended,
@@ -281,6 +284,32 @@ export function wayfareConfig({ tsconfigRootDir }) {
             object: 'Math',
             property: 'random',
             message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+        ],
+      },
+    },
+    {
+      // The mobile app runs these packages on Hermes (specs run in Node and are exempt).
+      files: ['packages/contracts/src/**', 'packages/core/src/**'],
+      ignores: ['**/*.spec.ts'],
+      rules: {
+        // Hermes has no ES2023 array-by-copy methods: copy, then sort (conventions §3.2). This
+        // block replaces the base list, so its two selectors are repeated.
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: "NewExpression[callee.name='RpcException']",
+            message: 'Throw through rpcError() from @wayfare/nest-common (conventions §6.4).',
+          },
+          {
+            selector: "MemberExpression[object.name='process'][property.name='env']",
+            message:
+              'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
+          },
+          {
+            selector: 'CallExpression[callee.property.name=/^(toSorted|toReversed|toSpliced)$/]',
+            message:
+              'Hermes lacks toSorted/toReversed/toSpliced, and the mobile app runs this package: use [...xs].sort(compare) or [...xs].reverse() (conventions §3.2).',
           },
         ],
       },
