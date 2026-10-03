@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import type { OpenAPIObject } from '@nestjs/swagger';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
@@ -47,11 +48,19 @@ export interface SwaggerOptions {
   readonly version: string;
 }
 
-/** Mounts Swagger UI at `/docs` and the OpenAPI document at `/docs-json`. Call only when `SWAGGER_ENABLED`. */
-export function setupSwagger(app: INestApplication, options: SwaggerOptions): void {
+/**
+ * The OpenAPI document of the running app. Served at `/docs-json` and written to the API
+ * client's `openapi.json`, both through here, so the two cannot differ.
+ */
+export function buildOpenApiDocument(
+  app: INestApplication,
+  options: SwaggerOptions,
+): OpenAPIObject {
   const config = new DocumentBuilder()
     .setTitle(options.title)
     .setVersion(options.version)
+    // The schemas are zod's JSON Schema (type arrays, prefixItems, $schema): OpenAPI 3.1 says so, 3.0 does not.
+    .setOpenAPIVersion('3.1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Device access token' },
       AUTH_SCHEMES.deviceBearer,
@@ -82,9 +91,12 @@ export function setupSwagger(app: INestApplication, options: SwaggerOptions): vo
       schema: { type: 'string', enum: ['console', 'web', 'mobile'] },
     })
     .build();
-  const document = applyWayfareOpenApi(
-    cleanupOpenApiDoc(SwaggerModule.createDocument(app, config)),
-  );
+  return applyWayfareOpenApi(cleanupOpenApiDoc(SwaggerModule.createDocument(app, config)));
+}
+
+/** Mounts Swagger UI at `/docs` and the OpenAPI document at `/docs-json`. Call only when `SWAGGER_ENABLED`. */
+export function setupSwagger(app: INestApplication, options: SwaggerOptions): void {
+  const document = buildOpenApiDocument(app, options);
   SwaggerModule.setup(SWAGGER_PATH, app, document, {
     jsonDocumentUrl: `${SWAGGER_PATH}-json`,
     // "Try it out" sends the console cookies, and keeps a pasted bearer across reloads.

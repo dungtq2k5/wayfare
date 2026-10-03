@@ -9,3 +9,9 @@ pnpm-lock.yaml
 cspell.json
 # markdownlint owns markdown (MD060 compact tables); prettier would re-pad them.
 *.md
+# Emitted by the gateway's emitter spec as JSON.stringify(document, null, 2) (pnpm api:generate).
+packages/api-client/openapi.json
+# Written by expo prebuild / expo start, never by hand.
+apps/mobile/android/
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts

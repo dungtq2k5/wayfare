@@ -132,12 +132,12 @@ describe('OpenAPI contract', () => {
   it('documents the erasable account rows as a union discriminated on `erased`', () => {
     for (const name of ['AdminUserListItemResponseDto', 'AdminUserViewResponseDto']) {
       const schema = document.components.schemas[name] as {
-        oneOf: { properties: { erased: { enum: boolean[] } } }[];
+        oneOf: { properties: { erased: { const: boolean } } }[];
       };
       expect(
-        schema.oneOf.map((variant) => variant.properties.erased.enum),
+        schema.oneOf.map((variant) => variant.properties.erased.const),
         name,
-      ).toEqual([[false], [true]]);
+      ).toEqual([false, true]);
     }
     expect(document.components.schemas.AuditActionResponseDto).toEqual({ type: 'string' });
   });

@@ -179,7 +179,7 @@ export function evaluateGeofences(places: GeofencePlace[]) {
 
 `packages/contracts` is imported by the mobile, web and console apps as well as the services, so it **MUST NOT** import `node:*` or any Node-only package. Ids come from the `uuid` package; anything needing `node:crypto` (`generateToken`, `hashToken`, `keyedHash`) lives in `packages/nest-common`.
 
-Code the mobile app runs — `packages/contracts`, `packages/core`, `packages/i18n` and `apps/mobile` — **MUST NOT** use the ES2023 array-by-copy methods (`toSorted`, `toReversed`, `toSpliced`, `with`): Hermes, the app's JavaScript engine, does not have them (verified on a device: Expo SDK 57, React Native 0.86). Sort a copy instead: `[...ids].sort(compareStrings)`.
+Code the mobile app runs — `packages/contracts`, `packages/core`, `packages/i18n` and `apps/mobile` — **MUST NOT** use the ES2023 array-by-copy methods (`toSorted`, `toReversed`, `toSpliced`, `with`): Hermes, the app's JavaScript engine, does not have them (verified on a device: Expo SDK 57, React Native 0.86). Sort a copy instead: `[...ids].sort(compareStrings)`. Lint enforces it for `toSorted`, `toReversed` and `toSpliced` in those packages' non-spec source (specs run in Node); `with` is a review rule, because as a bare property name it would flag unrelated code.
 
 - An enumerated domain value is a TypeScript `enum` there, plus a derived `readonly` array for validation.
 - A literal map used as keys (socket event names, cache scopes, subject names) is `as const` plus a derived union — a client matches these against plain string literals, which a TypeScript `enum` refuses.
@@ -753,6 +753,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - Client state (selected language, playback, permissions, map mode) lives in Zustand.
 - **MUST NOT** copy query data into a Zustand store. Need it synchronously? Read it with `queryClient.getQueryData`, or give the query a longer `staleTime`.
 - Query keys come from the generated key factories. A hand-written key is one that invalidation will miss.
+- The generated client is configured once per app with `configureApiClient` (base URL, client name, app version, session); every request goes through its `apiFetch`, which sets the client headers and the bearer and throws an `ApiError` carrying the error envelope's `code` — the value the UI renders through its i18n bundle.
 
 ### 12.2 Offline data
 

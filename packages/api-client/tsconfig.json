@@ -1,0 +1,9 @@
+{
+  "extends": "@wayfare/config/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "lib": ["ES2023", "DOM"],
+    "types": []
+  },
+  "include": ["src", "orval.config.ts"]
+}

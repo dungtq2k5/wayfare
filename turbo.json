@@ -3,6 +3,7 @@
   "ui": "stream",
   "globalDependencies": ["packages/config/tsconfig.base.json"],
   "globalPassThroughEnv": ["DATABASE_URL", "DATABASE_URL_TEST", "DATABASE_URL_SHADOW", "PRISMA_DB"],
+  "concurrency": "12",
   "tasks": {
     "db:generate": {
       "inputs": ["prisma/schema.prisma", "prisma.config.ts"],

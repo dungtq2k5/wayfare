@@ -10,6 +10,7 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./locales/*": "./locales/*",
     "./package.json": "./package.json"
   },
   "files": [

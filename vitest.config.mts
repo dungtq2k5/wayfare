@@ -32,6 +32,8 @@ const alias = [
     find: /^@wayfare\/contracts\/testing$/,
     replacement: root('./packages/contracts/src/testing/index.ts'),
   },
+  // Specs reach the client's transport, not its 700 generated files.
+  { find: /^@wayfare\/api-client$/, replacement: root('./packages/api-client/src/fetch.ts') },
   { find: /^@wayfare\/core$/, replacement: root('./packages/core/src/index.ts') },
   { find: /^@wayfare\/i18n$/, replacement: root('./packages/i18n/src/index.ts') },
   { find: /^@wayfare\/nest-common$/, replacement: root('./packages/nest-common/src/index.ts') },
@@ -74,6 +76,8 @@ export default defineConfig({
       unit('core', './packages/core', ['src/**/*.spec.ts']),
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
       unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
+      unit('mobile', './apps/mobile', ['src/**/*.spec.ts']),
+      unit('api-client', './packages/api-client', ['src/**/*.spec.ts']),
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
       unit('catalog', './services/catalog', ['src/**/*.spec.ts', 'prisma/seed/**/*.spec.ts']),
       unit('narration', './services/narration', ['src/**/*.spec.ts']),

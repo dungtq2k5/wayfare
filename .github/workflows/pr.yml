@@ -50,6 +50,12 @@ jobs:
 
       - run: pnpm proto:lint
 
+      # The gateway's document and the client generated from it; an untracked file counts as a diff.
+      - name: The OpenAPI spec and the API client are committed and current
+        run: |
+          pnpm api:generate
+          test -z "$(git status --porcelain -- packages/api-client)"
+
       # The Prisma client is gitignored, so it is generated before anything reads its types.
       - run: pnpm db:generate
 
@@ -60,6 +66,8 @@ jobs:
       # Guard specs also run inside `pnpm test`; this step names them so a failure reads as a rule, not a unit test.
       - run: pnpm vitest run --project unit:guards
       - run: pnpm build
+      # The JavaScript bundle builds with no device and no EAS: a Node-only import stops the pull request.
+      - run: pnpm --filter @wayfare/mobile bundle:check
       - run: pnpm test
       # packages/core carries a coverage bar (conventions §17.3).
       - run: pnpm test:coverage

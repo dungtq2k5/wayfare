@@ -1,0 +1,16 @@
+# First run: language, privacy notice, device registration, the areas list.
+#
+# Needs the local stack and `pnpm mobile:reverse`. Run it on an English phone (the picker opens in the
+# phone's own language), against a build that already holds its JavaScript (EAS profile `preview`),
+# or a development build with Metro running and the app opened once from the launcher:
+#   maestro test apps/mobile/.maestro/first-run.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Choose your language'
+- tapOn: 'English'
+- assertVisible: 'Your privacy'
+- tapOn: 'Continue'
+- assertVisible: 'Where to start'
+- assertVisible: 'District 1.*'

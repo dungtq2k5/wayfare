@@ -1,6 +1,7 @@
 // Shared flat ESLint config: style baseline plus the boundary rules from
 // development-conventions. Every rule message names the convention it enforces.
 import js from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -42,9 +43,29 @@ const PROCESS_ENV_ALLOWED = [
   '**/prisma.config.ts',
   '**/vitest.config.mts',
   '**/test/setup/**',
+  // Reads OPENAPI_WRITE: the switch between comparing the spec and writing it (pnpm api:generate).
+  'services/gateway/test/e2e/openapi-emit.e2e.spec.ts',
   '**/scripts/**',
   '**/prisma/seed/**',
 ];
+
+const RPC_EXCEPTION_SELECTOR = {
+  selector: "NewExpression[callee.name='RpcException']",
+  message: 'Throw through rpcError() from @wayfare/nest-common (conventions §6.4).',
+};
+
+const PROCESS_ENV_SELECTOR = {
+  selector: "MemberExpression[object.name='process'][property.name='env']",
+  message:
+    'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
+};
+
+/** Hermes has no ES2023 array-by-copy methods; the shared packages and the app run on it. */
+const HERMES_SELECTOR = {
+  selector: 'CallExpression[callee.property.name=/^(toSorted|toReversed|toSpliced)$/]',
+  message:
+    'Hermes lacks toSorted/toReversed/toSpliced, and the mobile app runs this code: use [...xs].sort(compare) or [...xs].reverse() (conventions §3.3).',
+};
 
 /**
  * Builds the Wayfare ESLint config.
@@ -60,9 +81,8 @@ export function wayfareConfig({ tsconfigRootDir }) {
         '**/node_modules/**',
         'docs/**',
         '**/*.d.ts',
-        // A throwaway device spike: holding it to the product's lint bar would cost more than
-        // the spike itself. Prettier still formats it.
-        'apps/spike/**',
+        // Continuous Native Generation: written by `expo prebuild`, never by hand.
+        'apps/mobile/android/**',
       ],
     },
     js.configs.recommended,
@@ -108,18 +128,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
             message: 'Use generateToken()/generateCode() — never Math.random (conventions §9.2).',
           },
         ],
-        'no-restricted-syntax': [
-          'error',
-          {
-            selector: "NewExpression[callee.name='RpcException']",
-            message: 'Throw through rpcError() from @wayfare/nest-common (conventions §6.4).',
-          },
-          {
-            selector: "MemberExpression[object.name='process'][property.name='env']",
-            message:
-              'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
-          },
-        ],
+        'no-restricted-syntax': ['error', RPC_EXCEPTION_SELECTOR, PROCESS_ENV_SELECTOR],
       },
     },
     {
@@ -289,30 +298,64 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
-      // The mobile app runs these packages on Hermes (specs run in Node and are exempt).
-      files: ['packages/contracts/src/**', 'packages/core/src/**'],
-      ignores: ['**/*.spec.ts'],
+      // The mobile app runs these packages on Hermes (specs run in Node and are exempt). A block
+      // replaces the same rule key from earlier blocks, so every selector in force here is repeated.
+      files: [
+        'packages/contracts/src/**',
+        'packages/core/src/**',
+        'packages/i18n/src/**',
+        'packages/api-client/src/**',
+      ],
+      ignores: ['**/*.spec.ts', '**/generated/**'],
       rules: {
-        // Hermes has no ES2023 array-by-copy methods: copy, then sort (conventions §3.2). This
-        // block replaces the base list, so its two selectors are repeated.
         'no-restricted-syntax': [
           'error',
-          {
-            selector: "NewExpression[callee.name='RpcException']",
-            message: 'Throw through rpcError() from @wayfare/nest-common (conventions §6.4).',
-          },
-          {
-            selector: "MemberExpression[object.name='process'][property.name='env']",
-            message:
-              'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
-          },
-          {
-            selector: 'CallExpression[callee.property.name=/^(toSorted|toReversed|toSpliced)$/]',
-            message:
-              'Hermes lacks toSorted/toReversed/toSpliced, and the mobile app runs this package: use [...xs].sort(compare) or [...xs].reverse() (conventions §3.2).',
-          },
+          RPC_EXCEPTION_SELECTOR,
+          PROCESS_ENV_SELECTOR,
+          HERMES_SELECTOR,
         ],
       },
+    },
+    {
+      // The app reads its EXPO_PUBLIC_ values through process.env, in src/env.ts alone (conventions §12.4).
+      files: ['apps/mobile/**'],
+      ignores: ['**/*.spec.ts', '**/*.spec.tsx', 'apps/mobile/src/env.ts'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          RPC_EXCEPTION_SELECTOR,
+          {
+            ...PROCESS_ENV_SELECTOR,
+            message:
+              'Read EXPO_PUBLIC_ values through src/env.ts, the only file that touches process.env (conventions §12.4).',
+          },
+          HERMES_SELECTOR,
+        ],
+      },
+    },
+    {
+      files: ['apps/mobile/src/env.ts'],
+      rules: { 'no-restricted-syntax': ['error', RPC_EXCEPTION_SELECTOR, HERMES_SELECTOR] },
+    },
+    {
+      // React Native: hooks rules, and the globals Hermes provides.
+      files: ['apps/mobile/**/*.{ts,tsx}'],
+      plugins: { 'react-hooks': reactHooks },
+      languageOptions: { globals: { __DEV__: 'readonly' } },
+      rules: {
+        'react-hooks/rules-of-hooks': 'error',
+        'react-hooks/exhaustive-deps': 'error',
+      },
+    },
+    {
+      // Metro, Babel and Tailwind load these as CommonJS.
+      files: ['apps/mobile/*.js'],
+      rules: { '@typescript-eslint/no-require-imports': 'off' },
+    },
+    {
+      // Developer tools beside the engine they replay; never part of the package's dist (conventions §3.2).
+      files: ['packages/core/scripts/**'],
+      rules: { 'no-restricted-imports': 'off' },
     },
     {
       files: ['**/*.spec.ts', '**/test/**'],

@@ -24,6 +24,11 @@ export const UNPREFIXED_ROUTES = [
   { path: 'q/:publicCode', method: RequestMethod.GET },
 ];
 
+/** The title and version the OpenAPI document carries, served and emitted alike. */
+export function openApiOptions(config: GatewayConfig): { title: string; version: string } {
+  return { title: 'Wayfare API', version: config.get('APP_VERSION', { infer: true }) };
+}
+
 /**
  * The HTTP pipeline, in order. Shared by `main.ts` and the e2e suite so tests exercise exactly
  * what production runs. The order is part of the contract.
@@ -60,7 +65,6 @@ export function configureApp(app: NestExpressApplication, config: GatewayConfig)
     new ETagInterceptor(app.get(Reflector)),
   );
   app.useGlobalFilters(new ErrorFilter(isProduction));
-  if (read('SWAGGER_ENABLED'))
-    setupSwagger(app, { title: 'Wayfare API', version: read('APP_VERSION') });
+  if (read('SWAGGER_ENABLED')) setupSwagger(app, openApiOptions(config));
   app.enableShutdownHooks();
 }
