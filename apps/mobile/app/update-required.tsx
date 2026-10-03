@@ -1,11 +1,11 @@
-import { useTranslation } from 'react-i18next';
 import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '../src/state/app-store';
+import { useTourist } from '../src/i18n/use-tourist';
 
 /** Shown for `426 APP_VERSION_UNSUPPORTED`: this build is below the gateway's floor. */
 export default function UpdateRequiredScreen(): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t } = useTourist();
   const minimumVersion = useAppStore((state) => state.updateRequired);
   return (
     <SafeAreaView style={{ flex: 1 }}>

@@ -1,7 +1,6 @@
 import { RegisterDeviceDtoPlatform, devicesAcceptPolicy } from '@wayfare/api-client';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Linking, Platform, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { APP_VERSION } from '../../src/api';
@@ -11,13 +10,14 @@ import { deviceSession } from '../../src/session';
 import { routeApiError } from '../../src/state/api-errors';
 import { useAppStore } from '../../src/state/app-store';
 import { Button } from '../../src/ui/button';
+import { useTourist } from '../../src/i18n/use-tourist';
 
 /**
  * First run, step two: the privacy notice. *Continue* accepts it and registers this install; a
  * registered install that meets a newer policy accepts it here instead.
  */
 export default function PrivacyScreen(): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t } = useTourist();
   const router = useRouter();
   const language = useAppStore((state) => state.language);
   const policyVersion = useAppStore((state) => state.policyVersion);

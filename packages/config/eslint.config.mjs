@@ -45,6 +45,8 @@ const PROCESS_ENV_ALLOWED = [
   '**/test/setup/**',
   // Reads OPENAPI_WRITE: the switch between comparing the spec and writing it (pnpm api:generate).
   'services/gateway/test/e2e/openapi-emit.e2e.spec.ts',
+  // Reads I18N_TYPES_WRITE: the same switch for the generated ICU argument types (pnpm i18n:types).
+  'packages/i18n/src/generated-types.spec.ts',
   '**/scripts/**',
   '**/prisma/seed/**',
 ];
@@ -351,6 +353,27 @@ export function wayfareConfig({ tsconfigRootDir }) {
       // Metro, Babel and Tailwind load these as CommonJS.
       files: ['apps/mobile/*.js'],
       rules: { '@typescript-eslint/no-require-imports': 'off' },
+    },
+    {
+      // Every translation goes through useTourist(), whose keys and ICU arguments are type-checked.
+      // This block replaces the base no-restricted-imports, so its vendor and testing bans are repeated.
+      files: ['apps/mobile/**/*.{ts,tsx}'],
+      ignores: [...TESTING_ALLOWED, 'apps/mobile/src/i18n/**'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              ...VENDOR_SDK_PATHS,
+              ...['i18next', 'react-i18next'].map((name) => ({
+                name,
+                message: `Translate through useTourist() from src/i18n; only src/i18n imports ${name}.`,
+              })),
+            ],
+            patterns: [TESTING_ENTRY_PATTERN],
+          },
+        ],
+      },
     },
     {
       // Developer tools beside the engine they replay; never part of the package's dist (conventions §3.2).

@@ -1,7 +1,6 @@
 import { ApiError, devicesForget, useDevicesUpdate } from '@wayfare/api-client';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, Text } from 'react-native';
 import { APP_VERSION } from '../src/api';
 import { errorMessage } from '../src/i18n';
@@ -11,10 +10,11 @@ import { useAppStore } from '../src/state/app-store';
 import { queryClient } from '../src/state/query-client';
 import { Button } from '../src/ui/button';
 import { LanguageList } from '../src/ui/language-list';
+import { useTourist } from '../src/i18n/use-tourist';
 
 /** Language, and *Forget this install*. */
 export default function SettingsScreen(): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t } = useTourist();
   const language = useAppStore((state) => state.language);
   const [failure, setFailure] = useState<string | null>(null);
   const update = useDevicesUpdate({

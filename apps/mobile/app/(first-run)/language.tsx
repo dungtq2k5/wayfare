@@ -1,13 +1,13 @@
 import { Redirect, useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import { ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '../../src/state/app-store';
 import { LanguageList } from '../../src/ui/language-list';
+import { useTourist } from '../../src/i18n/use-tourist';
 
 /** First run, step one: the language (product J1). Reached with no language chosen. */
 export default function LanguageScreen(): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t } = useTourist();
   const router = useRouter();
   const language = useAppStore((state) => state.language);
   const setLanguage = useAppStore((state) => state.setLanguage);

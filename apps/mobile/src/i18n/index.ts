@@ -7,6 +7,7 @@ import i18next from 'i18next';
 import ICU from 'i18next-icu';
 import { initReactI18next } from 'react-i18next';
 import { loadBundle } from './bundles';
+import { touristFrom } from './tourist';
 import type { BundleLoaderDeps, CachedBundle } from './bundles';
 import { normalizeLang } from '@wayfare/contracts';
 
@@ -76,11 +77,11 @@ export async function applyLanguage(language: string): Promise<void> {
 
 /** The message for a failed call, chosen by the envelope's `code` (api-endpoints-plan §0.4). */
 export function errorMessage(error: unknown): string {
+  const { t, tFamily } = touristFrom(i18next);
   if (error instanceof ApiError) {
-    if (error.code === NETWORK_ERROR_CODE) return i18next.t('error.network');
-    return i18next.t([`error.${error.code}`, 'error.generic']);
+    return error.code === NETWORK_ERROR_CODE ? t('error.network') : tFamily('error', error.code);
   }
-  return i18next.t('error.generic');
+  return t('error.generic');
 }
 
 export default i18next;

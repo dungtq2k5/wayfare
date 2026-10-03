@@ -28,3 +28,6 @@ ignoredBuiltDependencies:
   - protobufjs
   # Install-time telemetry pulled in by swagger-ui-dist; never wanted.
   - '@scarf/scarf'
+  # Its postinstall only writes the hooks; the root `prepare` script does that instead, and
+  # keeps graphify's (see simple-git-hooks in package.json).
+  - simple-git-hooks

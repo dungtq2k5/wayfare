@@ -46,8 +46,58 @@ function topLevelIndex(part: string, separator: string): number {
   return -1;
 }
 
+/** The kind of value an argument takes: its ICU type word, or `plain` for `{name}`. */
+export type IcuArgumentKind =
+  'plain' | 'number' | 'plural' | 'selectordinal' | 'date' | 'time' | 'select';
+
+/** One argument: its kind, and for a `select` the option names it chooses between. */
+export interface IcuArgument {
+  readonly kind: IcuArgumentKind;
+  readonly options: readonly string[];
+}
+
+const KINDS: readonly IcuArgumentKind[] = [
+  'number',
+  'plural',
+  'selectordinal',
+  'date',
+  'time',
+  'select',
+];
+
+/** The names that open each option body of a plural or select: `one {…} other {…}` → `one`, `other`. */
+function optionNames(options: string): string[] {
+  const names: string[] = [];
+  let index = 0;
+  let name = '';
+  while (index < options.length) {
+    const char = options[index];
+    if (char === "'") {
+      index = skipQuote(options, index);
+    } else if (char === '{') {
+      names.push(name.trim());
+      name = '';
+      index = matchBrace(options, index);
+    } else {
+      name += char;
+    }
+    index += 1;
+  }
+  return names;
+}
+
+/** An argument seen again keeps the more specific kind (`{n, plural, …}` beats a plain `{n}`). */
+function record(found: Map<string, IcuArgument>, name: string, next: IcuArgument): void {
+  const known = found.get(name);
+  if (known === undefined || known.kind === 'plain') {
+    found.set(name, next);
+  } else if (next.kind === 'select' && known.kind === 'select') {
+    found.set(name, { kind: 'select', options: [...new Set([...known.options, ...next.options])] });
+  }
+}
+
 /** Arguments inside a plural's or a select's option bodies — `one {# of {total}}` holds `total`. */
-function collectOptions(options: string, names: Set<string>): void {
+function collectOptions(options: string, names: Map<string, IcuArgument>): void {
   let index = 0;
   while (index < options.length) {
     if (options[index] === "'") {
@@ -61,8 +111,8 @@ function collectOptions(options: string, names: Set<string>): void {
   }
 }
 
-/** Every argument name in a message, options included. */
-function collect(message: string, names: Set<string>): void {
+/** Every argument in a message, options included. */
+function collect(message: string, names: Map<string, IcuArgument>): void {
   let index = 0;
   while (index < message.length) {
     if (message[index] === "'") {
@@ -72,11 +122,19 @@ function collect(message: string, names: Set<string>): void {
       const inner = message.slice(index + 1, end);
       const comma = topLevelIndex(inner, ',');
       const name = (comma === -1 ? inner : inner.slice(0, comma)).trim();
-      if (name !== '') names.add(name);
+      const rest = comma === -1 ? '' : inner.slice(comma + 1);
+      const typeEnd = topLevelIndex(rest, ',');
+      const type = (typeEnd === -1 ? rest : rest.slice(0, typeEnd)).trim();
+      const kind = (KINDS as readonly string[]).includes(type)
+        ? (type as IcuArgumentKind)
+        : 'plain';
+      if (name !== '') {
+        record(names, name, {
+          kind,
+          options: kind === 'select' && typeEnd !== -1 ? optionNames(rest.slice(typeEnd + 1)) : [],
+        });
+      }
       if (comma !== -1) {
-        const rest = inner.slice(comma + 1);
-        const typeEnd = topLevelIndex(rest, ',');
-        const type = (typeEnd === -1 ? rest : rest.slice(0, typeEnd)).trim();
         // `number`, `date` and `time` carry a style, not a submessage; the choices do.
         if (
           typeEnd !== -1 &&
@@ -100,9 +158,14 @@ function collect(message: string, names: Set<string>): void {
  * option body, and to respect ICU's `'{'` quoting.
  */
 export function icuArguments(message: string): Set<string> {
-  const names = new Set<string>();
-  collect(message, names);
-  return names;
+  return new Set(icuArgumentTypes(message).keys());
+}
+
+/** The same arguments with the kind of value each takes, in order of first appearance. */
+export function icuArgumentTypes(message: string): Map<string, IcuArgument> {
+  const found = new Map<string, IcuArgument>();
+  collect(message, found);
+  return found;
 }
 
 /** Whether a translation uses exactly the arguments its English source does. */

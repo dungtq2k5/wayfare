@@ -705,6 +705,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - Language codes are validated against `CONTENT_LANGUAGES` / `isSupportedLanguage()` and normalized with `normalizeLang()` — `zh` becomes `zh-Hans`, `EN-us` becomes `en`.
 - The content fallback chain is `resolveContentTier()` in `packages/core`, used by the server when shaping responses **and** by the clients when reading offline data. **MUST NOT** re-implement "if no Japanese then English" anywhere else.
 - Every localized record crossing the API carries `contentTier` and `stale`; the UI **MUST** show when content is not in the requested language.
+- **UI strings are type-checked.** In the app, translation goes through `useTourist()`: its `t` accepts only keys of the English `tourist` source (i18next's `CustomTypeOptions`) and requires exactly the ICU arguments the message declares, typed from `@wayfare/i18n/generated/tourist-arguments` (`pnpm i18n:types` writes it; `pnpm test` fails while it is stale). Keys built at run time — `area.*`, `category.*`, `error.*` — go through its `tFamily(family, suffix, fallback?)`, which renders the fallback (or `error.generic`) for a missing key. **Only `apps/mobile/src/i18n/` imports `i18next` or `react-i18next`.**
 
 ### 11.3 The narration firewall in code
 
@@ -793,7 +794,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - **Read a value into a typed local before placing it in a union-typed options object** (`MicroserviceOptions`, a `ClientsModule` registration). Inside such an object TypeScript infers `get`'s generic from the context and the result is silently `any`; `const url = config.get('GRPC_URL', { infer: true });` first keeps it typed.
 - **A constructor parameter is typed `ConfigService<Env, true>` — never the service's alias** (`IdentityConfig`, `GatewayConfig`). The build emits a type alias's design-time type as `Object`, and Nest then cannot resolve the parameter. The alias is for every other position: `app.get<IdentityConfig>(ConfigService)`, factory parameters, helper signatures.
 - `@nestjs/config` is a peer of `nest-common` and a pinned dependency of each service, so exactly one `ConfigService` class exists; two copies are two injection tokens.
-- `NestFactory.create` runs with **`abortOnError: false`**: a configuration error then reaches `bootstrap().catch`, which prints it and exits `1`, instead of Nest aborting the process. **MUST NOT** read `process.env` outside `instrumentation.ts`, `prisma.config.ts`, scripts and test setup — none of which run inside Nest.
+- `NestFactory.create` runs with **`abortOnError: false`**: a configuration error then reaches `bootstrap().catch`, which prints it and exits `1`, instead of Nest aborting the process. **MUST NOT** read `process.env` outside `instrumentation.ts`, `prisma.config.ts`, scripts, test setup and the two generator specs that write committed files (the OpenAPI emitter, the i18n argument writer) — none of which run inside Nest.
 - A value used on every request is read **once**, into a field, in the constructor or factory. A module configured by values uses its async form (`forRootAsync` / `registerAsync` with `inject: [ConfigService]`), never a config object threaded through `forRoot(config)`.
 - Tests build `AppModule.forRoot({ env })`, which validates exactly that object and ignores both `.env` and `process.env`; unit tests use `buildConfigService(service, schema, env)` from `@wayfare/nest-common/testing`.
 - Limits and tunables that are product decisions (product-overview §9) are constants in `packages/contracts` with an environment override **only** where operations genuinely need one. A tunable that exists only as an environment variable is invisible to code review.
@@ -999,6 +1000,8 @@ pnpm test:integration --filter <service>   # for every service you touched
 ```
 
 Vitest and the SWC builder both transpile without typechecking, so a broken signature can pass every test; `typecheck` goes first for that reason. Name the suites you ran in the PR — "tests pass" after a change to one service usually means another's suite never ran.
+
+**The git hooks.** `pnpm install` installs two (`simple-git-hooks`): `pre-commit` runs `lint-staged` over the staged files only — ESLint then Prettier on code, Prettier on JSON, YAML and CSS, `markdownlint-cli2 --fix --no-globs` on Markdown (never Prettier) — and `commit-msg` runs commitlint, so a message is a conventional commit. Typecheck and tests stay in CI, so `--no-verify` skips nothing CI does not run again. The hook's ESLint is type-aware and reads workspace packages from their `dist`: after a clone, or a pull that changes a package, run `pnpm build` before the first commit, or it reports false `no-unsafe-*` errors. Hooks another tool installed (graphify's) are kept, through `preserveUnused`.
 
 ### Identity and access
 

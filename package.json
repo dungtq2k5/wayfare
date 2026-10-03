@@ -34,7 +34,9 @@
     "recover:narration": "bash services/gateway/scripts/recover-narration.sh",
     "walks": "bash services/gateway/scripts/walks.sh",
     "verify:spine": "node services/gateway/scripts/verify-spine.mjs",
-    "closing-run": "bash services/gateway/scripts/closing-run.sh"
+    "closing-run": "bash services/gateway/scripts/closing-run.sh",
+    "prepare": "simple-git-hooks",
+    "i18n:types": "I18N_TYPES_WRITE=1 vitest run --project unit:i18n generated-types"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
@@ -48,14 +50,36 @@
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^16.0.0",
+    "lint-staged": "^17.6.0",
     "markdownlint-cli2": "0.23.2",
     "prettier": "^3.9.7",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "simple-git-hooks": "^2.14.0",
     "turbo": "^2.10.13",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.70.0",
     "unplugin-swc": "^1.6.0",
     "vitest": "^4.1.11"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged",
+    "commit-msg": "pnpm exec commitlint --edit $1",
+    "preserveUnused": [
+      "post-checkout",
+      "post-commit"
+    ]
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write --no-error-on-unmatched-pattern"
+    ],
+    "*.{json,yaml,yml,css}": [
+      "prettier --write --no-error-on-unmatched-pattern"
+    ],
+    "*.md": [
+      "markdownlint-cli2 --fix --no-globs"
+    ]
   }
 }

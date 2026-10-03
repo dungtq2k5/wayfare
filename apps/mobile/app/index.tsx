@@ -1,14 +1,14 @@
 import { useAreasList } from '@wayfare/api-client';
 import type { AreaResponseDto } from '@wayfare/api-client';
 import { Link, Stack } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
 import { errorMessage } from '../src/i18n';
 import { Button } from '../src/ui/button';
+import { useTourist } from '../src/i18n/use-tourist';
 
 /** The areas the pilot is open in: the smallest real screen, proving the client and the session. */
 export default function HomeScreen(): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t, tFamily } = useTourist();
   const areas = useAreasList();
   const list: AreaResponseDto[] = areas.data?.data ?? [];
 
@@ -45,7 +45,7 @@ export default function HomeScreen(): React.JSX.Element {
           renderItem={({ item }) => (
             <View className="min-h-[56px] justify-center rounded-xl bg-emerald-50 px-4 py-3">
               <Text className="text-lg font-semibold text-emerald-900">
-                {t(`area.${item.code}`, { defaultValue: item.code })}
+                {tFamily('area', item.code, item.code)}
               </Text>
             </View>
           )}
