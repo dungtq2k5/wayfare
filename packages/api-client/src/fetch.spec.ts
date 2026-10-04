@@ -114,6 +114,14 @@ describe('apiFetch', () => {
     expect(session.recover).not.toHaveBeenCalled();
   });
 
+  it('returns undefined for a 304, which answers an If-None-Match', async () => {
+    const fetchMock = setup([() => new Response(null, { status: 304 })]);
+    await expect(
+      apiFetch('/sync/places', { headers: { 'if-none-match': '"a:en:7"' } }),
+    ).resolves.toBeUndefined();
+    expect(headersOf(fetchMock, 0).get('if-none-match')).toBe('"a:en:7"');
+  });
+
   describe('a 401', () => {
     it('is recovered and retried once with the new token', async () => {
       let token = 'old';

@@ -1,3 +1,13 @@
+// Hermes has no complete Intl.PluralRules, and ICU plurals (`{count, plural, …}`) need it: without
+// it every plural renders as its raw message. The polyfill installs only where it is missing.
+// ponytail: plural data for the five content languages only; add a locale-data import when a UI
+// bundle for another language ships plurals.
+import '@formatjs/intl-pluralrules/polyfill.js';
+import '@formatjs/intl-pluralrules/locale-data/en.js';
+import '@formatjs/intl-pluralrules/locale-data/vi.js';
+import '@formatjs/intl-pluralrules/locale-data/zh.js';
+import '@formatjs/intl-pluralrules/locale-data/ja.js';
+import '@formatjs/intl-pluralrules/locale-data/ko.js';
 import { i18nBundle, NETWORK_ERROR_CODE, ApiError } from '@wayfare/api-client';
 import en from '@wayfare/i18n/locales/en/tourist.json';
 import vi from '@wayfare/i18n/locales/vi/tourist.json';

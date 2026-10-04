@@ -1,10 +1,13 @@
 import '../global.css';
 import '../src/api';
 import '../src/i18n';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { databaseReady } from '../src/data/boot';
+import { persistOptions } from '../src/data/persister';
+import { useDataBoot } from '../src/data/use-data-boot';
 import { applyLanguage } from '../src/i18n';
 import { deviceSession } from '../src/session';
 import { useAppStore } from '../src/state/app-store';
@@ -33,16 +36,19 @@ export default function RootLayout(): React.JSX.Element | null {
       if (useAppStore.getState().onboarded && !(await deviceSession.isRegistered())) {
         useAppStore.getState().setOnboarded(false);
       }
+      await databaseReady; // migrated before any screen reads it
       setChecked(true);
     })();
   }, [hydrated]);
 
-  if (!hydrated || !checked) return null;
-
   const blocked = updateRequired !== null;
   const firstRun = !blocked && (!onboarded || policyChanged);
+  // Sync needs a device token, so it waits for registration.
+  useDataBoot(checked && onboarded && !blocked);
+
+  if (!hydrated || !checked) return null;
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={blocked}>
@@ -56,6 +62,6 @@ export default function RootLayout(): React.JSX.Element | null {
           <Stack.Screen name="settings" />
         </Stack.Protected>
       </Stack>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

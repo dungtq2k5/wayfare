@@ -7,4 +7,9 @@ export interface TouristArguments {
   readonly "offline.downloaded": { "size": string | number };
   readonly "updateRequired.body": { "minimumVersion": string | number };
   readonly "settings.version": { "version": string | number };
+  readonly "home.areas.places": { "count": number };
+  readonly "settings.data.network": { "status": string | number };
+  readonly "settings.data.checked": { "time": string | number };
+  readonly "settings.data.synced": { "time": string | number };
+  readonly "settings.data.area": { "area": string | number; "count": number; "version": string | number };
 }

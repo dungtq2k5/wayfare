@@ -210,7 +210,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 4. **Graceful degradation** — content falls back target → en → vi; audio falls back to tier 3 (on-device TTS); map falls back to the packaged pack.
 
 - **Two map modes, not three.** Because we self-host our own PMTiles archive ([ADR 0023](./decisions/0023-self-hosted-pmtiles-no-tile-vendor.md)), "online" is the *same file* read over HTTP range requests, and "offline" is that file downloaded whole. There is no third-party tile API, no key, no quota, and no separate cloud-vs-hybrid code path.
-- Delta sync: the client sends its dataset version and `updatedAfter`; the server returns only changes plus a list of removed Place IDs.
+- Delta sync: the client sends the `datasetVersion` it last received (`since`) and that version as `If-None-Match`; the server returns only the Places changed since, plus a list of removed Place IDs, a new `datasetVersion`, and `complete: false` when another page follows — or `304` when nothing changed.
 - Storage manager UI: what is downloaded, how big, update available, repair, delete.
 - Disk-full handling: sacrifice runtime caches to preserve an explicitly downloaded pack.
 
