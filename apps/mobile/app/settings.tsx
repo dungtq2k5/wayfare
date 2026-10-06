@@ -14,13 +14,16 @@ import { routeApiError } from '../src/state/api-errors';
 import { useAppStore } from '../src/state/app-store';
 import { Button } from '../src/ui/button';
 import { LanguageList } from '../src/ui/language-list';
+import { SegmentedControl } from '../src/ui/segmented-control';
 import { useTourist } from '../src/i18n/use-tourist';
 
 /** Language, and *Forget this install*. */
-export default function SettingsScreen(): React.JSX.Element {
+export default function SettingsScreen() {
   const { t, tFamily } = useTourist();
   const language = useAppStore((state) => state.language);
   const [failure, setFailure] = useState<string | null>(null);
+  const appearance = useAppStore((state) => state.appearance);
+  const setAppearance = useAppStore((state) => state.setAppearance);
   const areaList = useAreasList();
   const local = useLocalAreas();
   const network = useNetworkStore((state) => state.status);
@@ -48,34 +51,47 @@ export default function SettingsScreen(): React.JSX.Element {
   };
 
   return (
-    <ScrollView contentContainerClassName="gap-6 bg-white p-6">
+    <ScrollView className="bg-background" contentContainerClassName="gap-6 p-6">
       <Stack.Screen options={{ headerShown: true, title: t('nav.settings') }} />
-      <Text accessibilityRole="header" className="text-xl font-bold text-emerald-900">
+      <Text accessibilityRole="header" className="text-heading text-foreground">
         {t('settings.language')}
       </Text>
       <LanguageList
-        current={language}
-        onSelect={(selected) => {
+        value={language}
+        onChange={(selected) => {
           setFailure(null);
           useAppStore.getState().setLanguage(selected);
           update.mutate({ data: { contentLocale: selected } });
         }}
       />
       {failure !== null && (
-        <Text accessibilityRole="alert" className="text-base text-red-700">
+        <Text accessibilityRole="alert" className="text-body text-destructive">
           {failure}
         </Text>
       )}
-      <Text accessibilityRole="header" className="text-xl font-bold text-emerald-900">
+      <Text accessibilityRole="header" className="text-heading text-foreground">
+        {t('settings.appearance.title')}
+      </Text>
+      <SegmentedControl
+        label={t('settings.appearance.title')}
+        value={appearance}
+        onChange={setAppearance}
+        options={[
+          { value: 'system', label: t('settings.appearance.system') },
+          { value: 'light', label: t('settings.appearance.light') },
+          { value: 'dark', label: t('settings.appearance.dark') },
+        ]}
+      />
+      <Text accessibilityRole="header" className="text-heading text-foreground">
         {t('settings.data.title')}
       </Text>
-      <Text className="text-sm text-slate-700">
+      <Text className="text-label text-muted-foreground">
         {t('settings.data.network', { status: network })}
       </Text>
       {local.data?.map((summary) => {
         const code = areaList.data?.data.find((area) => area.id === summary.areaId)?.code;
         return (
-          <Text key={summary.areaId} className="text-sm text-slate-700">
+          <Text key={summary.areaId} className="text-label text-muted-foreground">
             {t('settings.data.area', {
               area: code === undefined ? summary.areaId.slice(0, 8) : tFamily('area', code, code),
               count: summary.places,
@@ -86,11 +102,11 @@ export default function SettingsScreen(): React.JSX.Element {
           </Text>
         );
       })}
-      <Text className="text-sm text-slate-700">
+      <Text className="text-label text-muted-foreground">
         {t('settings.data.checked', { time: time(sync.lastCheckedAt) })}
       </Text>
       {sync.error !== null && (
-        <Text accessibilityRole="alert" className="text-sm text-red-700">
+        <Text accessibilityRole="alert" className="text-label text-destructive">
           {sync.error}
         </Text>
       )}
@@ -114,7 +130,7 @@ export default function SettingsScreen(): React.JSX.Element {
           ])
         }
       />
-      <Text className="text-sm text-slate-600">
+      <Text className="text-caption text-muted-foreground">
         {t('settings.version', { version: APP_VERSION })}
       </Text>
     </ScrollView>

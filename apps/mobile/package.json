@@ -12,7 +12,8 @@
     "bundle:check": "expo export --platform android --output-dir dist",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
-    "eas-build-post-install": "pnpm --filter @wayfare/mobile^... build"
+    "eas-build-post-install": "pnpm --filter @wayfare/mobile^... build",
+    "brand": "node scripts/build-brand-assets.mjs"
   },
   "dependencies": {
     "@formatjs/intl-pluralrules": "^6.3.15",
@@ -21,6 +22,7 @@
     "@tanstack/react-query-persist-client": "^5.104.1",
     "@wayfare/api-client": "workspace:*",
     "@wayfare/contracts": "workspace:*",
+    "@wayfare/design-tokens": "workspace:*",
     "@wayfare/i18n": "workspace:*",
     "expo": "~57.0.26",
     "expo-application": "~57.0.3",
@@ -29,16 +31,20 @@
     "expo-constants": "~57.0.20",
     "expo-dev-client": "~57.0.19",
     "expo-file-system": "~57.0.7",
+    "expo-font": "~57.0.4",
     "expo-linking": "~57.0.11",
     "expo-localization": "~57.0.2",
     "expo-network": "~57.0.2",
     "expo-router": "~57.0.24",
     "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
     "i18next": "^26.4.2",
     "i18next-icu": "^2.4.4",
     "intl-messageformat": "^12.1.2",
+    "lucide-react-native": "^1.52.0",
     "nativewind": "4.2.7",
     "react": "19.2.3",
     "react-i18next": "^17.0.15",
@@ -47,6 +53,7 @@
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.2",
+    "react-native-svg": "15.15.4",
     "react-native-worklets": "0.10.1",
     "tailwindcss": "3.4.19",
     "zustand": "^5.0.15"
@@ -55,6 +62,7 @@
     "@babel/plugin-transform-react-jsx": "^7.29.7",
     "@types/react": "~19.2.2",
     "babel-preset-expo": "~57.0.13",
+    "sharp": "0.35.4",
     "typescript": "~6.0.3"
   }
 }

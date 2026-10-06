@@ -77,6 +77,7 @@ export default defineConfig({
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
       unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
       unit('mobile', './apps/mobile', ['src/**/*.spec.ts']),
+      unit('design-tokens', './packages/design-tokens', ['src/**/*.spec.ts']),
       unit('api-client', './packages/api-client', ['src/**/*.spec.ts']),
       unit('identity', './services/identity', ['src/**/*.spec.ts']),
       unit('catalog', './services/catalog', ['src/**/*.spec.ts', 'prisma/seed/**/*.spec.ts']),

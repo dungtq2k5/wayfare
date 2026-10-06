@@ -1,5 +1,6 @@
 import { LEGAL_DOCUMENT_VERSIONS, LegalDocument } from '@wayfare/contracts';
 import Storage from 'expo-sqlite/kv-store';
+import type { Appearance } from '../theme/appearance';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -7,6 +8,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 export interface AppState {
   /** The chosen language; null until the first-run picker. */
   language: string | null;
+  /** Light, dark or the system's; `system` until the user chooses. */
+  appearance: Appearance;
   /** True once this install is registered (the privacy notice accepted). */
   onboarded: boolean;
   /** Set once the persisted part has been read; nothing routes before it. */
@@ -17,6 +20,7 @@ export interface AppState {
   policyVersion: string;
   policyChanged: boolean;
   setLanguage: (language: string | null) => void;
+  setAppearance: (appearance: Appearance) => void;
   setOnboarded: (onboarded: boolean) => void;
   requireUpdate: (minimumVersion: string) => void;
   requirePolicy: (currentVersion: string) => void;
@@ -28,12 +32,14 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       language: null,
+      appearance: 'system',
       onboarded: false,
       hydrated: false,
       updateRequired: null,
       policyVersion: LEGAL_DOCUMENT_VERSIONS[LegalDocument.PRIVACY_POLICY],
       policyChanged: false,
       setLanguage: (language) => set({ language }),
+      setAppearance: (appearance) => set({ appearance }),
       setOnboarded: (onboarded) => set({ onboarded }),
       requireUpdate: (minimumVersion) => set({ updateRequired: minimumVersion }),
       requirePolicy: (currentVersion) =>
@@ -44,7 +50,7 @@ export const useAppStore = create<AppState>()(
       name: 'wayfare.app',
       // The key-value store of expo-sqlite, the database ADR 0027 chose: no second storage library.
       storage: createJSONStorage(() => Storage),
-      partialize: ({ language, onboarded }) => ({ language, onboarded }),
+      partialize: ({ language, appearance, onboarded }) => ({ language, appearance, onboarded }),
     },
   ),
 );

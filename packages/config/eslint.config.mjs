@@ -69,6 +69,39 @@ const HERMES_SELECTOR = {
     'Hermes lacks toSorted/toReversed/toSpliced, and the mobile app runs this code: use [...xs].sort(compare) or [...xs].reverse() (conventions §3.3).',
 };
 
+const MOBILE_PROCESS_ENV_SELECTOR = {
+  ...PROCESS_ENV_SELECTOR,
+  message:
+    'Read EXPO_PUBLIC_ values through src/env.ts, the only file that touches process.env (conventions §12.4).',
+};
+
+/** A colour literal: #rgb, #rgba, #rrggbb, #rrggbbaa, or an rgb()/rgba()/hsl()/hsla() call. */
+const COLOUR_LITERAL = '(#[0-9a-fA-F]{3,8}\\b|\\b(rgb|rgba|hsl|hsla)\\()';
+const NO_COLOUR_LITERAL =
+  'Use a design token (a semantic class such as bg-primary, or useTheme().colors), not a colour literal (ADR 0061).';
+
+/** Only design tokens reach the screen: the selectors the app's code is held to (ADR 0061). */
+const TOKENS_ONLY_SELECTORS = [
+  { selector: `Literal[value=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  { selector: `TemplateElement[value.raw=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  {
+    selector: "JSXAttribute[name.name='className'] Literal[value=/\\[/]",
+    message:
+      'No arbitrary Tailwind value: use a token class (text-body, p-4, min-h-target), not [13px] (ADR 0061).',
+  },
+  {
+    selector: "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\[/]",
+    message:
+      'No arbitrary Tailwind value: use a token class (text-body, p-4, min-h-target), not [13px] (ADR 0061).',
+  },
+  {
+    selector:
+      "JSXAttribute[name.name='style'] Property[key.name=/^(color|backgroundColor|fontFamily|fontSize)$/]",
+    message:
+      'Colour, font family and size come from token classes, not an inline style (ADR 0061).',
+  },
+];
+
 /**
  * Builds the Wayfare ESLint config.
  * @param {{ tsconfigRootDir: string }} options
@@ -319,18 +352,36 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
-      // The app reads its EXPO_PUBLIC_ values through process.env, in src/env.ts alone (conventions §12.4).
+      // The app reads its EXPO_PUBLIC_ values through process.env, in src/env.ts alone (conventions §12.4),
+      // and only design tokens reach the screen (ADR 0061): no colour literal, no arbitrary Tailwind
+      // value, no colour or font in an inline style. This block replaces the base no-restricted-syntax,
+      // so every selector in force for the app is repeated here.
       files: ['apps/mobile/**'],
-      ignores: ['**/*.spec.ts', '**/*.spec.tsx', 'apps/mobile/src/env.ts'],
+      ignores: [
+        '**/*.spec.ts',
+        '**/*.spec.tsx',
+        'apps/mobile/src/env.ts',
+        'apps/mobile/src/theme/**',
+        'apps/mobile/scripts/**',
+      ],
       rules: {
         'no-restricted-syntax': [
           'error',
           RPC_EXCEPTION_SELECTOR,
-          {
-            ...PROCESS_ENV_SELECTOR,
-            message:
-              'Read EXPO_PUBLIC_ values through src/env.ts, the only file that touches process.env (conventions §12.4).',
-          },
+          MOBILE_PROCESS_ENV_SELECTOR,
+          HERMES_SELECTOR,
+          ...TOKENS_ONLY_SELECTORS,
+        ],
+      },
+    },
+    {
+      // src/theme/ is where tokens become values (the Icon wrapper, the status bar, navigation's theme).
+      files: ['apps/mobile/src/theme/**', 'apps/mobile/scripts/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          RPC_EXCEPTION_SELECTOR,
+          MOBILE_PROCESS_ENV_SELECTOR,
           HERMES_SELECTOR,
         ],
       },

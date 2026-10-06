@@ -12,4 +12,10 @@ export interface TouristArguments {
   readonly "settings.data.checked": { "time": string | number };
   readonly "settings.data.synced": { "time": string | number };
   readonly "settings.data.area": { "area": string | number; "count": number; "version": string | number };
+  readonly "firstRun.language.continue": { "language": string | number };
+  readonly "home.areas.caption": { "count": number };
+  readonly "home.areas.updated": { "when": string | number };
+  readonly "time.minutesAgo": { "count": number };
+  readonly "time.hoursAgo": { "count": number };
+  readonly "time.daysAgo": { "count": number };
 }

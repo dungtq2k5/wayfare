@@ -15,3 +15,5 @@ packages/api-client/openapi.json
 apps/mobile/android/
 apps/mobile/.expo/
 apps/mobile/expo-env.d.ts
+# The designer's export is replaced as a whole (pnpm build turns it into the theme).
+packages/design-tokens/tokens.json

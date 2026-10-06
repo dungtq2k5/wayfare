@@ -509,6 +509,8 @@ These are **product** decisions, not implementation details. They must be config
 
 **Accessibility** — the product is fundamentally an audio product, which makes it unusually valuable to visually impaired travellers. Screen-reader labels on every control, minimum 44×44 pt touch targets, WCAG AA contrast, full transcript for every narration, and no information conveyed by colour alone.
 
+**Appearance** — every client has a **light and a dark** appearance and **follows the system setting by default**, with an in-app choice of *System*, *Light* or *Dark*; WCAG AA contrast holds in both, and the map has a dark style to match. Text **follows the system font-size setting**. The interface typeface covers Latin script with Vietnamese diacritics; Chinese, Japanese and Korean text falls back to the device's own fonts, because bundling CJK fonts would cost tens of megabytes.
+
 **Availability** — target 99% for the tourist read path. Owner and admin write paths may degrade. The read path must survive a backend outage entirely, via cached data.
 
 ---

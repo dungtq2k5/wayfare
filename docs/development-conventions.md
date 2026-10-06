@@ -782,6 +782,19 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - Every interactive element has an accessible label; icon-only buttons are labelled from the i18n bundle.
 - Touch targets are at least 44 × 44 pt. Colour is never the only signal (a "sponsored" marker has text, not only a tint).
 - Every narration has its transcript reachable from the now-playing card.
+- **Text follows the system font size, up to Android's largest.** A container that holds text has no fixed height; a row of metadata that would wrap stacks vertically instead of squeezing; only the tab bar's labels cap their growth (`maxFontSizeMultiplier={1.3}`), because four labels cannot share a row at twice the size.
+- Animation durations come from the `duration.*` tokens and are 0 when the system removes animations.
+
+### 12.6 Design tokens
+
+[ADR 0061](./decisions/0061-tokens-are-shared-components-are-per-platform.md). The design system's values live in `packages/design-tokens/tokens.json`, exported from the Figma file's Variables; components are per platform.
+
+- **Screens use semantic tokens only** — `bg-primary`, `text-muted-foreground`, `text-body` — never a primitive, a colour literal or an arbitrary value. Lint enforces it in `apps/mobile` (outside `src/theme/`): a hex, `rgb(…)` or `hsl(…)` string, a `[…]` value in a `className`, or `color`, `backgroundColor`, `fontFamily` or `fontSize` in an inline `style` fails. The NativeWind preset **replaces** Tailwind's palette, so `bg-emerald-700` does not exist.
+- **What a class cannot reach reads `tokens.js`** — the status bar, navigation's theme, an icon's colour (through the `Icon` wrapper, sizes 16, 20 and 24), map paint — with the active appearance's values.
+- **A colour change is an export, not an edit:** the designer re-exports the Variables into `tokens.json` (never hand-edited; Prettier ignores it), `pnpm build` regenerates the preset, `tokens.js` and the web CSS in the package's `dist/`, and the brand assets are redrawn by `pnpm --filter @wayfare/mobile brand`. The app icon and splash are native resources, so they change only after `expo prebuild` and a new build. The package's contrast spec fails a pair below 4.5 : 1 (3 : 1 for `input` and `ring`) in either mode; a new token pair joins its list deliberately.
+- **Type:** one utility per text style (`text-display` … `text-caption`) sets family, size and line height together, so a weight never drifts from its font file. `text-numeric` cannot carry tabular figures — NativeWind passes `font-variant` to a style React Native ignores — so a component showing distances, times or sizes sets `fontVariant: ['tabular-nums']` itself. `body-small` is the web console's alone; mobile's running text stays 16 px.
+- **Touch targets:** controls are `min-h-12` (48 px); `min-h-target` (44 px) is the floor, for icon buttons.
+- **Motion:** durations come through `useDuration()` (its rule is the pure `durationFor()`), which returns 0 when the system removes animations.
 
 ---
 

@@ -22,3 +22,21 @@ export const LANGUAGE_NAMES: Readonly<Record<Language, string>> = {
 /** The picker's first list, then what *Other* shows. */
 export const TOP_LANGUAGES: readonly Language[] = CONTENT_LANGUAGES;
 export const OTHER_LANGUAGES: readonly Language[] = LONG_TAIL_LANGUAGES;
+
+/** Each language in English, the picker's second line (the handoff's language list item). */
+export const LANGUAGE_ENGLISH_NAMES: Readonly<Record<Language, string>> = {
+  vi: 'Vietnamese',
+  en: 'English',
+  'zh-Hans': 'Chinese (Simplified)',
+  ja: 'Japanese',
+  ko: 'Korean',
+  'zh-Hant': 'Chinese (Traditional)',
+  fr: 'French',
+  de: 'German',
+  es: 'Spanish',
+  ru: 'Russian',
+  th: 'Thai',
+  id: 'Indonesian',
+  ms: 'Malay',
+  hi: 'Hindi',
+};
