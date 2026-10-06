@@ -5,7 +5,7 @@
 # `prisma/sql/expected-objects.json` are there for the boot-time schema check to read; the
 # migrations themselves run from the deploy job (`db:deploy`, architecture §13.1).
 
-ARG NODE_VERSION=24.14.0
+ARG NODE_VERSION=24.21.0
 
 # Alpine (musl) is fine for argon2: its package ships musl prebuilds for x64 and arm64, so no build tools.
 FROM node:${NODE_VERSION}-alpine AS base
