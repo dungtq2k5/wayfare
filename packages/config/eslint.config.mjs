@@ -80,6 +80,10 @@ const COLOUR_LITERAL = '(#[0-9a-fA-F]{3,8}\\b|\\b(rgb|rgba|hsl|hsla)\\()';
 const NO_COLOUR_LITERAL =
   'Use a design token (a semantic class such as bg-primary, or useTheme().colors), not a colour literal (ADR 0061).';
 
+/** The style keys that carry spacing; widths and heights are the component's own geometry. */
+const SPACING_KEY =
+  '^(padding\\w*|margin\\w*|gap|rowGap|columnGap|top|right|bottom|left|inset\\w*|textSize)$';
+
 /** Only design tokens reach the screen: the selectors the app's code is held to (ADR 0061). */
 const TOKENS_ONLY_SELECTORS = [
   { selector: `Literal[value=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
@@ -99,6 +103,19 @@ const TOKENS_ONLY_SELECTORS = [
       "JSXAttribute[name.name='style'] Property[key.name=/^(color|backgroundColor|fontFamily|fontSize)$/]",
     message:
       'Colour, font family and size come from token classes, not an inline style (ADR 0061).',
+  },
+  {
+    // A number under a spacing key, anywhere in its value (a negative one, or one inside a call),
+    // that is not a token read such as space[2]. Zero is fine. Layout constants are built in
+    // src/ui/layout.ts, which is exempt.
+    selector: `Property[key.name=/${SPACING_KEY}/] Literal[value>0]:not(MemberExpression[computed=true] > Literal)`,
+    message:
+      'A spacing number comes from tokens: space[n] or a constant in src/ui/layout.ts, not a literal.',
+  },
+  {
+    selector: `Property[key.value=/${SPACING_KEY}/] Literal[value>0]:not(MemberExpression[computed=true] > Literal)`,
+    message:
+      'A spacing number comes from tokens: space[n] or a constant in src/ui/layout.ts, not a literal.',
   },
 ];
 
@@ -362,6 +379,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
         '**/*.spec.tsx',
         'apps/mobile/src/env.ts',
         'apps/mobile/src/theme/**',
+        'apps/mobile/src/ui/layout.ts',
         'apps/mobile/scripts/**',
       ],
       rules: {
@@ -375,8 +393,9 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
-      // src/theme/ is where tokens become values (the Icon wrapper, the status bar, navigation's theme).
-      files: ['apps/mobile/src/theme/**', 'apps/mobile/scripts/**'],
+      // src/theme/ is where tokens become values (the Icon wrapper, the status bar, navigation's theme);
+      // src/ui/layout.ts builds the layout constants from them.
+      files: ['apps/mobile/src/theme/**', 'apps/mobile/src/ui/layout.ts', 'apps/mobile/scripts/**'],
       rules: {
         'no-restricted-syntax': [
           'error',

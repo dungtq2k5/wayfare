@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Pressable, Text } from 'react-native';
 import { create } from 'zustand';
 import { useDuration } from '../theme/use-duration';
+import { space } from '@wayfare/design-tokens/tokens';
 import { TAB_BAR_CLEARANCE } from './layout';
 
 interface ToastState {
@@ -46,7 +47,13 @@ export function ToastHost() {
   return (
     <Animated.View
       accessibilityLiveRegion="polite"
-      style={{ opacity, position: 'absolute', left: 16, right: 16, bottom: TAB_BAR_CLEARANCE }}
+      style={{
+        opacity,
+        position: 'absolute',
+        left: space[4],
+        right: space[4],
+        bottom: TAB_BAR_CLEARANCE,
+      }}
       className="flex-row items-center gap-3 rounded-lg bg-foreground px-4 py-3 elevation-2"
     >
       <Text className="flex-1 text-label text-background">{toast.message}</Text>

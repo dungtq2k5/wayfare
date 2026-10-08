@@ -1,4 +1,4 @@
-import { zLocalizationOverview } from '@wayfare/contracts';
+import { servedLanguage, zLocalizationOverview } from '@wayfare/contracts';
 import type { Correction, LocalizationOverview, OverrideStatus } from '@wayfare/contracts';
 import { localizationTargetTypeProto, overrideStatusProto } from '@wayfare/contracts/grpc';
 import type { narrationGrpc } from '@wayfare/contracts/grpc';
@@ -20,7 +20,7 @@ export function toCorrection(correction: narrationGrpc.Correction | undefined): 
     id: correction.id,
     targetType,
     targetId: correction.targetId,
-    lang: correction.lang,
+    lang: servedLanguage(correction.lang, `correction ${correction.id}`),
     sourceContentHash: correction.sourceContentHash,
     name: correction.name,
     description: correction.description ?? null,

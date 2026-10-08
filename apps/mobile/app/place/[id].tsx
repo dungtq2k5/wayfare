@@ -1,4 +1,5 @@
 import { distanceMeters, walkingEtaMinutes } from '@wayfare/core';
+import { space } from '@wayfare/design-tokens/tokens';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useState } from 'react';
@@ -68,7 +69,7 @@ export default function PlaceScreen() {
         accessibilityRole="button"
         accessibilityLabel={t('settings.back')}
         onPress={() => router.back()}
-        style={{ top: insets.top + 8 }}
+        style={{ top: insets.top + space[2] }}
         className="absolute left-4 min-h-12 min-w-12 items-center justify-center rounded-full bg-card elevation-2"
       >
         <Icon icon={ArrowLeft} size={24} />

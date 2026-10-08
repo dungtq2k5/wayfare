@@ -34,5 +34,6 @@ export interface TouristArguments {
   readonly "explore.nearYou": { "area": string | number };
   readonly "explore.empty.areas": { "areas": string | number };
   readonly "place.distanceHours": { "hours": string | number; "minutes": string | number };
+  readonly "place.shownInOther": { "shown": string | number; "language": string | number };
   readonly "place.shownBadge": { "language": string | number };
 }

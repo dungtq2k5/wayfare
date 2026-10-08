@@ -7,6 +7,7 @@ import type {
   PlaceSyncRecord,
   ProtoEnumBridge,
 } from '@wayfare/contracts';
+import { servedLanguage } from '@wayfare/contracts';
 import { contentTierProto, placeKindProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc, geoGrpc } from '@wayfare/contracts/grpc';
 
@@ -50,7 +51,7 @@ export function toPlaceLocalization(
   }
   const audio = localization.audio;
   return {
-    lang: localization.lang,
+    lang: servedLanguage(localization.lang, 'a place localization'),
     name: localization.name,
     description: localization.description,
     contentTier: known(contentTierProto, localization.contentTier, 'contentTier'),
@@ -110,7 +111,7 @@ export function toPlaceSummary(summary: catalogGrpc.PlaceSummary): PlaceSummary 
     categoryCode: summary.categoryCode,
     location: toGeoPoint(summary.location),
     name: summary.name,
-    lang: summary.lang,
+    lang: servedLanguage(summary.lang, `place ${summary.id}`),
     contentTier: known(contentTierProto, summary.contentTier, 'contentTier'),
     stale: summary.stale,
     cardPhoto:

@@ -6,10 +6,10 @@
  */
 import type { PlaceDetailResponseDtoLocalizationAudio } from './placeDetailResponseDtoLocalizationAudio.js';
 import type { PlaceDetailResponseDtoLocalizationContentTier } from './placeDetailResponseDtoLocalizationContentTier.js';
+import type { PlaceDetailResponseDtoLocalizationLang } from './placeDetailResponseDtoLocalizationLang.js';
 
 export type PlaceDetailResponseDtoLocalization = {
-  /** @minLength 1 */
-  lang: string;
+  lang: PlaceDetailResponseDtoLocalizationLang;
   /** @minLength 1 */
   name: string;
   description: string;

@@ -1,4 +1,4 @@
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   accuracyRadiusExpression,
@@ -10,7 +10,7 @@ import {
 } from './map-logic';
 
 const place = (id: string, lat: number, lng: number, categoryCode = 'CAFE') =>
-  ({ id, categoryCode, location: { lat, lng } }) as unknown as PlaceSyncRecord;
+  ({ id, categoryCode, location: { lat, lng } }) as unknown as PlaceSyncRecordStored;
 
 const pack = { version: 2, style: 'https://x/style.json', styleDark: 'https://x/style-dark.json' };
 

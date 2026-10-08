@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeLang, zLanguage, zRequestedLanguage } from './languages';
+import {
+  normalizeLang,
+  servedLanguage,
+  SUPPORTED_LANGUAGES,
+  zLanguage,
+  zRequestedLanguage,
+  zServedLanguage,
+} from './languages';
 import { canonicalJson, CanonicalJsonError, normalizeText, trimTrailingSlashes } from './text';
 import { businessDay } from './time';
 
@@ -120,5 +127,17 @@ describe('businessDay', () => {
 
   it('refuses an invalid Date', () => {
     expect(() => businessDay(new Date('nope'))).toThrow(RangeError);
+  });
+});
+
+describe('the served languages', () => {
+  it('the enum offers exactly the supported languages', () => {
+    expect([...zServedLanguage.options]).toEqual([...SUPPORTED_LANGUAGES]);
+    expect(zServedLanguage.safeParse('xx').success).toBe(false);
+  });
+
+  it('servedLanguage keeps a served value and names the owner of a corrupt one', () => {
+    expect(servedLanguage('zh-Hans', 'row')).toBe('zh-Hans');
+    expect(() => servedLanguage('xx', 'place 1')).toThrow(/"xx" on place 1/);
   });
 });

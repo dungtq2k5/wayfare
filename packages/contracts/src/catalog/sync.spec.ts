@@ -110,4 +110,15 @@ describe('the sync record', () => {
       zPlaceSyncRecordStored.safeParse({ ...record(), location: { lat: 99, lng: 0 } }).success,
     ).toBe(false);
   });
+
+  it('the stored form accepts a language and enums the server adds later; the strict form does not', () => {
+    const base = record();
+    const future = {
+      ...base,
+      kind: 'MARKET_STALL',
+      localization: { ...base.localization, lang: 'pt', contentTier: 'MACHINE' },
+    };
+    expect(zPlaceSyncRecordStored.parse(future).localization.lang).toBe('pt');
+    expect(zPlaceSyncRecord.safeParse(future).success).toBe(false);
+  });
 });

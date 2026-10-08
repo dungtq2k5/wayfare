@@ -29,13 +29,10 @@ export const LONG_TAIL_LANGUAGES = [
 /** A long-tail language. */
 export type LongTailLanguage = (typeof LONG_TAIL_LANGUAGES)[number];
 
-/** Every language Wayfare serves. */
-export type Language = ContentLanguage | LongTailLanguage;
 /** Every served language, launch languages first. */
-export const SUPPORTED_LANGUAGES: readonly Language[] = [
-  ...CONTENT_LANGUAGES,
-  ...LONG_TAIL_LANGUAGES,
-];
+export const SUPPORTED_LANGUAGES = [...CONTENT_LANGUAGES, ...LONG_TAIL_LANGUAGES] as const;
+/** Every language Wayfare serves. */
+export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
 /** Upper bound of a BCP 47 language code column (rdm-spec §2.3). */
 export const MAX_LANGUAGE_CODE_LENGTH = 16;
@@ -97,3 +94,18 @@ export const zRequestedLanguage = z
   .max(MAX_LANGUAGE_CODE_LENGTH)
   .regex(LANGUAGE_TAG_PATTERN)
   .transform((tag): RequestedLanguage => ({ tag, lang: normalizeLang(tag) }));
+
+/** A language the server wrote: always one of ours, so a response never carries any other. */
+export const zServedLanguage = z.enum(SUPPORTED_LANGUAGES);
+
+/**
+ * A stored string, typed as the language it must be. A value outside the served list is corrupt
+ * data and fails loudly, naming `owner` (the row's id) for the log: a plain cast would make the
+ * type a promise nothing keeps.
+ */
+export function servedLanguage(value: string, owner: string): Language {
+  if (!isSupportedLanguage(value)) {
+    throw new Error(`Unsupported stored language "${value}" on ${owner}`);
+  }
+  return value;
+}

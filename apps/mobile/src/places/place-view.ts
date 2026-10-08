@@ -1,5 +1,5 @@
 import type { PlaceDetailResponseDto } from '@wayfare/api-client';
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import type { OpeningHoursRowInput } from '@wayfare/core';
 
 export interface PhotoView {
@@ -18,6 +18,16 @@ export interface MenuItemView {
   readonly otherLanguage: boolean;
 }
 
+export type PlaceViewKind = 'EDITORIAL' | 'VENUE' | 'OTHER';
+export type PlaceViewTier = 'REQUESTED' | 'ENGLISH' | 'SOURCE' | 'OTHER';
+
+/** A stored value reduced to one the screens know; anything else is `OTHER`, never a raw string. */
+function reduce<T extends string>(known: readonly T[], value: string): T | 'OTHER' {
+  return known.find((candidate) => candidate === value) ?? 'OTHER';
+}
+const KINDS = ['EDITORIAL', 'VENUE'] as const;
+const TIERS = ['REQUESTED', 'ENGLISH', 'SOURCE'] as const;
+
 /**
  * What the detail shows, whichever source it came from. The online answer has all of it; the synced
  * record has the fields marked, and the rest are empty (the offline detail says what it lacks).
@@ -25,7 +35,7 @@ export interface MenuItemView {
 export interface PlaceView {
   readonly id: string;
   readonly source: 'online' | 'offline';
-  readonly kind: 'EDITORIAL' | 'VENUE';
+  readonly kind: PlaceViewKind;
   readonly categoryCode: string;
   readonly name: string;
   readonly description: string;
@@ -37,7 +47,8 @@ export interface PlaceView {
   readonly menu: { currency: string; items: readonly MenuItemView[] } | null;
   readonly phone: string | null;
   readonly websiteUrl: string | null;
-  readonly contentTier: 'REQUESTED' | 'ENGLISH' | 'SOURCE';
+  /** `OTHER` is a tier this build does not know: the note names the text's own language. */
+  readonly contentTier: PlaceViewTier;
   readonly stale: boolean;
   readonly lang: string;
   readonly audioDurationMs: number | null;
@@ -85,12 +96,12 @@ export function viewFromDetail(dto: PlaceDetailResponseDto): PlaceView {
 }
 
 /** The synced fields only: the card photo, description, address, hours and narration length. */
-export function viewFromRecord(record: PlaceSyncRecord): PlaceView {
+export function viewFromRecord(record: PlaceSyncRecordStored): PlaceView {
   const photo = record.cardPhoto;
   return {
     id: record.id,
     source: 'offline',
-    kind: record.kind,
+    kind: reduce(KINDS, record.kind),
     categoryCode: record.categoryCode,
     name: record.localization.name,
     description: record.localization.description,
@@ -105,7 +116,7 @@ export function viewFromRecord(record: PlaceSyncRecord): PlaceView {
     menu: null,
     phone: null,
     websiteUrl: null,
-    contentTier: record.localization.contentTier,
+    contentTier: reduce(TIERS, record.localization.contentTier),
     stale: record.localization.stale,
     lang: record.localization.lang,
     audioDurationMs: record.localization.audio?.durationMs ?? null,

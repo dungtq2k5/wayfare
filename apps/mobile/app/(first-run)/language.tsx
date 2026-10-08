@@ -1,4 +1,5 @@
 import { normalizeLang } from '@wayfare/contracts';
+import type { Language } from '@wayfare/contracts';
 import { Redirect, useRouter } from 'expo-router';
 import { getLocales } from 'expo-localization';
 import { useState } from 'react';
@@ -12,7 +13,7 @@ import { LanguageList } from '../../src/ui/language-list';
 import { Wordmark } from '../../src/ui/wordmark';
 
 /** The phone's own language, when Wayfare serves it. */
-function suggestedLanguage(): string {
+function suggestedLanguage(): Language {
   const tag = getLocales()[0]?.languageTag;
   return (tag === undefined ? null : normalizeLang(tag)) ?? 'en';
 }
@@ -26,7 +27,7 @@ export default function LanguageScreen() {
   const [suggested] = useState(suggestedLanguage);
   const [choice, setChoice] = useState(suggested);
   if (stored !== null) return <Redirect href="/privacy" />;
-  const name = LANGUAGE_NAMES[choice as keyof typeof LANGUAGE_NAMES] ?? choice;
+  const name = LANGUAGE_NAMES[choice];
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerClassName="gap-6 p-6">

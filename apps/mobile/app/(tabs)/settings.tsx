@@ -122,11 +122,7 @@ export default function SettingsScreen() {
             <Row
               icon={Languages}
               title={t('settings.language')}
-              value={
-                LANGUAGE_NAMES[(language ?? 'en') as keyof typeof LANGUAGE_NAMES] ??
-                language ??
-                'English'
-              }
+              value={LANGUAGE_NAMES[language ?? 'en'] ?? language ?? 'English'}
               end={ChevronRight}
               onPress={() => router.push('/settings/language')}
             />

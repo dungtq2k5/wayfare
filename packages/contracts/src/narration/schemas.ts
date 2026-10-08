@@ -3,7 +3,7 @@ import { AudioStatus } from '../catalog/enums';
 import { zPlaceAudio } from '../catalog/sync';
 import { PREFETCH_MAX_PLACES } from '../catalog/limits';
 import { zUuidV7 } from '../common/ids';
-import { MAX_LANGUAGE_CODE_LENGTH, zRequestedLanguage } from '../common/languages';
+import { MAX_LANGUAGE_CODE_LENGTH, zRequestedLanguage, zServedLanguage } from '../common/languages';
 import { zSha256Hex } from '../events/event-definition';
 import {
   LocalizationTargetType,
@@ -93,7 +93,7 @@ export type SynthesisJobSummary = z.output<typeof zSynthesisJobSummary>;
 export const zSynthesisTaskView = z
   .object({
     id: zUuidV7,
-    lang: z.string(),
+    lang: zServedLanguage,
     stage: z.enum(SynthesisStage),
     status: z.enum(SynthesisTaskStatus),
     attempts: z.number().int().min(0),
@@ -139,7 +139,7 @@ export type ProviderHealth = z.output<typeof zProviderHealth>;
 /** The pinned voice and the provider's catalogue for one language (api-endpoints-plan §4.3). */
 export const zVoiceCatalogue = z
   .object({
-    lang: z.string(),
+    lang: zServedLanguage,
     provider: z.string(),
     pinnedVoiceId: z.string().nullable(),
     available: z.array(

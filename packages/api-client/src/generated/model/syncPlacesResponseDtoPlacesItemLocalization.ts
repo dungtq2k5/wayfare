@@ -6,10 +6,10 @@
  */
 import type { SyncPlacesResponseDtoPlacesItemLocalizationAudio } from './syncPlacesResponseDtoPlacesItemLocalizationAudio.js';
 import type { SyncPlacesResponseDtoPlacesItemLocalizationContentTier } from './syncPlacesResponseDtoPlacesItemLocalizationContentTier.js';
+import type { SyncPlacesResponseDtoPlacesItemLocalizationLang } from './syncPlacesResponseDtoPlacesItemLocalizationLang.js';
 
 export type SyncPlacesResponseDtoPlacesItemLocalization = {
-  /** @minLength 1 */
-  lang: string;
+  lang: SyncPlacesResponseDtoPlacesItemLocalizationLang;
   /** @minLength 1 */
   name: string;
   description: string;

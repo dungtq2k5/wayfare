@@ -1,6 +1,6 @@
 import { Footprints, Wallet } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { useTourist } from '../i18n/use-tourist';
 import { categoryIcon } from '../map/categories';
 import { useDistanceText } from '../places/use-walk-text';
@@ -20,7 +20,7 @@ export interface RowPlace {
   readonly distanceM: number | null;
   readonly walkingMinutes: number | null;
   readonly sponsored: boolean;
-  readonly openingHours: PlaceSyncRecord['openingHours'] | null;
+  readonly openingHours: PlaceSyncRecordStored['openingHours'] | null;
 }
 
 const priceMarks = (band: number | null) =>
@@ -91,7 +91,7 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
 
 /** A synced record as a row (offline lists, favourites). */
 export function rowFromRecord(
-  record: PlaceSyncRecord,
+  record: PlaceSyncRecordStored,
   distance: { distanceM: number | null; walkingMinutes: number | null },
 ): RowPlace {
   return {

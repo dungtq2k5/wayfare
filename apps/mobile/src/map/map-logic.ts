@@ -1,5 +1,5 @@
 import { distanceMeters } from '@wayfare/core';
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { categoryKey } from './category-key';
 
 /** The pack's two styles, as the area's manifest names them. */
@@ -38,7 +38,7 @@ export function chooseMapStyle(input: {
 }
 
 /** One synced Place as a map feature; `category` is the marker image's key. */
-export function placeFeature(record: PlaceSyncRecord) {
+export function placeFeature(record: PlaceSyncRecordStored) {
   return {
     type: 'Feature' as const,
     id: record.id,
@@ -52,7 +52,7 @@ export function placeFeature(record: PlaceSyncRecord) {
  * selected), so those never merge into a cluster.
  */
 export function clusteredFeatures(
-  records: readonly PlaceSyncRecord[],
+  records: readonly PlaceSyncRecordStored[],
   exclude: ReadonlySet<string>,
 ) {
   return {
@@ -63,11 +63,11 @@ export function clusteredFeatures(
 
 /** The Place nearest to `position`, or null with no position or no Places. */
 export function nearestPlace(
-  records: readonly PlaceSyncRecord[],
+  records: readonly PlaceSyncRecordStored[],
   position: { lat: number; lng: number } | null,
-): PlaceSyncRecord | null {
+): PlaceSyncRecordStored | null {
   if (position === null) return null;
-  let best: PlaceSyncRecord | null = null;
+  let best: PlaceSyncRecordStored | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const record of records) {
     const distance = distanceMeters(position, record.location);

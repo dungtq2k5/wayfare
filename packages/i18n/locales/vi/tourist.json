@@ -177,6 +177,8 @@
   "settings.versionLabel": "Phiên bản",
   "list.and": " và ",
   "place.distanceHours": "{hours} giờ {minutes} phút đi bộ",
+  "place.shownInOther": "Hiển thị bằng {shown} — chưa có bằng {language}",
+  "place.notInLanguage": "Chưa có bằng ngôn ngữ của bạn",
   "place.shownBadge": "Hiển thị bằng {language}",
   "place.editorsPick": "Biên tập viên chọn"
 }

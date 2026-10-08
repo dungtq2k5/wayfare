@@ -1,4 +1,4 @@
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { Language, PlaceSyncRecordStored } from '@wayfare/contracts';
 import type { Database } from '../db/database';
 
 /** One synced area: how much of it the phone holds, and how current. */
@@ -11,7 +11,7 @@ export interface AreaSummary {
 }
 
 /** Every area the phone has synced in `lang`, with its Place count. */
-export async function areaSummaries(db: Database, lang: string): Promise<AreaSummary[]> {
+export async function areaSummaries(db: Database, lang: Language): Promise<AreaSummary[]> {
   const rows = await db.all<{
     area_id: string;
     places: number;
@@ -35,33 +35,33 @@ export async function areaSummaries(db: Database, lang: string): Promise<AreaSum
 export async function placesOfArea(
   db: Database,
   areaId: string,
-  lang: string,
-): Promise<PlaceSyncRecord[]> {
+  lang: Language,
+): Promise<PlaceSyncRecordStored[]> {
   const rows = await db.all<{ record_json: string }>(
     'SELECT record_json FROM place_records WHERE area_id = ? AND lang = ? ORDER BY place_id',
     [areaId, lang],
   );
-  return rows.map((row) => JSON.parse(row.record_json) as PlaceSyncRecord);
+  return rows.map((row) => JSON.parse(row.record_json) as PlaceSyncRecordStored);
 }
 
 /** Every synced Place of every area in `lang`: what the map draws and Explore lists offline. */
-export async function allPlaces(db: Database, lang: string): Promise<PlaceSyncRecord[]> {
+export async function allPlaces(db: Database, lang: Language): Promise<PlaceSyncRecordStored[]> {
   const rows = await db.all<{ record_json: string }>(
     'SELECT record_json FROM place_records WHERE lang = ? ORDER BY place_id',
     [lang],
   );
-  return rows.map((row) => JSON.parse(row.record_json) as PlaceSyncRecord);
+  return rows.map((row) => JSON.parse(row.record_json) as PlaceSyncRecordStored);
 }
 
 /** One synced Place, or null when this phone does not hold it. */
 export async function placeById(
   db: Database,
   placeId: string,
-  lang: string,
-): Promise<PlaceSyncRecord | null> {
+  lang: Language,
+): Promise<PlaceSyncRecordStored | null> {
   const [row] = await db.all<{ record_json: string }>(
     'SELECT record_json FROM place_records WHERE place_id = ? AND lang = ?',
     [placeId, lang],
   );
-  return row === undefined ? null : (JSON.parse(row.record_json) as PlaceSyncRecord);
+  return row === undefined ? null : (JSON.parse(row.record_json) as PlaceSyncRecordStored);
 }

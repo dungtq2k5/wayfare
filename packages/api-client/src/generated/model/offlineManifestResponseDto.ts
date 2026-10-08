@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.0.0-dev
  */
 import type { OfflineManifestResponseDtoAudioItem } from './offlineManifestResponseDtoAudioItem.js';
+import type { OfflineManifestResponseDtoLang } from './offlineManifestResponseDtoLang.js';
 import type { OfflineManifestResponseDtoMapPack } from './offlineManifestResponseDtoMapPack.js';
 import type { OfflineManifestResponseDtoPhotosItem } from './offlineManifestResponseDtoPhotosItem.js';
 import type { OfflineManifestResponseDtoPlaces } from './offlineManifestResponseDtoPlaces.js';
@@ -12,8 +13,7 @@ import type { OfflineManifestResponseDtoPlaces } from './offlineManifestResponse
 export interface OfflineManifestResponseDto {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
   areaId: string;
-  /** @minLength 1 */
-  lang: string;
+  lang: OfflineManifestResponseDtoLang;
   /**
      * @minimum 0
      * @maximum 9007199254740991

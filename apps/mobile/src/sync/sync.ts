@@ -1,5 +1,5 @@
 import { zPlaceSyncRecordStored } from '@wayfare/contracts';
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { Language, PlaceSyncRecordStored } from '@wayfare/contracts';
 import type { Database } from '../db/database';
 
 /** One page as the sync reads it from the wire. */
@@ -14,7 +14,7 @@ export interface SyncClient {
   /** `undefined` is a `304`: nothing changed since `ifNoneMatch`. */
   places(request: {
     areaId: string;
-    lang: string;
+    lang: Language;
     since: number | undefined;
     ifNoneMatch: string | undefined;
   }): Promise<SyncPage | undefined>;
@@ -25,7 +25,7 @@ export interface SyncClient {
  * with the normalized language tag (api-endpoints-plan §2.1). Rebuilt here from the cursor, since a
  * body-only client never sees the header.
  */
-export function syncTag(areaId: string, lang: string, datasetVersion: number): string {
+export function syncTag(areaId: string, lang: Language, datasetVersion: number): string {
   return `"${areaId}:${lang}:${datasetVersion}"`;
 }
 
@@ -43,7 +43,11 @@ export interface AreaSyncResult {
 const DELETE_CHUNK = 500;
 
 /** The version this area was last synced to, in this language. */
-export async function cursorOf(db: Database, areaId: string, lang: string): Promise<number | null> {
+export async function cursorOf(
+  db: Database,
+  areaId: string,
+  lang: Language,
+): Promise<number | null> {
   const [row] = await db.all<{ dataset_version: number }>(
     'SELECT dataset_version FROM sync_state WHERE area_id = ? AND lang = ?',
     [areaId, lang],
@@ -64,7 +68,7 @@ export async function syncArea(input: {
   db: Database;
   client: SyncClient;
   areaId: string;
-  lang: string;
+  lang: Language;
   now: () => number;
 }): Promise<AreaSyncResult> {
   const { db, client, areaId, lang } = input;
@@ -116,7 +120,7 @@ export async function syncArea(input: {
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
-async function upsertRecord(tx: Tx, record: PlaceSyncRecord, lang: string): Promise<void> {
+async function upsertRecord(tx: Tx, record: PlaceSyncRecordStored, lang: Language): Promise<void> {
   await tx.run(
     `INSERT INTO place_records
        (place_id, lang, area_id, kind, category_code, lat, lng, record_json)
@@ -155,7 +159,7 @@ export async function syncAreas(input: {
   db: Database;
   client: SyncClient;
   areaIds: readonly string[];
-  lang: string;
+  lang: Language;
   now: () => number;
 }): Promise<AreaSyncResult[]> {
   // ponytail: every active area. At city scale, sync the area the tourist is in and its

@@ -1,4 +1,4 @@
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   byAreaThenName,
@@ -9,7 +9,12 @@ import {
 } from './place-order';
 
 const place = (id: string, name: string, areaId = 'area-1', lat = 10.77, lng = 106.7) =>
-  ({ id, areaId, location: { lat, lng }, localization: { name } }) as unknown as PlaceSyncRecord;
+  ({
+    id,
+    areaId,
+    location: { lat, lng },
+    localization: { name },
+  }) as unknown as PlaceSyncRecordStored;
 
 describe('foldDiacritics', () => {
   it('drops Vietnamese marks and folds đ', () => {

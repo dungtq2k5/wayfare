@@ -7,6 +7,7 @@
 import type { PlaceSummaryResponseDtoCardPhoto } from './placeSummaryResponseDtoCardPhoto.js';
 import type { PlaceSummaryResponseDtoContentTier } from './placeSummaryResponseDtoContentTier.js';
 import type { PlaceSummaryResponseDtoKind } from './placeSummaryResponseDtoKind.js';
+import type { PlaceSummaryResponseDtoLang } from './placeSummaryResponseDtoLang.js';
 import type { PlaceSummaryResponseDtoLocation } from './placeSummaryResponseDtoLocation.js';
 
 export interface PlaceSummaryResponseDto {
@@ -20,8 +21,7 @@ export interface PlaceSummaryResponseDto {
   location: PlaceSummaryResponseDtoLocation;
   /** @minLength 1 */
   name: string;
-  /** @minLength 1 */
-  lang: string;
+  lang: PlaceSummaryResponseDtoLang;
   contentTier: PlaceSummaryResponseDtoContentTier;
   stale: boolean;
   cardPhoto: PlaceSummaryResponseDtoCardPhoto;

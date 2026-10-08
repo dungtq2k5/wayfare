@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { zUuidV7 } from '../common/ids';
+import { zServedLanguage } from '../common/languages';
 import { zSha256Hex } from '../events/event-definition';
 import { MapPackStatus } from './enums';
 import { zDatasetVersion, zPlaceSummary } from './sync';
@@ -133,7 +134,7 @@ export type OfflineMapPack = z.output<typeof zOfflineMapPack>;
 export const zOfflineManifest = z
   .object({
     areaId: zUuidV7,
-    lang: z.string().min(1),
+    lang: zServedLanguage,
     datasetVersion: zDatasetVersion,
     mapPack: zOfflineMapPack.nullable(),
     places: zOfflineAsset,
@@ -153,7 +154,7 @@ export type OfflineManifest = z.output<typeof zOfflineManifest>;
 export const zOfflineManifestDiff = z
   .object({
     areaId: zUuidV7,
-    lang: z.string().min(1),
+    lang: zServedLanguage,
     fromDatasetVersion: zDatasetVersion,
     datasetVersion: zDatasetVersion,
     changedPlaceIds: z.array(zUuidV7),

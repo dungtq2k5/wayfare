@@ -12,6 +12,7 @@ import {
   synthesisTaskStatusProto,
   synthesisTriggerProto,
 } from '@wayfare/contracts/grpc';
+import { servedLanguage } from '@wayfare/contracts';
 import type { narrationGrpc } from '@wayfare/contracts/grpc';
 import { fromOptionalProtoTimestamp, fromProtoTimestamp } from '@wayfare/nest-common';
 import type { ListJobsQueryDto } from './dto/admin-narration.dto';
@@ -61,7 +62,7 @@ export function toSynthesisJobDetail(response: narrationGrpc.GetJobResponse): Sy
     ...toSynthesisJobSummary(response.job),
     tasks: response.tasks.map((task) => ({
       id: task.id,
-      lang: task.lang,
+      lang: servedLanguage(task.lang, `synthesis task ${task.id}`),
       stage: known(synthesisStageProto, task.stage, 'stage'),
       status: known(synthesisTaskStatusProto, task.status, 'task status'),
       attempts: task.attempts,
@@ -95,7 +96,7 @@ export function toProviderHealth(provider: narrationGrpc.ProviderHealth): Provid
 /** One language's voices. */
 export function toVoiceCatalogue(catalogue: narrationGrpc.VoiceCatalogue): VoiceCatalogue {
   return {
-    lang: catalogue.lang,
+    lang: servedLanguage(catalogue.lang, 'the voice catalogue'),
     provider: catalogue.provider,
     pinnedVoiceId: catalogue.pinnedVoiceId ?? null,
     available: catalogue.available.map((voice) => ({

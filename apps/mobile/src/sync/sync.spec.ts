@@ -1,4 +1,5 @@
 import { newId } from '@wayfare/contracts';
+import type { Language } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import { openTestDatabase } from '../db/test-database';
 import { migrate } from '../db/migrate';
@@ -96,7 +97,7 @@ const ids = async (db: Database, areaId: string) =>
     )
   ).map((row) => row.place_id);
 
-const run = (db: Database, server: FakeServer, areaId: string, lang = 'en') =>
+const run = (db: Database, server: FakeServer, areaId: string, lang: Language = 'en') =>
   syncArea({ db, client: server.client, areaId, lang, now: () => 1_000 });
 
 describe('syncTag', () => {

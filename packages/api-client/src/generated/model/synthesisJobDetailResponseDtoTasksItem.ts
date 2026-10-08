@@ -4,13 +4,14 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { SynthesisJobDetailResponseDtoTasksItemLang } from './synthesisJobDetailResponseDtoTasksItemLang.js';
 import type { SynthesisJobDetailResponseDtoTasksItemStage } from './synthesisJobDetailResponseDtoTasksItemStage.js';
 import type { SynthesisJobDetailResponseDtoTasksItemStatus } from './synthesisJobDetailResponseDtoTasksItemStatus.js';
 
 export type SynthesisJobDetailResponseDtoTasksItem = {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
   id: string;
-  lang: string;
+  lang: SynthesisJobDetailResponseDtoTasksItemLang;
   stage: SynthesisJobDetailResponseDtoTasksItemStage;
   status: SynthesisJobDetailResponseDtoTasksItemStatus;
   /**

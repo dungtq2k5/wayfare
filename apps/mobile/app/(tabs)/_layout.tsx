@@ -2,7 +2,8 @@ import { Tabs } from 'expo-router';
 import { Compass, Heart, Map as MapIcon, Settings } from 'lucide-react-native';
 import { Text, View } from 'react-native';
 import type { ColorValue } from 'react-native';
-import { TAB_BAR_HEIGHT } from '../../src/ui/layout';
+import { space } from '@wayfare/design-tokens/tokens';
+import { TAB_BAR_HEIGHT, TAB_BAR_ITEM_HEIGHT } from '../../src/ui/layout';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { useTheme } from '../../src/theme/appearance';
 
@@ -43,10 +44,10 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           height: TAB_BAR_HEIGHT,
-          paddingTop: 8,
-          paddingBottom: 8,
+          paddingTop: space[2],
+          paddingBottom: space[2],
         },
-        tabBarItemStyle: { height: TAB_BAR_HEIGHT - 16 },
+        tabBarItemStyle: { height: TAB_BAR_ITEM_HEIGHT },
       }}
     >
       <Tabs.Screen

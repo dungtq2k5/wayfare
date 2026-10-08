@@ -5,11 +5,12 @@ import type {
   MapRef,
   ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { Ref } from 'react';
 import type { NativeSyntheticEvent } from 'react-native';
 import { Text, View } from 'react-native';
+import { fontSize } from '@wayfare/design-tokens/tokens';
 import { useTourist } from '../i18n/use-tourist';
 import type { Position } from '../location/location-store';
 import { useTheme } from '../theme/appearance';
@@ -34,9 +35,9 @@ interface PlacesMapProps {
   ref?: Ref<PlacesMapHandle>;
   mapStyle: string | object;
   initial: MapView;
-  places: readonly PlaceSyncRecord[];
-  nearest: PlaceSyncRecord | null;
-  selected: PlaceSyncRecord | null;
+  places: readonly PlaceSyncRecordStored[];
+  nearest: PlaceSyncRecordStored | null;
+  selected: PlaceSyncRecordStored | null;
   sponsoredIds: ReadonlySet<string>;
   position: Position | null;
   onSelect: (placeId: string | null) => void;
@@ -45,6 +46,11 @@ interface PlacesMapProps {
 }
 
 /** Disc sizes in dp: the marker, the nearest's halo, the selected one. */
+/**
+ * The marker images are drawn at 3x for sharp screens (`scripts/build-marker-images.mjs`); the
+ * layer scales them back to their size in dp. Change both together.
+ */
+const MARKER_IMAGE_SCALE = 1 / 3;
 const MARKER = 40;
 const HALO = 64;
 const SELECTED = 48;
@@ -60,7 +66,7 @@ function Disc({
   selected = false,
 }: {
   size: number;
-  record: PlaceSyncRecord;
+  record: PlaceSyncRecordStored;
   selected?: boolean;
 }) {
   return (
@@ -273,7 +279,7 @@ export function PlacesMap({
           style={{
             textField: ['get', 'point_count_abbreviated'] as never,
             textFont: ['Noto Sans Medium'],
-            textSize: 14,
+            textSize: fontSize.sm.size,
             textColor: colors['map-marker-foreground'],
             textAllowOverlap: true,
           }}
@@ -284,7 +290,7 @@ export function PlacesMap({
           filter={['!', ['has', 'point_count']] as never}
           style={{
             iconImage: ['concat', ['get', 'category'], `-${mode}`] as never,
-            iconSize: 1 / 3,
+            iconSize: MARKER_IMAGE_SCALE,
             iconAllowOverlap: true,
           }}
         />

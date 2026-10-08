@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AudioStatus } from '../catalog/enums';
 import { MAX_DESCRIPTION_CHARS, MAX_PLACE_NAME_LENGTH } from '../catalog/limits';
 import { zUuidV7 } from '../common/ids';
+import { zServedLanguage } from '../common/languages';
 import { zSha256Hex } from '../events/event-definition';
 import { LocalizationTargetType, OverrideStatus, TranslationSource } from './enums';
 
@@ -25,7 +26,7 @@ export const zCorrection = z
     id: zUuidV7,
     targetType: z.enum(LocalizationTargetType),
     targetId: zUuidV7,
-    lang: z.string(),
+    lang: zServedLanguage,
     sourceContentHash: zSha256Hex,
     name: z.string(),
     description: z.string().nullable(),
@@ -42,7 +43,7 @@ export type Correction = z.output<typeof zCorrection>;
 /** One language on the correction screen (api-endpoints-plan §4.5). */
 export const zLocalizationOverviewRow = z
   .object({
-    lang: z.string(),
+    lang: zServedLanguage,
     /** The text served now, machine or human. */
     name: z.string(),
     description: z.string().nullable(),

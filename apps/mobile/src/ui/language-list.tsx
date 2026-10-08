@@ -1,3 +1,4 @@
+import type { Language } from '@wayfare/contracts';
 import { Globe } from 'lucide-react-native';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -11,10 +12,10 @@ import { useTourist } from '../i18n/use-tourist';
 import { ListItem } from './list-item';
 
 interface LanguageListProps {
-  value: string | null;
+  value: Language | null;
   /** The language the phone suggests; its row says so instead of naming the language in English. */
-  suggested?: string | null;
-  onChange: (language: string) => void;
+  suggested?: Language | null;
+  onChange: (language: Language) => void;
 }
 
 /** The five launch languages, and *Other languages* for the rest — each in its own name. */

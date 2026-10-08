@@ -5,9 +5,10 @@
  * OpenAPI spec version: 0.0.0-dev
  */
 import type { VoiceCatalogueResponseDtoAvailableItem } from './voiceCatalogueResponseDtoAvailableItem.js';
+import type { VoiceCatalogueResponseDtoLang } from './voiceCatalogueResponseDtoLang.js';
 
 export interface VoiceCatalogueResponseDto {
-  lang: string;
+  lang: VoiceCatalogueResponseDtoLang;
   provider: string;
   /** @nullable */
   pinnedVoiceId: string | null;

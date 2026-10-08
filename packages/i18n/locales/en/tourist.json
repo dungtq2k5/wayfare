@@ -177,6 +177,8 @@
   "settings.versionLabel": "Version",
   "list.and": " and ",
   "place.distanceHours": "{hours} h {minutes} min walk",
+  "place.shownInOther": "Shown in {shown} — not yet in {language}",
+  "place.notInLanguage": "Not in your language yet",
   "place.shownBadge": "Shown in {language}",
   "place.editorsPick": "Editor's pick"
 }

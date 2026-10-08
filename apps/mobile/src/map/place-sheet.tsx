@@ -1,4 +1,5 @@
 import { distanceMeters, walkingEtaMinutes } from '@wayfare/core';
+import { space } from '@wayfare/design-tokens/tokens';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ export type SheetState = 'peek' | 'half' | 'full';
 
 const HALF_FRACTION = 0.62;
 /** The least room kept above the sheet at full height; the status bar's own height can be more. */
-const MIN_TOP_GAP = 48;
+const MIN_TOP_GAP = space[12];
 /** The handle's height, and the least a peek ever shows. */
 const HANDLE = 48;
 const MIN_PEEK = 220;
@@ -39,7 +40,7 @@ export function PlaceSheet({
   const insets = useSafeAreaInsets();
   // The map screen ends at the tab bar: the sheet fits what is left, below the status bar.
   const available = screenHeight - TAB_BAR_HEIGHT;
-  const fullHeight = available - Math.max(MIN_TOP_GAP, insets.top + 8);
+  const fullHeight = available - Math.max(MIN_TOP_GAP, insets.top + space[2]);
   const [contentHeight, setContentHeight] = useState(0);
   const duration = useDuration('normal');
   const [state, setState] = useState<SheetState>('peek');

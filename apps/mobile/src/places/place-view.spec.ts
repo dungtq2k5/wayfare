@@ -1,5 +1,5 @@
 import type { PlaceDetailResponseDto } from '@wayfare/api-client';
-import type { PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import { formatDuration, formatPrice, viewFromDetail, viewFromRecord } from './place-view';
 
@@ -20,7 +20,7 @@ const record = {
     stale: true,
     audio: { durationMs: 220_000 },
   },
-} as unknown as PlaceSyncRecord;
+} as unknown as PlaceSyncRecordStored;
 
 describe('viewFromRecord', () => {
   it('keeps the synced fields and leaves the online-only ones empty', () => {
@@ -42,10 +42,29 @@ describe('viewFromRecord', () => {
   });
 
   it('shows no address for a record from before the field, and no photo without one', () => {
-    const old = { ...record, addressVi: undefined, cardPhoto: null } as unknown as PlaceSyncRecord;
+    const old = {
+      ...record,
+      addressVi: undefined,
+      cardPhoto: null,
+    } as unknown as PlaceSyncRecordStored;
     const view = viewFromRecord(old);
     expect(view.address).toBeNull();
     expect(view.photos).toEqual([]);
+  });
+});
+
+describe('viewFromRecord, with values this build does not know', () => {
+  it('reduces an unknown kind and tier to OTHER and keeps the text language', () => {
+    const future = {
+      ...record,
+      kind: 'MARKET_STALL',
+      localization: { ...record.localization, lang: 'pt', contentTier: 'MACHINE' },
+    };
+    expect(viewFromRecord(future)).toMatchObject({
+      kind: 'OTHER',
+      contentTier: 'OTHER',
+      lang: 'pt',
+    });
   });
 });
 

@@ -1,3 +1,4 @@
+import { servedLanguage } from '@wayfare/contracts';
 import type { OfflineAsset, PlaceSyncRecord, ProtoEnumBridge } from '@wayfare/contracts';
 import { contentTierProto, placeKindProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
@@ -29,7 +30,7 @@ export function toPlaceSyncRecord(record: catalogGrpc.PlaceSyncRecord): PlaceSyn
     autoNarrationEnabled: record.autoNarrationEnabled,
     addressVi: record.addressVi ?? null,
     localization: {
-      lang: localization.lang,
+      lang: servedLanguage(localization.lang, `place ${record.id}`),
       name: localization.name,
       description: localization.description,
       contentTier: known(contentTierProto, localization.contentTier),

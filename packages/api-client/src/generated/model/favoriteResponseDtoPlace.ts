@@ -7,6 +7,7 @@
 import type { FavoriteResponseDtoPlaceCardPhoto } from './favoriteResponseDtoPlaceCardPhoto.js';
 import type { FavoriteResponseDtoPlaceContentTier } from './favoriteResponseDtoPlaceContentTier.js';
 import type { FavoriteResponseDtoPlaceKind } from './favoriteResponseDtoPlaceKind.js';
+import type { FavoriteResponseDtoPlaceLang } from './favoriteResponseDtoPlaceLang.js';
 import type { FavoriteResponseDtoPlaceLocation } from './favoriteResponseDtoPlaceLocation.js';
 
 export type FavoriteResponseDtoPlace = {
@@ -20,8 +21,7 @@ export type FavoriteResponseDtoPlace = {
   location: FavoriteResponseDtoPlaceLocation;
   /** @minLength 1 */
   name: string;
-  /** @minLength 1 */
-  lang: string;
+  lang: FavoriteResponseDtoPlaceLang;
   contentTier: FavoriteResponseDtoPlaceContentTier;
   stale: boolean;
   cardPhoto: FavoriteResponseDtoPlaceCardPhoto;

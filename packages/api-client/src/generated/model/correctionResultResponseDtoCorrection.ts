@@ -4,6 +4,7 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { CorrectionResultResponseDtoCorrectionLang } from './correctionResultResponseDtoCorrectionLang.js';
 import type { CorrectionResultResponseDtoCorrectionStatus } from './correctionResultResponseDtoCorrectionStatus.js';
 import type { CorrectionResultResponseDtoCorrectionTargetType } from './correctionResultResponseDtoCorrectionTargetType.js';
 
@@ -13,7 +14,7 @@ export type CorrectionResultResponseDtoCorrection = {
   targetType: CorrectionResultResponseDtoCorrectionTargetType;
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
   targetId: string;
-  lang: string;
+  lang: CorrectionResultResponseDtoCorrectionLang;
   /** @pattern ^[0-9a-f]{64}$ */
   sourceContentHash: string;
   name: string;

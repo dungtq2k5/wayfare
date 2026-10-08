@@ -1,3 +1,4 @@
+import { servedLanguage } from '@wayfare/contracts';
 import type { LocalizationTargetType, OverrideStatus, Correction } from '@wayfare/contracts';
 import { localizationTargetTypeProto, overrideStatusProto } from '@wayfare/contracts/grpc';
 import type { narrationGrpc } from '@wayfare/contracts/grpc';
@@ -19,7 +20,7 @@ export function toCorrection(row: OverrideRow, currentHash: string): Correction 
     id: row.id,
     targetType: row.targetType as LocalizationTargetType,
     targetId: row.targetId,
-    lang: row.lang,
+    lang: servedLanguage(row.lang, `correction ${row.id}`),
     sourceContentHash: row.sourceContentHash,
     name: row.name,
     description: row.description,

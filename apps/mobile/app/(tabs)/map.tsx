@@ -19,7 +19,7 @@ import { useSyncStore } from '../../src/sync/run-sync';
 import { useTheme } from '../../src/theme/appearance';
 import { Icon } from '../../src/theme/icon';
 import { InlineNote } from '../../src/ui/inline-note';
-import { MINI_PLAYER_BAND } from '../../src/ui/layout';
+import { MINI_PLAYER_CLEARANCE } from '../../src/ui/layout';
 import { AreaSheet } from '../../src/map/area-sheet';
 
 const NEARBY_RADIUS_M = 1_500;
@@ -197,7 +197,7 @@ export default function MapScreen() {
       </View>
 
       <View
-        style={{ bottom: MINI_PLAYER_BAND + 16 }}
+        style={{ bottom: MINI_PLAYER_CLEARANCE }}
         className="absolute right-4 gap-2"
         pointerEvents="box-none"
       >
@@ -219,7 +219,7 @@ export default function MapScreen() {
       </View>
       <Text
         maxFontSizeMultiplier={1.3}
-        style={{ bottom: MINI_PLAYER_BAND + 16 }}
+        style={{ bottom: MINI_PLAYER_CLEARANCE }}
         className="absolute left-4 right-16 self-start rounded-full bg-card/85 px-3 py-1 text-caption text-muted-foreground"
         onPress={() => router.push('/settings/credits')}
       >

@@ -13,11 +13,13 @@ import {
   Wallet,
   XCircle,
 } from 'lucide-react-native';
+import { isSupportedLanguage } from '@wayfare/contracts';
 import { useState } from 'react';
 import { FlatList, Linking, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { LANGUAGE_NAMES } from '../i18n/languages';
 import { categoryIcon } from '../map/categories';
+import { useAppStore } from '../state/app-store';
 import { Icon } from '../theme/icon';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -185,10 +187,18 @@ export function PlaceDetail({
   const { t, tFamily } = useTourist();
   const summary = useOpenSummary(view.openingHours);
   const distanceText = useDistanceText();
-  const languageName = LANGUAGE_NAMES[view.lang as keyof typeof LANGUAGE_NAMES] ?? view.lang;
+  const yourLanguage = LANGUAGE_NAMES[useAppStore((state) => state.language) ?? 'en'];
+  // The text's own language, when this build has a name for it.
+  const shownLanguage = isSupportedLanguage(view.lang) ? LANGUAGE_NAMES[view.lang] : null;
   const price =
     view.priceBand === null || view.priceBand < 1 ? null : '$'.repeat(Math.min(view.priceBand, 4));
   const ownLanguage = view.contentTier === 'REQUESTED';
+  const shownBadgeLanguage =
+    view.contentTier === 'ENGLISH'
+      ? LANGUAGE_NAMES.en
+      : view.contentTier === 'SOURCE'
+        ? LANGUAGE_NAMES.vi
+        : shownLanguage;
 
   return (
     <View className="gap-4">
@@ -218,19 +228,21 @@ export function PlaceDetail({
             <Icon icon={Languages} size={16} color="info-foreground" />
             <Text className="flex-1 text-caption text-info-foreground">
               {view.contentTier === 'ENGLISH'
-                ? t('place.shownInEnglish', { language: languageName })
-                : t('place.shownInSource', { language: languageName })}
+                ? t('place.shownInEnglish', { language: yourLanguage })
+                : view.contentTier === 'SOURCE'
+                  ? t('place.shownInSource', { language: yourLanguage })
+                  : shownLanguage === null
+                    ? t('place.notInLanguage')
+                    : t('place.shownInOther', { shown: shownLanguage, language: yourLanguage })}
             </Text>
           </View>
         )}
         <View className="flex-row flex-wrap gap-2">
-          {!ownLanguage && (
+          {!ownLanguage && shownBadgeLanguage !== null && (
             <Badge
               tone="info"
               icon={Languages}
-              label={t('place.shownBadge', {
-                language: LANGUAGE_NAMES[view.contentTier === 'ENGLISH' ? 'en' : 'vi'],
-              })}
+              label={t('place.shownBadge', { language: shownBadgeLanguage })}
             />
           )}
           {view.kind === 'EDITORIAL' && (

@@ -6,10 +6,11 @@
  */
 import type { LocalizationOverviewResponseDtoLanguagesItemAudioStatus } from './localizationOverviewResponseDtoLanguagesItemAudioStatus.js';
 import type { LocalizationOverviewResponseDtoLanguagesItemCorrection } from './localizationOverviewResponseDtoLanguagesItemCorrection.js';
+import type { LocalizationOverviewResponseDtoLanguagesItemLang } from './localizationOverviewResponseDtoLanguagesItemLang.js';
 import type { LocalizationOverviewResponseDtoLanguagesItemTranslationSource } from './localizationOverviewResponseDtoLanguagesItemTranslationSource.js';
 
 export type LocalizationOverviewResponseDtoLanguagesItem = {
-  lang: string;
+  lang: LocalizationOverviewResponseDtoLanguagesItemLang;
   name: string;
   /** @nullable */
   description: string | null;

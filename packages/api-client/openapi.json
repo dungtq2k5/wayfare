@@ -67241,7 +67241,23 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "lang": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "vi",
+                    "en",
+                    "zh-Hans",
+                    "ja",
+                    "ko",
+                    "zh-Hant",
+                    "fr",
+                    "de",
+                    "es",
+                    "ru",
+                    "th",
+                    "id",
+                    "ms",
+                    "hi"
+                  ]
                 },
                 "stage": {
                   "type": "string",
@@ -67670,7 +67686,23 @@
         "type": "object",
         "properties": {
           "lang": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "vi",
+              "en",
+              "zh-Hans",
+              "ja",
+              "ko",
+              "zh-Hant",
+              "fr",
+              "de",
+              "es",
+              "ru",
+              "th",
+              "id",
+              "ms",
+              "hi"
+            ]
           },
           "provider": {
             "type": "string"
@@ -67791,7 +67823,22 @@
                   "properties": {
                     "lang": {
                       "type": "string",
-                      "minLength": 1
+                      "enum": [
+                        "vi",
+                        "en",
+                        "zh-Hans",
+                        "ja",
+                        "ko",
+                        "zh-Hant",
+                        "fr",
+                        "de",
+                        "es",
+                        "ru",
+                        "th",
+                        "id",
+                        "ms",
+                        "hi"
+                      ]
                     },
                     "name": {
                       "type": "string",
@@ -68043,7 +68090,22 @@
           },
           "lang": {
             "type": "string",
-            "minLength": 1
+            "enum": [
+              "vi",
+              "en",
+              "zh-Hans",
+              "ja",
+              "ko",
+              "zh-Hant",
+              "fr",
+              "de",
+              "es",
+              "ru",
+              "th",
+              "id",
+              "ms",
+              "hi"
+            ]
           },
           "contentTier": {
             "type": "string",
@@ -68212,7 +68274,22 @@
             "properties": {
               "lang": {
                 "type": "string",
-                "minLength": 1
+                "enum": [
+                  "vi",
+                  "en",
+                  "zh-Hans",
+                  "ja",
+                  "ko",
+                  "zh-Hant",
+                  "fr",
+                  "de",
+                  "es",
+                  "ru",
+                  "th",
+                  "id",
+                  "ms",
+                  "hi"
+                ]
               },
               "name": {
                 "type": "string",
@@ -74215,7 +74292,23 @@
               "type": "object",
               "properties": {
                 "lang": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "vi",
+                    "en",
+                    "zh-Hans",
+                    "ja",
+                    "ko",
+                    "zh-Hant",
+                    "fr",
+                    "de",
+                    "es",
+                    "ru",
+                    "th",
+                    "id",
+                    "ms",
+                    "hi"
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -74266,7 +74359,23 @@
                           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                         },
                         "lang": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "vi",
+                            "en",
+                            "zh-Hans",
+                            "ja",
+                            "ko",
+                            "zh-Hant",
+                            "fr",
+                            "de",
+                            "es",
+                            "ru",
+                            "th",
+                            "id",
+                            "ms",
+                            "hi"
+                          ]
                         },
                         "sourceContentHash": {
                           "type": "string",
@@ -74369,7 +74478,23 @@
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
               },
               "lang": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "vi",
+                  "en",
+                  "zh-Hans",
+                  "ja",
+                  "ko",
+                  "zh-Hant",
+                  "fr",
+                  "de",
+                  "es",
+                  "ru",
+                  "th",
+                  "id",
+                  "ms",
+                  "hi"
+                ]
               },
               "sourceContentHash": {
                 "type": "string",
@@ -74464,7 +74589,22 @@
           },
           "lang": {
             "type": "string",
-            "minLength": 1
+            "enum": [
+              "vi",
+              "en",
+              "zh-Hans",
+              "ja",
+              "ko",
+              "zh-Hant",
+              "fr",
+              "de",
+              "es",
+              "ru",
+              "th",
+              "id",
+              "ms",
+              "hi"
+            ]
           },
           "datasetVersion": {
             "type": "integer",
@@ -74747,7 +74887,22 @@
           },
           "lang": {
             "type": "string",
-            "minLength": 1
+            "enum": [
+              "vi",
+              "en",
+              "zh-Hans",
+              "ja",
+              "ko",
+              "zh-Hant",
+              "fr",
+              "de",
+              "es",
+              "ru",
+              "th",
+              "id",
+              "ms",
+              "hi"
+            ]
           },
           "fromDatasetVersion": {
             "type": "integer",
@@ -75111,7 +75266,22 @@
               },
               "lang": {
                 "type": "string",
-                "minLength": 1
+                "enum": [
+                  "vi",
+                  "en",
+                  "zh-Hans",
+                  "ja",
+                  "ko",
+                  "zh-Hant",
+                  "fr",
+                  "de",
+                  "es",
+                  "ru",
+                  "th",
+                  "id",
+                  "ms",
+                  "hi"
+                ]
               },
               "contentTier": {
                 "type": "string",
