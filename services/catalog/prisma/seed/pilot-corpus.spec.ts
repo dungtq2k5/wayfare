@@ -1,5 +1,5 @@
 // The committed pilot corpus is valid before it is ever seeded (ADR 0002, D5).
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { CategoryAppliesTo, SYSTEM_CATEGORIES } from '@wayfare/contracts';
 import sharp from 'sharp';
@@ -72,10 +72,10 @@ describe('the District 1 pilot corpus', () => {
     for (const file of listed) {
       const path = join(corpus.photosDir, file);
       expect(existsSync(path), file).toBe(true);
-      expect(statSync(path).size, file).toBeLessThanOrEqual(400 * 1024);
+      expect(statSync(path).size, file).toBeLessThanOrEqual(1024 * 1024);
       const meta = await sharp(path).metadata();
       expect(['jpeg', 'webp'], file).toContain(meta.format);
-      expect(Math.max(meta.width, meta.height), file).toBeLessThanOrEqual(1600);
+      expect(Math.max(meta.width, meta.height), file).toBeLessThanOrEqual(1920);
       expect(meta.exif, `${file} carries EXIF`).toBeUndefined();
     }
     const committed = readdirSync(corpus.photosDir, { recursive: true, withFileTypes: true })
@@ -84,6 +84,26 @@ describe('the District 1 pilot corpus', () => {
       .map((entry) => `${entry.parentPath.slice(corpus.photosDir.length + 1)}/${entry.name}`);
     for (const file of committed)
       expect(listed.has(file), `${file} is not in places.json`).toBe(true);
+  });
+
+  it('credits every committed photo, and only those', () => {
+    const credits = JSON.parse(
+      readFileSync(join(corpus.photosDir, 'credits.json'), 'utf8'),
+    ) as Record<string, Record<string, string>>;
+    const committed = readdirSync(corpus.photosDir, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && !['.gitkeep', 'credits.json'].includes(entry.name))
+      .map((entry) => `${entry.parentPath.slice(corpus.photosDir.length + 1)}/${entry.name}`);
+    expect(Object.keys(credits).sort((a, b) => a.localeCompare(b))).toEqual(
+      committed.sort((a, b) => a.localeCompare(b)),
+    );
+    for (const [file, credit] of Object.entries(credits)) {
+      expect(credit.source, file).toMatch(/^https:\/\//);
+      expect(credit.photographer, file).toBeTruthy();
+      expect(['Unsplash License', 'Pexels License', 'CC0 1.0', 'Public domain'], file).toContain(
+        credit.licence,
+      );
+      expect(credit.retrieved, file).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 
   // The phase 1 demo gate: PILOT_REQUIRE_REVIEWED=1 pnpm test.

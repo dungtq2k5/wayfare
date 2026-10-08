@@ -16,7 +16,12 @@
     "triggerRadiusM": 40,
     "narrationPriority": 70,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "cho-ben-thanh/1.jpg",
+        "altTextVi": "Sạp trái cây đầy màu sắc bên trong Chợ Bến Thành"
+      }
+    ]
   },
   {
     "slug": "pho-di-bo-nguyen-hue",
@@ -34,7 +39,12 @@
     "triggerRadiusM": 40,
     "narrationPriority": 50,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "pho-di-bo-nguyen-hue/1.jpg",
+        "altTextVi": "Phố đi bộ Nguyễn Huệ nhìn về phía Trụ sở Ủy ban nhân dân Thành phố"
+      }
+    ]
   },
   {
     "slug": "nha-hat-thanh-pho",
@@ -53,7 +63,16 @@
     "triggerRadiusM": 35,
     "narrationPriority": 70,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "nha-hat-thanh-pho/1.jpg",
+        "altTextVi": "Mặt tiền Nhà hát Thành phố giữa hàng cây"
+      },
+      {
+        "file": "nha-hat-thanh-pho/2.jpg",
+        "altTextVi": "Nhà hát Thành phố lên đèn về đêm"
+      }
+    ]
   },
   {
     "slug": "nha-tho-duc-ba",
@@ -72,7 +91,12 @@
     "triggerRadiusM": 40,
     "narrationPriority": 80,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "nha-tho-duc-ba/1.jpg",
+        "altTextVi": "Mặt tiền gạch đỏ, đồng hồ và cửa sổ hoa hồng của Nhà thờ Đức Bà"
+      }
+    ]
   },
   {
     "slug": "buu-dien-trung-tam",
@@ -91,7 +115,12 @@
     "triggerRadiusM": 30,
     "narrationPriority": 75,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "buu-dien-trung-tam/1.jpg",
+        "altTextVi": "Mặt tiền màu vàng của Bưu điện Trung tâm Sài Gòn"
+      }
+    ]
   },
   {
     "slug": "dinh-doc-lap",
@@ -153,7 +182,12 @@
         "isClosed": false
       }
     ],
-    "photos": []
+    "photos": [
+      {
+        "file": "dinh-doc-lap/1.jpg",
+        "altTextVi": "Dinh Độc Lập nhìn từ bãi cỏ và đài phun nước phía trước"
+      }
+    ]
   },
   {
     "slug": "duong-sach",
@@ -171,7 +205,12 @@
     "triggerRadiusM": 30,
     "narrationPriority": 55,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "duong-sach/1.jpg",
+        "altTextVi": "Quầy sách Mùa Thu trên Đường sách Nguyễn Văn Bình"
+      }
+    ]
   },
   {
     "slug": "bitexco",
@@ -190,7 +229,12 @@
     "triggerRadiusM": 35,
     "narrationPriority": 50,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "bitexco/1.jpg",
+        "altTextVi": "Tháp Tài chính Bitexco vươn lên giữa các tòa nhà của thành phố"
+      }
+    ]
   },
   {
     "slug": "ubnd-thanh-pho",
@@ -209,7 +253,12 @@
     "triggerRadiusM": 35,
     "narrationPriority": 70,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "ubnd-thanh-pho/1.jpg",
+        "altTextVi": "Trụ sở Ủy ban nhân dân Thành phố, kiến trúc Pháp màu vàng trắng"
+      }
+    ]
   },
   {
     "slug": "tuong-dai-bac-ho",
@@ -227,7 +276,12 @@
     "triggerRadiusM": 25,
     "narrationPriority": 65,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "tuong-dai-bac-ho/1.jpg",
+        "altTextVi": "Tượng đài Chủ tịch Hồ Chí Minh trước Trụ sở Ủy ban nhân dân Thành phố"
+      }
+    ]
   },
   {
     "slug": "khach-san-continental",
@@ -246,7 +300,12 @@
     "triggerRadiusM": 25,
     "narrationPriority": 45,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "khach-san-continental/1.jpg",
+        "altTextVi": "Mặt tiền Khách sạn Continental nhìn từ ngã tư đường Đồng Khởi"
+      }
+    ]
   },
   {
     "slug": "khach-san-rex",
@@ -265,7 +324,12 @@
     "triggerRadiusM": 25,
     "narrationPriority": 45,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "khach-san-rex/1.jpg",
+        "altTextVi": "Khách sạn Rex ở góc đường Nguyễn Huệ và Lê Lợi"
+      }
+    ]
   },
   {
     "slug": "chung-cu-42-nguyen-hue",
@@ -284,7 +348,12 @@
     "triggerRadiusM": 25,
     "narrationPriority": 40,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "chung-cu-42-nguyen-hue/1.jpg",
+        "altTextVi": "Chung cư 42 Nguyễn Huệ với các quán cà phê trên từng tầng"
+      }
+    ]
   },
   {
     "slug": "bao-tang-thanh-pho",
@@ -303,7 +372,12 @@
     "triggerRadiusM": 40,
     "narrationPriority": 60,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "bao-tang-thanh-pho/1.jpg",
+        "altTextVi": "Mặt tiền Bảo tàng Thành phố Hồ Chí Minh, tòa nhà Dinh Gia Long, sau hàng rào sắt"
+      }
+    ]
   },
   {
     "slug": "bao-tang-my-thuat",
@@ -322,7 +396,12 @@
     "triggerRadiusM": 40,
     "narrationPriority": 60,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "bao-tang-my-thuat/1.jpg",
+        "altTextVi": "Sân trong và mặt tiền màu vàng của Bảo tàng Mỹ thuật Thành phố Hồ Chí Minh"
+      }
+    ]
   },
   {
     "slug": "cong-vien-30-4",
@@ -359,7 +438,12 @@
     "triggerRadiusM": 30,
     "narrationPriority": 50,
     "openingHours": [],
-    "photos": []
+    "photos": [
+      {
+        "file": "tuong-dai-tran-hung-dao/1.jpg",
+        "altTextVi": "Tượng đài Trần Hưng Đạo về đêm, phía sau là bến Bạch Đằng và sông Sài Gòn"
+      }
+    ]
   },
   {
     "slug": "ben-bach-dang",
