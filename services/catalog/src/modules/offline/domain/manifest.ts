@@ -1,3 +1,4 @@
+import type { MapPackParts } from '../../map-packs/domain/map-pack-objects';
 import type {
   MapPackObject,
   OfflineAsset,
@@ -11,14 +12,29 @@ export function assetOf(object: MapPackObject, mediaBase: string): OfflineAsset 
   return { ...object, url: `${mediaBase}/${encodeURI(object.path)}` };
 }
 
-/** The published pack as a manifest names it: the archive, the style, then the files. */
+/** The published pack as a manifest names it: the archive, the styles, then the files. */
 export function offlineMapPack(
   version: number,
-  objects: readonly MapPackObject[],
+  parts: MapPackParts,
   mediaBase: string,
 ): OfflineMapPack {
-  const [pmtiles, style, ...files] = objects.map((object) => assetOf(object, mediaBase));
-  return { version, pmtiles: pmtiles!, style: style!, assets: files };
+  return {
+    version,
+    pmtiles: assetOf(parts.pmtiles, mediaBase),
+    style: assetOf(parts.style, mediaBase),
+    styleDark: parts.styleDark === null ? null : assetOf(parts.styleDark, mediaBase),
+    assets: parts.files.map((object) => assetOf(object, mediaBase)),
+  };
+}
+
+/** Every file of an offline map pack, to weigh it. */
+export function mapPackFiles(pack: OfflineMapPack): OfflineAsset[] {
+  return [
+    pack.pmtiles,
+    pack.style,
+    ...(pack.styleDark === null ? [] : [pack.styleDark]),
+    ...pack.assets,
+  ];
 }
 
 /**
@@ -48,7 +64,13 @@ export function totalBytes(groups: readonly (readonly { readonly bytes: number }
   return groups.flat().reduce((sum, asset) => sum + asset.bytes, 0);
 }
 
+/**
+ * The shape of a snapshot's lines. A snapshot is never rewritten, so a change to the record's
+ * shape (`addressVi` made it 2) must change the file's name, or the old file would be read back.
+ */
+export const SNAPSHOT_FORMAT = 2;
+
 /** A snapshot's file name: the area's own last change and its live count (api-endpoints-plan §2.4). */
 export function snapshotPath(areaCode: string, lang: string, areaVersion: bigint, live: number) {
-  return `offline/${areaCode}/${lang}/${areaVersion}-${live}.ndjson.gz`;
+  return `offline/${areaCode}/${lang}/v${SNAPSHOT_FORMAT}-${areaVersion}-${live}.ndjson.gz`;
 }

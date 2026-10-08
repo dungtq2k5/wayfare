@@ -1,16 +1,31 @@
-# First run: language, privacy notice, device registration, the areas list.
+# First run, then the app's spine: the Map tab, Explore, a Place's detail, and a favourite.
 #
-# Needs the local stack and `pnpm mobile:reverse`. Run it on an English phone (the picker opens in the
-# phone's own language), against a build that already holds its JavaScript (EAS profile `preview`),
-# or a development build with Metro running and the app opened once from the launcher:
+# Needs the local stack, `pnpm mobile:reverse`, and a first sync of the pilot's Places. Run it on an
+# English phone (the picker opens in the phone's own language), against a build that already holds
+# its JavaScript (EAS profile `preview`), or a development build with Metro running and the app
+# opened once from the launcher:
 #   maestro test apps/mobile/.maestro/first-run.yaml
+#
+# The map's markers are drawn by the map engine, not as views, so a flow cannot find one by name:
+# the marker → sheet → detail path is checked by hand on the phone.
 appId: app.wayfare
 ---
 - launchApp:
     clearState: true
 - assertVisible: 'Choose your language'
-- tapOn: 'English'
+- tapOn: 'Continue in English'
 - assertVisible: 'Your privacy'
 - tapOn: 'Continue'
-- assertVisible: 'Where to start'
+# The Map tab is first, and names the area.
 - assertVisible: 'District 1.*'
+- tapOn: 'Explore'
+- assertVisible: 'Explore'
+- extendedWaitUntil:
+    visible: '.*Bưu điện.*'
+    timeout: 60000
+- tapOn: '.*Bưu điện.*'
+- assertVisible: 'Play narration.*'
+- tapOn: 'Save to favourites'
+- tapOn: 'Back'
+- tapOn: 'Favourites'
+- assertVisible: '.*Bưu điện.*'

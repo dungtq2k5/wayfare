@@ -348,31 +348,33 @@ model Favorite {
 
 /// A published, versioned PMTiles map for an area (rdm-spec C-14, ADR 0023).
 model MapPack {
-  id                String    @id @db.Uuid
-  areaId            String    @map("area_id") @db.Uuid
-  version           Int
+  id                  String    @id @db.Uuid
+  areaId              String    @map("area_id") @db.Uuid
+  version             Int
   /// MapPackStatus in `@wayfare/contracts`
-  status            String    @db.VarChar(16)
-  pmtilesObjectPath String    @map("pmtiles_object_path") @db.VarChar(512)
-  pmtilesSha256     String    @map("pmtiles_sha256") @db.Char(64)
-  pmtilesBytes      BigInt    @map("pmtiles_bytes")
-  styleObjectPath   String    @map("style_object_path") @db.VarChar(512)
+  status              String    @db.VarChar(16)
+  pmtilesObjectPath   String    @map("pmtiles_object_path") @db.VarChar(512)
+  pmtilesSha256       String    @map("pmtiles_sha256") @db.Char(64)
+  pmtilesBytes        BigInt    @map("pmtiles_bytes")
+  styleObjectPath     String    @map("style_object_path") @db.VarChar(512)
+  /// The dark flavour's style (also in `assets.styleDark`); null for a pack built before there was one.
+  darkStyleObjectPath String?   @map("dark_style_object_path") @db.VarChar(512)
   /// `MapPackAssets`: `{ style, files }`, each `{ path, sha256, bytes }` — the style (its path is also
   /// `style_object_path`) and every glyph range and sprite file.
-  assets            Json      @db.JsonB
-  source            String    @db.VarChar(64)
-  sourceDate        DateTime  @map("source_date") @db.Date
-  minZoom           Int       @map("min_zoom") @db.SmallInt
-  maxZoom           Int       @map("max_zoom") @db.SmallInt
-  buildTool         String    @map("build_tool") @db.VarChar(64)
+  assets              Json      @db.JsonB
+  source              String    @db.VarChar(64)
+  sourceDate          DateTime  @map("source_date") @db.Date
+  minZoom             Int       @map("min_zoom") @db.SmallInt
+  maxZoom             Int       @map("max_zoom") @db.SmallInt
+  buildTool           String    @map("build_tool") @db.VarChar(64)
   /// Stamped when the retention job has deleted a retired pack's objects.
-  objectsDeletedAt  DateTime? @map("objects_deleted_at") @db.Timestamptz(3)
-  publishedAt       DateTime? @map("published_at") @db.Timestamptz(3)
-  retiredAt         DateTime? @map("retired_at") @db.Timestamptz(3)
+  objectsDeletedAt    DateTime? @map("objects_deleted_at") @db.Timestamptz(3)
+  publishedAt         DateTime? @map("published_at") @db.Timestamptz(3)
+  retiredAt           DateTime? @map("retired_at") @db.Timestamptz(3)
   /// ref ➔ identity.users.id
-  createdById       String    @map("created_by_id") @db.Uuid
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById         String    @map("created_by_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   area Area @relation(fields: [areaId], references: [id], onDelete: Restrict)
 

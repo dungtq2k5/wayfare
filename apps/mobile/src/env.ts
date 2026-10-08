@@ -7,3 +7,6 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:1300
 /** Where the full privacy policy is read. */
 export const PRIVACY_POLICY_URL =
   process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? 'https://wayfare.app/privacy';
+
+/** Diagnostics sit under Settings › About in development and preview (demo) builds only. */
+export const DIAGNOSTICS_ENABLED = process.env.EXPO_PUBLIC_DIAGNOSTICS === '1';

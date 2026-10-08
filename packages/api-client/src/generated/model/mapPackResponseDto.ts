@@ -8,6 +8,7 @@ import type { MapPackResponseDtoAssetsItem } from './mapPackResponseDtoAssetsIte
 import type { MapPackResponseDtoPmtiles } from './mapPackResponseDtoPmtiles.js';
 import type { MapPackResponseDtoStatus } from './mapPackResponseDtoStatus.js';
 import type { MapPackResponseDtoStyle } from './mapPackResponseDtoStyle.js';
+import type { MapPackResponseDtoStyleDark } from './mapPackResponseDtoStyleDark.js';
 
 export interface MapPackResponseDto {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
@@ -22,6 +23,7 @@ export interface MapPackResponseDto {
   status: MapPackResponseDtoStatus;
   pmtiles: MapPackResponseDtoPmtiles;
   style: MapPackResponseDtoStyle;
+  styleDark: MapPackResponseDtoStyleDark;
   assets: MapPackResponseDtoAssetsItem[];
   /**
      * @minimum 0

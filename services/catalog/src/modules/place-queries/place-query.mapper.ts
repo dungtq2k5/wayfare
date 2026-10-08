@@ -62,6 +62,7 @@ export const SYNC_PLACE_SELECT = {
   triggerRadiusM: true,
   narrationPriority: true,
   autoNarrationEnabled: true,
+  addressVi: true,
   photos: {
     select: { variants: true },
     orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
@@ -89,7 +90,6 @@ export type SummaryPlaceRow = Prisma.PlaceGetPayload<{ select: typeof SUMMARY_PL
 /** A Place's full tourist view (api-endpoints-plan §2.1). */
 export const DETAIL_PLACE_SELECT = {
   ...SYNC_PLACE_SELECT,
-  addressVi: true,
   phone: true,
   websiteUrl: true,
   menuCurrency: true,
@@ -199,6 +199,7 @@ export function toPlaceSyncRecord(
     triggerRadiusM: row.triggerRadiusM,
     narrationPriority: row.narrationPriority,
     autoNarrationEnabled: row.autoNarrationEnabled,
+    ...(row.addressVi === null ? {} : { addressVi: row.addressVi }),
     localization: toPlaceLocalization(row, requested, mediaBase),
     cardPhoto: cardOf(row.photos, mediaBase),
     ...(row.priceBand === null ? {} : { priceBand: row.priceBand }),

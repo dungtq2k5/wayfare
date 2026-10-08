@@ -6,7 +6,7 @@ import type { ListedObject, StorageProvider } from '@wayfare/nest-common/storage
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Where the offline snapshots live: `offline/<areaCode>/<lang>/<areaVersion>-<live>.ndjson.gz`. */
+/** Where the offline snapshots live: `offline/<areaCode>/<lang>/v<format>-<areaVersion>-<live>.ndjson.gz`. */
 export const SNAPSHOTS_PREFIX = 'offline/';
 
 /**

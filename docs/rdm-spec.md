@@ -930,7 +930,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **pmtiles_object_path** | VARCHAR(512) | NOT NULL | Served with range-request support. |
 | **pmtiles_sha256** | CHAR(64) | NOT NULL | — |
 | **pmtiles_bytes** | BIGINT | NOT NULL | — |
-| **style_object_path** | VARCHAR(512) | NOT NULL | Style JSON referencing only self-hosted glyphs and sprites. |
+| **style_object_path** | VARCHAR(512) | NOT NULL | Style JSON referencing only self-hosted glyphs and sprites — the Protomaps `light` flavour. |
+| **dark_style_object_path** | VARCHAR(512) | Nullable | The `dark` flavour's style, sharing the archive and glyphs; its sprite set is among `assets`. NULL for a pack built light-only, which clients draw with the light style in dark mode. |
 | **assets** | JSONB | NOT NULL | `MapPackAssets`, `{ style, files }`: the style JSON and every glyph range and sprite file, each with `{ path, sha256, bytes }`. The client verifies each before activation; there are hundreds of glyph files, which is why this is one JSONB list rather than hundreds of rows nobody queries individually. |
 | **source** | VARCHAR(64) | NOT NULL | e.g. `geofabrik-vietnam`. |
 | **source_date** | DATE | NOT NULL | Date of the OSM extract. Shown with the attribution. |

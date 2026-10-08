@@ -12,7 +12,8 @@ export interface UpdatePlaceDto {
   /** @pattern ^[A-Z][A-Z0-9_]{0,31}$ */
   categoryCode?: string;
   location?: UpdatePlaceDtoLocation;
-  addressVi?: string[];
+  /** @nullable */
+  addressVi?: string | null;
   priceBand?: number | null;
   phone?: string | null;
   websiteUrl?: string | null;

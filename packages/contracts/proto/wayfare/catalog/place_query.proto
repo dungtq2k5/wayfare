@@ -49,6 +49,8 @@ message PlaceSyncRecord {
   PhotoView card_photo = 11;
   optional int32 price_band = 12;
   repeated OpeningHoursRow opening_hours = 13;
+  // The Vietnamese address, shown as it is; absent when the Place has none.
+  optional string address_vi = 14;
 }
 
 message NearbyPlacesRequest {

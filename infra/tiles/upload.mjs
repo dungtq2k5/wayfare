@@ -39,17 +39,18 @@ const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const archive = readFileSync(join(args.out, 'map.pmtiles'));
 const prefix = mapPackPrefix(args.area, mapPackBuildId(sha256(archive)));
 
-// The style: the pinned flavour's layers over the archive, every URL absolute (architecture §6).
+// The styles: the pinned flavours' layers over the archive, every URL absolute (architecture §6).
 // The web client registers the `pmtiles://` protocol; the mobile client swaps `base` for the
 // pack's local directory at activation.
 const basemaps = createRequire(join(args.basemaps, 'package.json'))(
   join(args.basemaps, 'dist/cjs/index.cjs'),
 );
-const style = {
+/** One flavour's style over the shared archive and glyphs; its sprites are its own. */
+const styleOf = (flavor) => ({
   version: 8,
-  name: `${args.area} (Protomaps ${versions.PROTOMAPS_BUILD_DATE})`,
+  name: `${args.area} ${flavor} (Protomaps ${versions.PROTOMAPS_BUILD_DATE})`,
   glyphs: `${base}/${prefix}fonts/{fontstack}/{range}.pbf`,
-  sprite: `${base}/${prefix}sprites/v4/${versions.BASEMAPS_FLAVOR}`,
+  sprite: `${base}/${prefix}sprites/v4/${flavor}`,
   sources: {
     protomaps: {
       type: 'vector',
@@ -58,11 +59,15 @@ const style = {
         '<a href="https://protomaps.com">Protomaps</a> © <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>',
     },
   },
-  layers: basemaps.layers('protomaps', basemaps.namedFlavor(versions.BASEMAPS_FLAVOR), {
+  layers: basemaps.layers('protomaps', basemaps.namedFlavor(flavor), {
     lang: versions.BASEMAPS_LANG,
   }),
-};
-writeFileSync(join(args.out, 'style.json'), JSON.stringify(style));
+});
+writeFileSync(join(args.out, 'style.json'), JSON.stringify(styleOf(versions.BASEMAPS_FLAVOR)));
+writeFileSync(
+  join(args.out, 'style-dark.json'),
+  JSON.stringify(styleOf(versions.BASEMAPS_DARK_FLAVOR)),
+);
 
 /** Every file below a directory, as paths relative to it. */
 function files(dir) {
@@ -123,9 +128,11 @@ const body = {
   areaId: args['area-id'],
   pmtiles: pick(objects.find((object) => object.path === `${prefix}map.pmtiles`)),
   style: pick(objects.find((object) => object.path === `${prefix}style.json`)),
+  styleDark: pick(objects.find((object) => object.path === `${prefix}style-dark.json`)),
   assets: objects
     .filter(
-      (object) => object.path !== `${prefix}map.pmtiles` && object.path !== `${prefix}style.json`,
+      (object) =>
+        !object.path.endsWith('map.pmtiles') && !/\/style(-dark)?\.json$/.test(object.path),
     )
     .map(pick),
   source: `protomaps-${date}`,

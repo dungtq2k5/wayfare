@@ -10,7 +10,8 @@ export interface RoleResponseDto {
   id: string;
   code: string;
   name: string;
-  description: string[];
+  /** @nullable */
+  description: string | null;
   isSystem: boolean;
   permissionCodes: string[];
   /**

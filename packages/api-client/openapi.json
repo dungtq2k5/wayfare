@@ -64180,10 +64180,10 @@
             "type": "string"
           },
           "osVersion": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "contentLocale": {
             "type": "string"
@@ -65244,10 +65244,10 @@
             ]
           },
           "toEmailMasked": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "type": "string",
@@ -65332,10 +65332,10 @@
             "type": "string"
           },
           "description": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "isSystem": {
             "type": "boolean"
@@ -65613,16 +65613,16 @@
             "additionalProperties": {}
           },
           "ip": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "userAgent": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -65987,10 +65987,10 @@
             "type": "string"
           },
           "businessRegistrationNo": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "contactName": {
             "type": "string"
@@ -65999,22 +65999,22 @@
             "type": "string"
           },
           "nationalIdLast4": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "applicantNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "decisionNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "submittedAt": {
             "type": "string",
@@ -66073,10 +66073,10 @@
             "type": "string"
           },
           "businessRegistrationNo": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "contactName": {
             "type": "string"
@@ -66085,22 +66085,22 @@
             "type": "string"
           },
           "nationalIdLast4": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "applicantNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "decisionNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "submittedAt": {
             "type": "string",
@@ -66120,10 +66120,10 @@
             ]
           },
           "internalNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "reviewedById": {
             "anyOf": [
@@ -66207,10 +66207,10 @@
             "type": "string"
           },
           "businessRegistrationNo": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "contactName": {
             "type": "string"
@@ -66219,22 +66219,22 @@
             "type": "string"
           },
           "nationalIdLast4": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "applicantNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "decisionNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "submittedAt": {
             "type": "string",
@@ -66254,10 +66254,10 @@
             ]
           },
           "internalNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "reviewedById": {
             "anyOf": [
@@ -67027,10 +67027,10 @@
             ]
           },
           "errorSummary": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -67197,10 +67197,10 @@
             ]
           },
           "errorSummary": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -67676,10 +67676,10 @@
             "type": "string"
           },
           "pinnedVoiceId": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "available": {
             "type": "array",
@@ -67779,6 +67779,12 @@
                 },
                 "autoNarrationEnabled": {
                   "type": "boolean"
+                },
+                "addressVi": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "localization": {
                   "type": "object",
@@ -67950,6 +67956,7 @@
                 "triggerRadiusM",
                 "narrationPriority",
                 "autoNarrationEnabled",
+                "addressVi",
                 "localization",
                 "cardPhoto",
                 "priceBand",
@@ -68182,10 +68189,10 @@
             "additionalProperties": false
           },
           "address": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "triggerRadiusM": {
             "type": "integer",
@@ -68529,16 +68536,16 @@
             ]
           },
           "phone": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "websiteUrl": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "offers": {
             "type": "array",
@@ -69127,10 +69134,10 @@
             "additionalProperties": false
           },
           "addressVi": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "triggerRadiusM": {
             "type": "integer",
@@ -69170,16 +69177,16 @@
             ]
           },
           "phone": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "websiteUrl": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "type": "string",
@@ -70186,10 +70193,10 @@
             "additionalProperties": false
           },
           "addressVi": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "priceBand": {
             "anyOf": [
@@ -70342,10 +70349,10 @@
             "additionalProperties": false
           },
           "addressVi": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "priceBand": {
             "anyOf": [
@@ -70837,10 +70844,10 @@
             ]
           },
           "decisionNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "submittedAt": {
             "type": "string",
@@ -71178,16 +71185,16 @@
             ]
           },
           "internalNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "reviewedById": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "livePlace": {
             "anyOf": [
@@ -73077,10 +73084,10 @@
             ]
           },
           "decisionNote": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "holdUntil": {
             "anyOf": [
@@ -73322,6 +73329,39 @@
             ],
             "additionalProperties": false
           },
+          "styleDark": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "pattern": "^[A-Za-z0-9._\\-/ @]+$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256",
+                  "bytes"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "assets": {
             "type": "array",
             "items": {
@@ -73414,6 +73454,7 @@
           "status",
           "pmtiles",
           "style",
+          "styleDark",
           "assets",
           "totalBytes",
           "source",
@@ -73505,6 +73546,39 @@
                   "bytes"
                 ],
                 "additionalProperties": false
+              },
+              "styleDark": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "pattern": "^[A-Za-z0-9._\\-/ @]+$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "sha256",
+                      "bytes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "assets": {
                 "type": "array",
@@ -73598,6 +73672,7 @@
               "status",
               "pmtiles",
               "style",
+              "styleDark",
               "assets",
               "totalBytes",
               "source",
@@ -73651,6 +73726,32 @@
             "additionalProperties": false
           },
           "style": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "pattern": "^[A-Za-z0-9._\\-/ @]+$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "styleDark": {
             "type": "object",
             "properties": {
               "path": {
@@ -73756,10 +73857,10 @@
             "type": "string"
           },
           "targetLang": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "replacementType": {
             "type": "string",
@@ -73772,16 +73873,16 @@
             "type": "string"
           },
           "alphabet": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "note": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "isActive": {
             "type": "boolean"
@@ -74103,10 +74204,10 @@
             "type": "string"
           },
           "descriptionVi": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "languages": {
             "type": "array",
@@ -74438,6 +74539,42 @@
                     ],
                     "additionalProperties": false
                   },
+                  "styleDark": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "url",
+                          "sha256",
+                          "bytes"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "assets": {
                     "type": "array",
                     "items": {
@@ -74475,6 +74612,7 @@
                   "version",
                   "pmtiles",
                   "style",
+                  "styleDark",
                   "assets"
                 ],
                 "additionalProperties": false
@@ -74801,6 +74939,42 @@
                     ],
                     "additionalProperties": false
                   },
+                  "styleDark": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "url",
+                          "sha256",
+                          "bytes"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "assets": {
                     "type": "array",
                     "items": {
@@ -74838,6 +75012,7 @@
                   "version",
                   "pmtiles",
                   "style",
+                  "styleDark",
                   "assets"
                 ],
                 "additionalProperties": false
@@ -77344,10 +77519,10 @@
             "type": "string"
           },
           "number": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "type": "string"
@@ -77400,16 +77575,16 @@
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
           },
           "hostedInvoiceUrl": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "invoicePdfUrl": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -77438,10 +77613,10 @@
             "type": "string"
           },
           "stripeProductId": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "isActive": {
             "type": "boolean"
@@ -78245,22 +78420,22 @@
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
           },
           "stripeCustomerId": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "stripeSubscriptionId": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "subscribedPlanCode": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "cancelAtPeriodEnd": {
             "type": "boolean"
@@ -79085,10 +79260,10 @@
             ]
           },
           "errorLog": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "receivedAt": {
             "type": "string",

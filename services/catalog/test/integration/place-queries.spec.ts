@@ -334,6 +334,20 @@ describe('SyncPlaces', () => {
     expect(await sync(first.datasetVersion)).toEqual({ ...first, places: [] });
   });
 
+  it('serves the Vietnamese address as it is, or none', async () => {
+    const withAddress = await live();
+    const without = await live();
+    await prisma.place.update({
+      where: { id: withAddress.id },
+      data: { addressVi: '12 Lê Lợi, Quận 1' },
+    });
+    await settle();
+    const { places } = await sync('0');
+    const byId = new Map(places.map((place) => [place.id, place]));
+    expect(byId.get(withAddress.id)?.addressVi).toBe('12 Lê Lợi, Quận 1');
+    expect(byId.get(without.id)?.addressVi).toBeUndefined();
+  });
+
   it('lists a deleted, hidden or moved Place as removed', async () => {
     const other = await insertArea(prisma, {
       code: 'other',

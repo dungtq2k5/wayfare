@@ -1,5 +1,5 @@
 // Draws the app icon layers and the splash marks from the Figma mark (Brand page, node 14:3) in the
-// design tokens' colours. Run it after a brand or colour change: `pnpm --filter @wayfare/mobile brand`.
+// design tokens' colors. Run it after a brand or color change: `pnpm --filter @wayfare/mobile brand`.
 // The icon's background is not drawn here: app.config.ts takes it from the tokens.
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';

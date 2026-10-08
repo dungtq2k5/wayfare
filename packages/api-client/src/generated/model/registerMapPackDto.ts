@@ -7,12 +7,14 @@
 import type { RegisterMapPackDtoAssetsItem } from './registerMapPackDtoAssetsItem.js';
 import type { RegisterMapPackDtoPmtiles } from './registerMapPackDtoPmtiles.js';
 import type { RegisterMapPackDtoStyle } from './registerMapPackDtoStyle.js';
+import type { RegisterMapPackDtoStyleDark } from './registerMapPackDtoStyleDark.js';
 
 export interface RegisterMapPackDto {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
   areaId: string;
   pmtiles: RegisterMapPackDtoPmtiles;
   style: RegisterMapPackDtoStyle;
+  styleDark?: RegisterMapPackDtoStyleDark;
   /** @maxItems 500 */
   assets: RegisterMapPackDtoAssetsItem[];
   /**

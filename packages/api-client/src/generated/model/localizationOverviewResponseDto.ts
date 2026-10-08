@@ -14,6 +14,7 @@ export interface LocalizationOverviewResponseDto {
   /** @pattern ^[0-9a-f]{64}$ */
   sourceContentHash: string;
   nameVi: string;
-  descriptionVi: string[];
+  /** @nullable */
+  descriptionVi: string | null;
   languages: LocalizationOverviewResponseDtoLanguagesItem[];
 }

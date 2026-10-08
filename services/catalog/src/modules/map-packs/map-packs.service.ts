@@ -87,6 +87,7 @@ export class MapPacksService {
       areaId: request.areaId,
       pmtiles: object(request.pmtiles),
       style: object(request.style),
+      styleDark: object(request.styleDark ?? undefined),
       assets: request.assets.map(object),
       source: request.source,
       sourceDate: request.sourceDate,
@@ -104,6 +105,9 @@ export class MapPacksService {
     const claimed: [string, MapPackObject][] = [
       ['/pmtiles/path', input.pmtiles],
       ['/style/path', input.style],
+      ...(input.styleDark === undefined
+        ? []
+        : [['/styleDark/path', input.styleDark] as [string, MapPackObject]]),
       ...input.assets.map((asset, index): [string, MapPackObject] => [
         `/assets/${index}/path`,
         asset,
@@ -205,7 +209,11 @@ export class MapPacksService {
   }
 
   private columns(input: RegisterMapPackInput, version: number, createdById: string) {
-    const assets: MapPackAssets = { style: input.style, files: input.assets };
+    const assets: MapPackAssets = {
+      style: input.style,
+      ...(input.styleDark === undefined ? {} : { styleDark: input.styleDark }),
+      files: input.assets,
+    };
     return {
       id: newId(),
       areaId: input.areaId,
@@ -215,6 +223,7 @@ export class MapPacksService {
       pmtilesSha256: input.pmtiles.sha256,
       pmtilesBytes: BigInt(input.pmtiles.bytes),
       styleObjectPath: input.style.path,
+      darkStyleObjectPath: input.styleDark?.path ?? null,
       assets: assets as unknown as object,
       source: input.source,
       sourceDate: new Date(`${input.sourceDate}T00:00:00.000Z`),

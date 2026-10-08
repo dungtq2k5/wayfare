@@ -4,7 +4,7 @@ import { mapPackStatusProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { toProtoTimestamp } from '@wayfare/nest-common';
 import type { MapPack } from '../../../generated/prisma/client';
-import { objectsOf, packBytes } from './domain/map-pack-objects';
+import { objectsOf, packBytes, partsOf } from './domain/map-pack-objects';
 
 /** A map pack's row. */
 export type MapPackRow = MapPack;
@@ -17,14 +17,15 @@ export function toMapPackObject(object: MapPackObject): catalogGrpc.MapPackObjec
 /** A map pack as the console lists it. */
 export function toMapPack(row: MapPackRow): catalogGrpc.MapPack {
   const objects = objectsOf(row);
-  const [pmtiles, style, ...files] = objects;
+  const { pmtiles, style, styleDark, files } = partsOf(row);
   return {
     id: row.id,
     areaId: row.areaId,
     version: row.version,
     status: mapPackStatusProto.toProto(parseEnum(MapPackStatus, row.status)),
-    pmtiles: toMapPackObject(pmtiles!),
-    style: toMapPackObject(style!),
+    pmtiles: toMapPackObject(pmtiles),
+    style: toMapPackObject(style),
+    ...(styleDark === null ? {} : { styleDark: toMapPackObject(styleDark) }),
     assets: files.map(toMapPackObject),
     totalBytes: String(packBytes(objects)),
     source: row.source,

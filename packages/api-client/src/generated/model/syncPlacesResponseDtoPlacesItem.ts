@@ -32,6 +32,8 @@ export type SyncPlacesResponseDtoPlacesItem = {
      */
   narrationPriority: number;
   autoNarrationEnabled: boolean;
+  /** @nullable */
+  addressVi: string | null;
   localization: SyncPlacesResponseDtoPlacesItemLocalization;
   cardPhoto: SyncPlacesResponseDtoPlacesItemCardPhoto;
   priceBand: number | null;

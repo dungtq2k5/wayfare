@@ -18,4 +18,21 @@ export interface TouristArguments {
   readonly "time.minutesAgo": { "count": number };
   readonly "time.hoursAgo": { "count": number };
   readonly "time.daysAgo": { "count": number };
+  readonly "map.showingNearest": { "count": string | number };
+  readonly "place.shownInEnglish": { "language": string | number };
+  readonly "place.shownInSource": { "language": string | number };
+  readonly "place.listenDuration": { "duration": string | number };
+  readonly "place.open.until": { "time": string | number };
+  readonly "place.open.closesSoon": { "time": string | number };
+  readonly "place.closed.opensToday": { "time": string | number };
+  readonly "place.closed.opensTomorrow": { "time": string | number };
+  readonly "place.closed.opensOn": { "day": string | number; "time": string | number };
+  readonly "place.menu.otherLanguage": { "language": string | number };
+  readonly "explore.searchHere": { "radius": string | number };
+  readonly "explore.offlineNote": { "when": string | number };
+  readonly "explore.limit": { "count": string | number };
+  readonly "explore.nearYou": { "area": string | number };
+  readonly "explore.empty.areas": { "areas": string | number };
+  readonly "place.distanceHours": { "hours": string | number; "minutes": string | number };
+  readonly "place.shownBadge": { "language": string | number };
 }

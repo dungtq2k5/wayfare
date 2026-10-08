@@ -32,6 +32,17 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-secure-store',
     'expo-sqlite',
+    '@maplibre/maplibre-react-native',
+    // Foreground location only: the map's dot and the distances. The walking loop asks for the rest.
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission:
+          'Wayfare shows where you are on the map and which places are near you, while the app is open.',
+        isAndroidBackgroundLocationEnabled: false,
+        isAndroidForegroundServiceEnabled: false,
+      },
+    ],
     'expo-localization',
     // Be Vietnam Pro is embedded in the build, not loaded at runtime, so no cold start flashes the
     // system font. One file per weight: Android does not pick a weight from one family name.

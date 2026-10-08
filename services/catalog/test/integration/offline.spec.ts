@@ -83,7 +83,11 @@ async function livePlace(name: string) {
 }
 
 /** A published pack of the fixture area: an archive, a style and one glyph file. */
-async function publishedPack(version: number, objectsDeletedAt: Date | null = null) {
+async function publishedPack(
+  version: number,
+  objectsDeletedAt: Date | null = null,
+  withDark = false,
+) {
   const object = (name: string, bytes: number) => ({
     path: `maps/${tax.area.code}/${String(version).padStart(16, '0')}/${name}`,
     sha256: randomBytes(32).toString('hex'),
@@ -100,7 +104,15 @@ async function publishedPack(version: number, objectsDeletedAt: Date | null = nu
       pmtilesSha256: pmtiles.sha256,
       pmtilesBytes: BigInt(pmtiles.bytes),
       styleObjectPath: object('style.json', 0).path,
-      assets: { style: object('style.json', 900), files: [object('fonts/a/0-255.pbf', 3_000)] },
+      darkStyleObjectPath: withDark ? object('style-dark.json', 0).path : null,
+      assets: {
+        style: object('style.json', 900),
+        ...(withDark ? { styleDark: object('style-dark.json', 950) } : {}),
+        files: [
+          object('fonts/a/0-255.pbf', 3_000),
+          ...(withDark ? [object('sprites/v4/dark.json', 400)] : []),
+        ],
+      },
       source: 'protomaps-20260915',
       sourceDate: new Date('2026-09-15T00:00:00.000Z'),
       minZoom: 10,
@@ -129,7 +141,11 @@ describe('the offline manifest', () => {
     const first = await manifest();
 
     expect(first.datasetVersion).toBe(Number(await services.sync.cap()));
-    expect(first.mapPack).toMatchObject({ version: 1, assets: [expect.objectContaining({})] });
+    expect(first.mapPack).toMatchObject({
+      version: 1,
+      styleDark: null, // a pack built before there was a dark flavour is light only
+      assets: [expect.objectContaining({})],
+    });
     expect(first.mapPack!.pmtiles.url).toMatch(/\/maps\/.+\/map\.pmtiles$/);
     expect(first.photos.map((photo) => photo.path).sort(compareStrings)).toEqual(
       [a.id, b.id].map((id) => `photos/${id}/card.webp`).sort(compareStrings),
@@ -149,12 +165,34 @@ describe('the offline manifest', () => {
     );
     expect(records[0]!.localization.lang).toBe('en');
     expect(first.places.path).toMatch(
-      new RegExp(`^offline/${tax.area.code}/en/\\d+-2\\.ndjson\\.gz$`),
+      new RegExp(`^offline/${tax.area.code}/en/v\\d+-\\d+-2\\.ndjson\\.gz$`),
     );
 
     // Cached: the same answer, from the cache.
     expect(await manifest()).toEqual(first);
     expect(services.manifestCache.hits).toBe(1);
+  });
+
+  it('names the dark style, with its sprite files among the assets and in the total', async () => {
+    await livePlace('Chợ A');
+    await settle();
+    await publishedPack(1, null, true);
+    const { mapPack, totalBytes, places, photos, audio } = await manifest();
+    expect(mapPack!.styleDark).toMatchObject({ bytes: 950 });
+    expect(mapPack!.styleDark!.url).toMatch(/\/maps\/.+\/style-dark\.json$/);
+    expect(
+      mapPack!.assets.map((asset) => asset.path).filter((path) => path.includes('sprites')),
+    ).toHaveLength(1);
+    expect(totalBytes).toBe(
+      places.bytes +
+        photos.reduce((sum, item) => sum + item.bytes, 0) +
+        audio.reduce((sum, item) => sum + item.bytes, 0) +
+        50_000 +
+        900 +
+        950 +
+        3_000 +
+        400,
+    );
   });
 
   it('reuses the snapshot file when another area changes, and names a new one for its own change', async () => {

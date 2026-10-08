@@ -5,5 +5,7 @@ export * from './geofence/engine';
 export * from './geofence/priority';
 export * from './geofence/types';
 export * from './geofence/wake-up';
+export * from './hours/opening-state';
+export * from './ranking/distance';
 export * from './ranking/nearby';
 export * from './ranking/walking';

@@ -30,7 +30,8 @@ export interface AdminPlaceResponseDto {
   /** @pattern ^[0-9a-f]{64}$ */
   contentHash: string;
   location: AdminPlaceResponseDtoLocation;
-  addressVi: string[];
+  /** @nullable */
+  addressVi: string | null;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -49,8 +50,10 @@ export interface AdminPlaceResponseDto {
   discoveryBoost: number;
   priceBand: number | null;
   menuCurrency: AdminPlaceResponseDtoMenuCurrency;
-  phone: string[];
-  websiteUrl: string[];
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  websiteUrl: string | null;
   status: AdminPlaceResponseDtoStatus;
   inactiveReason: AdminPlaceResponseDtoInactiveReason;
   activationRequestedAt: string | null;

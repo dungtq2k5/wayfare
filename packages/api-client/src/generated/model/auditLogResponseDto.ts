@@ -18,6 +18,8 @@ export interface AuditLogResponseDto {
   action: string;
   resource: AuditLogResponseDtoResource;
   metadata: AuditLogResponseDtoMetadata;
-  ip: string[];
-  userAgent: string[];
+  /** @nullable */
+  ip: string | null;
+  /** @nullable */
+  userAgent: string | null;
 }

@@ -90,6 +90,7 @@ export function toPlaceSyncRecord(record: catalogGrpc.PlaceSyncRecord): PlaceSyn
     triggerRadiusM: record.triggerRadiusM,
     narrationPriority: record.narrationPriority,
     autoNarrationEnabled: record.autoNarrationEnabled,
+    addressVi: record.addressVi ?? null,
     localization: toPlaceLocalization(record.localization),
     cardPhoto:
       record.cardPhoto === undefined || record.cardPhoto === null

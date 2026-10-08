@@ -27,6 +27,7 @@ export function toPlaceSyncRecord(record: catalogGrpc.PlaceSyncRecord): PlaceSyn
     triggerRadiusM: record.triggerRadiusM,
     narrationPriority: record.narrationPriority,
     autoNarrationEnabled: record.autoNarrationEnabled,
+    addressVi: record.addressVi ?? null,
     localization: {
       lang: localization.lang,
       name: localization.name,

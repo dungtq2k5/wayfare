@@ -13,7 +13,7 @@ export interface TouristT {
 }
 
 /** The key families built at run time, whose members are the English file's keys under that prefix. */
-export type KeyFamily = 'area' | 'category' | 'error';
+export type KeyFamily = 'area' | 'category' | 'error' | 'weekday';
 
 export interface Tourist {
   t: TouristT;

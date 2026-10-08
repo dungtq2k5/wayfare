@@ -38,6 +38,8 @@ message MapPack {
   google.protobuf.Timestamp published_at = 14;
   google.protobuf.Timestamp retired_at = 15;
   google.protobuf.Timestamp created_at = 16;
+  // The dark flavour's style; absent for a pack with light only.
+  optional MapPackObject style_dark = 17;
 }
 
 message ListMapPacksRequest {
@@ -58,6 +60,8 @@ message RegisterMapPackRequest {
   int32 min_zoom = 7;
   int32 max_zoom = 8;
   string build_tool = 9;
+  // The dark flavour's style; absent for a pack with light only.
+  optional MapPackObject style_dark = 10;
 }
 
 message RegisterMapPackResponse {

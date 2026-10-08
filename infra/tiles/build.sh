@@ -94,10 +94,11 @@ mapfile -t stacks < <(node -e '
     if (Array.isArray(value) && value.every((item) => typeof item === "string")) stacks.add(value.join(","));
     else if (Array.isArray(value)) value.forEach(collect);
   };
-  for (const layer of basemaps.layers("protomaps", basemaps.namedFlavor(process.argv[2]), { lang: process.argv[3] }))
-    collect(layer.layout?.["text-font"]);
+  for (const flavor of [process.argv[2], process.argv[3]])
+    for (const layer of basemaps.layers("protomaps", basemaps.namedFlavor(flavor), { lang: process.argv[4] }))
+      collect(layer.layout?.["text-font"]);
   for (const stack of stacks) if (stack.startsWith("Noto")) console.log(stack);' \
-  "$basemaps" "$BASEMAPS_FLAVOR" "$BASEMAPS_LANG")
+  "$basemaps" "$BASEMAPS_FLAVOR" "$BASEMAPS_DARK_FLAVOR" "$BASEMAPS_LANG")
 mapfile -t ranges < <(cd "$root/services/catalog" && node -e '
   for (const range of require("@wayfare/contracts").MAP_PACK_GLYPH_RANGES) console.log(range);')
 for stack in "${stacks[@]}"; do
@@ -112,10 +113,12 @@ for stack in "${stacks[@]}"; do
 done
 echo "✓ glyphs: ${#stacks[@]} font stacks × ${#ranges[@]} ranges (U+1E00–1EFF included)"
 mkdir -p "$out/sprites/v4"
-for file in "$BASEMAPS_FLAVOR.json" "$BASEMAPS_FLAVOR.png" "$BASEMAPS_FLAVOR@2x.json" "$BASEMAPS_FLAVOR@2x.png"; do
-  curl -sSfL --proto '=https' --tlsv1.2 -o "$out/sprites/v4/$file" "$assets/sprites/v4/$file"
+for flavor in "$BASEMAPS_FLAVOR" "$BASEMAPS_DARK_FLAVOR"; do
+  for file in "$flavor.json" "$flavor.png" "$flavor@2x.json" "$flavor@2x.png"; do
+    curl -sSfL --proto '=https' --tlsv1.2 -o "$out/sprites/v4/$file" "$assets/sprites/v4/$file"
+  done
 done
-echo '✓ sprites'
+echo '✓ sprites (light and dark)'
 
 [[ $upload == 1 ]] || { echo "✓ built in $out (not uploaded)"; exit 0; }
 node "$here/upload.mjs" --out "$out" --area "$area" --area-id "$area_id" --basemaps "$basemaps"

@@ -147,6 +147,7 @@ describe('/offline/areas/:areaId/manifest', () => {
       version: 1,
       pmtiles: asset(`${prefix}map.pmtiles`, 5_000_000),
       style: asset(`${prefix}style.json`, 20_000),
+      styleDark: asset(`${prefix}style-dark.json`, 20_000),
       assets: [],
     },
     places: asset('offline/hcmc-d1-core/en/40-18.ndjson.gz', 9_000),

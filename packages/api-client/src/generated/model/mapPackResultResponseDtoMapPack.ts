@@ -8,6 +8,7 @@ import type { MapPackResultResponseDtoMapPackAssetsItem } from './mapPackResultR
 import type { MapPackResultResponseDtoMapPackPmtiles } from './mapPackResultResponseDtoMapPackPmtiles.js';
 import type { MapPackResultResponseDtoMapPackStatus } from './mapPackResultResponseDtoMapPackStatus.js';
 import type { MapPackResultResponseDtoMapPackStyle } from './mapPackResultResponseDtoMapPackStyle.js';
+import type { MapPackResultResponseDtoMapPackStyleDark } from './mapPackResultResponseDtoMapPackStyleDark.js';
 
 export type MapPackResultResponseDtoMapPack = {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
@@ -22,6 +23,7 @@ export type MapPackResultResponseDtoMapPack = {
   status: MapPackResultResponseDtoMapPackStatus;
   pmtiles: MapPackResultResponseDtoMapPackPmtiles;
   style: MapPackResultResponseDtoMapPackStyle;
+  styleDark: MapPackResultResponseDtoMapPackStyleDark;
   assets: MapPackResultResponseDtoMapPackAssetsItem[];
   /**
      * @minimum 0

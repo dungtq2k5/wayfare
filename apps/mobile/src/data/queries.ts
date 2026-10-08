@@ -43,3 +43,25 @@ export async function placesOfArea(
   );
   return rows.map((row) => JSON.parse(row.record_json) as PlaceSyncRecord);
 }
+
+/** Every synced Place of every area in `lang`: what the map draws and Explore lists offline. */
+export async function allPlaces(db: Database, lang: string): Promise<PlaceSyncRecord[]> {
+  const rows = await db.all<{ record_json: string }>(
+    'SELECT record_json FROM place_records WHERE lang = ? ORDER BY place_id',
+    [lang],
+  );
+  return rows.map((row) => JSON.parse(row.record_json) as PlaceSyncRecord);
+}
+
+/** One synced Place, or null when this phone does not hold it. */
+export async function placeById(
+  db: Database,
+  placeId: string,
+  lang: string,
+): Promise<PlaceSyncRecord | null> {
+  const [row] = await db.all<{ record_json: string }>(
+    'SELECT record_json FROM place_records WHERE place_id = ? AND lang = ?',
+    [placeId, lang],
+  );
+  return row === undefined ? null : (JSON.parse(row.record_json) as PlaceSyncRecord);
+}

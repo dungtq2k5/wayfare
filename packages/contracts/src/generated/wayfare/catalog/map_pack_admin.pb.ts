@@ -37,7 +37,11 @@ export interface MapPack {
   buildTool: string;
   publishedAt: Timestamp | undefined;
   retiredAt: Timestamp | undefined;
-  createdAt: Timestamp | undefined;
+  createdAt:
+    | Timestamp
+    | undefined;
+  /** The dark flavour's style; absent for a pack with light only. */
+  styleDark?: MapPackObject | undefined;
 }
 
 export interface ListMapPacksRequest {
@@ -58,6 +62,8 @@ export interface RegisterMapPackRequest {
   minZoom: number;
   maxZoom: number;
   buildTool: string;
+  /** The dark flavour's style; absent for a pack with light only. */
+  styleDark?: MapPackObject | undefined;
 }
 
 export interface RegisterMapPackResponse {

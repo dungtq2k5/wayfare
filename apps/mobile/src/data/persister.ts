@@ -15,12 +15,18 @@ export const persister = createAsyncStoragePersister({
   key: 'wayfare.query-cache',
 });
 
-/** Only `GET /areas` outlives the process: it names the areas to sync when the phone is offline. */
+// The map's pack styles outlive the process too, for the same reason: the base map on a cold start.
+queryClient.setQueryDefaults(['map-pack'], { gcTime: PERSIST_MAX_AGE_MS });
+
+/**
+ * Only `GET /areas` and the map-pack styles outlive the process: the areas to sync, and the base
+ * map, when the phone is offline.
+ */
 export const persistOptions = {
   persister,
   maxAge: PERSIST_MAX_AGE_MS,
   dehydrateOptions: {
     shouldDehydrateQuery: (query: { queryKey: readonly unknown[] }) =>
-      query.queryKey[0] === getAreasListQueryKey()[0],
+      query.queryKey[0] === getAreasListQueryKey()[0] || query.queryKey[0] === 'map-pack',
   },
 };

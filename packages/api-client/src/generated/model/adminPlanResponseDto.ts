@@ -12,7 +12,8 @@ export interface AdminPlanResponseDto {
   id: string;
   code: string;
   name: string;
-  stripeProductId: string[];
+  /** @nullable */
+  stripeProductId: string | null;
   isActive: boolean;
   /**
      * @minimum -9007199254740991

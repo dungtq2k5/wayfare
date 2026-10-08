@@ -12,8 +12,10 @@ import type { AdminSubmissionResponseDtoSubmission } from './adminSubmissionResp
 
 export interface AdminSubmissionResponseDto {
   submission: AdminSubmissionResponseDtoSubmission;
-  internalNote: string[];
-  reviewedById: string[];
+  /** @nullable */
+  internalNote: string | null;
+  /** @nullable */
+  reviewedById: string | null;
   livePlace: AdminSubmissionResponseDtoLivePlace;
   diff: AdminSubmissionResponseDtoDiffItem[];
   entitlements: AdminSubmissionResponseDtoEntitlements;

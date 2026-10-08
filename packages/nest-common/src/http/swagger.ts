@@ -48,6 +48,35 @@ export interface SwaggerOptions {
   readonly version: string;
 }
 
+/** nestjs-zod flags a property whose zod type was a union of types, such as a nullable string. */
+const EMPTY_TYPE_FLAG = 'x-nestjs_zod-empty-type';
+
+/**
+ * A DTO property zod describes as `type: ['string', 'null']` (a nullable string) reaches Nest as an
+ * array-typed property, which Nest takes to mean "array of the first type": the document then says
+ * `{ type: 'array', items: { type: 'string' } }` and the generated client types the field as
+ * `string[]`. nestjs-zod flags exactly these properties, so before it cleans the document up the
+ * union is put back. A genuine `z.array(z.string())` carries no flag and is left alone.
+ */
+export function restoreNullableTypes(node: unknown): void {
+  if (Array.isArray(node)) {
+    node.forEach(restoreNullableTypes);
+    return;
+  }
+  if (typeof node !== 'object' || node === null) return;
+  const schema = node as Record<string, unknown>;
+  const items = schema.items as { type?: unknown } | undefined;
+  if (
+    schema[EMPTY_TYPE_FLAG] === true &&
+    schema.type === 'array' &&
+    typeof items?.type === 'string'
+  ) {
+    schema.type = [items.type, 'null'];
+    delete schema.items;
+  }
+  Object.values(schema).forEach(restoreNullableTypes);
+}
+
 /**
  * The OpenAPI document of the running app. Served at `/docs-json` and written to the API
  * client's `openapi.json`, both through here, so the two cannot differ.
@@ -91,7 +120,9 @@ export function buildOpenApiDocument(
       schema: { type: 'string', enum: ['console', 'web', 'mobile'] },
     })
     .build();
-  return applyWayfareOpenApi(cleanupOpenApiDoc(SwaggerModule.createDocument(app, config)));
+  const raw = SwaggerModule.createDocument(app, config);
+  restoreNullableTypes(raw.components?.schemas);
+  return applyWayfareOpenApi(cleanupOpenApiDoc(raw));
 }
 
 /** Mounts Swagger UI at `/docs` and the OpenAPI document at `/docs-json`. Call only when `SWAGGER_ENABLED`. */

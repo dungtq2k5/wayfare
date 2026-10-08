@@ -7,6 +7,7 @@
 import type { OfflineManifestDiffResponseDtoMapPackAssetsItem } from './offlineManifestDiffResponseDtoMapPackAssetsItem.js';
 import type { OfflineManifestDiffResponseDtoMapPackPmtiles } from './offlineManifestDiffResponseDtoMapPackPmtiles.js';
 import type { OfflineManifestDiffResponseDtoMapPackStyle } from './offlineManifestDiffResponseDtoMapPackStyle.js';
+import type { OfflineManifestDiffResponseDtoMapPackStyleDark } from './offlineManifestDiffResponseDtoMapPackStyleDark.js';
 
 export type OfflineManifestDiffResponseDtoMapPack = {
   /**
@@ -16,5 +17,6 @@ export type OfflineManifestDiffResponseDtoMapPack = {
   version: number;
   pmtiles: OfflineManifestDiffResponseDtoMapPackPmtiles;
   style: OfflineManifestDiffResponseDtoMapPackStyle;
+  styleDark: OfflineManifestDiffResponseDtoMapPackStyleDark;
   assets: OfflineManifestDiffResponseDtoMapPackAssetsItem[];
 } | null;

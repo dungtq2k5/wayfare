@@ -1,4 +1,4 @@
-import { zPlaceSyncRecord } from '@wayfare/contracts';
+import { zPlaceSyncRecordStored } from '@wayfare/contracts';
 import type { PlaceSyncRecord } from '@wayfare/contracts';
 import type { Database } from '../db/database';
 
@@ -87,7 +87,8 @@ export async function syncArea(input: {
     if (!page.complete && cursor !== null && page.datasetVersion <= cursor) {
       throw new Error(`Sync of ${areaId} is not advancing past ${cursor}`);
     }
-    const records = page.places.map((place) => zPlaceSyncRecord.parse(place));
+    // Stored leniently, at every level: a field the server adds later is dropped, never rejected.
+    const records = page.places.map((place) => zPlaceSyncRecordStored.parse(place));
     await db.transaction(async (tx) => {
       for (const record of records) await upsertRecord(tx, record, lang);
       for (let i = 0; i < page.removedPlaceIds.length; i += DELETE_CHUNK) {

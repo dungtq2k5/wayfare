@@ -52,6 +52,8 @@ export interface PlaceSyncRecord {
   cardPhoto: PhotoView | undefined;
   priceBand?: number | undefined;
   openingHours: OpeningHoursRow[];
+  /** The Vietnamese address, shown as it is; absent when the Place has none. */
+  addressVi?: string | undefined;
 }
 
 export interface NearbyPlacesRequest {

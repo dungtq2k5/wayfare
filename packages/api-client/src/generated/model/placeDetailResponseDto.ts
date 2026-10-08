@@ -21,7 +21,8 @@ export interface PlaceDetailResponseDto {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
   areaId: string;
   location: PlaceDetailResponseDtoLocation;
-  address: string[];
+  /** @nullable */
+  address: string | null;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -38,8 +39,10 @@ export interface PlaceDetailResponseDto {
   menu: PlaceDetailResponseDtoMenu;
   openingHours: PlaceDetailResponseDtoOpeningHoursItem[];
   priceBand: number | null;
-  phone: string[];
-  websiteUrl: string[];
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  websiteUrl: string | null;
   offers: unknown[];
   isFavorite: boolean;
 }

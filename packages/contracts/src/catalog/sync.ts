@@ -3,7 +3,8 @@ import { zUuidV7 } from '../common/ids';
 import { zSha256Hex } from '../events/event-definition';
 import { PlaceKind } from './enums';
 import { ContentTier } from './localization';
-import { zGeoPoint, zOpeningHoursRow, zPublicCode } from './schemas';
+import { geoPointSchema, objectOf, openingHoursRowSchema, zGeoPoint, zPublicCode } from './schemas';
+import type { ObjectMode } from './schemas';
 
 /**
  * A sync position (rdm-spec §1.7): an `int64` string on the wire (conventions §6.3), a JSON number
@@ -21,37 +22,50 @@ export function datasetVersionFromWire(value: string): number {
 }
 
 /** A served media object: its public URL and what a client verifies. */
-export const zMediaObject = z
-  .object({
+const mediaObjectSchema = (mode: ObjectMode) =>
+  objectOf(mode, {
     url: z.url(),
     sha256: zSha256Hex,
     bytes: z.number().int().min(1),
-  })
-  .strict();
+  });
+export const zMediaObject = mediaObjectSchema('strict');
 
 /** A served photo variant. */
-export const zPhotoView = zMediaObject
-  .extend({ width: z.number().int().min(1), height: z.number().int().min(1) })
-  .strict();
+const photoViewSchema = (mode: ObjectMode) =>
+  objectOf(mode, {
+    url: z.url(),
+    sha256: zSha256Hex,
+    bytes: z.number().int().min(1),
+    width: z.number().int().min(1),
+    height: z.number().int().min(1),
+  });
+export const zPhotoView = photoViewSchema('strict');
 /** A served photo variant. */
 export type PhotoView = z.output<typeof zPhotoView>;
 
 /** A Place's narration, served only when it is ready for the text beside it (rdm-spec C-4). */
-export const zPlaceAudio = zMediaObject.extend({ durationMs: z.number().int().min(1) }).strict();
+const placeAudioSchema = (mode: ObjectMode) =>
+  objectOf(mode, {
+    url: z.url(),
+    sha256: zSha256Hex,
+    bytes: z.number().int().min(1),
+    durationMs: z.number().int().min(1),
+  });
+export const zPlaceAudio = placeAudioSchema('strict');
 /** A Place's served narration. */
 export type PlaceAudio = z.output<typeof zPlaceAudio>;
 
 /** The localized text of a record and where it came from (api-endpoints-plan §0.6). */
-export const zPlaceLocalization = z
-  .object({
+const placeLocalizationSchema = (mode: ObjectMode) =>
+  objectOf(mode, {
     lang: z.string().min(1),
     name: z.string().min(1),
     description: z.string(),
     contentTier: z.enum(ContentTier),
     stale: z.boolean(),
-    audio: zPlaceAudio.nullable(),
-  })
-  .strict();
+    audio: placeAudioSchema(mode).nullable(),
+  });
+export const zPlaceLocalization = placeLocalizationSchema('strict');
 /** A Place's localized text. */
 export type PlaceLocalization = z.output<typeof zPlaceLocalization>;
 
@@ -59,23 +73,32 @@ export type PlaceLocalization = z.output<typeof zPlaceLocalization>;
  * What the offline engine holds per Place (api-endpoints-plan §2.1). `narrationPriority` and
  * `triggerRadiusM` are served, because the device decides narration; `discoveryBoost` never is.
  */
-export const zPlaceSyncRecord = z
-  .object({
+const placeSyncRecordSchema = (mode: ObjectMode) =>
+  objectOf(mode, {
     id: zUuidV7,
     kind: z.enum(PlaceKind),
     publicCode: zPublicCode,
     categoryCode: z.string().min(1),
     areaId: zUuidV7,
-    location: zGeoPoint,
+    location: geoPointSchema(mode),
     triggerRadiusM: z.number().int(),
     narrationPriority: z.number().int(),
     autoNarrationEnabled: z.boolean(),
-    localization: zPlaceLocalization,
-    cardPhoto: zPhotoView.nullable(),
+    /** The Vietnamese address, shown as it is: a tourist shows it to a driver. */
+    addressVi: z.string().nullable(),
+    localization: placeLocalizationSchema(mode),
+    cardPhoto: photoViewSchema(mode).nullable(),
     priceBand: z.number().int().nullable(),
-    openingHours: z.array(zOpeningHoursRow),
-  })
-  .strict();
+    openingHours: z.array(openingHoursRowSchema(mode)),
+  });
+
+/** The record the server sends: unknown keys are a bug, at every level. */
+export const zPlaceSyncRecord = placeSyncRecordSchema('strict');
+/**
+ * The record a client stores: the same shape with unknown keys dropped at every level, so a field
+ * the server adds later never makes an installed app reject a sync (conventions §12.2).
+ */
+export const zPlaceSyncRecordStored = placeSyncRecordSchema('strip');
 /** One synced Place. */
 export type PlaceSyncRecord = z.output<typeof zPlaceSyncRecord>;
 

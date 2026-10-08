@@ -1,8 +1,21 @@
 import type { MapPackObject } from '@wayfare/contracts';
 
-/** `map_packs.assets` (rdm-spec C-14): the style and every glyph range and sprite file. */
+/**
+ * `map_packs.assets` (rdm-spec C-14): the style, the dark style when the pack has one, and every
+ * glyph range and sprite file (the dark flavour's sprites among them).
+ */
 export interface MapPackAssets {
   readonly style: MapPackObject;
+  readonly styleDark?: MapPackObject;
+  readonly files: readonly MapPackObject[];
+}
+
+/** A pack's objects by role. */
+export interface MapPackParts {
+  readonly pmtiles: MapPackObject;
+  readonly style: MapPackObject;
+  /** Null for a pack published before there was a dark flavour: it is drawn light only. */
+  readonly styleDark: MapPackObject | null;
   readonly files: readonly MapPackObject[];
 }
 
@@ -14,13 +27,29 @@ export interface StoredMapPack {
   readonly assets: unknown;
 }
 
-/** Every object of a pack: the archive, the style, then the files. */
-export function objectsOf(pack: StoredMapPack): MapPackObject[] {
+/** A pack's objects by role. */
+export function partsOf(pack: StoredMapPack): MapPackParts {
   const assets = pack.assets as MapPackAssets;
+  return {
+    pmtiles: {
+      path: pack.pmtilesObjectPath,
+      sha256: pack.pmtilesSha256,
+      bytes: Number(pack.pmtilesBytes),
+    },
+    style: assets.style,
+    styleDark: assets.styleDark ?? null,
+    files: assets.files,
+  };
+}
+
+/** Every object of a pack, to verify, weigh or delete: the archive, the styles, then the files. */
+export function objectsOf(pack: StoredMapPack): MapPackObject[] {
+  const parts = partsOf(pack);
   return [
-    { path: pack.pmtilesObjectPath, sha256: pack.pmtilesSha256, bytes: Number(pack.pmtilesBytes) },
-    assets.style,
-    ...assets.files,
+    parts.pmtiles,
+    parts.style,
+    ...(parts.styleDark === null ? [] : [parts.styleDark]),
+    ...parts.files,
   ];
 }
 

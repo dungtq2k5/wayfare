@@ -90,6 +90,31 @@ describe('registering a map pack', () => {
     });
   });
 
+  it('keeps a dark style among the pack’s objects, and a pack without one light only', async () => {
+    const light = await uploadBuild();
+    expect((await register(light.request)).mapPack!.styleDark).toBeUndefined();
+
+    const build = await uploadBuild();
+    const dark = Buffer.from('{"version":8,"name":"dark"}');
+    const path = `${build.prefix}style-dark.json`;
+    await services.storage.upload(path, dark, {
+      contentType: 'application/json',
+      cacheControl: 'public, max-age=31536000, immutable',
+    });
+    const styleDark = { path, sha256: sha(dark), bytes: String(dark.length) };
+    const { mapPack } = await register({ ...build.request, styleDark });
+    expect(mapPack!.styleDark).toEqual(styleDark);
+    expect(Number(mapPack!.totalBytes)).toBe(40_000 + 13 + dark.length + 3_000 + 2_000);
+    const row = await prisma.mapPack.findUniqueOrThrow({ where: { id: mapPack!.id } });
+    expect(row.darkStyleObjectPath).toBe(path);
+
+    const elsewhere = { ...styleDark, path: styleDark.path.replace(build.prefix, 'maps/x/y/') };
+    expect(await errorOf(register({ ...build.request, styleDark: elsewhere }))).toEqual({
+      code: 'VALIDATION_FAILED',
+      details: { issues: [{ path: '/styleDark/path', code: 'outside_build_prefix' }] },
+    });
+  });
+
   it('refuses a changed or missing object, a path outside the build, and an oversize pack', async () => {
     const { request, prefix } = await uploadBuild();
     await services.storage.upload(request.pmtiles!.path, randomBytes(40_000), {

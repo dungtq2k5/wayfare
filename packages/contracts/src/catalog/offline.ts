@@ -53,6 +53,8 @@ export const zRegisterMapPackInput = z
     areaId: zUuidV7,
     pmtiles: zMapPackObject,
     style: zMapPackObject,
+    /** The dark flavour's style; absent for a pack built before there was one (light only). */
+    styleDark: zMapPackObject.optional(),
     assets: z.array(zMapPackObject).max(500),
     source: z.string().trim().min(1).max(64),
     sourceDate: z.iso.date(),
@@ -77,6 +79,7 @@ export const zMapPack = z
     status: z.enum(MapPackStatus),
     pmtiles: zMapPackObject,
     style: zMapPackObject,
+    styleDark: zMapPackObject.nullable(),
     assets: z.array(zMapPackObject),
     totalBytes: z.number().int().min(0),
     source: z.string(),
@@ -115,6 +118,8 @@ export const zOfflineMapPack = z
     version: z.number().int().min(1),
     pmtiles: zOfflineAsset,
     style: zOfflineAsset,
+    /** The dark flavour's style, or null for a pack published before there was one. */
+    styleDark: zOfflineAsset.nullable(),
     assets: z.array(zOfflineAsset),
   })
   .strict();

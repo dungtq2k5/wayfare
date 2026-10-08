@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { distanceMeters } from './distance';
 import { BOOST_RANK_FACTOR, rankDistance, rankNearby } from './nearby';
 import { WALK_DETOUR_FACTOR, WALKING_SPEED_M_PER_S, walkingEtaMinutes } from './walking';
 
@@ -100,5 +101,13 @@ describe('walkingEtaMinutes', () => {
   it('is 0 for a negative or non-finite distance', () => {
     expect(walkingEtaMinutes(-1)).toBe(0);
     expect(walkingEtaMinutes(Number.NaN)).toBe(0);
+  });
+});
+
+describe('distanceMeters', () => {
+  it('measures a straight line in whole metres', () => {
+    // 0.001° of latitude is about 111 m.
+    expect(distanceMeters({ lat: 10.77, lng: 106.7 }, { lat: 10.771, lng: 106.7 })).toBe(111);
+    expect(distanceMeters({ lat: 10.77, lng: 106.7 }, { lat: 10.77, lng: 106.7 })).toBe(0);
   });
 });

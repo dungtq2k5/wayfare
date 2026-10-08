@@ -5,8 +5,8 @@ import { openTestDatabase } from './test-database';
 
 /** Two invented later steps, so "from each intermediate version" is exercised. */
 const LATER: Migration[] = [
-  { version: 2, statements: ['ALTER TABLE sync_state ADD COLUMN note TEXT'] },
-  { version: 3, statements: ['CREATE TABLE extra (id INTEGER PRIMARY KEY)'] },
+  { version: MIGRATIONS.length + 1, statements: ['ALTER TABLE sync_state ADD COLUMN note TEXT'] },
+  { version: MIGRATIONS.length + 2, statements: ['CREATE TABLE extra (id INTEGER PRIMARY KEY)'] },
 ];
 const ALL = [...MIGRATIONS, ...LATER];
 
@@ -29,12 +29,23 @@ describe('migrate', () => {
     expect(await tables(db)).toEqual(expect.arrayContaining(['place_records', 'sync_state']));
   });
 
-  it.each([0, 1, 2, 3])('reaches the last version from version %i', async (from) => {
+  it.each(Array.from({ length: MIGRATIONS.length + 3 }, (_, index) => index))(
+    'reaches the last version from version %i',
+    async (from) => {
+      const db = openTestDatabase();
+      await migrate(db, ALL.slice(0, from));
+      await migrate(db, ALL);
+      expect(await schemaVersion(db)).toBe(MIGRATIONS.length + 2);
+      expect(await tables(db)).toContain('extra');
+    },
+  );
+
+  it('clears the cursors, so the next sync is a full one (the address arrives)', async () => {
     const db = openTestDatabase();
-    await migrate(db, ALL.slice(0, from));
-    await migrate(db, ALL);
-    expect(await schemaVersion(db)).toBe(3);
-    expect(await tables(db)).toContain('extra');
+    await migrate(db, MIGRATIONS.slice(0, 1));
+    await db.run("INSERT INTO sync_state VALUES ('a', 'en', 5, 1)");
+    await migrate(db);
+    expect(await db.all('SELECT * FROM sync_state')).toEqual([]);
   });
 
   it('is a no-op when already current', async () => {
@@ -48,11 +59,11 @@ describe('migrate', () => {
     const db = openTestDatabase();
     await migrate(db);
     const broken: Migration = {
-      version: 2,
+      version: MIGRATIONS.length + 1,
       statements: ['CREATE TABLE half (id INTEGER)', 'THIS IS NOT SQL'],
     };
     await expect(migrate(db, [...MIGRATIONS, broken])).rejects.toThrow();
-    expect(await schemaVersion(db)).toBe(1);
+    expect(await schemaVersion(db)).toBe(MIGRATIONS.length);
     expect(await tables(db)).not.toContain('half');
   });
 });

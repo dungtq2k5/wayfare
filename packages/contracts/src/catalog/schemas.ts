@@ -34,13 +34,27 @@ const zText = (max: number, options: { singleLine?: boolean } = {}) =>
         : z.string().min(1).max(max),
     );
 
-/** A WGS 84 point (rdm-spec §2.6). Longitude comes second here and first in SQL. */
-export const zGeoPoint = z
-  .object({
+/**
+ * How an object schema treats a key it does not know: `strict` rejects it, `strip` drops it. The
+ * server's output is held to the strict form; what a client persists is read in the strip form, at
+ * every level, so a field added later never makes an installed app reject its own data. Both are
+ * built from one definition (conventions §12.2).
+ */
+export type ObjectMode = 'strict' | 'strip';
+
+/** `z.strictObject` or `z.object` by mode. */
+export const objectOf = <T extends z.ZodRawShape>(mode: ObjectMode, shape: T) =>
+  mode === 'strict' ? z.strictObject(shape) : z.object(shape);
+
+/** A WGS 84 point, in the given mode. */
+export const geoPointSchema = (mode: ObjectMode) =>
+  objectOf(mode, {
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
-  })
-  .strict();
+  });
+
+/** A WGS 84 point (rdm-spec §2.6). Longitude comes second here and first in SQL. */
+export const zGeoPoint = geoPointSchema('strict');
 /** A WGS 84 point. */
 export type GeoPoint = z.output<typeof zGeoPoint>;
 
@@ -80,16 +94,14 @@ export const zLocalTime = z
  * One opening-hours row (rdm-spec C-16): exactly one of `weekday` and `specificDate`, and both
  * times unless the row says closed. A `closesAt` before `opensAt` ends the next day.
  */
-export const zOpeningHoursRow = z
-  .object({
+export const openingHoursRowSchema = (mode: ObjectMode) =>
+  objectOf(mode, {
     weekday: z.number().int().min(1).max(7).optional(),
     specificDate: z.iso.date().optional(),
     opensAt: zLocalTime.optional(),
     closesAt: zLocalTime.optional(),
     isClosed: z.boolean().default(false),
-  })
-  .strict()
-  .superRefine((row, ctx) => {
+  }).superRefine((row, ctx) => {
     if ((row.weekday === undefined) === (row.specificDate === undefined)) {
       ctx.addIssue({
         code: 'custom',
@@ -105,6 +117,9 @@ export const zOpeningHoursRow = z
       }
     }
   });
+
+/** One opening-hours row (strict). */
+export const zOpeningHoursRow = openingHoursRowSchema('strict');
 /** One opening-hours row. */
 export type OpeningHoursRow = z.output<typeof zOpeningHoursRow>;
 

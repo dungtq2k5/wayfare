@@ -42,6 +42,7 @@ class FakeServer {
       triggerRadiusM: 40,
       narrationPriority: 0,
       autoNarrationEnabled: true,
+      addressVi: null,
       localization: {
         lang: 'en',
         name: place.name,
@@ -229,6 +230,41 @@ describe('syncArea', () => {
     await run(db, server, D1, 'en');
     // the vi cursor is behind, but the removal in en already took every language of the area
     expect(await ids(db, D1)).toEqual([]);
+  });
+});
+
+describe('a record from a newer server', () => {
+  it('is stored with every unknown field dropped, at every level', async () => {
+    const { db, server } = await setup();
+    const id = newId();
+    server.put(id, D1, 'A');
+    const plain = server.record(server.places.get(id)!);
+    const newer = {
+      ...plain,
+      futureTop: 1,
+      location: { ...plain.location, futureLocation: 1 },
+      localization: { ...plain.localization, futureLocalization: 1, audio: null },
+      openingHours: [
+        { weekday: 1, opensAt: '08:00', closesAt: '17:00', isClosed: false, futureRow: 1 },
+      ],
+    };
+    const client: SyncClient = {
+      places: () =>
+        Promise.resolve({
+          places: [newer],
+          removedPlaceIds: [],
+          datasetVersion: 1,
+          complete: true,
+        }),
+    };
+    await syncArea({ db, client, areaId: D1, lang: 'en', now: () => 1 });
+    const [row] = await db.all<{ record_json: string }>('SELECT record_json FROM place_records');
+    expect(row!.record_json).not.toContain('future');
+    const stored = JSON.parse(row!.record_json) as typeof plain;
+    expect(stored.openingHours).toEqual([
+      { weekday: 1, opensAt: '08:00', closesAt: '17:00', isClosed: false },
+    ]);
+    expect(stored.localization.name).toBe('A');
   });
 });
 

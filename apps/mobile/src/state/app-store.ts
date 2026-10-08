@@ -10,6 +10,8 @@ export interface AppState {
   language: string | null;
   /** Light, dark or the system's; `system` until the user chooses. */
   appearance: Appearance;
+  /** The area the map is showing; the first synced one until the tourist chooses. */
+  currentAreaId: string | null;
   /** True once this install is registered (the privacy notice accepted). */
   onboarded: boolean;
   /** Set once the persisted part has been read; nothing routes before it. */
@@ -21,6 +23,7 @@ export interface AppState {
   policyChanged: boolean;
   setLanguage: (language: string | null) => void;
   setAppearance: (appearance: Appearance) => void;
+  setCurrentArea: (areaId: string) => void;
   setOnboarded: (onboarded: boolean) => void;
   requireUpdate: (minimumVersion: string) => void;
   requirePolicy: (currentVersion: string) => void;
@@ -33,6 +36,7 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       language: null,
       appearance: 'system',
+      currentAreaId: null,
       onboarded: false,
       hydrated: false,
       updateRequired: null,
@@ -40,6 +44,7 @@ export const useAppStore = create<AppState>()(
       policyChanged: false,
       setLanguage: (language) => set({ language }),
       setAppearance: (appearance) => set({ appearance }),
+      setCurrentArea: (currentAreaId) => set({ currentAreaId }),
       setOnboarded: (onboarded) => set({ onboarded }),
       requireUpdate: (minimumVersion) => set({ updateRequired: minimumVersion }),
       requirePolicy: (currentVersion) =>
@@ -50,7 +55,12 @@ export const useAppStore = create<AppState>()(
       name: 'wayfare.app',
       // The key-value store of expo-sqlite, the database ADR 0027 chose: no second storage library.
       storage: createJSONStorage(() => Storage),
-      partialize: ({ language, appearance, onboarded }) => ({ language, appearance, onboarded }),
+      partialize: ({ language, appearance, currentAreaId, onboarded }) => ({
+        language,
+        appearance,
+        currentAreaId,
+        onboarded,
+      }),
     },
   ),
 );

@@ -28,11 +28,11 @@ import type { StorageProvider } from '@wayfare/nest-common/storage';
 import { Counter } from 'prom-client';
 import { z } from 'zod';
 import type { Env } from '../../config/env.schema';
-import { objectsOf } from '../map-packs/domain/map-pack-objects';
+import { objectsOf, partsOf } from '../map-packs/domain/map-pack-objects';
 import { PlaceQueriesService } from '../place-queries/place-queries.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
-import { mediaOf, offlineMapPack, snapshotPath, totalBytes } from './domain/manifest';
+import { mapPackFiles, mediaOf, offlineMapPack, snapshotPath, totalBytes } from './domain/manifest';
 import { toOfflineAsset, toPlaceSyncRecord } from './offline.mapper';
 
 /** Injection token for the manifest cache. */
@@ -121,8 +121,7 @@ export class OfflineService {
 
     const snapshot = await this.snapshot(area, fields.lang, cap);
     const media = mediaOf(snapshot.records, (object) => toOfflineAsset(object, this.mediaBase));
-    const mapPack =
-      pack === null ? null : offlineMapPack(pack.version, pack.objects, this.mediaBase);
+    const mapPack = pack === null ? null : offlineMapPack(pack.version, pack.parts, this.mediaBase);
     const manifest: OfflineManifest = zOfflineManifest.parse({
       areaId: area.id,
       lang,
@@ -135,7 +134,7 @@ export class OfflineService {
         [snapshot.asset],
         media.photos,
         media.audio,
-        mapPack === null ? [] : [mapPack.pmtiles, mapPack.style, ...mapPack.assets],
+        mapPack === null ? [] : mapPackFiles(mapPack),
       ]),
     });
     const json = JSON.stringify(manifest);
@@ -166,7 +165,7 @@ export class OfflineService {
         drop = objectsOf(old).map((object) => object.path);
       }
       mapPack =
-        current === null ? null : offlineMapPack(current.version, current.objects, this.mediaBase);
+        current === null ? null : offlineMapPack(current.version, current.parts, this.mediaBase);
     }
 
     // The Places: delta sync's own pages, up to one cap.
@@ -208,7 +207,7 @@ export class OfflineService {
         [snapshot.asset],
         media.photos,
         media.audio,
-        mapPack === null ? [] : [mapPack.pmtiles, mapPack.style, ...mapPack.assets],
+        mapPack === null ? [] : mapPackFiles(mapPack),
       ]),
     });
     return { diffJson: JSON.stringify(diff) };
@@ -230,7 +229,7 @@ export class OfflineService {
     const pack = await this.prisma.mapPack.findFirst({
       where: { areaId, status: MapPackStatus.PUBLISHED },
     });
-    return pack === null ? null : { version: pack.version, objects: objectsOf(pack) };
+    return pack === null ? null : { version: pack.version, parts: partsOf(pack) };
   }
 
   private async records(

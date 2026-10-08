@@ -9,6 +9,7 @@ import type { VoiceCatalogueResponseDtoAvailableItem } from './voiceCatalogueRes
 export interface VoiceCatalogueResponseDto {
   lang: string;
   provider: string;
-  pinnedVoiceId: string[];
+  /** @nullable */
+  pinnedVoiceId: string | null;
   available: VoiceCatalogueResponseDtoAvailableItem[];
 }

@@ -79,7 +79,8 @@ describe('the District 1 pilot corpus', () => {
       expect(meta.exif, `${file} carries EXIF`).toBeUndefined();
     }
     const committed = readdirSync(corpus.photosDir, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name !== '.gitkeep')
+      // `credits.json` is the folder's credit list, not a photo.
+      .filter((entry) => entry.isFile() && !['.gitkeep', 'credits.json'].includes(entry.name))
       .map((entry) => `${entry.parentPath.slice(corpus.photosDir.length + 1)}/${entry.name}`);
     for (const file of committed)
       expect(listed.has(file), `${file} is not in places.json`).toBe(true);

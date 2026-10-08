@@ -13,6 +13,7 @@ import { applyAppearance, useTheme } from '../src/theme/appearance';
 import { deviceSession } from '../src/session';
 import { useAppStore } from '../src/state/app-store';
 import { queryClient } from '../src/state/query-client';
+import { ToastHost } from '../src/ui/toast';
 
 /**
  * The providers, and the gate: *Update required* beats everything, then the first run (no
@@ -80,9 +81,14 @@ export default function RootLayout() {
           </Stack.Protected>
           <Stack.Protected guard={!blocked && !firstRun}>
             <Stack.Screen name="index" />
-            <Stack.Screen name="settings" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="place/[id]" />
+            <Stack.Screen name="settings/language" />
+            <Stack.Screen name="settings/credits" />
+            <Stack.Screen name="settings/diagnostics" />
           </Stack.Protected>
         </Stack>
+        <ToastHost />
       </ThemeProvider>
     </PersistQueryClientProvider>
   );
