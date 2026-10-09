@@ -96,7 +96,15 @@ export default defineConfig({
           include: ['test/integration/**/*.spec.ts', 'test/contract/**/*.spec.ts'],
           environment: 'node',
           globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],
+          setupFiles: [
+            root('./vitest.setup.ts'),
+            root('./vitest.integration.setup.ts'),
+            'test/setup/env.ts',
+          ],
+          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
+          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
+          // output. Quiet in the integration runs only; the services keep the warning.
+          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
           env: { OTEL_SDK_DISABLED: 'true' },
           // One database: suites run serially (conventions §17.2).
           fileParallelism: false,
@@ -113,7 +121,15 @@ export default defineConfig({
           include: ['test/integration/**/*.spec.ts'],
           environment: 'node',
           globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],
+          setupFiles: [
+            root('./vitest.setup.ts'),
+            root('./vitest.integration.setup.ts'),
+            'test/setup/env.ts',
+          ],
+          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
+          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
+          // output. Quiet in the integration runs only; the services keep the warning.
+          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
           env: { OTEL_SDK_DISABLED: 'true' },
           // One database: suites run serially (conventions §17.2).
           fileParallelism: false,
@@ -130,7 +146,15 @@ export default defineConfig({
           include: ['test/integration/**/*.spec.ts'],
           environment: 'node',
           globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],
+          setupFiles: [
+            root('./vitest.setup.ts'),
+            root('./vitest.integration.setup.ts'),
+            'test/setup/env.ts',
+          ],
+          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
+          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
+          // output. Quiet in the integration runs only; the services keep the warning.
+          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
           env: { OTEL_SDK_DISABLED: 'true' },
           // One database: suites run serially (conventions §17.2).
           fileParallelism: false,
@@ -147,7 +171,15 @@ export default defineConfig({
           include: ['test/integration/**/*.spec.ts'],
           environment: 'node',
           globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [root('./vitest.setup.ts'), 'test/setup/env.ts'],
+          setupFiles: [
+            root('./vitest.setup.ts'),
+            root('./vitest.integration.setup.ts'),
+            'test/setup/env.ts',
+          ],
+          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
+          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
+          // output. Quiet in the integration runs only; the services keep the warning.
+          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
           env: { OTEL_SDK_DISABLED: 'true' },
           // One database: suites run serially (conventions §17.2).
           fileParallelism: false,

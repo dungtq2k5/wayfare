@@ -17,7 +17,7 @@ export function UpNextRow() {
   return (
     <View className="flex-row flex-wrap items-center gap-3 rounded-xl bg-now-playing-foreground/10 p-3">
       <View className="h-12 w-12 items-center justify-center rounded-lg bg-now-playing-accent">
-        <Icon icon={categoryIcon(next.categoryCode)} size={24} color="now-playing" />
+        <Icon icon={categoryIcon(next.categoryCode)} size="lg" color="now-playing" />
       </View>
       <View className="min-w-0 flex-1">
         <Text className="text-caption text-now-playing-accent">{t('player.upNext')}</Text>

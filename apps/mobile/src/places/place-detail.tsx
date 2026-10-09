@@ -132,7 +132,7 @@ function QuickActions({ view }: { view: PlaceView }) {
           onPress={action.onPress}
           className="min-h-12 flex-row items-center gap-2 rounded-lg border border-border bg-card px-4"
         >
-          <Icon icon={action.icon} size={20} color="primary" />
+          <Icon icon={action.icon} size="md" color="primary" />
           <Text className="text-label text-foreground">{action.label}</Text>
         </Pressable>
       ))}
@@ -228,7 +228,7 @@ export function PlaceDetail({
         </View>
         {!ownLanguage && (
           <View className="flex-row items-center gap-2">
-            <Icon icon={Languages} size={16} color="info-foreground" />
+            <Icon icon={Languages} size="sm" color="info-foreground" />
             <Text className="flex-1 text-caption text-info-foreground">
               {view.contentTier === 'ENGLISH'
                 ? t('place.shownInEnglish', { language: yourLanguage })
@@ -321,7 +321,7 @@ export function PlaceUnavailable({
   return (
     <View className="items-center gap-4 p-6">
       <View className="rounded-full bg-accent p-5">
-        <Icon icon={XCircle} size={24} color="accent-foreground" />
+        <Icon icon={XCircle} size="lg" color="accent-foreground" />
       </View>
       <Text accessibilityRole="header" className="text-center text-heading text-foreground">
         {kind === 'removed' ? t('place.removed.title') : t('place.loadError')}
@@ -341,7 +341,7 @@ export function PlaceUnavailable({
           onPress={onBack}
           className="min-h-12 flex-row items-center gap-2 rounded-lg bg-secondary px-4"
         >
-          <Icon icon={MapIcon} size={20} color="secondary-foreground" />
+          <Icon icon={MapIcon} size="md" color="secondary-foreground" />
           <Text className="text-label text-secondary-foreground">{t('place.removed.action')}</Text>
         </Pressable>
       )}

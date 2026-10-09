@@ -36,7 +36,6 @@ export function InlinePlayer() {
       <View className="min-h-14 flex-row items-center gap-2 py-1 pl-1 pr-2">
         <PlayPauseDisc
           paused={paused || preparing}
-          glyph={22}
           label={paused ? t('player.play') : t('player.pause')}
           disabled={preparing}
           onPress={() => (paused ? narrationPlayer.resume() : narrationPlayer.pause())}
@@ -72,7 +71,7 @@ export function InlinePlayer() {
           onPress={() => router.push('/player')}
           className="h-12 w-12 items-center justify-center"
         >
-          <Icon icon={ChevronUp} size={22} color="now-playing-foreground" />
+          <Icon icon={ChevronUp} size="lg" color="now-playing-foreground" />
         </Pressable>
       </View>
       {/* Only a pause the tourist must act on adds a row: the height never jumps while it starts. */}

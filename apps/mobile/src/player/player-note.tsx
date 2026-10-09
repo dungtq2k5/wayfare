@@ -7,7 +7,7 @@ export function PlayerNote({ note, onSurface = true }: { note: NoteView; onSurfa
   const ink = onSurface ? 'text-now-playing-foreground' : 'text-foreground';
   return (
     <View className="min-h-12 flex-row items-center gap-2" accessibilityLiveRegion="polite">
-      <Icon icon={note.icon} size={20} color="now-playing-accent" />
+      <Icon icon={note.icon} size="md" color="now-playing-accent" />
       <Text className={`flex-1 text-caption ${ink}`} maxFontSizeMultiplier={1.3}>
         {note.text}
       </Text>

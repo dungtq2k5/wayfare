@@ -69,7 +69,7 @@ function RoundButton({
       onPress={onPress}
       className="h-12 w-12 items-center justify-center"
     >
-      <Icon icon={icon} size={24} color="now-playing-foreground" />
+      <Icon icon={icon} size="lg" color="now-playing-foreground" />
     </Pressable>
   );
 }
@@ -155,7 +155,7 @@ export function MiniPlayer({ floating = true }: { floating?: boolean }) {
             onPress={() => router.push('/player')}
             className="min-w-0 flex-1 flex-row items-center gap-3"
           >
-            <Icon icon={leading} size={24} color="now-playing-accent" />
+            <Icon icon={leading} size="lg" color="now-playing-accent" />
             <View className="min-w-0 flex-1 gap-1">
               <Text
                 numberOfLines={1}
@@ -213,7 +213,6 @@ export function MiniPlayer({ floating = true }: { floating?: boolean }) {
           ) : (
             <PlayPauseDisc
               paused={paused}
-              glyph={24}
               label={paused ? t('player.play') : t('player.pause')}
               onPress={() => (paused ? narrationPlayer.resume() : narrationPlayer.pause())}
             />

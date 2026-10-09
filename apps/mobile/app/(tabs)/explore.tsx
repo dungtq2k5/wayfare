@@ -206,7 +206,7 @@ export default function ExploreScreen() {
           loading || failed ? null : (
             <View className="items-center gap-4 py-10">
               <View className="rounded-full bg-accent p-5">
-                <Icon icon={Search} size={24} color="accent-foreground" />
+                <Icon icon={Search} size="lg" color="accent-foreground" />
               </View>
               <Text accessibilityRole="header" className="text-center text-heading text-foreground">
                 {t('explore.empty.title')}
@@ -225,7 +225,7 @@ export default function ExploreScreen() {
                 onPress={chooseArea}
                 className="min-h-12 flex-row items-center gap-2 rounded-lg bg-secondary px-4"
               >
-                <Icon icon={MapPinned} size={20} color="secondary-foreground" />
+                <Icon icon={MapPinned} size="md" color="secondary-foreground" />
                 <Text className="text-label text-secondary-foreground">
                   {t('explore.empty.action')}
                 </Text>

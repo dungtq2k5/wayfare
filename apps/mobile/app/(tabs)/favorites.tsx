@@ -65,7 +65,7 @@ export default function FavoritesScreen() {
         ListEmptyComponent={
           favourites.offline || favourites.isPending || favourites.isError ? null : (
             <View className="items-center gap-3 py-10">
-              <Icon icon={Heart} size={24} color="muted-foreground" />
+              <Icon icon={Heart} size="lg" color="muted-foreground" />
               <Text className="text-center text-body text-muted-foreground">
                 {t('favorites.empty')}
               </Text>

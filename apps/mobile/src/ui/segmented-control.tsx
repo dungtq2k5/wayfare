@@ -35,7 +35,7 @@ export function SegmentedControl<T extends string>({
             {option.icon !== undefined && (
               <Icon
                 icon={option.icon}
-                size={16}
+                size="sm"
                 color={selected ? 'foreground' : 'muted-foreground'}
               />
             )}

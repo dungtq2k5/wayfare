@@ -27,7 +27,7 @@ export function PlacePhoto({
         importantForAccessibility="no-hide-descendants"
         className={`items-center justify-center rounded-lg bg-secondary ${className}`}
       >
-        <Icon icon={categoryIcon(categoryCode)} size={24} color="muted-foreground" />
+        <Icon icon={categoryIcon(categoryCode)} size="lg" color="muted-foreground" />
       </View>
     );
   }

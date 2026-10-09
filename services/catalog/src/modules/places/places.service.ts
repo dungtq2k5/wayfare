@@ -97,6 +97,7 @@ import {
 import {
   ADMIN_PLACE_LIST_SELECT,
   ADMIN_PLACE_SELECT,
+  type AdminPlaceRow,
   toAdminPlace,
   toAdminPlaceListItem,
 } from './place.mapper';
@@ -308,6 +309,22 @@ const ANY_KIND: string = CategoryAppliesTo.ANY;
  * in `withSyncWrite`: the business write, the audit event, any domain events, the one net
  * `status_changed`, and **last** the sync bump.
  */
+/**
+ * The relations of `ADMIN_PLACE_SELECT`, one select each, and its plain columns. Loaded together
+ * Prisma sends one query per relation at the same moment, and on a transaction (one connection)
+ * `pg` warns that it is already busy: `PlacesService.view` loads the columns, then each relation,
+ * one after another.
+ */
+const {
+  category: ADMIN_PLACE_CATEGORY,
+  area: ADMIN_PLACE_AREA,
+  localizations: ADMIN_PLACE_LOCALIZATIONS,
+  photos: ADMIN_PLACE_PHOTOS,
+  menuItems: ADMIN_PLACE_MENU_ITEMS,
+  openingHours: ADMIN_PLACE_OPENING_HOURS,
+  ...ADMIN_PLACE_COLUMNS
+} = ADMIN_PLACE_SELECT;
+
 @Injectable()
 export class PlacesService {
   private readonly mediaBase: string;
@@ -1374,23 +1391,22 @@ export class PlacesService {
     db: CatalogTx,
     ownerUserId: string,
   ): Promise<{ used: number; reserved: number }> {
-    const [used, reserved] = await Promise.all([
-      db.place.count({
-        where: {
-          ownerUserId,
-          kind: VENUE,
-          deletedAt: null,
-          status: { in: [...PLACE_LIMIT_STATUSES] },
-        },
-      }),
-      db.placeSubmission.count({
-        where: {
-          ownerUserId,
-          kind: SubmissionKind.CREATE,
-          status: SubmissionStatus.PENDING,
-        },
-      }),
-    ]);
+    // One after another: a transaction is one connection, which runs one query at a time.
+    const used = await db.place.count({
+      where: {
+        ownerUserId,
+        kind: VENUE,
+        deletedAt: null,
+        status: { in: [...PLACE_LIMIT_STATUSES] },
+      },
+    });
+    const reserved = await db.placeSubmission.count({
+      where: {
+        ownerUserId,
+        kind: SubmissionKind.CREATE,
+        status: SubmissionStatus.PENDING,
+      },
+    });
     return { used, reserved };
   }
 
@@ -2016,11 +2032,47 @@ export class PlacesService {
     );
   }
 
+  /**
+   * A Place as the console shows it. The columns and each relation are read one after another:
+   * one `select` with all the relations makes Prisma send them at the same moment, and on a
+   * transaction (one connection) `pg` warns that it is already busy.
+   */
   private async view(db: CatalogTx, placeId: string): Promise<catalogGrpc.AdminPlace> {
-    const row = await db.place.findUniqueOrThrow({
-      where: { id: placeId },
-      select: ADMIN_PLACE_SELECT,
+    const where = { id: placeId };
+    const columns = await db.place.findUniqueOrThrow({ where, select: ADMIN_PLACE_COLUMNS });
+    const { category } = await db.place.findUniqueOrThrow({
+      where,
+      select: { category: ADMIN_PLACE_CATEGORY },
     });
+    const { area } = await db.place.findUniqueOrThrow({
+      where,
+      select: { area: ADMIN_PLACE_AREA },
+    });
+    const { localizations } = await db.place.findUniqueOrThrow({
+      where,
+      select: { localizations: ADMIN_PLACE_LOCALIZATIONS },
+    });
+    const { photos } = await db.place.findUniqueOrThrow({
+      where,
+      select: { photos: ADMIN_PLACE_PHOTOS },
+    });
+    const { menuItems } = await db.place.findUniqueOrThrow({
+      where,
+      select: { menuItems: ADMIN_PLACE_MENU_ITEMS },
+    });
+    const { openingHours } = await db.place.findUniqueOrThrow({
+      where,
+      select: { openingHours: ADMIN_PLACE_OPENING_HOURS },
+    });
+    const row: AdminPlaceRow = {
+      ...columns,
+      category,
+      area,
+      localizations,
+      photos,
+      menuItems,
+      openingHours,
+    };
     const [location] = await db.$queryRaw<GeoPoint[]>`
       SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng
       FROM places WHERE id = ${placeId}::uuid`;

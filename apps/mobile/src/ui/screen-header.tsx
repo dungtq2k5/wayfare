@@ -28,7 +28,7 @@ export function ScreenHeader({ title, type = 'large', trailing }: ScreenHeaderPr
           onPress={() => router.back()}
           className="min-h-12 min-w-12 items-center justify-center"
         >
-          <Icon icon={ArrowLeft} size={24} />
+          <Icon icon={ArrowLeft} size="lg" />
         </Pressable>
       )}
       <Text

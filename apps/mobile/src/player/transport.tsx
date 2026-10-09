@@ -45,7 +45,7 @@ export function Transport() {
         onPress={() => narrationPlayer.replay()}
         className={`h-12 w-12 items-center justify-center ${rest}`}
       >
-        <Icon icon={RotateCcw} size={24} color="now-playing-foreground" />
+        <Icon icon={RotateCcw} size="lg" color="now-playing-foreground" />
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -59,7 +59,7 @@ export function Transport() {
       >
         <Icon
           icon={preparing ? LoaderCircle : paused ? Play : Pause}
-          size={32}
+          size="xl"
           color="now-playing"
         />
       </Pressable>
@@ -69,7 +69,7 @@ export function Transport() {
         onPress={() => (waiting ? narrationPlayer.skip() : narrationPlayer.stop())}
         className="h-12 w-12 items-center justify-center"
       >
-        <Icon icon={waiting ? SkipForward : Square} size={24} color="now-playing-foreground" />
+        <Icon icon={waiting ? SkipForward : Square} size="lg" color="now-playing-foreground" />
       </Pressable>
     </View>
   );

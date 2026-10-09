@@ -78,7 +78,7 @@ function Disc({
     >
       <Icon
         icon={categoryIcon(record.categoryCode)}
-        size={size >= SELECTED ? 24 : 20}
+        size={size >= SELECTED ? 'lg' : 'md'}
         color={selected ? 'map-marker-selected-foreground' : 'map-marker-foreground'}
       />
     </View>
@@ -265,6 +265,7 @@ export function PlacesMap({
           id="places-clusters"
           type="circle"
           filter={['has', 'point_count'] as never}
+          // FIXME 'style' is deprecated.
           style={{
             circleColor: colors['map-marker'],
             circleRadius: ['step', ['get', 'point_count'], 16, 10, 20, 30, 24] as never,

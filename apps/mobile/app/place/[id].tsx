@@ -72,7 +72,7 @@ export default function PlaceScreen() {
         style={{ top: insets.top + space[2] }}
         className="absolute left-4 min-h-12 min-w-12 items-center justify-center rounded-full bg-card elevation-2"
       >
-        <Icon icon={ArrowLeft} size={24} />
+        <Icon icon={ArrowLeft} size="lg" />
       </Pressable>
     </View>
   );

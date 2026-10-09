@@ -17,3 +17,7 @@ apps/mobile/.expo/
 apps/mobile/expo-env.d.ts
 # The designer's export is replaced as a whole (pnpm build turns it into the theme).
 packages/design-tokens/tokens.json
+
+# What Gradle writes inside a local native module when the app is built.
+apps/mobile/modules/*/android/build/
+apps/mobile/modules/*/android/.gradle/

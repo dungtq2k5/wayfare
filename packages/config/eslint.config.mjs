@@ -159,6 +159,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
               '*.mts',
               '*.js',
               'vitest.setup.ts',
+              'vitest.integration.setup.ts',
               'packages/config/scripts/*.mjs',
             ],
           },

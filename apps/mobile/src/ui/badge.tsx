@@ -29,7 +29,7 @@ export function Badge({ tone, label, icon }: { tone: Tone; label: string; icon?:
       className={`flex-row items-center gap-1 self-start rounded-full px-3 py-1 ${SURFACE[tone]}`}
     >
       {icon !== undefined && (
-        <Icon icon={icon} size={16} color={`${tone}-foreground` as 'success-foreground'} />
+        <Icon icon={icon} size="sm" color={`${tone}-foreground` as 'success-foreground'} />
       )}
       <Text className={`shrink text-label ${INK[tone]}`}>{label}</Text>
     </View>

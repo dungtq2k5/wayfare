@@ -44,7 +44,7 @@ export function AreaSheet({
                 }`}
               >
                 <View className="rounded-lg bg-accent p-2">
-                  <Icon icon={areaIcon(area.code)} size={24} color="accent-foreground" />
+                  <Icon icon={areaIcon(area.code)} size="lg" color="accent-foreground" />
                 </View>
                 <View className="flex-1">
                   <Text className="text-body-strong text-foreground">
@@ -56,7 +56,7 @@ export function AreaSheet({
                 </View>
                 <Icon
                   icon={selected ? CheckCircle2 : Circle}
-                  size={24}
+                  size="lg"
                   color={selected ? 'primary' : 'muted-foreground'}
                 />
               </Pressable>

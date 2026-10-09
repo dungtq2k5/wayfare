@@ -25,9 +25,9 @@ export function CategoryChip({
       }`}
     >
       {selected ? (
-        <Icon icon={Check} size={16} color="primary-foreground" />
+        <Icon icon={Check} size="sm" color="primary-foreground" />
       ) : (
-        icon !== undefined && <Icon icon={icon} size={16} color="foreground" />
+        icon !== undefined && <Icon icon={icon} size="sm" color="foreground" />
       )}
       <Text className={`text-label ${selected ? 'text-primary-foreground' : 'text-foreground'}`}>
         {label}

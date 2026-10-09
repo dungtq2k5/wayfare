@@ -27,7 +27,7 @@ export function ListItem({ title, subtitle, leading, selected, chevron, onPress 
         selected === true ? 'border-2 border-primary bg-accent' : 'border border-border bg-card'
       }`}
     >
-      {leading !== undefined && <Icon icon={leading} size={24} color="muted-foreground" />}
+      {leading !== undefined && <Icon icon={leading} size="lg" color="muted-foreground" />}
       <View className="flex-1">
         <Text className="text-body-strong text-foreground">{title}</Text>
         {subtitle !== undefined && (
@@ -36,8 +36,8 @@ export function ListItem({ title, subtitle, leading, selected, chevron, onPress 
           </Text>
         )}
       </View>
-      {selected === true && <Icon icon={CheckCircle2} size={24} color="primary" />}
-      {chevron === true && <Icon icon={ChevronRight} size={20} color="muted-foreground" />}
+      {selected === true && <Icon icon={CheckCircle2} size="lg" color="primary" />}
+      {chevron === true && <Icon icon={ChevronRight} size="md" color="muted-foreground" />}
     </Pressable>
   );
 }

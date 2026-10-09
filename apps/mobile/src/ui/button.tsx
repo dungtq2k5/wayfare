@@ -46,7 +46,7 @@ export function Button({
       onPress={onPress}
       className={`min-h-12 flex-row items-center justify-center gap-2 rounded-lg px-4 py-3 ${SURFACE[variant]} ${disabled ? 'opacity-50' : ''}`}
     >
-      {icon !== undefined && <Icon icon={icon} size={20} color={GLYPH[variant]} />}
+      {icon !== undefined && <Icon icon={icon} size="md" color={GLYPH[variant]} />}
       <Text className={`text-center text-body-strong ${INK[variant]}`}>{label}</Text>
     </Pressable>
   );

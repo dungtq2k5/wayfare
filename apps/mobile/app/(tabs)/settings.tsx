@@ -64,7 +64,7 @@ function Row({
 }) {
   const body = (
     <View className="min-h-12 flex-row items-center gap-3 px-4 py-3">
-      <Icon icon={icon} size={24} color={danger ? 'destructive' : 'muted-foreground'} />
+      <Icon icon={icon} size="lg" color={danger ? 'destructive' : 'muted-foreground'} />
       <View className="flex-1">
         <Text className={`text-body ${danger ? 'text-destructive' : 'text-foreground'}`}>
           {title}
@@ -74,7 +74,7 @@ function Row({
         )}
       </View>
       {value !== undefined && <Text className="text-body text-muted-foreground">{value}</Text>}
-      {end !== undefined && <Icon icon={end} size={20} color="muted-foreground" />}
+      {end !== undefined && <Icon icon={end} size="md" color="muted-foreground" />}
     </View>
   );
   return onPress === undefined ? (
@@ -128,7 +128,7 @@ export default function SettingsScreen() {
             />
             <View className="gap-2 px-4 pb-3">
               <View className="min-h-12 flex-row items-center gap-3">
-                <Icon icon={Sun} size={24} color="muted-foreground" />
+                <Icon icon={Sun} size="lg" color="muted-foreground" />
                 <Text className="text-body text-foreground">{t('settings.appearance.title')}</Text>
               </View>
               <SegmentedControl

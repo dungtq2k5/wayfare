@@ -36,11 +36,11 @@ export function FavouriteToggle({
       }`}
     >
       {saving ? (
-        <Icon icon={LoaderCircle} size={24} color="muted-foreground" />
+        <Icon icon={LoaderCircle} size="lg" color="muted-foreground" />
       ) : (
         <Icon
           icon={Heart}
-          size={24}
+          size="lg"
           filled={saved && !offline}
           color={offline ? 'muted-foreground' : saved ? 'primary' : 'foreground'}
         />
@@ -50,7 +50,7 @@ export function FavouriteToggle({
           style={{ left: MARK_OFFSET, top: MARK_OFFSET }}
           className="absolute h-5 w-5 items-center justify-center rounded-full bg-offline"
         >
-          <Icon icon={CloudOff} size={12} color="offline-foreground" />
+          <Icon icon={CloudOff} size="xs" color="offline-foreground" />
         </View>
       )}
     </Pressable>

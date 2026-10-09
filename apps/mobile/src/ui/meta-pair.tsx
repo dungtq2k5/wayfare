@@ -9,7 +9,7 @@ import { Icon } from '../theme/icon';
 export function MetaPair({ icon, text }: { icon: LucideIcon; text: string }) {
   return (
     <View className="shrink flex-row items-center gap-1">
-      <Icon icon={icon} size={16} color="muted-foreground" />
+      <Icon icon={icon} size="sm" color="muted-foreground" />
       <Text className="shrink text-caption text-muted-foreground">{text}</Text>
     </View>
   );

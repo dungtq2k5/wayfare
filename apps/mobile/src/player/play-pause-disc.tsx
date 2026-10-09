@@ -5,13 +5,11 @@ import { Icon } from '../theme/icon';
 /** The round play/pause button of the mini and inline players: a light disc, a dark glyph. */
 export function PlayPauseDisc({
   paused,
-  glyph,
   label,
   disabled = false,
   onPress,
 }: {
   paused: boolean;
-  glyph: 22 | 24;
   label: string;
   disabled?: boolean;
   onPress: () => void;
@@ -24,7 +22,7 @@ export function PlayPauseDisc({
       onPress={onPress}
       className="h-12 w-12 items-center justify-center rounded-full bg-now-playing-foreground"
     >
-      <Icon icon={paused ? Play : Pause} size={glyph} color="now-playing" />
+      <Icon icon={paused ? Play : Pause} size="lg" color="now-playing" />
     </Pressable>
   );
 }

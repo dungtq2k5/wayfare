@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Compass, Heart, Map as MapIcon, Settings } from 'lucide-react-native';
 import { Text, View } from 'react-native';
 import type { ColorValue } from 'react-native';
-import { space } from '@wayfare/design-tokens/tokens';
+import { size as tokenSize, space } from '@wayfare/design-tokens/tokens';
 import { MINI_PLAYER_BAND, TAB_BAR_HEIGHT, TAB_BAR_ITEM_HEIGHT } from '../../src/ui/layout';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { MiniPlayer, useMiniLift } from '../../src/player/mini-player';
@@ -32,7 +32,7 @@ export default function TabsLayout() {
     (Glyph: typeof MapIcon) =>
     ({ focused, color }: { focused: boolean; color: ColorValue }) => (
       <View className={`items-center rounded-full px-5 py-1 ${focused ? 'bg-accent' : ''}`}>
-        <Glyph size={24} color={color} />
+        <Glyph size={tokenSize['icon-lg']} color={color} />
       </View>
     );
   return (

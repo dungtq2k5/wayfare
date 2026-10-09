@@ -13,7 +13,7 @@ interface InlineNoteProps {
 export function InlineNote({ text, icon = Info, action }: InlineNoteProps) {
   return (
     <View className="flex-row items-center gap-2 rounded-lg bg-secondary p-3">
-      <Icon icon={icon} size={20} color="muted-foreground" />
+      <Icon icon={icon} size="md" color="muted-foreground" />
       <Text className="flex-1 text-caption text-secondary-foreground">{text}</Text>
       {action !== undefined && (
         <Pressable

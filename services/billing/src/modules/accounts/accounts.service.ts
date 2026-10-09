@@ -164,12 +164,23 @@ export class AccountsService {
     db: Prisma.TransactionClient,
     billingAccountId: string,
   ): Promise<billingGrpc.BillingAccountDetail> {
-    const row = await db.billingAccount.findUnique({
-      where: { id: billingAccountId },
+    // The columns, then each relation, one after another: one `select` with all of them makes
+    // Prisma send the relations at the same moment, and on a transaction (one connection) `pg`
+    // warns that it is already busy.
+    const where = { id: billingAccountId };
+    const columns = await db.billingAccount.findUnique({ where, select: BILLING_ACCOUNT_SELECT });
+    if (columns === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'BILLING_ACCOUNT' });
+    const { plan } = await db.billingAccount.findUniqueOrThrow({
+      where,
+      select: { plan: { select: PLAN_WITH_GRANTS_SELECT } },
+    });
+    const { planPrice } = await db.billingAccount.findUniqueOrThrow({
+      where,
+      select: { planPrice: { select: { plan: { select: { code: true } } } } },
+    });
+    const { events } = await db.billingAccount.findUniqueOrThrow({
+      where,
       select: {
-        ...BILLING_ACCOUNT_SELECT,
-        plan: { select: PLAN_WITH_GRANTS_SELECT },
-        planPrice: { select: { plan: { select: { code: true } } } },
         events: {
           orderBy: { stripeCreatedAt: 'desc' },
           take: RECENT_EVENTS,
@@ -177,7 +188,7 @@ export class AccountsService {
         },
       },
     });
-    if (row === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'BILLING_ACCOUNT' });
+    const row = { ...columns, plan, planPrice, events };
     return toBillingAccountDetail(
       row,
       grantsOf(row.plan),

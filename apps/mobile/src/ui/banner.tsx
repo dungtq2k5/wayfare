@@ -12,7 +12,7 @@ interface BannerProps {
 export function Banner({ icon, title, body }: BannerProps) {
   return (
     <View accessibilityRole="alert" className="flex-row gap-3 rounded-lg bg-offline p-4">
-      <Icon icon={icon} size={20} color="offline-foreground" />
+      <Icon icon={icon} size="md" color="offline-foreground" />
       <View className="flex-1 gap-1">
         <Text className="text-label text-offline-foreground">{title}</Text>
         <Text className="text-caption text-offline-foreground">{body}</Text>

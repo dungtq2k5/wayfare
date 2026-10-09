@@ -85,7 +85,7 @@ export default function PlayerScreen() {
             onPress={() => router.back()}
             className="h-12 w-12 items-center justify-center"
           >
-            <Icon icon={ChevronDown} size={24} color="now-playing-foreground" />
+            <Icon icon={ChevronDown} size="lg" color="now-playing-foreground" />
           </Pressable>
           <Text accessibilityRole="header" className="text-label text-now-playing-foreground">
             {header}
@@ -96,7 +96,7 @@ export default function PlayerScreen() {
             onPress={() => router.push({ pathname: '/place/[id]', params: { id: place.id } })}
             className="h-12 w-12 items-center justify-center"
           >
-            <Icon icon={Info} size={24} color="now-playing-foreground" />
+            <Icon icon={Info} size="lg" color="now-playing-foreground" />
           </Pressable>
         </View>
 
@@ -120,7 +120,7 @@ export default function PlayerScreen() {
           <View className="flex-row items-center gap-2">
             <Icon
               icon={categoryIcon(place.categoryCode)}
-              size={20}
+              size="md"
               color="now-playing-foreground"
             />
             <Text className="flex-1 text-body text-now-playing-foreground">
@@ -132,7 +132,7 @@ export default function PlayerScreen() {
             <View className="flex-row items-center gap-2">
               <Icon
                 icon={current.started === 'auto' ? Navigation : Play}
-                size={16}
+                size="sm"
                 color="now-playing-accent"
               />
               <Text className="flex-1 text-caption text-now-playing-accent">{reason}</Text>
@@ -154,7 +154,7 @@ export default function PlayerScreen() {
           onPress={() => router.push('/transcript')}
           className="min-h-12 flex-row items-center justify-center gap-2 rounded-full border border-now-playing-foreground"
         >
-          <Icon icon={FileText} size={20} color="now-playing-foreground" />
+          <Icon icon={FileText} size="md" color="now-playing-foreground" />
           <Text className="text-label text-now-playing-foreground">{t('player.transcript')}</Text>
         </Pressable>
         <UpNextRow />

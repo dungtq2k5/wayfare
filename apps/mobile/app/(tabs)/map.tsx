@@ -177,11 +177,11 @@ export default function MapScreen() {
             onPress={() => setAreaSheet(true)}
             className="min-h-12 flex-row items-center gap-2 self-start rounded-full bg-card px-4 elevation-2"
           >
-            <Icon icon={areaIcon(area.code)} size={20} color="primary" />
+            <Icon icon={areaIcon(area.code)} size="md" color="primary" />
             <Text className="shrink text-label text-foreground">
               {tFamily('area', area.code, area.code)}
             </Text>
-            <Icon icon={ChevronDown} size={16} color="muted-foreground" />
+            <Icon icon={ChevronDown} size="sm" color="muted-foreground" />
           </Pressable>
         )}
         {offline && mapStyle.kind === 'blank' && (
@@ -230,7 +230,7 @@ export default function MapScreen() {
             onPress={control.onPress}
             className="min-h-12 min-w-12 items-center justify-center rounded-lg bg-card elevation-2"
           >
-            <Icon icon={control.icon} size={24} />
+            <Icon icon={control.icon} size="lg" />
           </Pressable>
         ))}
       </View>

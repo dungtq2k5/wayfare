@@ -1,12 +1,18 @@
 import type { LucideIcon } from 'lucide-react-native';
+import { size } from '@wayfare/design-tokens/tokens';
 import type { SemanticColor } from '@wayfare/design-tokens/tokens';
 import { useTheme } from './appearance';
 
-/**
- * The designer's icon sizes (16, 20, 24 dp; Lucide, stroke 2), 22 for the inline player's glyphs
- * and 32 for the one on the full player's play/pause disc.
- */
-export type IconSize = 12 | 16 | 20 | 22 | 24 | 32;
+/** The icon sizes of the design system (`size/icon-*`): a name, never a number. */
+export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+const SIZES: Record<IconSize, number> = {
+  xs: size['icon-xs'],
+  sm: size['icon-sm'],
+  md: size['icon-md'],
+  lg: size['icon-lg'],
+  xl: size['icon-xl'],
+};
 
 interface IconProps {
   icon: LucideIcon;
@@ -22,7 +28,7 @@ interface IconProps {
 /** The one place an icon gets its colour: from the tokens, never a literal. */
 export function Icon({
   icon: Glyph,
-  size = 24,
+  size: iconSize = 'lg',
   color = 'foreground',
   label,
   filled = false,
@@ -30,7 +36,7 @@ export function Icon({
   const theme = useTheme();
   return (
     <Glyph
-      size={size}
+      size={SIZES[iconSize]}
       strokeWidth={2}
       color={theme.colors[color]}
       fill={filled ? theme.colors[color] : 'none'}
