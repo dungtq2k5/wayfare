@@ -83,6 +83,8 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="place/[id]" />
+            <Stack.Screen name="player" options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="transcript" />
             <Stack.Screen name="settings/language" />
             <Stack.Screen name="settings/credits" />
             <Stack.Screen name="settings/diagnostics" />

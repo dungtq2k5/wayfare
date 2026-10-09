@@ -5,10 +5,16 @@ import type { Appearance } from '../theme/appearance';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+/** The narration speeds, in the order the pill cycles through them. */
+export const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5] as const;
+export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
+
 /** What the app remembers between launches, and what the gateway has told it this run. */
 export interface AppState {
   /** The chosen language; null until the first-run picker. */
   language: Language | null;
+  /** How fast narration plays, whatever its source; remembered across narrations and launches. */
+  playbackSpeed: PlaybackSpeed;
   /** Light, dark or the system's; `system` until the user chooses. */
   appearance: Appearance;
   /** The area the map is showing; the first synced one until the tourist chooses. */
@@ -23,6 +29,7 @@ export interface AppState {
   policyVersion: string;
   policyChanged: boolean;
   setLanguage: (language: Language | null) => void;
+  setPlaybackSpeed: (speed: PlaybackSpeed) => void;
   setAppearance: (appearance: Appearance) => void;
   setCurrentArea: (areaId: string) => void;
   setOnboarded: (onboarded: boolean) => void;
@@ -41,6 +48,7 @@ export function mergePersisted(persisted: unknown, current: AppState): AppState 
     ...current,
     ...saved,
     language: isSupportedLanguage(saved.language) ? saved.language : null,
+    playbackSpeed: PLAYBACK_SPEEDS.find((speed) => speed === saved.playbackSpeed) ?? 1,
   };
 }
 
@@ -49,6 +57,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       language: null,
+      playbackSpeed: 1,
       appearance: 'system',
       currentAreaId: null,
       onboarded: false,
@@ -57,6 +66,7 @@ export const useAppStore = create<AppState>()(
       policyVersion: LEGAL_DOCUMENT_VERSIONS[LegalDocument.PRIVACY_POLICY],
       policyChanged: false,
       setLanguage: (language) => set({ language }),
+      setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
       setAppearance: (appearance) => set({ appearance }),
       setCurrentArea: (currentAreaId) => set({ currentAreaId }),
       setOnboarded: (onboarded) => set({ onboarded }),
@@ -70,8 +80,9 @@ export const useAppStore = create<AppState>()(
       // The key-value store of expo-sqlite, the database ADR 0027 chose: no second storage library.
       storage: createJSONStorage(() => Storage),
       merge: mergePersisted,
-      partialize: ({ language, appearance, currentAreaId, onboarded }) => ({
+      partialize: ({ language, playbackSpeed, appearance, currentAreaId, onboarded }) => ({
         language,
+        playbackSpeed,
         appearance,
         currentAreaId,
         onboarded,

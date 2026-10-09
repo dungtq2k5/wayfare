@@ -1,0 +1,115 @@
+# The narration player under abuse: what a tourist does that nobody planned for. The basic flow
+# (`narration-player.yaml`) walks the happy path; this one tries to break it — a second Place
+# played over the first, every tab visited while it plays, pause and play hammered, the speed
+# pill spammed, the player opened and left, Close pressed last.
+#
+# The assertions are what a screen can show: the mini player is on every tab, there is one of it,
+# and Close leaves nothing behind. That only one sound plays is checked outside Maestro:
+#   adb shell dumpsys audio | grep -c 'state:started'      # one `AudioTrack` of the app, never two
+#
+# Same needs as `narration-player.yaml`. The narration is paused early so the flow's speed never
+# decides whether it ends.
+#   maestro test apps/mobile/.maestro/narration-player-sabotage.yaml
+appId: app.wayfare
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Explore'
+- scrollUntilVisible:
+    element: '.*Bưu điện.*'
+    timeout: 60000
+
+# A second Place played over the first must replace it, not join it.
+- tapOn: '.*Bưu điện.*'
+- tapOn: 'Play narration.*'
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: '.*Chợ Bến Thành.*'
+- tapOn: '.*Chợ Bến Thành.*'
+# A double tap starts one narration: the button becomes the inline player, never a second one.
+- doubleTapOn: 'Play narration.*'
+- assertVisible: 'Open the player'
+- assertNotVisible: 'Play narration.*'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+    optional: true
+- tapOn: 'Back'
+- assertVisible: '.*Chợ Bến Thành.*'
+
+# Every tab has the mini player while it plays, whichever way the tourist got there.
+- tapOn: 'Map'
+- assertVisible: 'Open the player.*'
+- tapOn: 'Favourites'
+- assertVisible: 'Open the player.*'
+- tapOn: 'Settings'
+- assertVisible: 'Open the player.*'
+- tapOn: 'Explore'
+- assertVisible: 'Open the player.*'
+- tapOn: 'Settings'
+- tapOn: 'Map'
+- tapOn: 'Explore'
+- assertVisible: 'Open the player.*'
+
+# Leaving the app and coming back keeps the narration and its mini player.
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- assertVisible: 'Open the player.*'
+
+# The playing Place opened again shows its inline player: no restart, no second narration.
+- tapOn: 'Explore'
+- scrollUntilVisible:
+    element: '.*Chợ Bến Thành.*'
+- tapOn: '.*Chợ Bến Thành.*'
+- assertVisible: 'Open the player'
+- assertNotVisible: 'Play narration.*'
+- tapOn: 'Back'
+
+# The expanded player: the speed pill spammed, replay, the transcript and back, the sheet dragged.
+- tapOn:
+    point: '50%,89%'
+- assertVisible: 'Paused'
+- tapOn: 'Playback speed.*'
+- tapOn: 'Playback speed.*'
+- tapOn: 'Playback speed.*'
+- tapOn: 'Playback speed.*'
+# Replay restarts from zero (so there is a minute of narration to play with), then pause and play
+# once more. No automatic second tap: Maestro repeats a tap when the screen looks unchanged, and
+# the Close button of the mini player sits right where Pause was.
+- tapOn: 'Replay from start'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- assertVisible: 'Paused'
+- tapOn:
+    text: 'Play'
+    retryTapIfNoChange: false
+- assertVisible: 'Now playing'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- assertVisible: 'Paused'
+- tapOn: 'Read transcript'
+- assertVisible: 'Transcript'
+- tapOn: 'Back'
+- assertVisible: 'Now playing|Paused'
+# The Place's details from the player, and back: a real screen, never an empty one.
+- tapOn: 'About this place'
+- assertVisible: '.*Chợ Bến Thành.*'
+- tapOn: 'Back'
+- assertVisible: 'Now playing|Paused'
+
+# Leave the player three ways and come back: the chevron, the back gesture, the mini player.
+- tapOn: 'Close the player'
+- assertVisible: 'Open the player.*'
+
+# Close: nothing is left behind, on this tab or any other.
+- tapOn: 'Close'
+- assertNotVisible: 'Open the player.*'
+- tapOn: 'Map'
+- assertNotVisible: 'Open the player.*'
+- tapOn: 'Favourites'
+- assertNotVisible: 'Open the player.*'

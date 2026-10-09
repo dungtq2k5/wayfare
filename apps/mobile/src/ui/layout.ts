@@ -1,6 +1,6 @@
 import { size, space } from '@wayfare/design-tokens/tokens';
 
-/** The band above the tab bar kept free for the mini player (round 26), in dp. */
+/** The band above the tab bar kept free for the mini player, in dp. */
 export const MINI_PLAYER_BAND = size['mini-player-band'];
 
 /** What a list pads its end by: the band, and a little air. */

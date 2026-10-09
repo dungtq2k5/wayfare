@@ -61,9 +61,24 @@ describe('joinMp3', () => {
     expect(joined.ok).toBe(true);
     if (!joined.ok) return;
     expect(joined.durationMs).toBe(144);
-    expect(joined.data).toHaveLength(6 * 96);
     expect(joined.data.includes(Buffer.from('ID3'))).toBe(false);
-    expect(joined.data.includes(Buffer.from('Info'))).toBe(false);
+    // Six audio frames, behind one fresh info frame of the same size.
+    expect(joined.data).toHaveLength(7 * 96);
+    const parsed = parseMp3(joined.data);
+    expect(parsed.ok && parsed.frames[0]?.isInfoFrame).toBe(true);
+    expect(parsed.ok && mp3DurationMs(parsed.frames)).toBe(144);
+  });
+
+  it('tells a player the frame and byte counts, so it can seek', () => {
+    const joined = joinMp3([silentMp3(240)]);
+    expect(joined.ok).toBe(true);
+    if (!joined.ok) return;
+    // MPEG-2 mono: the tag sits after the 4-byte header and 9 bytes of side information.
+    const at = 4 + 9;
+    expect(joined.data.toString('latin1', at, at + 4)).toBe('Info');
+    expect(joined.data.readUInt32BE(at + 4) & 0x03).toBe(0x03);
+    expect(joined.data.readUInt32BE(at + 8)).toBe(10);
+    expect(joined.data.readUInt32BE(at + 12)).toBe(joined.data.length);
   });
 
   it('refuses a broken chunk, naming it', () => {

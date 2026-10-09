@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-import { acquireWatch, useLocationStore } from './location-store';
+import { useCallback, useEffect } from 'react';
+import { AppState } from 'react-native';
+import { acquireWatch, refreshPermission, useLocationStore } from './location-store';
 
 /** The device's position while the screen is in front: null until there is a fix or a permission. */
 export function usePosition() {
@@ -8,8 +9,8 @@ export function usePosition() {
   const permission = useLocationStore((state) => state.permission);
   useFocusEffect(
     useCallback(() => {
-      // A refused permission needs no watch; a granted one starts it, even while the screen is in front.
-      if (permission === 'denied') return undefined;
+      // The permission is read again each time a screen comes to the front, so one granted (or
+      // taken back) in the phone's settings is noticed; only a granted one starts the watch.
       let release: (() => void) | undefined;
       let cancelled = false;
       void acquireWatch().then((stop) => {
@@ -20,7 +21,16 @@ export function usePosition() {
         cancelled = true;
         release?.();
       };
+      // Re-run when the permission changes: granting it while the screen is in front starts the watch.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [permission]),
   );
+  // Coming back from the phone's settings is the moment a permission or the location switch changes.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void refreshPermission();
+    });
+    return () => subscription.remove();
+  }, []);
   return useLocationStore((state) => state.position);
 }

@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# What Gradle writes inside a local native module when the app is built (the module's source stays).
+modules/*/android/build/
+modules/*/android/.gradle/

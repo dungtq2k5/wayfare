@@ -84,6 +84,16 @@ const NO_COLOUR_LITERAL =
 const SPACING_KEY =
   '^(padding\\w*|margin\\w*|gap|rowGap|columnGap|top|right|bottom|left|inset\\w*|textSize)$';
 
+const I18N_PATHS = ['i18next', 'react-i18next'].map((name) => ({
+  name,
+  message: `Translate through useTourist() from src/i18n; only src/i18n imports ${name}.`,
+}));
+
+const AUDIO_PATHS = ['expo-audio', 'expo-speech'].map((name) => ({
+  name,
+  message: `Only the player in src/player plays sound: use narrationPlayer, not ${name} (conventions §12.3).`,
+}));
+
 /** Only design tokens reach the screen: the selectors the app's code is held to (ADR 0061). */
 const TOKENS_ONLY_SELECTORS = [
   { selector: `Literal[value=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
@@ -433,15 +443,20 @@ export function wayfareConfig({ tsconfigRootDir }) {
         'no-restricted-imports': [
           'error',
           {
-            paths: [
-              ...VENDOR_SDK_PATHS,
-              ...['i18next', 'react-i18next'].map((name) => ({
-                name,
-                message: `Translate through useTourist() from src/i18n; only src/i18n imports ${name}.`,
-              })),
-            ],
+            paths: [...VENDOR_SDK_PATHS, ...I18N_PATHS, ...AUDIO_PATHS],
             patterns: [TESTING_ENTRY_PATTERN],
           },
+        ],
+      },
+    },
+    {
+      // The one player owns audio and speech (conventions §12.3); inside it, the i18next ban stays.
+      files: ['apps/mobile/src/player/**'],
+      ignores: TESTING_ALLOWED,
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          { paths: [...VENDOR_SDK_PATHS, ...I18N_PATHS], patterns: [TESTING_ENTRY_PATTERN] },
         ],
       },
     },

@@ -45,7 +45,8 @@ async function slice(
       ...full.places[0]!,
       photos: [{ file: `${full.places[0]!.slug}/1.jpg`, altTextVi: 'Mặt tiền' }],
     },
-    full.places[1]!,
+    // The corpus's own photos are not copied into the slice: only the first Place has one.
+    { ...full.places[1]!, photos: [] },
   ];
   writeFileSync(join(dir, 'area.json'), JSON.stringify(full.area));
   writeFileSync(join(dir, 'places.json'), JSON.stringify(edit(places)));

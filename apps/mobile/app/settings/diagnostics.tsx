@@ -1,9 +1,11 @@
 import { useAreasList } from '@wayfare/api-client';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalAreas } from '../../src/data/hooks';
+import { useAllPlaces, useLocalAreas } from '../../src/data/hooks';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { useNetworkStore } from '../../src/network/network-store';
+import { narrationPlayer } from '../../src/player/narration-player';
+import { playerPlaceOf, viewFromRecord } from '../../src/places/place-view';
 import { runSync, useSyncStore } from '../../src/sync/run-sync';
 import { Button } from '../../src/ui/button';
 import { LIST_END_PADDING } from '../../src/ui/layout';
@@ -16,6 +18,7 @@ export default function DiagnosticsScreen() {
   const local = useLocalAreas();
   const network = useNetworkStore((state) => state.status);
   const sync = useSyncStore();
+  const places = useAllPlaces();
   const time = (at: number | null) =>
     at === null ? t('settings.data.never') : new Date(at).toLocaleTimeString();
   return (
@@ -57,6 +60,19 @@ export default function DiagnosticsScreen() {
             variant="secondary"
             disabled={sync.syncing}
             onPress={() => void runSync().catch(() => undefined)}
+          />
+          {/* Until the walk exists, the only way to see the queue: the first Place starts as an auto
+              narration 40 m away, the second waits in Up next. */}
+          <Button
+            label={t('settings.diagnostics.offer')}
+            variant="secondary"
+            disabled={(places.data?.length ?? 0) < 2}
+            onPress={() => {
+              const [first, second] = places.data ?? [];
+              if (first === undefined || second === undefined) return;
+              narrationPlayer.offer(playerPlaceOf(viewFromRecord(first)), { distanceM: 40 });
+              narrationPlayer.offer(playerPlaceOf(viewFromRecord(second)));
+            }}
           />
         </View>
       </ScrollView>

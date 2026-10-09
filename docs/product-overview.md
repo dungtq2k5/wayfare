@@ -166,10 +166,13 @@ Priority: **P0** = the core product, must exist. **P1** = complete product. **P2
 - **Priority resolution** when several Places are in range: **Editorial Places before Venues**, then the highest `narrationPriority`, then the nearest. This is editorial only — see §8.3. Eligibility is decided first (auto-narration on, not in cooldown, the commercial cap free for a Venue), so a suppressed Venue never blocks another Place.
 - **One narration per visit:** a Place fires once when the tourist enters; staying inside never re-fires it, even after the cooldown — leaving and coming back does.
 - **One decision at a time, nothing dropped:** the engine chooses at most one Place per evaluation. The others still inside and eligible fire on the following evaluations — the next fix or the next safety reconcile — in the same order; one the tourist has left by then does not. A Place's cooldown counts from when the engine chose it, since the engine never knows when the audio ends.
+- **The player holds one narration and one *Up next*.** While a narration plays (or is paused) and *Up next* is full, the walk does not commit its next choice: that Place stays eligible and is chosen again once the slot frees, if the tourist is still in range — so nothing the tourist could hear is silently lost, and *Up next* never changes on its own.
+- **Stopping a narration does not give its Place back.** Its cooldown began when the walk chose it, so stopping, skipping or replacing the narration does not undo it, and the walk does not offer it again on that visit; *Play narration* always plays it on demand.
 - **Commercial narration cap:** at most one Venue narration per 10 minutes of walking, counted separately from Editorial Places. Without this, a food street becomes an ad loop even with honest ranking.
 - A safety reconcile pass so a missed event self-heals instead of hanging.
 - Dynamic geofence re-registration: only the nearest N Places are registered with the OS at any time (see §14 — the OS caps this).
-- Visible, honourable permission UX: explain *why* background location is needed, degrade gracefully to foreground-only if refused.
+- **A walk is a session the tourist starts.** Auto-narration runs only while a walk is on: *Start walk* begins it, and while it is on it keeps listening for Places in the background, with Android's persistent notification showing it and carrying *Stop*. It ends when the tourist stops it, or by itself after **30 minutes without moving**, so a phone left on a café table does not track and drain all afternoon. With no walk on, narration is by tap (*Play narration*) or QR only.
+- Visible, honourable permission UX: explain *why* background location is needed, asked when the tourist first starts a walk; degrade gracefully to a foreground-only walk (narrating while the app is open) if refused.
 
 **Acceptance:** walking a 1 km test route with 6 Places, each narration fires once, in the correct order, with the screen off.
 
@@ -187,7 +190,7 @@ Priority: **P0** = the core product, must exist. **P1** = complete product. **P2
   | 3 | On-device OS speech synthesis | ~0 ms | **Offline.** Lower quality, always available. |
 
 - **3-tier content (text) fallback:** requested language → English → original Vietnamese. The client is told which tier it got, so the UI can say "shown in English".
-- Narration queue: one at a time, no duplicates, auto-pause on incoming phone call or other audio, resume after.
+- Narration queue: one at a time, no duplicates. **A phone call** pauses it and it resumes on its own when the call ends; **another app's audio** pauses it (never ducks: speech under music cannot be followed) and it waits for the tourist to resume; **headphones unplugged** pause it, so nothing plays out loud by surprise.
 - Player UI: now-playing card, transcript, replay, skip, speed, per-language voice choice.
 - Background prefetch: translate+synthesise the nearest un-synthesised Places ahead of the tourist, rate-limited and backoff-aware.
 - **Pronunciation dictionary** ([ADR 0006](./decisions/0006-neural-tts-only-no-human-recording.md)) for Vietnamese proper nouns — place names, dish names, street names — applied as SSML overrides before synthesis. "Bánh xèo" and "Bến Thành" mangled by an English neural voice is where perceived quality actually dies; this costs nothing and matters more than voice selection.
@@ -284,7 +287,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 ### J1 — Tourist first run (cold, on hotel Wi-Fi)
 
 1. Install → splash → **language picker** (5 top languages + "other").
-2. App asks for location permission with a plain-language reason. Foreground first; background is requested later, in context, the first time a narration fires.
+2. Location is asked for in context, never at launch: foreground the first time the tourist asks the map where they are, and background — with a plain-language reason — when they first start a walk (F2), because a walk is what needs it.
 3. In parallel: read whatever is already in the local DB (instant render), request a best-effort position (prefer a recent cached fix), and full-sync the Place corpus.
 4. A **startup network probe** with a short timeout decides "offline" vs "slow" before the UI accuses the network of being down.
 5. App offers: *"Download Ho Chi Minh City for offline use — 180 MB"*. Strongly suggested while on Wi-Fi.
@@ -292,7 +295,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 
 ### J2 — The core loop: walking and hearing (P0, demo this one)
 
-1. Tourist puts the phone in their pocket and walks. Screen off.
+1. Tourist taps **Start walk**, puts the phone in their pocket and walks. Screen off; Android's notification shows the walk is on.
 2. Location updates arrive, throttled.
 3. Geofence engine finds the tourist is inside the trigger radius of *Cô Ba's noodle stall*.
 4. It waits out the **debounce** window. Still inside → confirm `ENTER`.
@@ -457,6 +460,7 @@ These are **product** decisions, not implementation details. They must be config
 | Default trigger radius | 30 m | Roughly "you can see the shopfront". Admin-overridable per place, hard-capped. |
 | Narration cooldown | 5 min | Tourist sits down inside a radius; must not loop. |
 | Commercial narration cap | 1 Venue narration / 10 min | Stops a commercial street becoming an ad loop. Editorial Places are exempt. |
+| Walk idle stop | 30 min without moving | A walk left running on a café table must not track and drain all afternoon; the tourist starts it again in one tap. |
 | Safety reconcile interval | 5 s | Self-heals a dropped event instead of hanging silently. |
 | GPS gap | 15 s | A half-finished entry older than this is dropped, so the fix before a tunnel never confirms a Place after it. |
 | Nearby prefetch | top 3 per batch, ≥30 s between batches | Warms audio ahead of the walker without hammering TTS. |
@@ -464,6 +468,7 @@ These are **product** decisions, not implementation details. They must be config
 | Hotset radius / size | 1500 m / 10 places | The realistic "next 20 minutes of walking". |
 | Hotset ready threshold | 3 places cached | Enough to make a language switch feel done. |
 | Locate request budget | 15 s, accept cached fix ≤30 s old, accuracy ≤100 m | A first fix can take 30 s+; a slightly stale fix beats a spinner. |
+| On-demand wait before streaming | 5 s | Product §10's tier-1.5 latency: past it, the player streams the narration live (tier 2) instead of waiting for the stored file. |
 | Startup network probe | 2.5 s timeout, max 2 attempts in an 8 s window | Decide "offline" fast, but do not libel a slow network. |
 | Place cache TTL | 15 min | Content changes rarely; delta sync covers the rest. |
 | Audio cache cap | 300 files per language, max 3 languages, LRU | Bounded disk with the active language pinned against eviction. |
@@ -510,6 +515,8 @@ These are **product** decisions, not implementation details. They must be config
 **Accessibility** — the product is fundamentally an audio product, which makes it unusually valuable to visually impaired travellers. Screen-reader labels on every control, minimum 44×44 pt touch targets, WCAG AA contrast, full transcript for every narration, and no information conveyed by colour alone.
 
 **Appearance** — every client has a **light and a dark** appearance and **follows the system setting by default**, with an in-app choice of *System*, *Light* or *Dark*; WCAG AA contrast holds in both, and the map has a dark style to match. Text **follows the system font-size setting**. The interface typeface covers Latin script with Vietnamese diacritics; Chinese, Japanese and Korean text falls back to the device's own fonts, because bundling CJK fonts would cost tens of megabytes.
+
+**Motion** — every client animates, the web PWA as much as the Android app: state changes the tourist causes or notices — a sheet opening, a player appearing, the map moving to a Place, feedback on a tap — move, with durations from the design tokens, so the interface feels alive and its changes are easy to follow. Each design round specifies its animations. Motion is never the only signal, and every animation becomes instant when the system's reduce-motion setting is on.
 
 **Availability** — target 99% for the tourist read path. Owner and admin write paths may degrade. The read path must survive a backend outage entirely, via cached data.
 

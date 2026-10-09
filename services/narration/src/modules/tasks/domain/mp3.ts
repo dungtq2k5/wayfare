@@ -97,8 +97,53 @@ export function mp3DurationMs(frames: readonly Mp3Frame[]): number {
 }
 
 /**
+ * A Xing/Info frame for `audio` (frames in file order, `audioBytes` long): the frame count, the
+ * byte count and, when the frame has room, the 100-point table of contents. Without it a player
+ * cannot tell how long a raw MP3 is or where to seek in it — the notification's slider and the
+ * app's scrubber move the sound forward or not at all. `Info` marks a constant bitrate, `Xing` a
+ * variable one. Null when the first frame is too small to hold even the counts.
+ */
+export function infoFrame(audio: readonly Mp3Frame[], header: Buffer, audioBytes: number) {
+  const first = audio[0];
+  if (first === undefined) return null;
+  const out = Buffer.alloc(first.length);
+  header.copy(out, 0, 0, 4);
+  const versionBits = (header[1]! >> 3) & 0x03;
+  const mono = ((header[3]! >> 6) & 0x03) === 0x03;
+  const sideInfo = versionBits === 0x03 ? (mono ? 17 : 32) : mono ? 9 : 17;
+  const crc = (header[1]! & 0x01) === 0 ? 2 : 0;
+  const at = 4 + crc + sideInfo;
+  const withToc = at + 16 + 100 <= first.length;
+  if (at + 16 > first.length) return null;
+  const constant = audio.every((frame) => frame.bitrateKbps === first.bitrateKbps);
+  out.write(constant ? 'Info' : 'Xing', at, 'latin1');
+  out.writeUInt32BE(withToc ? 0x07 : 0x03, at + 4);
+  out.writeUInt32BE(audio.length, at + 8);
+  out.writeUInt32BE(audioBytes + first.length, at + 12);
+  if (withToc) {
+    const total = audio.reduce((sum, frame) => sum + frame.durationMs, 0);
+    let elapsed = 0;
+    let bytes = 0;
+    let index = 0;
+    for (let point = 0; point < 100; point += 1) {
+      while (
+        index < audio.length - 1 &&
+        elapsed + audio[index]!.durationMs <= (point / 100) * total
+      ) {
+        elapsed += audio[index]!.durationMs;
+        bytes += audio[index]!.length;
+        index += 1;
+      }
+      out[at + 16 + point] = Math.min(255, Math.round((256 * bytes) / audioBytes));
+    }
+  }
+  return out;
+}
+
+/**
  * One file from several chunk files of the same format: each chunk's ID3 tags and Xing/Info frame
- * are dropped, and the audio frames concatenated. Returns the file and its duration.
+ * are dropped, the audio frames concatenated, and one fresh Info frame put in front so any player
+ * can seek. Returns the file and its duration.
  */
 export function joinMp3(
   parts: readonly Buffer[],
@@ -115,5 +160,12 @@ export function joinMp3(
     }
   }
   if (kept.length === 0) return { ok: false, reason: 'no audio frames' };
-  return { ok: true, data: Buffer.concat(pieces), durationMs: mp3DurationMs(kept) };
+  const audio = Buffer.concat(pieces);
+  const header = pieces[0]!.subarray(0, 4);
+  const info = infoFrame(kept, header, audio.length);
+  return {
+    ok: true,
+    data: info === null ? audio : Buffer.concat([info, audio]),
+    durationMs: mp3DurationMs(kept),
+  };
 }

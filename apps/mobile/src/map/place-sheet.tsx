@@ -1,6 +1,7 @@
 import { distanceMeters, walkingEtaMinutes } from '@wayfare/core';
 import { space } from '@wayfare/design-tokens/tokens';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTourist } from '../i18n/use-tourist';
@@ -9,6 +10,7 @@ import { PlaceDetail, PlaceUnavailable } from '../places/place-detail';
 import { usePlaceView } from '../places/use-place-view';
 import { useDuration } from '../theme/use-duration';
 import { LIST_END_PADDING, TAB_BAR_HEIGHT } from '../ui/layout';
+import { narrationPlayer } from '../player/narration-player';
 
 /** The sheet's three resting heights: the summary, more, everything. */
 export type SheetState = 'peek' | 'half' | 'full';
@@ -51,6 +53,15 @@ export function PlaceSheet({
   const half = Math.round(available * HALF_FRACTION);
   const peek = Math.min(half, Math.max(MIN_PEEK, contentHeight + HANDLE));
   const heights = useMemo(() => ({ peek, half, full: fullHeight }), [peek, half, fullHeight]);
+
+  // The mini player rides above the sheet at peek and steps aside above it (round 26 S1–S2). Only
+  // while the map is in front: another tab keeps its own mini player whatever the sheet shows.
+  useFocusEffect(
+    useCallback(() => {
+      narrationPlayer.setSheet(placeId, state === 'peek', peek);
+      return () => narrationPlayer.setSheet(null, true);
+    }, [placeId, state, peek]),
+  );
   // The drag handlers outlive a render: they read the current snap points from here.
   const layout = useRef({ fullHeight, heights });
   layout.current = { fullHeight, heights };

@@ -8,6 +8,7 @@ import {
   Languages,
   MapPin,
   Phone,
+  Play,
   Map as MapIcon,
   RefreshCw,
   Wallet,
@@ -19,6 +20,9 @@ import { FlatList, Linking, Pressable, Text, View, useWindowDimensions } from 'r
 import { useTourist } from '../i18n/use-tourist';
 import { LANGUAGE_NAMES } from '../i18n/languages';
 import { categoryIcon } from '../map/categories';
+import { InlinePlayer } from '../player/inline-player';
+import { narrationPlayer } from '../player/narration-player';
+import { usePlayerStore } from '../player/store';
 import { useAppStore } from '../state/app-store';
 import { Icon } from '../theme/icon';
 import { Badge } from '../ui/badge';
@@ -28,7 +32,7 @@ import { InlineNote } from '../ui/inline-note';
 import { MetaPair } from '../ui/meta-pair';
 import { PlacePhoto } from '../ui/place-photo';
 import { HoursBlock } from './hours-block';
-import { formatDuration, formatPrice } from './place-view';
+import { formatDuration, formatPrice, playerPlaceOf } from './place-view';
 import type { PlaceView } from './place-view';
 import { useOpenSummary } from './use-open-state';
 import { useDistanceText } from './use-walk-text';
@@ -177,12 +181,10 @@ export function PlaceDetail({
   view,
   level,
   distance,
-  onPlay,
 }: {
   view: PlaceView;
   level: DetailLevel;
   distance?: { distanceM: number; walkingMinutes: number } | null;
-  onPlay?: () => void;
 }) {
   const { t, tFamily } = useTourist();
   const summary = useOpenSummary(view.openingHours);
@@ -193,6 +195,7 @@ export function PlaceDetail({
   const price =
     view.priceBand === null || view.priceBand < 1 ? null : '$'.repeat(Math.min(view.priceBand, 4));
   const ownLanguage = view.contentTier === 'REQUESTED';
+  const playingHere = usePlayerStore((state) => state.current?.place.id === view.id);
   const shownBadgeLanguage =
     view.contentTier === 'ENGLISH'
       ? LANGUAGE_NAMES.en
@@ -251,14 +254,19 @@ export function PlaceDetail({
           {view.stale && <Badge tone="warning" icon={RefreshCw} label={t('place.beingUpdated')} />}
           {summary !== null && <Badge tone={summary.tone} label={summary.text} />}
         </View>
-        <Button
-          label={
-            view.audioDurationMs === null
-              ? t('place.listen')
-              : t('place.listenDuration', { duration: formatDuration(view.audioDurationMs) })
-          }
-          onPress={onPlay ?? (() => undefined)}
-        />
+        {playingHere ? (
+          <InlinePlayer />
+        ) : (
+          <Button
+            label={
+              view.audioDurationMs === null
+                ? t('place.listen')
+                : t('place.listenDuration', { duration: formatDuration(view.audioDurationMs) })
+            }
+            icon={Play}
+            onPress={() => narrationPlayer.play(playerPlaceOf(view))}
+          />
+        )}
       </View>
 
       {level !== 'peek' && (

@@ -48,6 +48,9 @@ export async function requestForegroundLocation(): Promise<boolean> {
  */
 export async function acquireWatch(): Promise<() => void> {
   if ((await refreshPermission()) !== 'granted') return () => undefined;
+  // With the phone's location switched off a watch would raise Google's own prompt on every screen
+  // that shows the dot; only the tourist's tap on *locate me* may ask for that.
+  if (!(await Location.hasServicesEnabledAsync())) return () => undefined;
   watching += 1;
   if (watcher === null) {
     watcher = await Location.watchPositionAsync(
@@ -72,4 +75,34 @@ export async function acquireWatch(): Promise<() => void> {
       watcher = null;
     }
   };
+}
+
+/** What *locate me* found: a position, or why there is none. */
+export type LocateResult = Position | 'services-off' | 'no-fix';
+
+/**
+ * One position, for the tourist's tap on *locate me*: asks the phone to switch location on when it
+ * is off (Android shows its own question), then reads a fix. Permission is the caller's to settle first.
+ */
+export async function locateOnce(): Promise<LocateResult> {
+  if (!(await Location.hasServicesEnabledAsync())) {
+    try {
+      await Location.enableNetworkProviderAsync();
+    } catch {
+      return 'services-off';
+    }
+    if (!(await Location.hasServicesEnabledAsync())) return 'services-off';
+  }
+  try {
+    const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    const position = {
+      lat: fix.coords.latitude,
+      lng: fix.coords.longitude,
+      accuracyM: fix.coords.accuracy ?? 50,
+    };
+    useLocationStore.setState({ position });
+    return position;
+  } catch {
+    return 'no-fix';
+  }
 }

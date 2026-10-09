@@ -1,0 +1,47 @@
+# The narration player, end to end: Explore → a Place → Play narration → the mini player → the
+# expanded player → the transcript → back → resume → pause → Close.
+#
+# Needs the local stack (`pnpm mobile:reverse`, the seeded Places) and an app that has finished
+# onboarding and its first sync — run `first-run.yaml` first. English phone, real audio. The
+# narration is paused as soon as it plays, so the flow's own speed never decides whether it ends.
+#   maestro test apps/mobile/.maestro/narration-player.yaml
+appId: app.wayfare
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Explore'
+- scrollUntilVisible:
+    element: '.*Bưu điện.*'
+    timeout: 60000
+- tapOn: '.*Bưu điện.*'
+- tapOn: 'Play narration.*'
+# The detail shows the inline player in place of the button.
+- assertVisible: 'Pause'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- tapOn: 'Back'
+# The mini player rides above the tab bar on every tab; Close appears only while paused.
+- assertVisible: 'Open the player.*'
+- assertVisible: 'Close'
+# Maestro's tap on the bar's own text lands on the list row behind it on this phone; a point on
+# the bar itself opens the player, as a finger does.
+- tapOn:
+    point: '50%,89%'
+- assertVisible: 'Paused'
+- tapOn: 'Read transcript'
+- assertVisible: 'Transcript'
+- tapOn: 'Back'
+- assertVisible: 'Paused'
+- tapOn:
+    text: 'Play'
+    retryTapIfNoChange: false
+- assertVisible: 'Now playing'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- tapOn: 'Close the player'
+- tapOn: 'Close'
+- assertNotVisible: 'Open the player.*'

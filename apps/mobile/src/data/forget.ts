@@ -1,3 +1,5 @@
+import { clearAudioCache } from '../player/audio-cache';
+import { narrationPlayer } from '../player/narration-player';
 import { clearLocalData } from '../sync/sync';
 import { useNetworkStore } from '../network/network-store';
 import { useSyncStore } from '../sync/run-sync';
@@ -8,6 +10,8 @@ import { persister } from './persister';
 
 /** What *Forget this install* clears beyond the session: Places, cursors, cached areas, verdict. */
 export async function forgetLocalData(): Promise<void> {
+  narrationPlayer.stop();
+  await clearAudioCache();
   await clearLocalData(await databaseReady);
   await persister.removeClient();
   queryClient.clear();

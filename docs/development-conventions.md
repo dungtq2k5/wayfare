@@ -787,7 +787,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - Touch targets are at least 44 × 44 pt. Colour is never the only signal (a "sponsored" marker has text, not only a tint).
 - Every narration has its transcript reachable from the now-playing card.
 - **Metadata is built as icon-and-text pairs** — a distance with its icon, a time with its icon — each one unit that wraps as a whole, so at a large text size the icon stays beside its words.
-- **Text follows the system font size, up to Android's largest.** A container that holds text has no fixed height; a row of metadata that would wrap stacks vertically instead of squeezing; only the tab bar's labels cap their growth (`maxFontSizeMultiplier={1.3}`), because four labels cannot share a row at twice the size.
+- **Text follows the system font size, up to Android's largest.** A container that holds text has no fixed height; a row of metadata that would wrap stacks vertically instead of squeezing; only two things cap their growth (`maxFontSizeMultiplier={1.3}`): the tab bar's labels, because four cannot share a row at twice the size, and the mini player's two text lines, which are chrome in a fixed band with the full text one tap away.
 - Animation durations come from the `duration.*` tokens and are 0 when the system removes animations.
 
 ### 12.6 Design tokens
@@ -795,13 +795,13 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 [ADR 0061](./decisions/0061-tokens-are-shared-components-are-per-platform.md). The design system's values live in `packages/design-tokens/tokens.json`, exported from the Figma file's Variables; components are per platform.
 
 - **Screens use semantic tokens only** — `bg-primary`, `text-muted-foreground`, `text-body` — never a primitive, a colour literal or an arbitrary value. Lint enforces it in `apps/mobile` (outside `src/theme/`): a hex, `rgb(…)` or `hsl(…)` string, a `[…]` value in a `className`, or `color`, `backgroundColor`, `fontFamily` or `fontSize` in an inline `style` fails. The NativeWind preset **replaces** Tailwind's palette, so `bg-emerald-700` does not exist.
-- **What a class cannot reach reads `tokens.js`** — the status bar, navigation's theme, an icon's colour (through the `Icon` wrapper, sizes 16, 20 and 24), map paint — with the active appearance's values. **Map marker images are generated at build time** (`pnpm --filter @wayfare/mobile markers`), one set per appearance, coloured from `tokens.js`, because MapLibre takes image assets, not views; a colour change regenerates them.
+- **What a class cannot reach reads `tokens.js`** — the status bar, navigation's theme, an icon's colour (through the `Icon` wrapper, sizes 16, 20, 24 and 32 — 32 only for the player's main control), map paint — with the active appearance's values. **Map marker images are generated at build time** (`pnpm --filter @wayfare/mobile markers`), one set per appearance, coloured from `tokens.js`, because MapLibre takes image assets, not views; a colour change regenerates them.
 - **A colour change is an export, not an edit:** the designer re-exports the Variables into `tokens.json` (never hand-edited; Prettier ignores it), `pnpm build` regenerates the preset, `tokens.js` and the web CSS in the package's `dist/`, and the brand assets are redrawn by `pnpm --filter @wayfare/mobile brand`. The app icon and splash are native resources, so they change only after `expo prebuild` and a new build. The package's contrast spec fails a pair below 4.5 : 1 (3 : 1 for `input` and `ring`) in either mode; a new token pair joins its list deliberately.
-- **Type:** one utility per text style (`text-display` … `text-caption`) sets family, size and line height together, so a weight never drifts from its font file. `text-numeric` cannot carry tabular figures — NativeWind passes `font-variant` to a style React Native ignores — so a component showing distances, times or sizes sets `fontVariant: ['tabular-nums']` itself. `body-small` is the web console's alone; mobile's running text stays 16 px.
+- **Type:** one utility per text style (`text-display` … `text-caption`) sets family, size and line height together, so a weight never drifts from its font file. **Be Vietnam Pro has no tabular figures** (its `1` is half the width of its `4`), so neither `text-numeric` nor `fontVariant: ['tabular-nums']` stops a changing number from shifting: a value that changes while it is on screen — a playback time, a countdown, a download's progress — renders through `ClockText`, which puts each digit in a cell of the same width. `body-small` is the web console's alone; mobile's running text stays 16 px.
 - **Touch targets:** controls are `min-h-12` (48 px); `min-h-target` (44 px) is the floor, for icon buttons.
 - **A third-party component that takes `style` but not `className`** — `expo-image`'s `Image` among them — is registered once with NativeWind's `cssInterop` (`cssInterop(Image, { className: 'style' })`); unregistered, its classes are dropped without a warning, and the component renders with no size.
 - **Spacing in a style object comes from `space`** (`tokens.js`) or from a layout constant in `src/ui/layout.ts`, itself built from tokens — the tab bar's and the mini-player band's heights are the `size` tokens `tab-bar` and `mini-player-band`. Lint enforces it: in `apps/mobile` outside `src/theme/` and `src/ui/layout.ts`, a numeric literal other than `0` anywhere in the value of a padding, margin, gap, position or `textSize` property — negative, inside an expression or a call — fails, in a `style`, a `StyleSheet` or a navigator's options alike. Component geometry that is not spacing (a sheet's handle or peek height, media and hit-area sizes) is a named constant the component owns, outside the rule.
-- **Motion:** durations come through `useDuration()` (its rule is the pure `durationFor()`), which returns 0 when the system removes animations.
+- **Motion:** every animation is built with `react-native-reanimated`, and its duration comes through `useDuration()` (its rule is the pure `durationFor()`), which returns 0 when the system removes animations. Each design round names its animations and their duration tokens; nothing may depend on motion to be understood.
 
 ---
 
@@ -1001,6 +1001,27 @@ Rules for writing one:
 | `event-topology.spec.ts` | api-endpoints-plan §10's event table against the code: each subject's publisher against the service whose outbox adds it, and each consumer the table names against the classes that declare`readonly event` for that subject. A cell marked *(Phase 3)* or *(ai)* must still be missing; building it without removing the mark fails too. It also holds every `AuditAction`, `NotificationType` and `EmailTemplate` to being produced under `services/*/src` or listed in `PHASE_3_OWED`. It reads source text, never the DI graph |
 
 **A walk never forges state another service reacts to:** it may insert by SQL only rows its own service alone reads, and creates anything that publishes an event — a verified owner, a subscription — through the API, or the other services never hear of it. A walk's write **changes the value on every run** — writing back what an earlier run left there is a no-op that emits nothing, and the assertion waiting for its event fails for no real reason. A walk that restarts a service **stops the instance already running first**; otherwise the new one loses the port and the old one keeps passing health checks. **The live counterpart.** Guards and in-process tests stub the service on the other side of every boundary, and three defects have slipped past them for exactly that reason. After the walks (`pnpm walks`, every walk in dependency order), **`pnpm verify:spine`** reads the running stack: every Phase 2 subject has messages in its stream, every declared durable exists with nothing pending after a quiet period, the `DLQ` holds nothing from the run, and every service-emitted socket frame reaches a real client through Redis. It is a local command until the whole stack runs in CI.
+
+### 17.5 Mobile end-to-end flows (Maestro)
+
+**Every doc that builds a screen ships two Maestro flows for it,** under `apps/mobile/.maestro/`, run on the phone against the local stack:
+
+- **A basic flow** — the happy path through the screen, asserting what the Figma frames show in the order a tourist meets them.
+- **A sabotage flow** (`<name>-sabotage.yaml`) — the edge cases a person really produces: a double tap, a second action before the first finishes, switching tabs mid-action, *Home* and back, reopening what is already open, the largest text size, the same Place from two routes. It ends by asserting that nothing is left in a wrong state (one player, one sheet, no orphan screen).
+
+The flows are written from the design's frames and states, not from the build: each assertion names the frame it checks. **What Maestro cannot reach is listed in the doc as a manual check**, never silently skipped.
+
+**Before calling a failure the app's, rule out Maestro's limits:**
+
+1. **Canvas content is invisible to it:** map markers and layers, and Android's media card, cannot be found by text — tap a `point:` or use `adb`.
+2. **It is slow** (a few seconds a step): a short narration or a timed state can end mid-flow — pause early, or use long content.
+3. **`launchApp` restarts the app and grants every permission** by default: use `stopApp: false` to resume; test permission prompts on a clean install.
+4. **It repeats a tap when the screen looks unchanged** (`retryTapIfNoChange`), which can hit whatever replaced the button: set it to `false` on toggles.
+5. **Starting a session can interrupt playing audio:** read the state again after it starts rather than assuming it.
+6. **A tap on text inside a container can fall through** to the view behind it: tap the labelled control, or a `point:`.
+7. **`takeScreenshot` writes only inside its output folder,** and a folder under a file-sync tool can hang it: pass `--test-output-dir` on a non-synced path.
+8. **System UI is out of reach:** notification seeks, unplugging headphones, phone calls.
+9. **MIUI / HyperOS phones** need *USB debugging (Security settings)*, *Install via USB* and MIUI optimisation off, and a direct USB link (no hub).
 
 ---
 

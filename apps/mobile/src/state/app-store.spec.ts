@@ -19,4 +19,10 @@ describe('mergePersisted', () => {
     expect(mergePersisted({ language: 'english' }, current).language).toBeNull();
     expect(mergePersisted(undefined, current).language).toBeNull();
   });
+
+  it('keeps one of the four speeds and reads anything else as 1×', () => {
+    expect(mergePersisted({ playbackSpeed: 1.25 }, current).playbackSpeed).toBe(1.25);
+    expect(mergePersisted({ playbackSpeed: 3 }, current).playbackSpeed).toBe(1);
+    expect(mergePersisted({}, current).playbackSpeed).toBe(1);
+  });
 });

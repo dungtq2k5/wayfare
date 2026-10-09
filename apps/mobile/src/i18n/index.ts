@@ -18,6 +18,7 @@ import ICU from 'i18next-icu';
 import { initReactI18next } from 'react-i18next';
 import { loadBundle } from './bundles';
 import { touristFrom } from './tourist';
+import type { Tourist } from './tourist';
 import type { BundleLoaderDeps, CachedBundle } from './bundles';
 import { normalizeLang } from '@wayfare/contracts';
 
@@ -93,5 +94,8 @@ export function errorMessage(error: unknown): string {
   }
   return t('error.generic');
 }
+
+/** The typed translation functions, for code that is not a component (the player's notification). */
+export const tourist = (): Tourist => touristFrom(i18next);
 
 export default i18next;

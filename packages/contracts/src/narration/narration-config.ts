@@ -40,4 +40,6 @@ export const NARRATION_CONFIG = {
   placeCacheTtlMs: 15 * MINUTE_MS,
   audioCacheFilesPerLanguage: 300,
   audioCacheMaxLanguages: 3,
+  /** How long the player waits for on-demand audio before it streams instead (product §10, tier 1.5). */
+  onDemandWaitMs: 5_000,
 } as const;

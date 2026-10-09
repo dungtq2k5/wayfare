@@ -1,6 +1,7 @@
 import type { PlaceDetailResponseDto } from '@wayfare/api-client';
 import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import type { OpeningHoursRowInput } from '@wayfare/core';
+import type { PlaceAudio, PlayerPlace } from '../player/types';
 
 export interface PhotoView {
   readonly id: string;
@@ -52,6 +53,9 @@ export interface PlaceView {
   readonly stale: boolean;
   readonly lang: string;
   readonly audioDurationMs: number | null;
+  /** The narration file, when the server has made one for this text. */
+  readonly audio: PlaceAudio | null;
+  readonly areaId: string | null;
 }
 
 export function viewFromDetail(dto: PlaceDetailResponseDto): PlaceView {
@@ -92,6 +96,8 @@ export function viewFromDetail(dto: PlaceDetailResponseDto): PlaceView {
     stale: dto.localization.stale,
     lang: dto.localization.lang,
     audioDurationMs: dto.localization.audio?.durationMs ?? null,
+    audio: dto.localization.audio ?? null,
+    areaId: dto.areaId,
   };
 }
 
@@ -120,6 +126,23 @@ export function viewFromRecord(record: PlaceSyncRecordStored): PlaceView {
     stale: record.localization.stale,
     lang: record.localization.lang,
     audioDurationMs: record.localization.audio?.durationMs ?? null,
+    audio: record.localization.audio ?? null,
+    areaId: record.areaId,
+  };
+}
+
+/** What the player takes of a Place. */
+export function playerPlaceOf(view: PlaceView): PlayerPlace {
+  return {
+    id: view.id,
+    name: view.name,
+    text: view.description,
+    textLang: view.lang,
+    ownLanguage: view.contentTier === 'REQUESTED',
+    categoryCode: view.categoryCode,
+    areaId: view.areaId,
+    audio: view.audio,
+    cardPhotoUrl: view.photos[0]?.card ?? null,
   };
 }
 

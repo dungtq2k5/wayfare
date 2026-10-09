@@ -44,6 +44,9 @@ const config: ExpoConfig = {
       },
     ],
     'expo-localization',
+    // Narration plays with the screen off (a foreground media service). The app never records, so
+    // the plugin's default microphone permission is off.
+    ['expo-audio', { enableBackgroundPlayback: true, recordAudioAndroid: false }],
     // Be Vietnam Pro is embedded in the build, not loaded at runtime, so no cold start flashes the
     // system font. One file per weight: Android does not pick a weight from one family name.
     [

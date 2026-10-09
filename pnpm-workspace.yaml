@@ -27,6 +27,8 @@ onlyBuiltDependencies:
   - argon2
   # Image processing; its install script only checks the prebuilt libvips package (glibc or musl).
   - sharp
+patchedDependencies:
+  expo-audio@57.0.5: patches/expo-audio@57.0.5.patch
 
 # pnpm 10 blocks dependency build scripts by default.
 # strictDepBuilds turns an unlisted build script into an install failure instead of a warning.

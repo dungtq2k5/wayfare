@@ -36,4 +36,9 @@ export interface TouristArguments {
   readonly "place.distanceHours": { "hours": string | number; "minutes": string | number };
   readonly "place.shownInOther": { "shown": string | number; "language": string | number };
   readonly "place.shownBadge": { "language": string | number };
+  readonly "player.reason.nearbyDistance": { "distance": string | number };
+  readonly "player.upNextName": { "name": string | number };
+  readonly "player.speed": { "speed": string | number };
+  readonly "player.speedValue": { "speed": string | number };
+  readonly "player.progress": { "position": string | number; "duration": string | number };
 }

@@ -5,7 +5,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { useAllPlaces } from '../../src/data/hooks';
 import { useTourist } from '../../src/i18n/use-tourist';
-import { requestForegroundLocation, useLocationStore } from '../../src/location/location-store';
+import {
+  locateOnce,
+  refreshPermission,
+  requestForegroundLocation,
+  useLocationStore,
+} from '../../src/location/location-store';
+import { showToast } from '../../src/ui/toast';
 import { usePosition } from '../../src/location/use-position';
 import { areaIcon } from '../../src/map/categories';
 import { chooseMapStyle, nearestPlace } from '../../src/map/map-logic';
@@ -19,7 +25,7 @@ import { useSyncStore } from '../../src/sync/run-sync';
 import { useTheme } from '../../src/theme/appearance';
 import { Icon } from '../../src/theme/icon';
 import { InlineNote } from '../../src/ui/inline-note';
-import { MINI_PLAYER_CLEARANCE } from '../../src/ui/layout';
+import { useControlsBottom } from '../../src/player/mini-player';
 import { AreaSheet } from '../../src/map/area-sheet';
 
 const NEARBY_RADIUS_M = 1_500;
@@ -35,6 +41,7 @@ export default function MapScreen() {
   const params = useLocalSearchParams<{ areas?: string }>();
   const theme = useTheme();
   const lang = useAppStore((state) => state.language) ?? 'en';
+  const controlsBottom = useControlsBottom();
   const currentAreaId = useAppStore((state) => state.currentAreaId);
   const setCurrentArea = useAppStore((state) => state.setCurrentArea);
   const offline = useNetworkStore((state) => state.status === 'offline');
@@ -114,21 +121,31 @@ export default function MapScreen() {
     if (next !== undefined) mapRef.current?.flyTo(next.center, next.defaultZoom);
   };
 
-  /** *Locate me*: the explainer first, then the system's question (A8); a known position flies there. */
-  const locate = () => {
-    if (permission === 'granted') {
-      setExplainer(false);
-      if (position !== null) mapRef.current?.flyTo(position, 16);
+  /**
+   * *Locate me*. The permission is read afresh (the tourist may have changed it in the phone's
+   * settings): without it, the explainer asks; with it, the position is found, switching the
+   * phone's location on first if it is off, and the map flies there. A failure says why.
+   */
+  const locate = async () => {
+    if ((await refreshPermission()) !== 'granted') {
+      setExplainer(true);
       return;
     }
-    setExplainer(true);
+    setExplainer(false);
+    const found = await locateOnce();
+    if (found === 'services-off') showToast(t('location.servicesOff'));
+    else if (found === 'no-fix') showToast(t('location.noFix'));
+    else mapRef.current?.flyTo(found, 16);
   };
   /** The explainer's button: ask (as long as the system still lets us), or open the phone's settings. */
   const turnOn = async () => {
-    if (permission === 'denied') return void Linking.openSettings();
+    if ((await refreshPermission()) === 'denied') return void Linking.openSettings();
     if (await requestForegroundLocation()) {
       setExplainer(false);
-      if (position !== null) mapRef.current?.flyTo(position, 16);
+      await locate();
+    } else if (useLocationStore.getState().permission === 'denied') {
+      // "Don't ask again": the explainer now sends them to the settings.
+      setExplainer(true);
     }
   };
 
@@ -197,14 +214,14 @@ export default function MapScreen() {
       </View>
 
       <View
-        style={{ bottom: MINI_PLAYER_CLEARANCE }}
+        style={{ bottom: controlsBottom }}
         className="absolute right-4 gap-2"
         pointerEvents="box-none"
       >
         {[
           { key: 'in', icon: Plus, label: '+', onPress: () => mapRef.current?.zoomBy(1) },
           { key: 'out', icon: Minus, label: '−', onPress: () => mapRef.current?.zoomBy(-1) },
-          { key: 'me', icon: Crosshair, label: t('map.locate'), onPress: locate },
+          { key: 'me', icon: Crosshair, label: t('map.locate'), onPress: () => void locate() },
         ].map((control) => (
           <Pressable
             key={control.key}
@@ -219,7 +236,7 @@ export default function MapScreen() {
       </View>
       <Text
         maxFontSizeMultiplier={1.3}
-        style={{ bottom: MINI_PLAYER_CLEARANCE }}
+        style={{ bottom: controlsBottom }}
         className="absolute left-4 right-16 self-start rounded-full bg-card/85 px-3 py-1 text-caption text-muted-foreground"
         onPress={() => router.push('/settings/credits')}
       >

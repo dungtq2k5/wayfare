@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "eas-build-post-install": "pnpm --filter @wayfare/mobile^... build",
     "brand": "node scripts/build-brand-assets.mjs",
-    "markers": "node scripts/build-marker-images.mjs"
+    "markers": "node scripts/build-marker-images.mjs",
+    "notification-artwork": "node scripts/build-notification-artwork.mjs"
   },
   "dependencies": {
     "@formatjs/intl-pluralrules": "^6.3.15",
@@ -30,11 +31,14 @@
     "expo": "~57.0.26",
     "expo-application": "~57.0.3",
     "expo-asset": "~57.0.18",
+    "expo-audio": "~57.0.5",
     "expo-build-properties": "~57.0.22",
     "expo-constants": "~57.0.20",
+    "expo-crypto": "~57.0.3",
     "expo-dev-client": "~57.0.19",
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
+    "expo-haptics": "~57.0.3",
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.11",
     "expo-localization": "~57.0.2",
@@ -42,6 +46,7 @@
     "expo-network": "~57.0.2",
     "expo-router": "~57.0.24",
     "expo-secure-store": "~57.0.4",
+    "expo-speech": "~57.0.3",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
@@ -69,5 +74,14 @@
     "babel-preset-expo": "~57.0.13",
     "sharp": "0.35.4",
     "typescript": "~6.0.3"
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-audio"
+        ]
+      }
+    }
   }
 }
