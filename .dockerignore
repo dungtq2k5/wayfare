@@ -22,3 +22,8 @@ graphify-out/
 .sonar-config.json
 .sonar-project.properties
 .vscode/
+cspell.json
+.editorconfig
+# Not use in Docker build so can ignore
+.prettierrc
+.prettierignore
