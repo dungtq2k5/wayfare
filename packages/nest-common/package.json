@@ -17,6 +17,10 @@
       "types": "./dist/observability/instrumentation.d.ts",
       "default": "./dist/observability/instrumentation.js"
     },
+    "./warnings": {
+      "types": "./dist/observability/warning-logger.d.ts",
+      "default": "./dist/observability/warning-logger.js"
+    },
     "./schema": {
       "types": "./dist/prisma/schema.d.ts",
       "default": "./dist/prisma/schema.js"
