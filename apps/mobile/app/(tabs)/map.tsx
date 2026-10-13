@@ -27,6 +27,8 @@ import { Icon } from '../../src/theme/icon';
 import { InlineNote } from '../../src/ui/inline-note';
 import { useControlsBottom } from '../../src/player/mini-player';
 import { AreaSheet } from '../../src/map/area-sheet';
+import { WalkControl } from '../../src/walk/walk-control';
+import { WalkNotice } from '../../src/walk/walk-notices';
 
 const NEARBY_RADIUS_M = 1_500;
 const SETTLE_MS = 600;
@@ -184,6 +186,7 @@ export default function MapScreen() {
             <Icon icon={ChevronDown} size="sm" color="muted-foreground" />
           </Pressable>
         )}
+        <WalkNotice />
         {offline && mapStyle.kind === 'blank' && (
           <InlineNote text={`${t('map.noMap.title')}. ${t('map.noMap.body')}`} />
         )}
@@ -234,14 +237,20 @@ export default function MapScreen() {
           </Pressable>
         ))}
       </View>
-      <Text
-        maxFontSizeMultiplier={1.3}
+      <View
         style={{ bottom: controlsBottom }}
-        className="absolute left-4 right-16 self-start rounded-full bg-card/85 px-3 py-1 text-caption text-muted-foreground"
-        onPress={() => router.push('/settings/credits')}
+        className="absolute left-4 right-16 gap-2 pr-2"
+        pointerEvents="box-none"
       >
-        {t('map.attribution')}
-      </Text>
+        <Text
+          maxFontSizeMultiplier={1.3}
+          className="self-start rounded-full bg-card/85 px-3 py-1 text-caption text-muted-foreground"
+          onPress={() => router.push('/settings/credits')}
+        >
+          {t('map.attribution')}
+        </Text>
+        <WalkControl />
+      </View>
 
       {selectedId !== null && (
         <PlaceSheet placeId={selectedId} position={position} onClose={() => setSelectedId(null)} />

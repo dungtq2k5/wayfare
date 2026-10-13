@@ -460,6 +460,7 @@ These are **product** decisions, not implementation details. They must be config
 | Default trigger radius | 30 m | Roughly "you can see the shopfront". Admin-overridable per place, hard-capped. |
 | Narration cooldown | 5 min | Tourist sits down inside a radius; must not loop. |
 | Commercial narration cap | 1 Venue narration / 10 min | Stops a commercial street becoming an ad loop. Editorial Places are exempt. |
+| Walk stationary mode | after 2 min still, one fix every 30 s at balanced accuracy | Measured on the test phone: Wayfare's own use about 0.13 % of the battery per hour standing still, against 0.72 % without it. |
 | Walk idle stop | 30 min without leaving a 50 m circle | A walk left running on a café table must not track and drain all afternoon; the tourist starts it again in one tap. |
 | Safety reconcile interval | 5 s | Self-heals a dropped event instead of hanging silently. |
 | GPS gap | 15 s | A half-finished entry older than this is dropped, so the fix before a tunnel never confirms a Place after it. |

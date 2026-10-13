@@ -19,6 +19,8 @@ const config: ExpoConfig = {
   android: {
     // Permanent once the app is on Google Play: the reverse of wayfare.app.
     package: 'app.wayfare',
+    // The walk's notification (Android 13+): asked for in the walk's own flow, never at launch.
+    permissions: ['android.permission.POST_NOTIFICATIONS'],
     adaptiveIcon: {
       foregroundImage: './assets/brand/icon-foreground.png',
       monochromeImage: './assets/brand/icon-monochrome.png',
@@ -33,15 +35,23 @@ const config: ExpoConfig = {
     'expo-secure-store',
     'expo-sqlite',
     '@maplibre/maplibre-react-native',
-    // Foreground location only: the map's dot and the distances. The walking loop asks for the rest.
+    // Foreground location for the map's dot; the walk adds the background and its foreground service.
     [
       'expo-location',
       {
         locationWhenInUsePermission:
           'Wayfare shows where you are on the map and which places are near you, while the app is open.',
-        isAndroidBackgroundLocationEnabled: false,
-        isAndroidForegroundServiceEnabled: false,
+        locationAlwaysAndWhenInUsePermission:
+          'Wayfare tells you about places as you walk past them, even with the screen off.',
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+        androidForegroundServiceIcon: './assets/brand/icon-monochrome.png',
       },
+    ],
+    // The idle-end notice of a walk; its small icon and colour are the brand's.
+    [
+      'expo-notifications',
+      { icon: './assets/brand/icon-monochrome.png', color: colors.light.primary },
     ],
     'expo-localization',
     // Narration plays with the screen off (a foreground media service). The app never records, so

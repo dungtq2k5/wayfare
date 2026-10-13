@@ -1,12 +1,21 @@
+import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, Text } from 'react-native';
 import { create } from 'zustand';
+import { Icon } from '../theme/icon';
 import { useDuration } from '../theme/use-duration';
 import { space } from '@wayfare/design-tokens/tokens';
 import { TAB_BAR_CLEARANCE } from './layout';
 
 interface ToastState {
-  toast: { id: number; message: string; action?: { label: string; onPress: () => void } } | null;
+  toast: {
+    id: number;
+    message: string;
+    icon?: LucideIcon;
+    /** Extra height above the usual spot, so the toast clears a control that sits there. */
+    lift?: number;
+    action?: { label: string; onPress: () => void };
+  } | null;
 }
 
 const useToastStore = create<ToastState>(() => ({ toast: null }));
@@ -19,10 +28,13 @@ export function showToast(
   message: string,
   action?: { label: string; onPress: () => void },
   ms = 4_000,
+  options: { icon?: LucideIcon; lift?: number } = {},
 ): void {
   counter += 1;
   clearTimeout(timer);
-  useToastStore.setState({ toast: { id: counter, message, ...(action ? { action } : {}) } });
+  useToastStore.setState({
+    toast: { id: counter, message, ...options, ...(action ? { action } : {}) },
+  });
   timer = setTimeout(() => useToastStore.setState({ toast: null }), ms);
 }
 
@@ -52,10 +64,11 @@ export function ToastHost() {
         position: 'absolute',
         left: space[4],
         right: space[4],
-        bottom: TAB_BAR_CLEARANCE,
+        bottom: TAB_BAR_CLEARANCE + (toast.lift ?? 0),
       }}
       className="flex-row items-center gap-3 rounded-lg bg-foreground px-4 py-3 elevation-2"
     >
+      {toast.icon !== undefined && <Icon icon={toast.icon} size="md" color="background" />}
       <Text className="flex-1 text-label text-background">{toast.message}</Text>
       {toast.action !== undefined && (
         <Pressable

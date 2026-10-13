@@ -186,5 +186,7 @@ export async function clearLocalData(db: Database): Promise<void> {
   await db.transaction(async (tx) => {
     await tx.run('DELETE FROM place_records');
     await tx.run('DELETE FROM sync_state');
+    await tx.run('DELETE FROM heard_places');
+    await tx.run('DELETE FROM walk_record');
   });
 }

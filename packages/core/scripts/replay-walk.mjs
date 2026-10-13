@@ -3,7 +3,7 @@
 // every decision the phone made, call for call. Usage:
 //   node scripts/replay-walk.mjs <walk-log.jsonl> <places.json>
 import { readFileSync } from 'node:fs';
-import { evaluateGeofences, initialGeofenceState, reconcile } from '@wayfare/core';
+import { replayEngineCalls } from '@wayfare/core';
 import { NARRATION_CONFIG } from '@wayfare/contracts';
 
 const [, , logPath, placesPath] = process.argv;
@@ -30,32 +30,10 @@ const events = readFileSync(logPath, 'utf8') // NOSONAR: S8707, as above
   .map((line) => JSON.parse(line))
   .filter((event) => event.type === 'engineCall');
 
-let state = initialGeofenceState();
-let mismatches = 0;
-
-for (const event of events) {
-  const result =
-    event.kind === 'evaluate'
-      ? evaluateGeofences({
-          now: event.now,
-          fix: {
-            t: event.now,
-            lat: event.fix.lat,
-            lng: event.fix.lng,
-            accuracyM: event.fix.accuracyM,
-          },
-          places,
-          state,
-          config,
-        })
-      : reconcile({ now: event.now, places, state, config });
-  state = result.state;
-  const got = result.decision?.placeId ?? null;
-  if (got !== event.decision) {
-    mismatches += 1;
-    console.error(`✗ t=${event.now} ${event.kind}: phone said ${event.decision}, Node said ${got}`);
-  }
+const mismatches = replayEngineCalls(events, places, config);
+for (const m of mismatches) {
+  console.error(`✗ t=${m.now} ${m.kind}: phone said ${m.phone}, Node said ${m.node}`);
 }
 
-console.log(`${events.length} engine calls replayed, ${mismatches} mismatch(es).`);
-process.exit(mismatches === 0 ? 0 : 1);
+console.log(`${events.length} engine calls replayed, ${mismatches.length} mismatch(es).`);
+process.exit(mismatches.length === 0 ? 0 : 1);

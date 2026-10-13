@@ -1,4 +1,4 @@
-import { Footprints, Wallet } from 'lucide-react-native';
+import { Footprints, Headphones, Wallet } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { useTourist } from '../i18n/use-tourist';
@@ -9,6 +9,7 @@ import { Badge } from './badge';
 import { FavouriteToggle } from './favourite-toggle';
 import { MetaPair } from './meta-pair';
 import { PlacePhoto } from './place-photo';
+import { useIsHeard } from '../walk/heard';
 
 /** What a row needs, whether it came from the server's nearby answer or the local database. */
 export interface RowPlace {
@@ -32,6 +33,7 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
   const open = useOpenSummary(place.openingHours ?? []);
   const distanceText = useDistanceText();
   const price = priceMarks(place.priceBand);
+  const heard = useIsHeard(place.id);
   const meta: { key: string; node: React.ReactNode }[] = [
     {
       key: 'category',
@@ -60,7 +62,7 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={place.name}
+      accessibilityLabel={heard ? t('place.heardLabel', { name: place.name }) : place.name}
       onPress={onPress}
       className="flex-row gap-3 rounded-xl border border-border bg-card p-3 elevation-1"
     >
@@ -82,6 +84,7 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
             />
           )}
           {place.sponsored && <Badge tone="sponsored" label={t('place.sponsored')} />}
+          {heard && <Badge tone="info" icon={Headphones} label={t('badge.heard')} />}
         </View>
       </View>
       <FavouriteToggle placeId={place.id} />

@@ -49,7 +49,10 @@ export function useControlsBottom(): number {
   const lift = useMiniLift();
   const hidden = useMiniHidden();
   const playing = usePlayerStore((state) => state.current !== null);
-  if (lift === 0) return MINI_PLAYER_CLEARANCE;
+  const drawn = usePlayerStore((state) => state.miniHeight);
+  // The band is the mini player's usual height; at large text it grows and the controls rise with it.
+  const extra = Math.max(0, drawn - MINI_PLAYER_BAND);
+  if (lift === 0) return MINI_PLAYER_CLEARANCE + extra;
   return lift + (playing && !hidden ? MINI_PLAYER_BAND : 0) + space[2];
 }
 
@@ -95,7 +98,18 @@ export function MiniPlayer({ floating = true }: { floating?: boolean }) {
     if (!shown) return;
     slide.setValue(1);
     Animated.timing(slide, { toValue: 0, duration, useNativeDriver: true }).start();
+    // A narration that ends mid-slide must not leave the native animation running on a view that
+    // is gone: it leaves the bar's empty shell on screen.
+    return () => slide.stopAnimation();
   }, [shown, slide, duration]);
+
+  // Nothing on screen takes no room.
+  useEffect(() => {
+    if (floating && (!shown || hidden)) usePlayerStore.setState({ miniHeight: 0 });
+    return () => {
+      if (floating) usePlayerStore.setState({ miniHeight: 0 });
+    };
+  }, [shown, hidden, floating]);
 
   if (!shown || hidden) return null;
 
@@ -142,92 +156,103 @@ export function MiniPlayer({ floating = true }: { floating?: boolean }) {
 
   return (
     <Animated.View
+      onLayout={(event) => {
+        if (floating) {
+          usePlayerStore.setState({ miniHeight: event.nativeEvent.layout.height + space[2] });
+        }
+      }}
       style={{ transform: [{ translateY: Animated.multiply(slide, 80) }] }}
       className={placement}
     >
-      <View
-        className={`overflow-hidden rounded-xl bg-now-playing elevation-2 ${current.ring ? 'border-2 border-now-playing-accent' : ''}`}
-      >
-        <View className="flex-row items-center gap-3 py-3 pl-4 pr-2">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${t('player.expand')}: ${current.place.name}`}
-            onPress={() => router.push('/player')}
-            className="min-w-0 flex-1 flex-row items-center gap-3"
-          >
-            <Icon icon={leading} size="lg" color="now-playing-accent" />
-            <View className="min-w-0 flex-1 gap-1">
-              <Text
-                numberOfLines={1}
-                maxFontSizeMultiplier={1.3}
-                className="text-body-strong text-now-playing-foreground"
-              >
-                {current.place.name}
-              </Text>
-              <View className="flex-row items-center">
-                {lead !== null && (
-                  <Text
-                    numberOfLines={1}
-                    maxFontSizeMultiplier={1.3}
-                    className="shrink text-caption text-now-playing-foreground"
-                  >
-                    {lead}
-                    {showTime ? ' · ' : ''}
-                  </Text>
-                )}
-                {showTime && (
-                  <View className="flex-row items-center">
-                    <ClockText
-                      ms={current.positionMs ?? 0}
-                      padTo={clock(current.durationMs ?? 0).length}
-                      maxScale={1.3}
-                      className="text-caption text-now-playing-foreground"
-                    />
+      {/* The shadow and the clip sit on two views: on one, Android draws the bar's children under
+          its own background. */}
+      <View className="rounded-xl bg-now-playing elevation-2">
+        <View
+          className={`rounded-xl bg-now-playing ${current.ring ? 'border-2 border-now-playing-accent' : ''}`}
+        >
+          <View className="flex-row items-center gap-3 py-3 pl-4 pr-2">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t('player.expand')}: ${current.place.name}`}
+              onPress={() => router.push('/player')}
+              className="min-w-0 flex-1 flex-row items-center gap-3"
+            >
+              <Icon icon={leading} size="lg" color="now-playing-accent" />
+              <View className="min-w-0 flex-1 gap-1">
+                <Text
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={1.3}
+                  className="text-body-strong text-now-playing-foreground"
+                >
+                  {current.place.name}
+                </Text>
+                <View className="flex-row items-center">
+                  {lead !== null && (
                     <Text
+                      numberOfLines={1}
                       maxFontSizeMultiplier={1.3}
-                      className="text-caption text-now-playing-foreground"
+                      className="shrink text-caption text-now-playing-foreground"
                     >
-                      {' / '}
+                      {lead}
+                      {showTime ? ' · ' : ''}
                     </Text>
-                    <ClockText
-                      ms={current.durationMs ?? 0}
-                      maxScale={1.3}
-                      className="text-caption text-now-playing-foreground"
-                    />
-                  </View>
-                )}
+                  )}
+                  {showTime && (
+                    <View className="flex-row items-center">
+                      <ClockText
+                        ms={current.positionMs ?? 0}
+                        padTo={clock(current.durationMs ?? 0).length}
+                        maxScale={1.3}
+                        className="text-caption text-now-playing-foreground"
+                      />
+                      <Text
+                        maxFontSizeMultiplier={1.3}
+                        className="text-caption text-now-playing-foreground"
+                      >
+                        {' / '}
+                      </Text>
+                      <ClockText
+                        ms={current.durationMs ?? 0}
+                        maxScale={1.3}
+                        className="text-caption text-now-playing-foreground"
+                      />
+                    </View>
+                  )}
+                </View>
               </View>
+            </Pressable>
+            <RoundButton
+              icon={FileText}
+              label={t('player.transcript')}
+              onPress={() => router.push('/transcript')}
+            />
+            {preparing ? (
+              <RoundButton
+                icon={X}
+                label={t('player.cancel')}
+                onPress={() => narrationPlayer.stop()}
+              />
+            ) : (
+              <PlayPauseDisc
+                paused={paused}
+                label={paused ? t('player.play') : t('player.pause')}
+                onPress={() => (paused ? narrationPlayer.resume() : narrationPlayer.pause())}
+              />
+            )}
+            {paused && (
+              <RoundButton
+                icon={X}
+                label={t('player.close')}
+                onPress={() => narrationPlayer.stop()}
+              />
+            )}
+          </View>
+          {timeline && (
+            <View className="px-3 pb-1">
+              <ProgressLine fraction={(current.positionMs ?? 0) / (current.durationMs ?? 1)} />
             </View>
-          </Pressable>
-          <RoundButton
-            icon={FileText}
-            label={t('player.transcript')}
-            onPress={() => router.push('/transcript')}
-          />
-          {preparing ? (
-            <RoundButton
-              icon={X}
-              label={t('player.cancel')}
-              onPress={() => narrationPlayer.stop()}
-            />
-          ) : (
-            <PlayPauseDisc
-              paused={paused}
-              label={paused ? t('player.play') : t('player.pause')}
-              onPress={() => (paused ? narrationPlayer.resume() : narrationPlayer.pause())}
-            />
-          )}
-          {paused && (
-            <RoundButton
-              icon={X}
-              label={t('player.close')}
-              onPress={() => narrationPlayer.stop()}
-            />
           )}
         </View>
-        {timeline && (
-          <ProgressLine fraction={(current.positionMs ?? 0) / (current.durationMs ?? 1)} />
-        )}
       </View>
     </Animated.View>
   );

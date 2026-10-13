@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
+import { WalkChip } from '../walk/walk-chip';
 
 interface ScreenHeaderProps {
   title: string;
@@ -37,6 +38,7 @@ export function ScreenHeader({ title, type = 'large', trailing }: ScreenHeaderPr
       >
         {title}
       </Text>
+      {type === 'large' && <WalkChip />}
       {trailing}
     </View>
   );

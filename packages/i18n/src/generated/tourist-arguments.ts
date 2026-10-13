@@ -41,4 +41,13 @@ export interface TouristArguments {
   readonly "player.speed": { "speed": string | number };
   readonly "player.speedValue": { "speed": string | number };
   readonly "player.progress": { "position": string | number; "duration": string | number };
+  readonly "walk.on": { "minutes": string | number };
+  readonly "walk.heard": { "count": number };
+  readonly "walk.chip.on": { "count": string | number };
+  readonly "walk.toast.stopped": { "count": number };
+  readonly "walk.notice.idle.message": { "count": number };
+  readonly "walk.notice.system.message": { "count": number };
+  readonly "place.heardLabel": { "name": string | number };
+  readonly "walk.notification.endedBody": { "count": number };
+  readonly "settings.diagnostics.stationary": { "state": string | number };
 }

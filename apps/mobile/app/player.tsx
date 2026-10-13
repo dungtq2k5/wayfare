@@ -74,7 +74,7 @@ export default function PlayerScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-now-playing">
-      <ScrollView contentContainerClassName="gap-4 p-4">
+      <ScrollView contentContainerClassName="grow gap-4 p-4">
         <View {...pan.panHandlers} className="min-h-12 items-center justify-center">
           <View className="h-1 w-10 rounded-full bg-now-playing-foreground/40" />
         </View>
@@ -157,6 +157,8 @@ export default function PlayerScreen() {
           <Icon icon={FileText} size="md" color="now-playing-foreground" />
           <Text className="text-label text-now-playing-foreground">{t('player.transcript')}</Text>
         </Pressable>
+        {/* The queue sits at the foot of the screen, as drawn. */}
+        <View className="min-h-4 flex-1" />
         <UpNextRow />
       </ScrollView>
     </SafeAreaView>

@@ -7,10 +7,20 @@ import { useAppStore } from '../state/app-store';
 import { queryClient } from '../state/query-client';
 import { databaseReady } from './boot';
 import { persister } from './persister';
+import { resetWalkFlags } from '../walk/flags';
+import { clearHeard } from '../walk/heard';
+import { deleteWalkLog } from '../walk/log';
+import { resetWalk } from '../walk/controller';
+import { dropWalkPlaces } from '../walk/geofence-places';
 
-/** What *Forget this install* clears beyond the session: Places, cursors, cached areas, verdict. */
+/** What *Forget this install* clears beyond the session: Places, cursors, cached areas, verdict, the walk. */
 export async function forgetLocalData(): Promise<void> {
   narrationPlayer.stop();
+  await resetWalk();
+  clearHeard();
+  resetWalkFlags();
+  deleteWalkLog();
+  dropWalkPlaces();
   await clearAudioCache();
   await clearLocalData(await databaseReady);
   await persister.removeClient();

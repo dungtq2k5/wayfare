@@ -40,6 +40,16 @@ export const NARRATION_CONFIG = {
   placeCacheTtlMs: 15 * MINUTE_MS,
   audioCacheFilesPerLanguage: 300,
   audioCacheMaxLanguages: 3,
+  /** A walk ends by itself after this long without leaving the idle circle (product §9). */
+  walkIdleStopMs: 30 * MINUTE_MS,
+  /** The circle, in metres, around where the tourist last settled: leaving it is moving. */
+  walkIdleRadiusM: 50,
+  /** Still for this long, the walk's location updates slow down. */
+  stationaryAfterMs: 2 * MINUTE_MS,
+  /** The interval between location updates while stationary. */
+  stationaryIntervalMs: 30_000,
+  /** How long *Undo* is offered after *Stop*. */
+  walkUndoMs: 6_000,
   /** How long the player waits for on-demand audio before it streams instead (product §10, tier 1.5). */
   onDemandWaitMs: 5_000,
 } as const;

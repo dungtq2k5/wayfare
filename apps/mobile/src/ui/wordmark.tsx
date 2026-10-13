@@ -16,8 +16,20 @@ export function Wordmark({ height = 32 }: { height?: number }) {
     >
       <Path d={WORDMARK_PATHS.pin} fill={primary} />
       <Path d={WORDMARK_PATHS.voice} fill={theme.colors['map-marker-selected']} />
-      <Path d={WORDMARK_PATHS.wave1} stroke={primary} strokeWidth={2.93333} strokeLinecap="round" />
-      <Path d={WORDMARK_PATHS.wave2} stroke={primary} strokeWidth={2.93333} strokeLinecap="round" />
+      <Path
+        d={WORDMARK_PATHS.wave1}
+        stroke={primary}
+        strokeWidth={2.93333}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path
+        d={WORDMARK_PATHS.wave2}
+        stroke={primary}
+        strokeWidth={2.93333}
+        strokeLinecap="round"
+        fill="none"
+      />
       <Path d={WORDMARK_PATHS.word} fill={primary} />
     </Svg>
   );

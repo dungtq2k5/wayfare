@@ -57,6 +57,17 @@ describe('clusteredFeatures', () => {
   });
 });
 
+describe('visited markers', () => {
+  it('marks a heard Place as visited, and no other', () => {
+    const { features } = clusteredFeatures(
+      [place('a', 1, 2), place('b', 3, 4)],
+      new Set(),
+      new Set(['b']),
+    );
+    expect(features.map((feature) => feature.properties.visited)).toEqual([false, true]);
+  });
+});
+
 describe('nearestPlace', () => {
   it('is the closest Place, or null without a position or Places', () => {
     const records = [place('far', 10.8, 106.7), place('near', 10.7701, 106.7)];

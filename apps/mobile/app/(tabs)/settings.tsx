@@ -3,10 +3,13 @@ import * as Application from 'expo-application';
 import { useRouter } from 'expo-router';
 import {
   Activity,
+  Bell,
+  BatteryWarning,
   ChevronRight,
   ExternalLink,
   Info,
   Languages,
+  Navigation,
   Moon,
   ShieldCheck,
   Sun,
@@ -31,6 +34,8 @@ import { LIST_END_PADDING } from '../../src/ui/layout';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { SegmentedControl } from '../../src/ui/segmented-control';
 import { APP_VERSION } from '../../src/api';
+import { allowBackground } from '../../src/walk/start';
+import { useWalkPermissions } from '../../src/walk/use-walk-permissions';
 
 /** One group of settings in a card, with its name above (handoff E1). */
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -95,6 +100,7 @@ export default function SettingsScreen() {
   const setAppearance = useAppStore((state) => state.setAppearance);
   const [failure, setFailure] = useState<string | null>(null);
   const forgetCall = useDevicesForget();
+  const walkPermissions = useWalkPermissions();
 
   const forget = async (): Promise<void> => {
     try {
@@ -142,6 +148,49 @@ export default function SettingsScreen() {
                 ]}
               />
             </View>
+          </Group>
+
+          <Group title={t('settings.walk')}>
+            <Row
+              icon={Navigation}
+              title={t('settings.walk.location')}
+              subtitle={t('settings.walk.location.hint')}
+              value={
+                walkPermissions === null
+                  ? undefined
+                  : walkPermissions.location === 'always'
+                    ? t('settings.walk.always')
+                    : walkPermissions.location === 'while-open'
+                      ? t('settings.walk.whileOpen')
+                      : t('settings.walk.notAllowed')
+              }
+              end={ChevronRight}
+              onPress={() =>
+                walkPermissions?.location === 'always'
+                  ? void Linking.openSettings()
+                  : void allowBackground()
+              }
+            />
+            <Row
+              icon={Bell}
+              title={t('settings.walk.notification')}
+              value={
+                walkPermissions === null
+                  ? undefined
+                  : walkPermissions.notifications
+                    ? t('settings.walk.allowed')
+                    : t('settings.walk.off')
+              }
+              end={ChevronRight}
+              onPress={() => void Linking.openSettings()}
+            />
+            <Row
+              icon={BatteryWarning}
+              title={t('settings.walk.keep')}
+              subtitle={t('settings.walk.keep.hint')}
+              end={ChevronRight}
+              onPress={() => router.push('/walk-help')}
+            />
           </Group>
 
           <Group title={t('settings.privacy')}>

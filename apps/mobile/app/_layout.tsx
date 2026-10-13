@@ -1,11 +1,14 @@
 import '../global.css';
 import '../src/api';
 import '../src/i18n';
+import '../src/walk/task';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { databaseReady } from '../src/data/boot';
+import { hydrateWalk } from '../src/walk/controller';
+import { loadHeard } from '../src/walk/heard';
 import { persistOptions } from '../src/data/persister';
 import { useDataBoot } from '../src/data/use-data-boot';
 import { applyLanguage } from '../src/i18n';
@@ -14,6 +17,7 @@ import { deviceSession } from '../src/session';
 import { useAppStore } from '../src/state/app-store';
 import { queryClient } from '../src/state/query-client';
 import { ToastHost } from '../src/ui/toast';
+import { WalkPromptHost } from '../src/walk/prompt-host';
 
 /**
  * The providers, and the gate: *Update required* beats everything, then the first run (no
@@ -45,6 +49,8 @@ export default function RootLayout() {
         useAppStore.getState().setOnboarded(false);
       }
       await databaseReady; // migrated before any screen reads it
+      void hydrateWalk();
+      void loadHeard();
       setChecked(true);
     })();
   }, [hydrated]);
@@ -85,12 +91,14 @@ export default function RootLayout() {
             <Stack.Screen name="place/[id]" />
             <Stack.Screen name="player" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="transcript" />
+            <Stack.Screen name="walk-help" />
             <Stack.Screen name="settings/language" />
             <Stack.Screen name="settings/credits" />
             <Stack.Screen name="settings/diagnostics" />
           </Stack.Protected>
         </Stack>
         <ToastHost />
+        <WalkPromptHost />
       </ThemeProvider>
     </PersistQueryClientProvider>
   );

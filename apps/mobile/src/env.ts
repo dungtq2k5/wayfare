@@ -10,3 +10,11 @@ export const PRIVACY_POLICY_URL =
 
 /** Diagnostics sit under Settings › About in development and preview (demo) builds only. */
 export const DIAGNOSTICS_ENABLED = process.env.EXPO_PUBLIC_DIAGNOSTICS === '1';
+
+/** Shorter walk timings for the flows, honoured in builds that carry Diagnostics only. */
+const testMs = (value: string | undefined) => {
+  const parsed = Number(value);
+  return DIAGNOSTICS_ENABLED && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+export const WALK_IDLE_MS = testMs(process.env.EXPO_PUBLIC_WALK_IDLE_MS);
+export const WALK_UNDO_MS = testMs(process.env.EXPO_PUBLIC_WALK_UNDO_MS);

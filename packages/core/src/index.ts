@@ -3,6 +3,7 @@ export * from './content/content-tier';
 export * from './content/served-audio';
 export * from './geofence/engine';
 export * from './geofence/priority';
+export * from './geofence/replay';
 export * from './geofence/types';
 export * from './geofence/wake-up';
 export * from './hours/opening-state';

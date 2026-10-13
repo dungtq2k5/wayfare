@@ -1,0 +1,104 @@
+# The walk, end to end on a simulated route: Start walk → the status card → the simulated walk's
+# first two Places heard → the chip on Explore → the Heard badge → Settings' Walk section → Stop,
+# Undo, Stop.
+#
+# Before the flow, by adb: location services on (`settings put secure location_mode 3`, or Google's
+# Location Accuracy prompt covers every screen) and the app's permissions granted:
+#   adb shell pm grant app.wayfare android.permission.ACCESS_FINE_LOCATION
+#   adb shell pm grant app.wayfare android.permission.ACCESS_COARSE_LOCATION
+#   adb shell pm grant app.wayfare android.permission.ACCESS_BACKGROUND_LOCATION
+#   adb shell pm grant app.wayfare android.permission.POST_NOTIFICATIONS
+# The build carries Diagnostics and a 20 s Undo window (`EXPO_PUBLIC_WALK_UNDO_MS=20000`: two steps
+# of the flow take longer than the product's 6 s). Needs the local stack, the seeded District 1
+# Places and an app that has finished `first-run.yaml`. English phone.
+#   maestro test apps/mobile/.maestro/walk.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Map'
+# A walk left on by an earlier run is stopped first.
+- runFlow:
+    when:
+      visible: 'Stop the walk'
+    commands:
+      - tapOn:
+          text: 'Stop the walk'
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible: 'Start walk'
+          timeout: 40000
+- assertVisible: 'Start walk'
+- assertVisible: 'Hear each place as you reach it'
+- tapOn:
+    text: 'Start walk'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: 'Walking · 0 min'
+    timeout: 20000
+- assertVisible: 'No places yet'
+# The simulation feeds the same store the location task writes to.
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element: 'Simulate walk'
+- tapOn: 'Simulate walk'
+- tapOn: 'Next place'
+- tapOn: 'Back'
+# Pause the story at once: a narration ends within a minute, whatever pace the flow keeps.
+- assertVisible: 'Open the player.*'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- tapOn: 'Map'
+- assertVisible: '1 place heard'
+- tapOn:
+    point: '50%,89%'
+- assertVisible: 'Paused'
+- assertVisible: 'Started because you.re nearby.*'
+- tapOn: 'Close the player'
+- tapOn: 'Close'
+- tapOn: 'Settings'
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element: 'Next place'
+- tapOn: 'Next place'
+- tapOn: 'Back'
+- tapOn: 'Map'
+- assertVisible: '2 places heard'
+# The chip on the other tabs, and back.
+- tapOn: 'Explore'
+- assertVisible: 'Walking · 2 heard'
+- tapOn: 'Walking · 2 heard'
+- assertVisible: 'Stop'
+# The Heard badge on Explore's rows.
+- tapOn: 'Explore'
+- assertVisible: 'Heard'
+# Settings' Walk section.
+- tapOn: 'Settings'
+- assertVisible: 'Walk'
+- assertVisible: 'Location during a walk'
+- assertVisible: 'All the time'
+# Stop acts at once, with Undo; Undo brings back the same walk.
+- tapOn: 'Map'
+- tapOn:
+    text: 'Stop the walk'
+    retryTapIfNoChange: false
+- assertVisible: 'Walk stopped · 2 places heard'
+- assertVisible: 'Start walk'
+- tapOn:
+    text: 'Undo'
+    retryTapIfNoChange: false
+- assertVisible: '2 places heard'
+- tapOn:
+    text: 'Stop the walk'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: 'Start walk'
+    timeout: 30000
+- assertNotVisible: 'Walking · .*'

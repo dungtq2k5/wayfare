@@ -1,0 +1,10 @@
+# Run by walk-system.sh in airplane mode (W13): the walk carries on and says so.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: 'Offline · your walk carries on.*'
+    timeout: 30000
+- assertVisible: 'Walking · .*'

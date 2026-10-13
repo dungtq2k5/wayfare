@@ -1,4 +1,4 @@
-import type { NARRATION_CONFIG, PlaceSyncRecord } from '@wayfare/contracts';
+import type { PlaceSyncRecord } from '@wayfare/contracts';
 
 /** What the geofence engine needs of a Place — never `discoveryBoost` (ADR 0007: boost belongs to pull surfaces only). */
 export type GeofencePlace = Pick<
@@ -14,17 +14,22 @@ export interface LocationFix {
   readonly accuracyM: number;
 }
 
-/** The `NARRATION_CONFIG` entries the engine reads, passed in so a test can vary them. */
-export type GeofenceConfig = Pick<
-  typeof NARRATION_CONFIG,
-  | 'geofenceDebounceMs'
-  | 'narrationCooldownMs'
-  | 'commercialNarrationWindowMs'
-  | 'commercialNarrationsPerWindow'
-  | 'safetyReconcileIntervalMs'
-  | 'locateMaxAccuracyM'
-  | 'gpsGapMs'
->;
+/**
+ * The `NARRATION_CONFIG` entries the engine reads, passed in so a test can vary them — and so the
+ * app can pass a gap threshold that follows its location cadence.
+ */
+export type GeofenceConfig = {
+  readonly [
+    K in
+      | 'geofenceDebounceMs'
+      | 'narrationCooldownMs'
+      | 'commercialNarrationWindowMs'
+      | 'commercialNarrationsPerWindow'
+      | 'safetyReconcileIntervalMs'
+      | 'locateMaxAccuracyM'
+      | 'gpsGapMs'
+  ]: number;
+};
 
 /** A Place currently a candidate or confirmed. */
 export interface GeofenceEntry {

@@ -10,6 +10,16 @@ import { runSync, useSyncStore } from '../../src/sync/run-sync';
 import { Button } from '../../src/ui/button';
 import { LIST_END_PADDING } from '../../src/ui/layout';
 import { ScreenHeader } from '../../src/ui/screen-header';
+import { showToast } from '../../src/ui/toast';
+import { shareWalkLog } from '../../src/walk/log';
+import {
+  nextPlace,
+  simulateNoPosition,
+  simulateStandingStill,
+  simulateWeakGps,
+  startSimulation,
+} from '../../src/walk/simulation';
+import { useWalkStore } from '../../src/walk/store';
 
 /** Settings › About › Diagnostics, for testing: the database, the last sync, the network verdict. */
 export default function DiagnosticsScreen() {
@@ -19,6 +29,11 @@ export default function DiagnosticsScreen() {
   const network = useNetworkStore((state) => state.status);
   const sync = useSyncStore();
   const places = useAllPlaces();
+  const walking = useWalkStore(
+    (state) => state.walk.phase === 'on' || state.walk.phase === 'foreground-only',
+  );
+  const noPosition = useWalkStore((state) => state.noPosition);
+  const stationaryMode = useWalkStore((state) => state.stationaryMode);
   const time = (at: number | null) =>
     at === null ? t('settings.data.never') : new Date(at).toLocaleTimeString();
   return (
@@ -61,8 +76,8 @@ export default function DiagnosticsScreen() {
             disabled={sync.syncing}
             onPress={() => void runSync().catch(() => undefined)}
           />
-          {/* Until the walk exists, the only way to see the queue: the first Place starts as an auto
-              narration 40 m away, the second waits in Up next. */}
+          {/* A quick way to see the queue: the first Place starts as an auto narration 40 m away,
+              the second waits in Up next. */}
           <Button
             label={t('settings.diagnostics.offer')}
             variant="secondary"
@@ -73,6 +88,51 @@ export default function DiagnosticsScreen() {
               narrationPlayer.offer(playerPlaceOf(viewFromRecord(first)), { distanceM: 40 });
               narrationPlayer.offer(playerPlaceOf(viewFromRecord(second)));
             }}
+          />
+          <Button
+            label={t('settings.diagnostics.simulate')}
+            variant="secondary"
+            onPress={() => void startSimulation()}
+          />
+          <Button
+            label={t('settings.diagnostics.nextPlace')}
+            variant="secondary"
+            disabled={!walking}
+            onPress={() => void nextPlace()}
+          />
+          <Button
+            label={t('settings.diagnostics.weakGps')}
+            variant="secondary"
+            disabled={!walking}
+            onPress={() => simulateWeakGps(true)}
+          />
+          <Button
+            label={t('settings.diagnostics.noPosition')}
+            variant="secondary"
+            disabled={!walking}
+            onPress={() => simulateNoPosition(!noPosition)}
+          />
+          <Button
+            label={t('settings.diagnostics.standStill')}
+            variant="secondary"
+            disabled={!walking}
+            onPress={() => void simulateStandingStill(31)}
+          />
+          <Button
+            label={t('settings.diagnostics.stationary', {
+              state: t(stationaryMode ? 'settings.diagnostics.on' : 'settings.diagnostics.off'),
+            })}
+            variant="secondary"
+            onPress={() => useWalkStore.setState({ stationaryMode: !stationaryMode })}
+          />
+          <Button
+            label={t('settings.diagnostics.walkLog')}
+            variant="secondary"
+            onPress={() =>
+              void shareWalkLog().then((shared) => {
+                if (!shared) showToast(t('settings.diagnostics.walkLogEmpty'));
+              })
+            }
           />
         </View>
       </ScrollView>

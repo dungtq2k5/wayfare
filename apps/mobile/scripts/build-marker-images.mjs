@@ -51,6 +51,18 @@ for (const mode of ['light', 'dark']) {
     const file = `marker-${category}-${mode}.png`;
     await sharp(Buffer.from(svg)).png().toFile(new URL(file, assets).pathname);
     files.push({ key: `${category}-${mode}`, file });
+
+    // *Visited* (a Place the tourist has heard): the disc goes quiet and a check rides its corner.
+    const visited = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">
+      <circle cx="60" cy="60" r="59" fill="${palette.card}"/>
+      <circle cx="60" cy="60" r="52" fill="${palette.muted}"/>
+      <g transform="translate(30 30) scale(2.5)">${glyph(name, palette['muted-foreground'])}</g>
+      <circle cx="96" cy="24" r="22" fill="${palette.card}"/>
+      <circle cx="96" cy="24" r="17" fill="${palette['map-marker']}"/>
+      <g transform="translate(84 12) scale(1)">${glyph('check', palette['map-marker-foreground'])}</g></svg>`;
+    const visitedFile = `marker-${category}-visited-${mode}.png`;
+    await sharp(Buffer.from(visited)).png().toFile(new URL(visitedFile, assets).pathname);
+    files.push({ key: `${category}-visited-${mode}`, file: visitedFile });
   }
 }
 

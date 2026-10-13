@@ -37,27 +37,30 @@ export function chooseMapStyle(input: {
   return { kind: 'remote' as const, style: dark ? (pack.styleDark ?? pack.style) : pack.style };
 }
 
-/** One synced Place as a map feature; `category` is the marker image's key. */
-export function placeFeature(record: PlaceSyncRecordStored) {
+/** One synced Place as a map feature; `category` is the marker image's key, `visited` picks its look. */
+export function placeFeature(record: PlaceSyncRecordStored, visited = false) {
   return {
     type: 'Feature' as const,
     id: record.id,
-    properties: { id: record.id, category: categoryKey(record.categoryCode) },
+    properties: { id: record.id, category: categoryKey(record.categoryCode), visited },
     geometry: { type: 'Point' as const, coordinates: [record.location.lng, record.location.lat] },
   };
 }
 
 /**
  * The clustered source's data: every Place but the ones drawn as views (the nearest and the
- * selected), so those never merge into a cluster.
+ * selected), so those never merge into a cluster. A heard Place is drawn as *visited*.
  */
 export function clusteredFeatures(
   records: readonly PlaceSyncRecordStored[],
   exclude: ReadonlySet<string>,
+  heard: ReadonlySet<string> = new Set(),
 ) {
   return {
     type: 'FeatureCollection' as const,
-    features: records.filter((record) => !exclude.has(record.id)).map(placeFeature),
+    features: records
+      .filter((record) => !exclude.has(record.id))
+      .map((record) => placeFeature(record, heard.has(record.id))),
   };
 }
 

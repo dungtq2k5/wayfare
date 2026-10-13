@@ -17,6 +17,7 @@ import { useTheme } from '../theme/appearance';
 import { Icon } from '../theme/icon';
 import { useDuration } from '../theme/use-duration';
 import { categoryIcon } from './categories';
+import { useHeardStore } from '../walk/heard';
 import { MARKER_IMAGES } from './generated/marker-images';
 import { accuracyRadiusExpression, clusteredFeatures } from './map-logic';
 
@@ -195,7 +196,11 @@ export function PlacesMap({
     () => new Set([nearest?.id, selected?.id].filter((id): id is string => id !== undefined)),
     [nearest, selected],
   );
-  const features = useMemo(() => clusteredFeatures(places, exclude), [places, exclude]);
+  const heard = useHeardStore((state) => state.ids);
+  const features = useMemo(
+    () => clusteredFeatures(places, exclude, heard),
+    [places, exclude, heard],
+  );
   const colors = theme.colors;
   const mode = theme.mode;
 
@@ -290,7 +295,12 @@ export function PlacesMap({
           type="symbol"
           filter={['!', ['has', 'point_count']] as never}
           style={{
-            iconImage: ['concat', ['get', 'category'], `-${mode}`] as never,
+            iconImage: [
+              'concat',
+              ['get', 'category'],
+              ['case', ['get', 'visited'], '-visited', ''],
+              `-${mode}`,
+            ] as never,
             iconSize: MARKER_IMAGE_SCALE,
             iconAllowOverlap: true,
           }}
