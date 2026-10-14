@@ -50,4 +50,8 @@ export interface TouristArguments {
   readonly "place.heardLabel": { "name": string | number };
   readonly "walk.notification.endedBody": { "count": number };
   readonly "settings.diagnostics.stationary": { "state": string | number };
+  readonly "code.type.short": { "n": string | number };
+  readonly "code.lookingUp.title": { "code": string | number };
+  readonly "code.noSuch.title": { "code": string | number };
+  readonly "code.moved": { "area": string | number };
 }

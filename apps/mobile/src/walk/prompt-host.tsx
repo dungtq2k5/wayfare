@@ -1,25 +1,14 @@
-import type { LucideIcon } from 'lucide-react-native';
 import { Footprints, Settings, ShieldCheck, WifiOff } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
-import { Icon } from '../theme/icon';
 import { Button } from '../ui/button';
-import { LogoMark } from '../ui/logo-mark';
+import { PermissionExplainer } from '../ui/permission-explainer';
+import type { ExplainerContent } from '../ui/permission-explainer';
 import { AndroidOptions } from './android-options';
 import type { PermissionScreen } from './permissions';
 import { usePrompt } from './prompt';
 
-interface Explainer {
-  title: string;
-  body: string;
-  bullets: { icon: LucideIcon; text: string }[];
-  primary: string;
-  secondary: string;
-  footnote?: string;
-}
-
-function useExplainer(screen: Exclude<PermissionScreen, 'settings-step'>): Explainer {
+function useExplainer(screen: Exclude<PermissionScreen, 'settings-step'>): ExplainerContent {
   const { t } = useTourist();
   switch (screen) {
     case 'background-explainer':
@@ -73,43 +62,12 @@ function ExplainerScreen({
   screen: Exclude<PermissionScreen, 'settings-step'>;
   answer: (answer: 'primary' | 'secondary') => void;
 }) {
-  const content = useExplainer(screen);
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="grow gap-6 px-6 pt-16">
-        <View className="items-center">
-          <View className="h-40 w-40 items-center justify-center rounded-full bg-accent">
-            <LogoMark size={96} />
-          </View>
-        </View>
-        <Text accessibilityRole="header" className="text-display text-foreground">
-          {content.title}
-        </Text>
-        <Text className="text-body text-muted-foreground">{content.body}</Text>
-        <View className="gap-4">
-          {content.bullets.map((bullet) => (
-            <View key={bullet.text} className="flex-row items-center gap-3">
-              <Icon icon={bullet.icon} size="lg" color="muted-foreground" />
-              <Text className="flex-1 text-body text-foreground">{bullet.text}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-      <View className="gap-2 px-6 pb-8">
-        <Button label={content.primary} onPress={() => answer('primary')} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={content.secondary}
-          onPress={() => answer('secondary')}
-          className="min-h-12 items-center justify-center"
-        >
-          <Text className="text-label text-primary">{content.secondary}</Text>
-        </Pressable>
-        {content.footnote !== undefined && (
-          <Text className="text-center text-caption text-muted-foreground">{content.footnote}</Text>
-        )}
-      </View>
-    </SafeAreaView>
+    <PermissionExplainer
+      content={useExplainer(screen)}
+      onPrimary={() => answer('primary')}
+      onSecondary={() => answer('secondary')}
+    />
   );
 }
 
@@ -117,7 +75,7 @@ function SettingsStep({ answer }: { answer: (answer: 'primary' | 'secondary') =>
   const { t } = useTourist();
   return (
     <View className="flex-1 justify-end bg-overlay/50">
-      <View className="gap-3 rounded-t-3xl bg-background px-6 pb-6 pt-4">
+      <View className="gap-3 rounded-t-2xl bg-background px-6 pb-6 pt-4">
         <View className="h-1 w-10 self-center rounded-full bg-border" />
         <Text accessibilityRole="header" className="text-title text-foreground">
           {t('walk.step.title')}

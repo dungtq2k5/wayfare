@@ -1,0 +1,15 @@
+# Run by qr-system.sh after `am force-stop` (edge 7): a link launches the app on its Place; back
+# closes the sheet onto the Map.
+appId: app.wayfare
+---
+- openLink: 'https://wayfare.app/p/GP7R4MY3'
+- extendedWaitUntil:
+    visible: '.*Nhà hát Thành phố.*'
+    timeout: 30000
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- assertVisible: "Editor's pick"
+- back
+- assertVisible: 'Scan a code'
+- assertNotVisible: "Editor's pick"

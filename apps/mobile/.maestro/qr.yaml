@@ -1,0 +1,115 @@
+# QR codes and links, end to end without a printed sticker: the Map's Scan a code → the scanner →
+# the typed code → the Place playing → the same code again → a code in another area → a link from
+# outside with the app open → a Wayfare link that is not a Place → a code no Place has.
+#
+# Before the flow, by adb, against the local stack (`pnpm mobile:reverse`):
+#   adb shell pm grant app.wayfare android.permission.CAMERA
+#   adb shell pm set-app-links-user-selection --user 0 --package app.wayfare true all
+#   adb shell settings put secure location_mode 3
+# The build is a Diagnostics build with EXPO_PUBLIC_QR_BASE_URL=http://localhost:13000 and
+# EXPO_PUBLIC_LINK_BASE_URL=http://localhost:5174, after `first-run.yaml`. English phone.
+#   maestro test apps/mobile/.maestro/qr.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Map'
+# Q1 → Q4: the scanner, its torch, and the way to type instead.
+- assertVisible: 'Scan a code'
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- assertVisible: 'Point at the Wayfare code'
+- assertVisible: 'Type the code instead'
+- tapOn: 'Torch, off'
+- assertVisible: 'Torch, on'
+# Q8 → Q9: a typed code opens its Place, playing, as a manual start.
+- tapOn: 'Type the code instead'
+- assertVisible: 'Type the code'
+- inputText: 'qk4v-1tcx'
+- tapOn:
+    text: 'Open'
+    retryTapIfNoChange: false
+    # A story's clock ticks every second, so the screen never settles: wait briefly, or the toast
+    # that follows has gone before the next assertion.
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: '.*Chợ Bến Thành.*'
+    timeout: 15000
+- assertVisible: 'Playing ·.*'
+# Paused at once: the story stays the player's (Q16 needs it), and the flow's pace never ends it.
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- tapOn: 'Open the player'
+- assertVisible: 'You started this'
+- tapOn: 'Close the player'
+# Q16: the same code again carries on, with Start over.
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- tapOn: 'Type the code instead'
+- inputText: 'QK4V 1TCX'
+- tapOn:
+    text: 'Open'
+    retryTapIfNoChange: false
+    # A story's clock ticks every second, so the screen never settles: wait briefly, or the toast
+    # that follows has gone before the next assertion.
+    waitToSettleTimeoutMs: 500
+- assertVisible: 'Already playing this place.s story'
+- assertVisible: 'Start over'
+# Q14: a code in another area moves the Map there, and says so once.
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- tapOn: 'Type the code instead'
+- inputText: 'Z63TCMMT'
+- tapOn:
+    text: 'Open'
+    retryTapIfNoChange: false
+    # A story's clock ticks every second, so the screen never settles: wait briefly, or the toast
+    # that follows has gone before the next assertion.
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: 'Moved to .*'
+    timeout: 15000
+- assertVisible: '.*Quán Ốc Mẫu A.*'
+# L2: a link with the app open on another tab; back closes the sheet, back again returns there.
+- tapOn: 'Settings'
+- openLink: 'https://wayfare.app/p/NQ22ZQXK'
+- extendedWaitUntil:
+    visible: '.*Phố đi bộ Nguyễn Huệ.*'
+    timeout: 15000
+- assertVisible: 'Playing ·.*'
+- back
+# The sheet (its inline player) is gone; the mini player carries the story.
+- assertNotVisible: 'Playing ·.*'
+- back
+- assertVisible: 'Settings'
+- assertVisible: 'Preferences'
+# L4: a Wayfare link that is not a Place opens the Map, nothing said.
+- openLink: 'wayfare://about'
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 10000
+# Q12: a well-formed code no Place has; Type it again holds it.
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- tapOn: 'Type the code instead'
+- inputText: 'QK4V1TCZ'
+- tapOn:
+    text: 'Open'
+    retryTapIfNoChange: false
+    # A story's clock ticks every second, so the screen never settles: wait briefly, or the toast
+    # that follows has gone before the next assertion.
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: 'No place has the code QK4V 1TCZ'
+    timeout: 15000
+- tapOn: 'Type it again'
+- assertVisible: 'QK4V 1TCZ'
+- back

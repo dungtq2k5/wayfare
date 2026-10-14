@@ -59,17 +59,22 @@ export const zGeoPoint = geoPointSchema('strict');
 export type GeoPoint = z.output<typeof zGeoPoint>;
 
 /**
- * A typed code in its canonical form, or null: upper case, dashes dropped, and the look-alikes
- * Crockford maps (`O` → `0`, `I`/`L` → `1`) folded, so a code read off a sticker still resolves.
+ * A typed code in its canonical form, or null: upper case, spaces and dashes dropped (the code is
+ * printed as two groups of four), and the look-alikes Crockford maps (`O` → `0`, `I`/`L` → `1`)
+ * folded, so a code read off a sticker still resolves.
  */
 export function canonicalPublicCode(value: string): string | null {
   const folded = value
-    .trim()
     .toUpperCase()
-    .replaceAll('-', '')
+    .replace(/[\s-]/g, '')
     .replaceAll('O', '0')
     .replace(/[IL]/g, '1');
   return PUBLIC_CODE_PATTERN.test(folded) ? folded : null;
+}
+
+/** A canonical code as it is printed and shown (rdm-spec C-1): two groups of four, "K7M2 Q9XA". */
+export function formatPublicCode(code: string): string {
+  return `${code.slice(0, 4)} ${code.slice(4)}`;
 }
 
 /** A Place's printed code (rdm-spec C-1), canonicalized: eight Crockford base32 characters. */

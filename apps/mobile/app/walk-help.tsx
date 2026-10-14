@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTourist } from '../src/i18n/use-tourist';
 import { Icon } from '../src/theme/icon';
 import { Button } from '../src/ui/button';
-import { LIST_END_PADDING } from '../src/ui/layout';
+import { LIST_END_PADDING, STEP_BADGE } from '../src/ui/layout';
 import { ScreenHeader } from '../src/ui/screen-header';
 import { isXiaomi } from '../src/walk/maker';
 
@@ -21,7 +21,10 @@ function Steps({ heading, steps }: { heading: string; steps: Step[] }) {
       </Text>
       {steps.map((step, index) => (
         <View key={step.title} className="flex-row items-start gap-3">
-          <View className="h-7 w-7 items-center justify-center rounded-full bg-secondary">
+          <View
+            style={{ width: STEP_BADGE, height: STEP_BADGE }}
+            className="items-center justify-center rounded-full bg-secondary"
+          >
             <Text className="text-label text-secondary-foreground">{index + 1}</Text>
           </View>
           <View className="flex-1">

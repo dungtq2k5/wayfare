@@ -21,6 +21,22 @@ const config: ExpoConfig = {
     package: 'app.wayfare',
     // The walk's notification (Android 13+): asked for in the walk's own flow, never at launch.
     permissions: ['android.permission.POST_NOTIFICATIONS'],
+    // A Place's link and the printed sticker's URL open the app directly, verified once the hosts
+    // serve assetlinks.json; the sticker's host too, so a scan from the phone's camera needs no network.
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: 'wayfare.app', pathPrefix: '/p/' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: 'go.wayfare.app', pathPrefix: '/q/' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
     adaptiveIcon: {
       foregroundImage: './assets/brand/icon-foreground.png',
       monochromeImage: './assets/brand/icon-monochrome.png',
@@ -46,6 +62,14 @@ const config: ExpoConfig = {
         isAndroidBackgroundLocationEnabled: true,
         isAndroidForegroundServiceEnabled: true,
         androidForegroundServiceIcon: './assets/brand/icon-monochrome.png',
+      },
+    ],
+    // The scanner reads QR codes only: no microphone.
+    [
+      'expo-camera',
+      {
+        cameraPermission: 'Wayfare uses the camera only to read the code on a Wayfare sticker.',
+        recordAudioAndroid: false,
       },
     ],
     // The idle-end notice of a walk; its small icon and colour are the brand's.

@@ -39,6 +39,8 @@ export default function TabsLayout() {
     <View className="flex-1">
       <Tabs
         initialRouteName="map"
+        // Back returns to the tab the tourist came from; back on the first one leaves the app.
+        backBehavior="history"
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors['accent-foreground'],

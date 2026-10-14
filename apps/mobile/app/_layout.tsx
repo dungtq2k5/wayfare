@@ -92,6 +92,8 @@ export default function RootLayout() {
             <Stack.Screen name="player" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="transcript" />
             <Stack.Screen name="walk-help" />
+            <Stack.Screen name="scan" options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="scan-code" />
             <Stack.Screen name="settings/language" />
             <Stack.Screen name="settings/credits" />
             <Stack.Screen name="settings/diagnostics" />

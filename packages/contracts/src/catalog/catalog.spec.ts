@@ -5,6 +5,7 @@ import { MenuCurrency } from '../money/display-price';
 import { PUBLIC_CODE_PATTERN, UPLOAD_CONTENT_TYPES } from './limits';
 import {
   canonicalPublicCode,
+  formatPublicCode,
   zMenuInput,
   zOpeningHoursRow,
   zPhotoSetItem,
@@ -83,6 +84,15 @@ describe('catalog schemas', () => {
   it('canonicalizes a typed code', () => {
     expect(zPublicCode.parse(' k7m2-q9xa ')).toBe('K7M2Q9XA');
     expect(canonicalPublicCode('oILo0000')).toBe('01100000');
+  });
+
+  it('reads a code typed as printed, in two groups of four', () => {
+    expect(canonicalPublicCode('QK4V 1TCX')).toBe('QK4V1TCX');
+    expect(canonicalPublicCode(' qk4v\t-1tcx ')).toBe('QK4V1TCX');
+    expect(canonicalPublicCode('QK4V ITCX')).toBe('QK4V1TCX');
+    expect(canonicalPublicCode('QK4V 1TCU')).toBeNull();
+    expect(canonicalPublicCode('QK4V#1TC')).toBeNull();
+    expect(formatPublicCode('QK4V1TCX')).toBe('QK4V 1TCX');
   });
 
   it('accepts no HEIC upload', () => {

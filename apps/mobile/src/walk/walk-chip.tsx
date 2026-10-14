@@ -26,7 +26,7 @@ export function WalkChip() {
       accessibilityRole="button"
       accessibilityLabel={`${text}. ${t('walk.chip.label')}`}
       onPress={() => router.navigate('/map')}
-      className="min-h-11 flex-row items-center gap-1 rounded-full bg-secondary px-3"
+      className="min-h-target flex-row items-center gap-1 rounded-full bg-secondary px-3"
     >
       <Icon
         icon={problem === null ? Footprints : TriangleAlert}

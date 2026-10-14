@@ -1,0 +1,9 @@
+# Run by qr-system.sh once the gateway is back: Try again on the offline sheet reaches it.
+appId: app.wayfare
+---
+- tapOn: 'Try again'
+- extendedWaitUntil:
+    visible: 'No place has the code QK4V 1TCZ'
+    timeout: 15000
+- tapOn: 'Scan instead'
+- tapOn: 'Close scanner'

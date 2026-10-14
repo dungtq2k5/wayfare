@@ -278,6 +278,14 @@ describe('GET /q/:publicCode', () => {
     const down = await request(server()).get('/q/K7M2Q9XA');
     expect(down.status).toBe(302);
   });
+
+  it('answers the app, which resolves the code itself, with 204 after counting', async () => {
+    const app = await request(server()).get('/q/QK4V 1TCX').set('X-Wayfare-Client', 'anything');
+    expect(app.status).toBe(204);
+    expect(app.headers.location).toBeUndefined();
+    expect(app.headers['cache-control']).toBe('no-store');
+    expect(gateway.catalog.placeQueries.calls[0]!.request).toEqual({ publicCode: 'QK4V1TCX' });
+  });
 });
 
 describe('GET /categories and /areas', () => {

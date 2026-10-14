@@ -18,3 +18,7 @@ const testMs = (value: string | undefined) => {
 };
 export const WALK_IDLE_MS = testMs(process.env.EXPO_PUBLIC_WALK_IDLE_MS);
 export const WALK_UNDO_MS = testMs(process.env.EXPO_PUBLIC_WALK_UNDO_MS);
+
+/** The printed sticker host and the Place link host, the only bases a code's link may use; a local build points them at the stack. */
+export const QR_BASE_URL = process.env.EXPO_PUBLIC_QR_BASE_URL ?? 'https://go.wayfare.app';
+export const LINK_BASE_URL = process.env.EXPO_PUBLIC_LINK_BASE_URL ?? 'https://wayfare.app';

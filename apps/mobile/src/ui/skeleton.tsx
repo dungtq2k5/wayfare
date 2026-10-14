@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, View } from 'react-native';
 import { useDuration } from '../theme/use-duration';
+import { SKELETON_ROW } from './layout';
 
 /** A pulsing placeholder row while a list loads; static when the system removes animations. */
 export function SkeletonRows({ count = 4 }: { count?: number }) {
@@ -29,8 +30,8 @@ export function SkeletonRows({ count = 4 }: { count?: number }) {
       {Array.from({ length: count }, (_, index) => (
         <Animated.View
           key={index}
-          style={{ opacity: pulse }}
-          className="min-h-20 flex-row gap-3 rounded-xl border border-border bg-card p-3"
+          style={{ opacity: pulse, minHeight: SKELETON_ROW }}
+          className="flex-row gap-3 rounded-xl border border-border bg-card p-3"
         >
           <View className="h-16 w-16 rounded-lg bg-secondary" />
           <View className="flex-1 gap-2">

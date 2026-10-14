@@ -2,7 +2,7 @@ import { newId } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import { migrate } from '../db/migrate';
 import { openTestDatabase } from '../db/test-database';
-import { allPlaces, areaSummaries, placeById, placesOfArea } from './queries';
+import { allPlaces, areaSummaries, placeById, placeByPublicCode, placesOfArea } from './queries';
 
 describe('local queries', () => {
   it('counts an area’s Places and returns their records', async () => {
@@ -56,5 +56,30 @@ describe('local queries', () => {
     );
     expect(await placeById(db, a, 'vi')).toEqual({ id: a, lang: 'vi' });
     expect(await placeById(db, b, 'vi')).toBeNull();
+  });
+
+  it('finds a synced Place by its printed code, in the language asked', async () => {
+    const db = openTestDatabase();
+    await migrate(db);
+    const id = newId();
+    for (const lang of ['en', 'vi']) {
+      await db.run('INSERT INTO place_records VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
+        id,
+        lang,
+        'x',
+        'EDITORIAL',
+        'CAFE',
+        1,
+        2,
+        JSON.stringify({ id, lang, publicCode: 'QK4V1TCX' }),
+      ]);
+    }
+    expect(await placeByPublicCode(db, 'QK4V1TCX', 'vi')).toEqual({
+      id,
+      lang: 'vi',
+      publicCode: 'QK4V1TCX',
+    });
+    expect(await placeByPublicCode(db, 'NQ22ZQXK', 'vi')).toBeNull();
+    expect(await placeByPublicCode(db, 'QK4V1TCX', 'ja')).toBeNull();
   });
 });

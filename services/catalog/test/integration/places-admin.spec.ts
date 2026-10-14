@@ -4,6 +4,7 @@ import {
   CATALOG_PLACE_CONTENT_CHANGED,
   CATALOG_PLACE_STATUS_CHANGED,
   CONTENT_LANGUAGES,
+  formatPublicCode,
   newId,
   NOTIFICATION_CREATE,
   PlaceKind,
@@ -725,7 +726,7 @@ describe('GetPlaceQr', () => {
     );
     expect(qr.publicCode).toBe(place.publicCode);
     expect(qr.svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg"/);
-    expect(qr.svg).toContain(`>${place.publicCode}</text>`);
+    expect(qr.svg).toContain(`>${formatPublicCode(place.publicCode)}</text>`);
     expect(
       (await errorOf(places.getPlaceQr({ placeId: place.id, qrBaseUrl: 'ftp://x' }, staff()))).code,
     ).toBe('VALIDATION_FAILED');

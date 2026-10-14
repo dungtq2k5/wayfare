@@ -20,6 +20,7 @@ import {
   newId,
   normalizeText,
   NOTIFICATION_CREATE,
+  formatPublicCode,
   NotificationType,
   PLACE_KINDS,
   PLACE_LIMIT_STATUSES,
@@ -2132,7 +2133,7 @@ async function stickerSvg(url: string, code: string): Promise<string> {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size + textHeight}" shape-rendering="crispEdges">`,
     `<svg x="0" y="0" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${inner}</svg>`,
     `<rect x="0" y="${size}" width="${size}" height="${textHeight}" fill="#ffffff"/>`,
-    `<text x="${size / 2}" y="${size + textHeight * 0.75}" font-family="ui-monospace, Menlo, monospace" font-size="${textHeight * 0.8}" text-anchor="middle" fill="#000000">${escapeXml(code)}</text>`,
+    `<text x="${size / 2}" y="${size + textHeight * 0.75}" font-family="ui-monospace, Menlo, monospace" font-size="${textHeight * 0.8}" text-anchor="middle" fill="#000000">${escapeXml(formatPublicCode(code))}</text>`,
     '</svg>',
   ].join('');
 }

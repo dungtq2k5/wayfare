@@ -1,7 +1,7 @@
 import { useAreasList, usePlacesNearby } from '@wayfare/api-client';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronDown, Crosshair, Minus, Plus } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Crosshair, Minus, Plus, ScanQrCode } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { useAllPlaces } from '../../src/data/hooks';
 import { useTourist } from '../../src/i18n/use-tourist';
@@ -29,6 +29,10 @@ import { useControlsBottom } from '../../src/player/mini-player';
 import { AreaSheet } from '../../src/map/area-sheet';
 import { WalkControl } from '../../src/walk/walk-control';
 import { WalkNotice } from '../../src/walk/walk-notices';
+import { areaMove } from '../../src/codes/area-move';
+import { CodeResultSheet } from '../../src/codes/code-result-sheet';
+import { codeOpener } from '../../src/codes/opener';
+import { takePending, useCodeStore } from '../../src/codes/store';
 
 const NEARBY_RADIUS_M = 1_500;
 const SETTLE_MS = 600;
@@ -55,6 +59,13 @@ export default function MapScreen() {
   const allPlaces = useAllPlaces();
   const mapRef = useRef<PlacesMapHandle>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A tap on a marker opens the sheet at peek; a code opens it at half.
+  const [sheetSnap, setSheetSnap] = useState<'peek' | 'half'>('peek');
+  const select = useCallback((id: string | null) => {
+    setSheetSnap('peek');
+    setSelectedId(id);
+  }, []);
+  const closeSheet = useCallback(() => setSelectedId(null), []);
   const [areaSheet, setAreaSheet] = useState(false);
   const [explainer, setExplainer] = useState(false);
   const [view, setView] = useState<MapView | null>(null);
@@ -72,6 +83,40 @@ export default function MapScreen() {
   useEffect(() => {
     if (currentAreaId === null && area !== undefined) setCurrentArea(area.id);
   }, [currentAreaId, area, setCurrentArea]);
+
+  // A code from a link, the scanner or the keyboard waits for the Map, which opens it once.
+  const pending = useCodeStore((state) => state.pending);
+  useEffect(() => {
+    if (pending === null) return;
+    const taken = takePending();
+    if (taken !== null) void codeOpener.open(taken.code, { printed: taken.printed });
+  }, [pending]);
+
+  // A code that did not open a Place replaces whatever sheet was open: one sheet at a time.
+  const codeResult = useCodeStore((state) => state.result);
+  useEffect(() => {
+    if (codeResult !== null) setSelectedId(null);
+  }, [codeResult]);
+
+  // The Place a code opened: its area in view (said once), the map on it, its sheet at half.
+  const opened = useCodeStore((state) => state.opened);
+  useEffect(() => {
+    if (opened === null) return;
+    const move = areaMove(useAppStore.getState().currentAreaId, opened.areaId);
+    if (move !== null) {
+      setCurrentArea(move.areaId);
+      const next = areaList.find((candidate) => candidate.id === move.areaId);
+      if (next !== undefined) {
+        showToast(t('code.moved', { area: tFamily('area', next.code, next.code) }));
+      }
+    }
+    mapRef.current?.flyTo(opened.location, 16);
+    setSheetSnap('half');
+    setSelectedId(opened.placeId);
+    // ponytail: a Place fetched by code but not yet synced has no marker; drawing it from the
+    // detail is the upgrade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened?.seq]);
 
   const pack = useMapPack(area);
   const mapStyle = chooseMapStyle({
@@ -166,26 +211,38 @@ export default function MapScreen() {
           selected={selected}
           sponsoredIds={sponsoredIds}
           position={position}
-          onSelect={setSelectedId}
+          onSelect={select}
           onSettled={setView}
         />
       )}
 
       <View className="absolute inset-x-0 top-0 gap-2 px-4 pt-12">
-        {area !== undefined && (
+        {/* The area switcher and *Scan a code* share the top; at large text the button wraps under. */}
+        <View className="flex-row flex-wrap items-center justify-between gap-2">
+          {area !== undefined && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('map.changeArea')}
+              onPress={() => setAreaSheet(true)}
+              className="min-h-12 flex-row items-center gap-2 self-start rounded-full bg-card px-4 elevation-2"
+            >
+              <Icon icon={areaIcon(area.code)} size="md" color="primary" />
+              <Text className="shrink text-label text-foreground">
+                {tFamily('area', area.code, area.code)}
+              </Text>
+              <Icon icon={ChevronDown} size="sm" color="muted-foreground" />
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('map.changeArea')}
-            onPress={() => setAreaSheet(true)}
-            className="min-h-12 flex-row items-center gap-2 self-start rounded-full bg-card px-4 elevation-2"
+            accessibilityLabel={t('code.scan')}
+            onPress={() => router.push('/scan')}
+            className="min-h-12 flex-row items-center gap-2 rounded-full bg-card px-4 elevation-1"
           >
-            <Icon icon={areaIcon(area.code)} size="md" color="primary" />
-            <Text className="shrink text-label text-foreground">
-              {tFamily('area', area.code, area.code)}
-            </Text>
-            <Icon icon={ChevronDown} size="sm" color="muted-foreground" />
+            <Icon icon={ScanQrCode} size="md" color="primary" />
+            <Text className="text-label text-foreground">{t('code.scan')}</Text>
           </Pressable>
-        )}
+        </View>
         <WalkNotice />
         {offline && mapStyle.kind === 'blank' && (
           <InlineNote text={`${t('map.noMap.title')}. ${t('map.noMap.body')}`} />
@@ -253,8 +310,14 @@ export default function MapScreen() {
       </View>
 
       {selectedId !== null && (
-        <PlaceSheet placeId={selectedId} position={position} onClose={() => setSelectedId(null)} />
+        <PlaceSheet
+          placeId={selectedId}
+          position={position}
+          onClose={closeSheet}
+          initialSnap={sheetSnap}
+        />
       )}
+      <CodeResultSheet />
       {areaSheet && (
         <AreaSheet
           areas={areaList}

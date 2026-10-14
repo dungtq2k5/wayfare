@@ -1,0 +1,13 @@
+# Types a code from the Map (used by the QR flows): Scan a code → Type the code instead → Open.
+appId: app.wayfare
+---
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- tapOn: 'Type the code instead'
+- inputText: ${CODE}
+- tapOn:
+    text: 'Open'
+    retryTapIfNoChange: false
+    # A story's clock ticks every second, so the screen never settles: wait briefly.
+    waitToSettleTimeoutMs: 500

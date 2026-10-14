@@ -8,6 +8,7 @@ import { queryClient } from '../state/query-client';
 import { databaseReady } from './boot';
 import { persister } from './persister';
 import { resetWalkFlags } from '../walk/flags';
+import { resetCameraFlags } from '../codes/flags';
 import { clearHeard } from '../walk/heard';
 import { deleteWalkLog } from '../walk/log';
 import { resetWalk } from '../walk/controller';
@@ -19,6 +20,7 @@ export async function forgetLocalData(): Promise<void> {
   await resetWalk();
   clearHeard();
   resetWalkFlags();
+  resetCameraFlags();
   deleteWalkLog();
   dropWalkPlaces();
   await clearAudioCache();

@@ -11,19 +11,23 @@ import {
   TriangleAlert,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { WALK_UNDO_MS } from '../env';
 import { useNetworkStore } from '../network/network-store';
 import { useTheme } from '../theme/appearance';
 import { Icon } from '../theme/icon';
 import { useDuration } from '../theme/use-duration';
+import { TALL_CONTROL } from '../ui/layout';
 import { showToast } from '../ui/toast';
 import { stopWalk, undoStop } from './controller';
 import { WALK_PILL_LIFT } from './toast-lift';
 import { minutesOn } from './machine';
 import { allowBackground, startWalk } from './start';
 import { problemOf, useWalkStore } from './store';
+
+/** From this text size on, the status card puts Stop on its own row. */
+const LARGE_TEXT_SCALE = 1.5;
 
 /** The minutes the walk has been on, ticking while the screen is in front. */
 export function useWalkMinutes(): number {
@@ -86,6 +90,8 @@ export function WalkControl() {
   const phase = useWalkStore((state) => state.walk.phase);
   const heard = useWalkStore((state) => state.walk.heard.length);
   const minutes = useWalkMinutes();
+  // Large text (the 200 % frames) would squeeze the title beside Stop.
+  const stacked = useWindowDimensions().fontScale >= LARGE_TEXT_SCALE;
   const note = useWalkNote();
   const offline = useNetworkStore((state) => state.status === 'offline');
   const animated = useDuration('normal') > 0;
@@ -100,7 +106,8 @@ export function WalkControl() {
         accessibilityState={{ busy: starting }}
         onPress={() => void startWalk()}
         disabled={starting}
-        className="min-h-14 flex-row items-center gap-3 self-start rounded-full bg-primary px-4 py-2 elevation-2"
+        style={{ minHeight: TALL_CONTROL }}
+        className="flex-row items-center gap-3 self-stretch rounded-full bg-primary px-4 py-2 elevation-2"
       >
         {starting ? (
           animated ? (
@@ -123,6 +130,17 @@ export function WalkControl() {
     );
   }
 
+  const stop = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('walk.stop.label')}
+      onPress={() => stopWithUndo(t('walk.toast.stopped', { count: heard }), t('walk.undo'))}
+      className="min-h-12 flex-row items-center gap-2 rounded-full border border-border px-4"
+    >
+      <Icon icon={Square} size="sm" />
+      <Text className="text-label text-foreground">{t('walk.stop')}</Text>
+    </Pressable>
+  );
   return (
     <View
       accessibilityLiveRegion="polite"
@@ -141,16 +159,10 @@ export function WalkControl() {
             </Text>
           </View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('walk.stop.label')}
-          onPress={() => stopWithUndo(t('walk.toast.stopped', { count: heard }), t('walk.undo'))}
-          className="min-h-12 flex-row items-center gap-2 rounded-full border border-border px-4"
-        >
-          <Icon icon={Square} size="sm" />
-          <Text className="text-label text-foreground">{t('walk.stop')}</Text>
-        </Pressable>
+        {!stacked && stop}
       </View>
+      {/* At large text, Stop takes its own row rather than squeezing the title. */}
+      {stacked && <View className="items-start">{stop}</View>}
       {note !== null && (
         <View className="flex-row items-center gap-2">
           <Icon

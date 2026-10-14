@@ -8,6 +8,7 @@ import { useTourist } from '../i18n/use-tourist';
 import type { Position } from '../location/location-store';
 import { PlaceDetail, PlaceUnavailable } from '../places/place-detail';
 import { usePlaceView } from '../places/use-place-view';
+import { closeOnBack } from './sheet-back';
 import { useDuration } from '../theme/use-duration';
 import { LIST_END_PADDING, TAB_BAR_HEIGHT } from '../ui/layout';
 import { narrationPlayer } from '../player/narration-player';
@@ -32,10 +33,13 @@ export function PlaceSheet({
   placeId,
   position,
   onClose,
+  initialSnap = 'peek',
 }: {
   placeId: string;
   position: Position | null;
   onClose: () => void;
+  /** Where a newly shown Place rests: peek for a tap on its marker, half for a code (round 28). */
+  initialSnap?: 'peek' | 'half';
 }) {
   const { t } = useTourist();
   const { height: screenHeight } = useWindowDimensions();
@@ -45,7 +49,7 @@ export function PlaceSheet({
   const fullHeight = available - Math.max(MIN_TOP_GAP, insets.top + space[2]);
   const [contentHeight, setContentHeight] = useState(0);
   const duration = useDuration('normal');
-  const [state, setState] = useState<SheetState>('peek');
+  const [state, setState] = useState<SheetState>(initialSnap);
   const view = usePlaceView(placeId);
 
   // The peek grows with its content — a three-line title at 200 % text still shows the narration
@@ -66,8 +70,8 @@ export function PlaceSheet({
   const layout = useRef({ fullHeight, heights });
   layout.current = { fullHeight, heights };
   const offsetOf = (s: SheetState) => layout.current.fullHeight - layout.current.heights[s];
-  const translateY = useRef(new Animated.Value(offsetOf('peek'))).current;
-  const current = useRef(offsetOf('peek'));
+  const translateY = useRef(new Animated.Value(offsetOf(initialSnap))).current;
+  const current = useRef(offsetOf(initialSnap));
 
   const snapTo = (next: SheetState) => {
     setState(next);
@@ -87,13 +91,17 @@ export function PlaceSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [peek]);
 
-  // A newly selected Place opens at peek.
+  // A newly selected Place opens where it was asked to: peek, or half for a code.
   useEffect(() => {
-    setState('peek');
-    current.current = offsetOf('peek');
+    setState(initialSnap);
+    current.current = offsetOf(initialSnap);
     translateY.setValue(current.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeId]);
+  }, [placeId, initialSnap]);
+
+  // Android's back closes the sheet while it is open and the map in front; otherwise back is the
+  // router's.
+  useFocusEffect(useCallback(() => closeOnBack(onClose), [onClose]));
 
   const pan = useMemo(
     () =>

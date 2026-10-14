@@ -3,6 +3,7 @@ import { ChevronUp } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
+import { TALL_CONTROL } from '../ui/layout';
 import { ClockText } from './clock-text';
 import { narrationPlayer } from './narration-player';
 import { PlayerNote } from './player-note';
@@ -33,7 +34,10 @@ export function InlinePlayer() {
       : t('player.inline.playing');
   return (
     <View className="rounded-lg bg-now-playing">
-      <View className="min-h-14 flex-row items-center gap-2 py-1 pl-1 pr-2">
+      <View
+        style={{ minHeight: TALL_CONTROL }}
+        className="flex-row items-center gap-2 py-1 pl-1 pr-2"
+      >
         <PlayPauseDisc
           paused={paused || preparing}
           label={paused ? t('player.play') : t('player.pause')}

@@ -17,3 +17,15 @@ export const TAB_BAR_CLEARANCE = TAB_BAR_HEIGHT + space[4];
 
 /** Where a floating element sits above the bottom edge, clear of the mini player. */
 export const MINI_PLAYER_CLEARANCE = MINI_PLAYER_BAND + space[4];
+
+/** Sizes the design draws off the spacing scale, named here so a class never silently drops them. */
+/** An explainer's illustration disc (round 27, 28). */
+export const ILLUSTRATION_DISC = 160;
+/** A control that is taller than a touch target: the walk pill, the inline player, a bar. */
+export const TALL_CONTROL = 56;
+/** The icon disc at the head of a result sheet. */
+export const SHEET_ICON_DISC = 56;
+/** A numbered step's badge (the walk help screen). */
+export const STEP_BADGE = 28;
+/** A skeleton row's least height. */
+export const SKELETON_ROW = 80;

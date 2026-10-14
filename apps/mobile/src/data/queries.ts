@@ -65,3 +65,19 @@ export async function placeById(
   );
   return row === undefined ? null : (JSON.parse(row.record_json) as PlaceSyncRecordStored);
 }
+
+/**
+ * The synced Place with a printed code, in `lang`, or null: a scan or a link opens offline.
+ * ponytail: scans the language's rows; an expression index on the code if a phone ever holds thousands.
+ */
+export async function placeByPublicCode(
+  db: Database,
+  publicCode: string,
+  lang: Language,
+): Promise<PlaceSyncRecordStored | null> {
+  const [row] = await db.all<{ record_json: string }>(
+    "SELECT record_json FROM place_records WHERE lang = ? AND json_extract(record_json, '$.publicCode') = ?",
+    [lang, publicCode],
+  );
+  return row === undefined ? null : (JSON.parse(row.record_json) as PlaceSyncRecordStored);
+}
