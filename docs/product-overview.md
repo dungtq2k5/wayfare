@@ -317,8 +317,10 @@ Four layers of defence, so the tourist never sees a blank screen:
 1. Tourist switches `en` → `ja`.
 2. App requests the **hotset** — the nearest ~10 Places within 1.5 km — to be translated and synthesised with priority.
 3. The switch is only reported as complete when **both** lanes are ready: the content hotset (≥3 mandatory Places cached) **and** the UI string bundle for `ja`.
-4. Until then, UI and content stay in English rather than showing a half-translated screen.
+4. Until then, UI and content stay in English rather than showing a half-translated screen. The tourist keeps using the app meanwhile.
 5. Any on-demand audio that was in flight for `en` when the switch happened is discarded, not played.
+6. **If it takes long** — after 30 s with the hotset not ready, once the UI bundle is ready — the tourist may **switch now**: Places not yet ready show in the language they have, and say so.
+7. **A long-tail language** (machine-translated, product §F3) completes when its content is ready even while its UI bundle is still being translated: every screen stays wholly in English, and changes by itself when the bundle arrives. The stories are what the tourist came for; a machine-translated bundle can take minutes.
 
 ### J5 — Owner onboarding → first paid month
 
@@ -467,7 +469,8 @@ These are **product** decisions, not implementation details. They must be config
 | Nearby prefetch | top 3 per batch, ≥30 s between batches | Warms audio ahead of the walker without hammering TTS. |
 | Prefetch backoff on 429 | 30 s → 60 s → 120 s → … cap 10 min | Be a good citizen of our own rate limiter. |
 | Hotset radius / size | 1500 m / 10 places | The realistic "next 20 minutes of walking". |
-| Hotset ready threshold | 3 places cached | Enough to make a language switch feel done. |
+| Hotset ready threshold | 3 places cached, or every Place within the radius when there are fewer | Enough to make a language switch feel done; a quiet street with two Places must still finish. |
+| Language switch patience | 30 s | Past it, a slow switch offers *switch now*: three stories normally arrive within the 5 s on-demand wait each. |
 | Locate request budget | 15 s, accept cached fix ≤30 s old, accuracy ≤100 m | A first fix can take 30 s+; a slightly stale fix beats a spinner. |
 | On-demand wait before streaming | 5 s | Product §10's tier-1.5 latency: past it, the player streams the narration live (tier 2) instead of waiting for the stored file. |
 | Startup network probe | 2.5 s timeout, max 2 attempts in an 8 s window | Decide "offline" fast, but do not libel a slow network. |
@@ -511,9 +514,9 @@ These are **product** decisions, not implementation details. They must be config
 - Rate limits on every public write endpoint and every endpoint that costs money (TTS, translation, AI).
 - Full audit trail on admin actions.
 
-**Internationalization** — two independent lanes: **content locale** (place text and audio) and **UI locale** (interface strings). They warm at different speeds and must not block each other. A language switch is complete only when both are ready. Include RTL readiness in the layout even though no launch language needs it.
+**Internationalization** — two independent lanes: **content locale** (place text and audio) and **UI locale** (interface strings). They warm at different speeds and must not block each other. A language switch is complete only when both are ready — except a long-tail language, which completes with its content while its UI stays wholly in English until its machine-translated bundle arrives (J4). Include RTL readiness in the layout even though no launch language needs it.
 
-**Accessibility** — the product is fundamentally an audio product, which makes it unusually valuable to visually impaired travellers. Screen-reader labels on every control, minimum 44×44 pt touch targets, WCAG AA contrast, full transcript for every narration, and no information conveyed by colour alone.
+**Accessibility** — the product is fundamentally an audio product, which makes it unusually valuable to visually impaired travelers. Screen-reader labels on every control, minimum 44×44 pt touch targets, WCAG AA contrast, full transcript for every narration, and no information conveyed by colour alone.
 
 **Appearance** — every client has a **light and a dark** appearance and **follows the system setting by default**, with an in-app choice of *System*, *Light* or *Dark*; WCAG AA contrast holds in both, and the map has a dark style to match. Text **follows the system font-size setting**. The interface typeface covers Latin script with Vietnamese diacritics; Chinese, Japanese and Korean text falls back to the device's own fonts, because bundling CJK fonts would cost tens of megabytes.
 

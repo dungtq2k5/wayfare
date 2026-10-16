@@ -17,7 +17,7 @@ import { cachedFile, downloadToCache } from './audio-cache';
 import { resolveSource } from './ladder';
 import type { LadderDeps, OnDemandAnswer, Resolution, Rung } from './ladder';
 import { nextPause } from './pause-machine';
-import { afterManualPlay, decideOffer } from './queue';
+import { afterManualPlay, decideOffer, relanguagePlan } from './queue';
 import type { OfferResult } from './queue';
 import { engineLocale, hasVoiceFor, splitSentences } from './speech-text';
 import { usePlayerStore } from './store';
@@ -160,6 +160,34 @@ class NarrationPlayer {
   closeNotice(): void {
     clearTimeout(this.noticeTimer);
     usePlayerStore.setState({ notice: null });
+  }
+
+  /**
+   * A language switch has completed: a story playing finishes in its language; one still being
+   * prepared starts again, and *Up next* is rebuilt, from the new language's records — so the name,
+   * the transcript and the device voice's text are the new language's too.
+   */
+  async relanguage(rebuild: (placeId: string) => Promise<PlayerPlace | null>): Promise<void> {
+    const held = usePlayerStore.getState();
+    const lang = currentLang();
+    const restart = held.current !== null && relanguagePlan(held.current, lang) === 'restart';
+    const renew = async (place: PlayerPlace | null) =>
+      place === null ? null : ((await rebuild(place.id).catch(() => null)) ?? place);
+    const next = await renew(held.next);
+    const now = usePlayerStore.getState();
+    // Something the tourist started meanwhile wins.
+    if (now.next === held.next) usePlayerStore.setState({ next });
+    if (!restart || held.current === null) return;
+    if (now.current !== null && now.current.place.id !== held.current.place.id) return;
+    const place = await renew(held.current.place);
+    if (place !== null) {
+      this.begin(
+        place,
+        held.current.started,
+        held.current.distanceM,
+        usePlayerStore.getState().next,
+      );
+    }
   }
 
   /** The Place sheet tells the player what it shows, so the mini player can step aside. */

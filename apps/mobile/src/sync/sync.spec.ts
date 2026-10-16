@@ -325,20 +325,33 @@ describe('singleFlight', () => {
   it('gives a second caller the running promise and starts no second pass', async () => {
     let started = 0;
     let release: () => void = () => undefined;
-    const task = singleFlight(() => {
+    const task = singleFlight((_lang: string) => {
       started += 1;
       return new Promise<number>((resolve) => {
         release = () => resolve(started);
       });
     });
-    const first = task();
-    const second = task();
+    const first = task('en');
+    const second = task('en');
     expect(second).toBe(first);
     release();
     expect(await first).toBe(1);
-    const third = task(); // after it finished, a new pass starts
+    const third = task('en'); // after it finished, a new pass starts
     release();
     expect(await third).toBe(2);
+  });
+
+  it('runs another key beside the one running, never joining it', async () => {
+    const releases: (() => void)[] = [];
+    const task = singleFlight(
+      (lang: string) => new Promise<string>((resolve) => releases.push(() => resolve(lang))),
+    );
+    const english = task('en');
+    const japanese = task('ja');
+    expect(japanese).not.toBe(english);
+    expect(releases).toHaveLength(2);
+    releases.forEach((release) => release());
+    expect(await Promise.all([english, japanese])).toEqual(['en', 'ja']);
   });
 });
 

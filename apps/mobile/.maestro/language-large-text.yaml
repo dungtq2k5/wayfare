@@ -1,0 +1,40 @@
+# Run by language-system.sh at the largest font scale, with location services off so Explore lists
+# by area (edge 8; the taller lines for Thai, the Place card at large text): NAME's screens show
+# whole, and Explore and a Place's detail scroll. The screenshots are for the eye.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: '(\[.*\] )?Explore'
+    timeout: 30000
+- runFlow:
+    file: language-pick.yaml
+    env:
+      NAME: '${NAME}'
+# Location off, the hotset is asked at the area's centre, whose stories may not be ready in NAME
+# yet: the switch then takes long, and Switch now completes it.
+- extendedWaitUntil:
+    visible: '\[${CODE}\] Language|.*Switch now'
+    timeout: 120000
+- runFlow:
+    when:
+      visible: '.*Switch now'
+    commands:
+      - tapOn: '.*Switch now'
+- extendedWaitUntil:
+    visible: '\[${CODE}\] Language'
+    timeout: 20000
+- takeScreenshot: language-large-${CODE}-settings
+- tapOn: '(\[.*\] )?Back'
+- tapOn: '\[${CODE}\] Explore'
+- extendedWaitUntil:
+    visible: '.*Bảo tàng Mỹ thuật.*'
+    timeout: 20000
+- takeScreenshot: language-large-${CODE}-explore
+- tapOn: '.*Bảo tàng Mỹ thuật.*'
+- takeScreenshot: language-large-${CODE}-detail
+- scrollUntilVisible:
+    element: '.*Play narration.*'
+- takeScreenshot: language-large-${CODE}-detail-play
+- tapOn: '(\[.*\] )?Back'

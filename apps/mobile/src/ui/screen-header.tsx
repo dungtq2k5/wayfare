@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
 import { WalkChip } from '../walk/walk-chip';
+import { SwitchPill } from './switch-status';
 
 interface ScreenHeaderProps {
   title: string;
@@ -21,25 +22,28 @@ export function ScreenHeader({ title, type = 'large', trailing }: ScreenHeaderPr
   const router = useRouter();
   const { t } = useTourist();
   return (
-    <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
-      {type === 'back' && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.back')}
-          onPress={() => router.back()}
-          className="min-h-12 min-w-12 items-center justify-center"
+    <View className="gap-2 px-4 pb-2 pt-4">
+      <View className="flex-row items-center gap-2">
+        {type === 'back' && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.back')}
+            onPress={() => router.back()}
+            className="min-h-12 min-w-12 items-center justify-center"
+          >
+            <Icon icon={ArrowLeft} size="lg" />
+          </Pressable>
+        )}
+        <Text
+          accessibilityRole="header"
+          className={`flex-1 text-foreground ${type === 'large' ? 'text-display' : 'text-title'}`}
         >
-          <Icon icon={ArrowLeft} size="lg" />
-        </Pressable>
-      )}
-      <Text
-        accessibilityRole="header"
-        className={`flex-1 text-foreground ${type === 'large' ? 'text-display' : 'text-title'}`}
-      >
-        {title}
-      </Text>
-      {type === 'large' && <WalkChip />}
-      {trailing}
+          {title}
+        </Text>
+        {type === 'large' && <WalkChip />}
+        {trailing}
+      </View>
+      {type === 'large' && <SwitchPill />}
     </View>
   );
 }

@@ -25,3 +25,14 @@ export function decideOffer(state: QueueState, place: PlayerPlace): OfferResult 
 export function afterManualPlay(state: QueueState, place: PlayerPlace): PlayerPlace | null {
   return state.next?.id === place.id ? null : state.next;
 }
+
+/**
+ * After a language switch: a narration already sounding finishes in its language; one still being
+ * prepared in another language starts again in the new one.
+ */
+export function relanguagePlan(
+  narration: { readonly source: unknown; readonly lang: string },
+  lang: string,
+): 'keep' | 'restart' {
+  return narration.source === null && narration.lang !== lang ? 'restart' : 'keep';
+}

@@ -13,6 +13,15 @@ export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
 export interface AppState {
   /** The chosen language; null until the first-run picker. */
   language: Language | null;
+  /**
+   * The language a switch is under way to; `language` stays the old one until the switch's two
+   * lanes are ready, so nothing shows the new language early.
+   */
+  pendingLanguage: Language | null;
+  /** When the switch under way started (its patience counts from here). */
+  switchStartedAt: number | null;
+  /** The switch under way began at the first run: the app is in English for now, and says so. */
+  switchFirstRun: boolean;
   /** How fast narration plays, whatever its source; remembered across narrations and launches. */
   playbackSpeed: PlaybackSpeed;
   /** Light, dark or the system's; `system` until the user chooses. */
@@ -48,6 +57,7 @@ export function mergePersisted(persisted: unknown, current: AppState): AppState 
     ...current,
     ...saved,
     language: isSupportedLanguage(saved.language) ? saved.language : null,
+    pendingLanguage: isSupportedLanguage(saved.pendingLanguage) ? saved.pendingLanguage : null,
     playbackSpeed: PLAYBACK_SPEEDS.find((speed) => speed === saved.playbackSpeed) ?? 1,
   };
 }
@@ -57,6 +67,9 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       language: null,
+      pendingLanguage: null,
+      switchStartedAt: null,
+      switchFirstRun: false,
       playbackSpeed: 1,
       appearance: 'system',
       currentAreaId: null,
@@ -80,8 +93,20 @@ export const useAppStore = create<AppState>()(
       // The key-value store of expo-sqlite, the database ADR 0027 chose: no second storage library.
       storage: createJSONStorage(() => Storage),
       merge: mergePersisted,
-      partialize: ({ language, playbackSpeed, appearance, currentAreaId, onboarded }) => ({
+      partialize: ({
         language,
+        pendingLanguage,
+        switchStartedAt,
+        switchFirstRun,
+        playbackSpeed,
+        appearance,
+        currentAreaId,
+        onboarded,
+      }) => ({
+        language,
+        pendingLanguage,
+        switchStartedAt,
+        switchFirstRun,
         playbackSpeed,
         appearance,
         currentAreaId,

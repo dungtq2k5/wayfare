@@ -31,6 +31,8 @@ export const NARRATION_CONFIG = {
   prefetchBackoffMs: [30_000, 60_000, 120_000],
   prefetchBackoffCapMs: 10 * MINUTE_MS,
   hotsetReadyThreshold: 3,
+  /** A language switch still waiting for its content after this long offers *Switch now* (product J4). */
+  languageSwitchPatienceMs: 30_000,
   locateBudgetMs: 15_000,
   locateMaxFixAgeMs: 30_000,
   locateMaxAccuracyM: 100,

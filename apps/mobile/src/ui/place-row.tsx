@@ -1,5 +1,5 @@
 import { Footprints, Headphones, Wallet } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { useTourist } from '../i18n/use-tourist';
 import { categoryIcon } from '../map/categories';
@@ -24,6 +24,9 @@ export interface RowPlace {
   readonly openingHours: PlaceSyncRecordStored['openingHours'] | null;
 }
 
+/** Above this text size the photo moves above the text, so the text column is never a few characters wide. */
+const STACKED_TEXT_SCALE = 1.5;
+
 const priceMarks = (band: number | null) =>
   band === null || band < 1 ? null : '$'.repeat(Math.min(band, 4));
 
@@ -34,6 +37,7 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
   const distanceText = useDistanceText();
   const price = priceMarks(place.priceBand);
   const heard = useIsHeard(place.id);
+  const stacked = useWindowDimensions().fontScale > STACKED_TEXT_SCALE;
   const meta: { key: string; node: React.ReactNode }[] = [
     {
       key: 'category',
@@ -64,11 +68,18 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
       accessibilityRole="button"
       accessibilityLabel={heard ? t('place.heardLabel', { name: place.name }) : place.name}
       onPress={onPress}
-      className="flex-row gap-3 rounded-xl border border-border bg-card p-3 elevation-1"
+      className={`gap-3 rounded-xl border border-border bg-card p-3 elevation-1 ${stacked ? '' : 'flex-row'}`}
     >
-      <PlacePhoto uri={place.cardPhotoUrl} categoryCode={place.categoryCode} />
-      <View className="flex-1 gap-1">
-        <Text className="text-body-strong text-foreground">{place.name}</Text>
+      <PlacePhoto
+        uri={place.cardPhotoUrl}
+        categoryCode={place.categoryCode}
+        className={stacked ? 'aspect-video w-full' : undefined}
+      />
+      <View className={`gap-1 ${stacked ? '' : 'flex-1'}`}>
+        <View className="flex-row items-start gap-2">
+          <Text className="flex-1 text-body-strong text-foreground">{place.name}</Text>
+          {stacked && <FavouriteToggle placeId={place.id} />}
+        </View>
         <View className="flex-row flex-wrap gap-x-3 gap-y-1">
           {meta.map((item) => (
             <View key={item.key} className="shrink">
@@ -87,7 +98,7 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
           {heard && <Badge tone="info" icon={Headphones} label={t('badge.heard')} />}
         </View>
       </View>
-      <FavouriteToggle placeId={place.id} />
+      {!stacked && <FavouriteToggle placeId={place.id} />}
     </Pressable>
   );
 }

@@ -2,12 +2,18 @@ import { NARRATION_CONFIG } from '@wayfare/contracts';
 import * as Network from 'expo-network';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
+import { resumeSwitch } from '../i18n/switch';
 import { checkNetwork } from '../network/network-store';
 import { runSync, useSyncStore } from '../sync/run-sync';
 
-/** Probe the gateway, and sync if it answers. A failed sync is recorded in the sync store. */
+/**
+ * Probe the gateway, and sync if it answers; a language switch waiting for a connection resumes. A
+ * failed sync is recorded in the sync store.
+ */
 async function probeAndSync(): Promise<void> {
-  if ((await checkNetwork()) === 'online') await runSync().catch(() => undefined);
+  if ((await checkNetwork()) !== 'online') return;
+  resumeSwitch();
+  await runSync().catch(() => undefined);
 }
 
 /**

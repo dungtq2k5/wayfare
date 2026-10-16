@@ -1,4 +1,5 @@
 import { getAreasListQueryOptions, syncPlaces } from '@wayfare/api-client';
+import type { Language } from '@wayfare/contracts';
 import type { SyncPlaces200 } from '@wayfare/api-client';
 import { create } from 'zustand';
 import { databaseReady } from '../data/boot';
@@ -41,9 +42,17 @@ const client: SyncClient = {
   },
 };
 
-/** One sync of every active area; a call while one runs joins it. */
-export const runSync = singleFlight(async () => {
-  useSyncStore.setState({ syncing: true, error: null });
+/**
+ * One sync of every active area in a language (the current one by default); a call while one runs
+ * for the same language joins it. A switch syncs its new language beside the current one's rows,
+ * and only the current language's sync shows in the sync store.
+ */
+export const runSync = (lang?: Language) =>
+  syncByLanguage(lang ?? useAppStore.getState().language ?? 'en');
+
+const syncByLanguage = singleFlight(async (lang: Language) => {
+  const current = lang === (useAppStore.getState().language ?? 'en');
+  if (current) useSyncStore.setState({ syncing: true, error: null });
   try {
     const db = await databaseReady;
     const areas = await queryClient.fetchQuery({ ...getAreasListQueryOptions(), staleTime: 0 });
@@ -51,17 +60,17 @@ export const runSync = singleFlight(async () => {
       db,
       client,
       areaIds: areas.data.map((area) => area.id),
-      lang: useAppStore.getState().language ?? 'en',
+      lang,
       now: Date.now,
     });
-    useSyncStore.setState({ lastCheckedAt: Date.now() });
+    if (current) useSyncStore.setState({ lastCheckedAt: Date.now() });
     await queryClient.invalidateQueries({ queryKey: LOCAL_QUERY_KEY });
     return results;
   } catch (error) {
     routeApiError(error, useAppStore.getState());
-    useSyncStore.setState({ error: errorMessage(error) });
+    if (current) useSyncStore.setState({ error: errorMessage(error) });
     throw error;
   } finally {
-    useSyncStore.setState({ syncing: false });
+    if (current) useSyncStore.setState({ syncing: false });
   }
 });

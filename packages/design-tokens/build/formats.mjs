@@ -24,13 +24,21 @@ function presetSource(model) {
         `.text-${name}`,
         {
           fontSize: px(style.fontSize),
-          lineHeight: px(style.lineHeight),
+          // Through a variable, so a script that needs taller lines (Thai, Devanagari) can raise
+          // every style at once from the app's root with vars().
+          lineHeight: `var(--leading-${name})`,
           fontFamily: style.fontFamily,
         },
       ]),
   );
+  const leading = Object.fromEntries(
+    Object.entries(model.typography)
+      .filter(([name]) => name !== 'body-small')
+      .map(([name, style]) => [`--leading-${name}`, px(style.lineHeight)]),
+  );
   return `${HEADER}const plugin = require('tailwindcss/plugin');
 
+const leading = ${json(leading)};
 const light = ${json(channels('light'))};
 const dark = ${json(channels('dark'))};
 
@@ -61,7 +69,10 @@ module.exports = {
   },
   plugins: [
     plugin(({ addBase, addUtilities }) => {
-      addBase({ ':root': light, '@media (prefers-color-scheme: dark)': { ':root': dark } });
+      addBase({
+        ':root': { ...light, ...leading },
+        '@media (prefers-color-scheme: dark)': { ':root': { ...dark, ...leading } },
+      });
       addUtilities(${json(textStyles)});
     }),
   ],
