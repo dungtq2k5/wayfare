@@ -258,7 +258,8 @@ describe('GetPlace, GetPlaceByCode, ResolvePublicCode', () => {
         .code,
     ).toBe('RESOURCE_NOT_FOUND');
     expect(
-      (await errorOf(queries.getPlaceByCode({ publicCode: 'not a code', lang: 'en' }, device())))
+      // A typed code drops its spaces: a malformed one needs a character the alphabet lacks.
+      (await errorOf(queries.getPlaceByCode({ publicCode: 'not a code!', lang: 'en' }, device())))
         .code,
     ).toBe('VALIDATION_FAILED');
   });

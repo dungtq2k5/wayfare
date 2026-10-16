@@ -30,6 +30,11 @@ function over(source: Pick<SQLite.SQLiteDatabase, 'runAsync' | 'getAllAsync'>): 
 }
 
 let opened: Promise<Database> | undefined;
+/**
+ * The transactions run one at a time: an exclusive transaction takes a connection of its own, and a
+ * second one started meanwhile (two languages syncing side by side) would fail on SQLite's lock.
+ */
+let transactions: Promise<unknown> = Promise.resolve();
 
 /** The app's one database, opened once. */
 export function openDatabase(): Promise<Database> {
@@ -37,9 +42,13 @@ export function openDatabase(): Promise<Database> {
     ...over(db),
     async transaction(fn) {
       let result: Awaited<ReturnType<typeof fn>> | undefined;
-      await db.withExclusiveTransactionAsync(async (txn) => {
-        result = await fn(over(txn));
-      });
+      const turn = transactions.then(() =>
+        db.withExclusiveTransactionAsync(async (txn) => {
+          result = await fn(over(txn));
+        }),
+      );
+      transactions = turn.catch(() => undefined);
+      await turn;
       return result as Awaited<ReturnType<typeof fn>>;
     },
   }));

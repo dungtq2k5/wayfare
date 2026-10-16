@@ -1,3 +1,4 @@
+import { ApiError, NETWORK_ERROR_CODE } from '@wayfare/api-client';
 import { describe, expect, it, vi } from 'vitest';
 import { loadBundle, MAX_ATTEMPTS } from './bundles';
 import type { BundleLoaderDeps, UiBundle } from './bundles';
@@ -69,15 +70,31 @@ describe('loadBundle', () => {
   it('keeps the cache when offline', async () => {
     const d = deps({
       readCache: vi.fn(() => Promise.resolve({ sourceHash: 'h1', messages: { 'nav.map': 'old' } })),
-      fetchBundle: vi.fn(() => Promise.reject(new Error('offline'))),
+      fetchBundle: vi.fn(() => Promise.reject(new ApiError(0, NETWORK_ERROR_CODE, 'no answer'))),
     });
     expect(await loadBundle('ja', d)).toBe('offline');
     expect(d.apply).toHaveBeenCalledTimes(1);
   });
 
-  it('stops asking once the language is no longer the one on screen', async () => {
-    const d = deps({ isCurrent: () => false });
+  it("tells a server's error from the network's", async () => {
+    const d = deps({
+      fetchBundle: vi.fn(() => Promise.reject(new ApiError(500, 'INTERNAL', 'broken'))),
+    });
+    expect(await loadBundle('ja', d)).toBe('failed');
+  });
+
+  it('stops asking once nobody wants the language', async () => {
+    const d = deps({ isWanted: () => false });
     expect(await loadBundle('ja', d)).toBe('pending');
     expect(d.fetchBundle).not.toHaveBeenCalled();
+  });
+
+  it('keeps asking while a switch wants it, whatever is on screen', async () => {
+    const d = deps({
+      fetchBundle: vi.fn().mockResolvedValueOnce(pending).mockResolvedValue(ready),
+      isWanted: () => true,
+    });
+    expect(await loadBundle('ja', d)).toBe('ready');
+    expect(d.fetchBundle).toHaveBeenCalledTimes(2);
   });
 });

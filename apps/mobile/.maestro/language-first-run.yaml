@@ -1,0 +1,24 @@
+# Run by language-system.sh on a cleared app (edge 9, F1 → F2): 日本語 at the first run opens the Map
+# in English with the first-run pill, then switches.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Choose your language'
+- tapOn: '日本語'
+- tapOn: 'Continue in 日本語'
+- assertVisible: 'Your privacy'
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Getting 日本語 ready · English for now|\[ja\] Explore'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: '\[ja\] Explore'
+    timeout: 60000
+- runFlow:
+    file: language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000

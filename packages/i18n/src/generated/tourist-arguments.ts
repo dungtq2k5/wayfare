@@ -54,4 +54,26 @@ export interface TouristArguments {
   readonly "code.lookingUp.title": { "code": string | number };
   readonly "code.noSuch.title": { "code": string | number };
   readonly "code.moved": { "area": string | number };
+  readonly "switch.title": { "lang": string | number };
+  readonly "switch.body": { "current": string | number };
+  readonly "switch.placesReady": { "n": string | number };
+  readonly "switch.slow.title": { "lang": string | number };
+  readonly "switch.slow.body": { "lang": string | number };
+  readonly "switch.slow.wordsBody": { "lang": string | number };
+  readonly "switch.offline.title": { "lang": string | number };
+  readonly "switch.failed.title": { "lang": string | number };
+  readonly "switch.screens.title": { "lang": string | number };
+  readonly "switch.pill.progress": { "lang": string | number; "n": string | number };
+  readonly "switch.pill.slow": { "lang": string | number };
+  readonly "switch.pill.offline": { "lang": string | number };
+  readonly "switch.pill.failed": { "lang": string | number };
+  readonly "switch.pill.firstRun": { "lang": string | number };
+  readonly "switch.pill.firstRunOffline": { "lang": string | number };
+  readonly "switch.row.switching": { "name": string | number };
+  readonly "switch.row.offline": { "name": string | number };
+  readonly "switch.offlineNote": { "lang": string | number };
+  readonly "switch.done": { "lang": string | number };
+  readonly "settings.diagnostics.holdHotset": { "state": string | number };
+  readonly "settings.diagnostics.holdBundle": { "state": string | number };
+  readonly "settings.diagnostics.failNext": { "state": string | number };
 }

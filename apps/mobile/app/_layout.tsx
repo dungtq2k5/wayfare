@@ -5,14 +5,17 @@ import '../src/walk/task';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { vars } from 'nativewind';
+import { useEffect, useMemo, useState } from 'react';
+import { View } from 'react-native';
 import { databaseReady } from '../src/data/boot';
 import { hydrateWalk } from '../src/walk/controller';
 import { loadHeard } from '../src/walk/heard';
 import { persistOptions } from '../src/data/persister';
 import { useDataBoot } from '../src/data/use-data-boot';
-import { applyLanguage } from '../src/i18n';
+import { useLanguageSwitch } from '../src/i18n/switch-deps';
 import { applyAppearance, useTheme } from '../src/theme/appearance';
+import { scriptLeading } from '../src/theme/script-leading';
 import { deviceSession } from '../src/session';
 import { useAppStore } from '../src/state/app-store';
 import { queryClient } from '../src/state/query-client';
@@ -26,10 +29,14 @@ import { WalkPromptHost } from '../src/walk/prompt-host';
 export default function RootLayout() {
   const hydrated = useAppStore((state) => state.hydrated);
   const onboarded = useAppStore((state) => state.onboarded);
-  const language = useAppStore((state) => state.language);
   const policyChanged = useAppStore((state) => state.policyChanged);
   const updateRequired = useAppStore((state) => state.updateRequired);
   const appearance = useAppStore((state) => state.appearance);
+  const language = useAppStore((state) => state.language);
+  const leading = useMemo(() => {
+    const heights = scriptLeading(language);
+    return heights === null ? undefined : vars(heights);
+  }, [language]);
   const theme = useTheme();
   const [checked, setChecked] = useState(false);
 
@@ -37,9 +44,7 @@ export default function RootLayout() {
     applyAppearance(appearance);
   }, [appearance]);
 
-  useEffect(() => {
-    if (language !== null) void applyLanguage(language);
-  }, [language]);
+  useLanguageSwitch();
 
   // The stored pair can disappear on its own (backup restore, cleared keystore): then start over.
   useEffect(() => {
@@ -78,29 +83,32 @@ export default function RootLayout() {
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <ThemeProvider value={navigationTheme}>
         <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={blocked}>
-            <Stack.Screen name="update-required" />
-          </Stack.Protected>
-          <Stack.Protected guard={firstRun}>
-            <Stack.Screen name="(first-run)" />
-          </Stack.Protected>
-          <Stack.Protected guard={!blocked && !firstRun}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="place/[id]" />
-            <Stack.Screen name="player" options={{ animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="transcript" />
-            <Stack.Screen name="walk-help" />
-            <Stack.Screen name="scan" options={{ animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="scan-code" />
-            <Stack.Screen name="settings/language" />
-            <Stack.Screen name="settings/credits" />
-            <Stack.Screen name="settings/diagnostics" />
-          </Stack.Protected>
-        </Stack>
-        <ToastHost />
-        <WalkPromptHost />
+        {/* Taller lines for the scripts that need them, for every screen below. */}
+        <View style={leading} className="flex-1">
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Protected guard={blocked}>
+              <Stack.Screen name="update-required" />
+            </Stack.Protected>
+            <Stack.Protected guard={firstRun}>
+              <Stack.Screen name="(first-run)" />
+            </Stack.Protected>
+            <Stack.Protected guard={!blocked && !firstRun}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="place/[id]" />
+              <Stack.Screen name="player" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="transcript" />
+              <Stack.Screen name="walk-help" />
+              <Stack.Screen name="scan" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="scan-code" />
+              <Stack.Screen name="settings/language" />
+              <Stack.Screen name="settings/credits" />
+              <Stack.Screen name="settings/diagnostics" />
+            </Stack.Protected>
+          </Stack>
+          <ToastHost />
+          <WalkPromptHost />
+        </View>
       </ThemeProvider>
     </PersistQueryClientProvider>
   );

@@ -12,12 +12,22 @@ interface ListItemProps {
   selected?: boolean;
   /** A forward arrow, for a row that opens something. */
   chevron?: boolean;
+  /** A state at the row's end, such as a language switching to it. */
+  trailing?: LucideIcon;
   onPress: () => void;
   children?: ReactNode;
 }
 
 /** The language list item and its kin: at least 48 dp tall, and taller when the text wraps. */
-export function ListItem({ title, subtitle, leading, selected, chevron, onPress }: ListItemProps) {
+export function ListItem({
+  title,
+  subtitle,
+  leading,
+  selected,
+  chevron,
+  trailing,
+  onPress,
+}: ListItemProps) {
   return (
     <Pressable
       accessibilityRole={selected === undefined ? 'button' : 'radio'}
@@ -37,6 +47,7 @@ export function ListItem({ title, subtitle, leading, selected, chevron, onPress 
         )}
       </View>
       {selected === true && <Icon icon={CheckCircle2} size="lg" color="primary" />}
+      {trailing !== undefined && <Icon icon={trailing} size="lg" color="muted-foreground" />}
       {chevron === true && <Icon icon={ChevronRight} size="md" color="muted-foreground" />}
     </Pressable>
   );

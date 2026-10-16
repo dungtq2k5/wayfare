@@ -1,0 +1,28 @@
+# Opens Settings › Language and picks NAME (a language in its own name); for the long tail, through
+# Other languages.
+appId: app.wayfare
+---
+# From a screen above the tabs (Settings › Language itself), back to them first.
+- runFlow:
+    when:
+      visible: '(\[.*\] )?Back'
+    commands:
+      - tapOn: '(\[.*\] )?Back'
+- tapOn: '(\[.*\] )?Settings'
+# Settings keeps its scroll from Diagnostics.
+- scrollUntilVisible:
+    element: '(\[.*\] )?Language'
+    direction: UP
+- tapOn: '(\[.*\] )?Language'
+- runFlow:
+    when:
+      notVisible: '${NAME}'
+    commands:
+      - scrollUntilVisible:
+          element: '(\[.*\] )?Other languages'
+      - tapOn: '(\[.*\] )?Other languages'
+- scrollUntilVisible:
+    element: '${NAME}'
+- tapOn:
+    text: '${NAME}'
+    retryTapIfNoChange: false

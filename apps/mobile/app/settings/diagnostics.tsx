@@ -2,6 +2,7 @@ import { useAreasList } from '@wayfare/api-client';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAllPlaces, useLocalAreas } from '../../src/data/hooks';
+import { useSwitchHolds } from '../../src/i18n/switch-holds';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { useNetworkStore } from '../../src/network/network-store';
 import { narrationPlayer } from '../../src/player/narration-player';
@@ -34,6 +35,8 @@ export default function DiagnosticsScreen() {
   );
   const noPosition = useWalkStore((state) => state.noPosition);
   const stationaryMode = useWalkStore((state) => state.stationaryMode);
+  const holds = useSwitchHolds();
+  const onOff = (on: boolean) => t(on ? 'settings.diagnostics.on' : 'settings.diagnostics.off');
   const time = (at: number | null) =>
     at === null ? t('settings.data.never') : new Date(at).toLocaleTimeString();
   return (
@@ -124,6 +127,21 @@ export default function DiagnosticsScreen() {
             })}
             variant="secondary"
             onPress={() => useWalkStore.setState({ stationaryMode: !stationaryMode })}
+          />
+          <Button
+            label={t('settings.diagnostics.holdHotset', { state: onOff(holds.holdHotset) })}
+            variant="secondary"
+            onPress={() => useSwitchHolds.setState({ holdHotset: !holds.holdHotset })}
+          />
+          <Button
+            label={t('settings.diagnostics.holdBundle', { state: onOff(holds.holdBundle) })}
+            variant="secondary"
+            onPress={() => useSwitchHolds.setState({ holdBundle: !holds.holdBundle })}
+          />
+          <Button
+            label={t('settings.diagnostics.failNext', { state: onOff(holds.failNext) })}
+            variant="secondary"
+            onPress={() => useSwitchHolds.setState({ failNext: !holds.failNext })}
           />
           <Button
             label={t('settings.diagnostics.walkLog')}

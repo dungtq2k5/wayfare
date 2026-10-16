@@ -5,6 +5,8 @@ import { getLocales } from 'expo-localization';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { isBundled } from '../../src/i18n';
+import { chooseFirstLanguage } from '../../src/i18n/switch';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { LANGUAGE_NAMES } from '../../src/i18n/languages';
 import { useAppStore } from '../../src/state/app-store';
@@ -26,7 +28,6 @@ export default function LanguageScreen() {
   const pendingCode = useCodeStore((state) => state.pending !== null);
   const router = useRouter();
   const stored = useAppStore((state) => state.language);
-  const setLanguage = useAppStore((state) => state.setLanguage);
   const [suggested] = useState(suggestedLanguage);
   const [choice, setChoice] = useState(suggested);
   if (stored !== null) return <Redirect href="/privacy" />;
@@ -49,7 +50,7 @@ export default function LanguageScreen() {
         <Button
           label={t('firstRun.language.continue', { language: name })}
           onPress={() => {
-            setLanguage(choice);
+            chooseFirstLanguage(choice, isBundled(choice));
             router.push('/privacy');
           }}
         />

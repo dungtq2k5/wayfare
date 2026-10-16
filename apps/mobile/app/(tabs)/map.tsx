@@ -27,6 +27,7 @@ import { Icon } from '../../src/theme/icon';
 import { InlineNote } from '../../src/ui/inline-note';
 import { useControlsBottom } from '../../src/player/mini-player';
 import { AreaSheet } from '../../src/map/area-sheet';
+import { SwitchPill } from '../../src/ui/switch-status';
 import { WalkControl } from '../../src/walk/walk-control';
 import { WalkNotice } from '../../src/walk/walk-notices';
 import { areaMove } from '../../src/codes/area-move';
@@ -224,7 +225,7 @@ export default function MapScreen() {
               accessibilityRole="button"
               accessibilityLabel={t('map.changeArea')}
               onPress={() => setAreaSheet(true)}
-              className="min-h-12 flex-row items-center gap-2 self-start rounded-full bg-card px-4 elevation-2"
+              className="min-h-12 max-w-full flex-row items-center gap-2 self-start rounded-full bg-card px-4 py-2 elevation-2"
             >
               <Icon icon={areaIcon(area.code)} size="md" color="primary" />
               <Text className="shrink text-label text-foreground">
@@ -243,6 +244,7 @@ export default function MapScreen() {
             <Text className="text-label text-foreground">{t('code.scan')}</Text>
           </Pressable>
         </View>
+        <SwitchPill />
         <WalkNotice />
         {offline && mapStyle.kind === 'blank' && (
           <InlineNote text={`${t('map.noMap.title')}. ${t('map.noMap.body')}`} />

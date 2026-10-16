@@ -170,14 +170,20 @@ export async function syncAreas(input: {
   return results;
 }
 
-/** Wraps a task so a call made while one runs gets that run's promise, and starts no second pass. */
-export function singleFlight<T>(task: () => Promise<T>): () => Promise<T> {
-  let running: Promise<T> | null = null;
-  return () => {
-    running ??= task().finally(() => {
-      running = null;
-    });
-    return running;
+/**
+ * Wraps a task so a call made while one runs **for the same key** gets that run's promise and starts
+ * no second pass; another key runs beside it. A language switch's sync never joins the current
+ * language's.
+ */
+export function singleFlight<K, T>(task: (key: K) => Promise<T>): (key: K) => Promise<T> {
+  const running = new Map<K, Promise<T>>();
+  return (key) => {
+    let run = running.get(key);
+    if (run === undefined) {
+      run = task(key).finally(() => running.delete(key));
+      running.set(key, run);
+    }
+    return run;
   };
 }
 

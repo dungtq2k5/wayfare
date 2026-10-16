@@ -1,0 +1,13 @@
+# Back to English, from whatever language the app is in.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    file: language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- tapOn: 'Back'

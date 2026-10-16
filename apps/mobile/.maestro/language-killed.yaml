@@ -1,0 +1,12 @@
+# Run by language-system.sh after `am force-stop` mid-switch (edge 4): the app opens in English with
+# the switch resuming, and completes it.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Switching to Русский.*|Русский is taking a while|\[ru\] (Language|Settings)'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: '\[ru\] (Language|Settings)'
+    timeout: 120000
