@@ -1,0 +1,17 @@
+# `maestro test apps/mobile/.maestro` runs each feature's entry flows, listed by name: a glob would
+# also run `common/` and `steps/` as entries. Several only pass after their feature's `system.sh`
+# has prepared the phone; the script is how a feature is run.
+# Run with the phone's animations off, as the scripts do (`common/animations.sh`): a turning spinner
+# never lets the screen settle, and Maestro waits for that before every step.
+flows:
+  - first-run/first-run.yaml
+  - player/player.yaml
+  - player/sabotage.yaml
+  - walk/walk.yaml
+  - walk/sabotage.yaml
+  - qr/qr.yaml
+  - qr/sabotage.yaml
+  - language/language.yaml
+  - language/sabotage.yaml
+  - offline/offline.yaml
+  - offline/sabotage.yaml

@@ -1,6 +1,6 @@
 import { distanceMeters } from '@wayfare/core';
 import type { PlaceSyncRecordStored } from '@wayfare/contracts';
-import { categoryKey } from './category-key';
+import { categoryKey } from '../ui/category-key';
 
 /** The pack's two styles, as the area's manifest names them. */
 export interface PackStyles {

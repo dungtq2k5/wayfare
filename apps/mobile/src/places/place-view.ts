@@ -1,7 +1,7 @@
 import type { PlaceDetailResponseDto } from '@wayfare/api-client';
 import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import type { OpeningHoursRowInput } from '@wayfare/core';
-import type { PlaceAudio, PlayerPlace } from '../player/types';
+import type { PlaceAudio, PlayerPlace } from '../data/player-place';
 
 export interface PhotoView {
   readonly id: string;

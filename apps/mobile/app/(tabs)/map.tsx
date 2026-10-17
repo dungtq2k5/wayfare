@@ -13,7 +13,7 @@ import {
 } from '../../src/location/location-store';
 import { showToast } from '../../src/ui/toast';
 import { usePosition } from '../../src/location/use-position';
-import { areaIcon } from '../../src/map/categories';
+import { areaIcon } from '../../src/ui/categories';
 import { chooseMapStyle, nearestPlace } from '../../src/map/map-logic';
 import { PlaceSheet } from '../../src/map/place-sheet';
 import { PlacesMap } from '../../src/map/places-map';
@@ -27,7 +27,7 @@ import { Icon } from '../../src/theme/icon';
 import { InlineNote } from '../../src/ui/inline-note';
 import { useControlsBottom } from '../../src/player/mini-player';
 import { AreaSheet } from '../../src/map/area-sheet';
-import { SwitchPill } from '../../src/ui/switch-status';
+import { SwitchPill } from '../../src/language/switch-status';
 import { MapPackExtras, OfflineMapNote } from '../../src/packs/map-extras';
 import { useLocalStyle } from '../../src/packs/use-local-style';
 import { WalkControl } from '../../src/walk/walk-control';

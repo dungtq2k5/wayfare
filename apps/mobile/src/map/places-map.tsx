@@ -16,8 +16,8 @@ import type { Position } from '../location/location-store';
 import { useTheme } from '../theme/appearance';
 import { Icon } from '../theme/icon';
 import { useDuration } from '../theme/use-duration';
-import { categoryIcon } from './categories';
-import { useHeardStore } from '../walk/heard';
+import { categoryIcon } from '../ui/categories';
+import { useHeardStore } from '../data/heard';
 import { MARKER_IMAGES } from './generated/marker-images';
 import { accuracyRadiusExpression, clusteredFeatures } from './map-logic';
 

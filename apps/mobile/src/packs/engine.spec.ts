@@ -4,7 +4,7 @@ import { migrate } from '../db/migrate';
 import { openTestDatabase } from '../db/test-database';
 import { addFiles, filesOfPack, packOfArea, savePack } from './db';
 import type { Pack } from './db';
-import { FetchError, runDownload } from './engine';
+import { FetchError, heldProgress, runDownload } from './engine';
 import type { EngineDeps, NetworkKind } from './engine';
 import { filesOf, safeRelative } from './plan';
 import type { PackFile } from './plan';
@@ -135,6 +135,21 @@ describe('the pack files', () => {
     // Photos and audio never use the server's path at all.
     const odd = { ...manifest, photos: [asset('../../etc/passwd', 8)] };
     expect(filesOf(odd).files.find((file) => file.kind === 'photo')?.name).toBe(`photos/${sha(8)}`);
+  });
+});
+
+describe('the progress shown', () => {
+  const at = (done: number, total = 100) => ({ done, total, stage: 'photo' as const });
+
+  it('never falls within a run: a pause reading the rows, a file fetched again', () => {
+    expect(heldProgress(at(40), at(30)).done).toBe(40);
+    expect(heldProgress(at(40), at(55)).done).toBe(55);
+  });
+
+  it('starts again for a new run: none before, an update, a repair after the end', () => {
+    expect(heldProgress(undefined, at(10)).done).toBe(10);
+    expect(heldProgress(at(40), at(10, 200)).done).toBe(10);
+    expect(heldProgress(at(100), at(90)).done).toBe(90);
   });
 });
 

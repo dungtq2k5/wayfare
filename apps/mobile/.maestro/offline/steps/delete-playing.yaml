@@ -1,0 +1,44 @@
+# Run by offline/system.sh with District 1 centre's pack ready (frames M5, M5b, edge 6): a story
+# from the pack playing; deleting says it will stop, and stops it; the Map is the online map again.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Explore'
+- scrollUntilVisible:
+    element: '.*Bưu điện.*'
+    timeout: 60000
+- tapOn: '.*Bưu điện.*'
+- tapOn: 'Play narration.*'
+- extendedWaitUntil:
+    visible: 'Pause'
+    timeout: 15000
+# Paused at once: still the player's story, from the pack, and the flow's pace never ends it.
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- runFlow: tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Preferences'
+    direction: UP
+- tapOn: 'Offline downloads'
+- tapOn: 'District 1 centre'
+- scrollUntilVisible:
+    element: 'Delete this download'
+- tapOn: 'Delete this download'
+- assertVisible: 'Delete District 1 centre\?'
+- assertVisible: '.*The story playing from it now will stop.'
+- tapOn: 'DELETE|Delete'
+- extendedWaitUntil:
+    visible: 'District 1 centre deleted · .* freed'
+    timeout: 10000
+- runFlow: tabs.yaml
+- assertNotVisible: 'Open the player.*'
+- assertNotVisible: 'Close'
+- tapOn: 'Map'
+- assertVisible: 'District 1 centre'
+- assertNotVisible: ".*this area's streets need its download.*"

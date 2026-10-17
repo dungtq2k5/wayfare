@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { APP_VERSION } from '../../src/api';
 import { PRIVACY_POLICY_URL } from '../../src/env';
 import { errorMessage } from '../../src/i18n';
-import { cancelSwitch } from '../../src/i18n/switch';
+import { cancelSwitch } from '../../src/language/switch';
 import { deviceSession } from '../../src/session';
 import { routeApiError } from '../../src/state/api-errors';
 import { useAppStore } from '../../src/state/app-store';

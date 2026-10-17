@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Narration, PlayerNotice, PlayerPlace } from './types';
+import type { PlayerPlace } from '../data/player-place';
+import type { Narration, PlayerNotice } from './types';
 
 interface PlayerState {
   /** The narration playing, paused or being prepared; every player screen renders from this. */

@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '../state/app-store';
-import { LOCAL_QUERY_KEY } from '../sync/run-sync';
 import { databaseReady } from './boot';
 import { allPlaces, areaSummaries, placeById, placesOfArea } from './queries';
+
+/** Every local query starts with this key, so a finished sync invalidates them all at once. */
+export const LOCAL_QUERY_KEY = ['local'] as const;
 
 /** Each synced area with its Place count: read from disk, never waiting on the network (ADR 0029). */
 export function useLocalAreas() {

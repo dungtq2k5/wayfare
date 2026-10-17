@@ -7,7 +7,7 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LANGUAGE_NAMES } from '../../src/i18n/languages';
 import { useTourist } from '../../src/i18n/use-tourist';
-import { areaIcon } from '../../src/map/categories';
+import { areaIcon } from '../../src/ui/categories';
 import { packKey, usePackStore } from '../../src/packs/controller';
 import type { Pack } from '../../src/packs/db';
 import { openDownloadSheet } from '../../src/packs/download-sheet';

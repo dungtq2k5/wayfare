@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isBundled } from '../../src/i18n';
-import { chooseFirstLanguage } from '../../src/i18n/switch';
+import { chooseFirstLanguage } from '../../src/language/switch';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { LANGUAGE_NAMES } from '../../src/i18n/languages';
 import { useAppStore } from '../../src/state/app-store';

@@ -1,0 +1,29 @@
+# Run by qr/system.sh at the largest font scale (edge 9): the way in, the scanner, the typed code and
+# the opened Place, every label visible and tappable.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 30000
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- assertVisible: 'Point at the Wayfare code'
+- assertVisible: 'Torch, off'
+- tapOn: 'Type the code instead'
+- assertVisible: 'Type the code'
+- inputText: 'QK4V1TCX'
+- hideKeyboard
+- tapOn:
+    text: 'Open'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: '.*Chợ Bến Thành.*'
+    timeout: 15000
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- assertVisible: 'Play'

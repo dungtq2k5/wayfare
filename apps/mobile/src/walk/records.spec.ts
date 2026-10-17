@@ -3,7 +3,8 @@ import { migrate } from '../db/migrate';
 import { openTestDatabase } from '../db/test-database';
 import { clearLocalData } from '../sync/sync';
 import { initialWalk } from './machine';
-import { heardPlaceIds, loadWalk, recordHeard, saveWalk } from './records';
+import { heardPlaceIds, recordHeard } from '../data/heard-records';
+import { loadWalk, saveWalk } from './records';
 
 async function database() {
   const db = openTestDatabase();

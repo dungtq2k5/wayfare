@@ -10,9 +10,9 @@ import { Icon } from '../../src/theme/icon';
 import { Button } from '../../src/ui/button';
 import { InlineNote } from '../../src/ui/inline-note';
 import { LIST_END_PADDING } from '../../src/ui/layout';
-import { PlaceRow } from '../../src/ui/place-row';
-import type { RowPlace } from '../../src/ui/place-row';
-import { ScreenHeader } from '../../src/ui/screen-header';
+import { PlaceRow } from '../../src/places/place-row';
+import type { RowPlace } from '../../src/places/place-row';
+import { TabHeader } from '../../src/shell/tab-header';
 import { SkeletonRows } from '../../src/ui/skeleton';
 
 /**
@@ -47,7 +47,7 @@ export default function FavoritesScreen() {
         contentContainerStyle={{ paddingBottom: LIST_END_PADDING }}
         ListHeaderComponent={
           <View className="gap-3 pb-2">
-            <ScreenHeader title={t('favorites.title')} />
+            <TabHeader title={t('favorites.title')} />
             {favourites.offline && <InlineNote icon={WifiOff} text={t('favorites.offlineNote')} />}
             {!favourites.offline && favourites.isPending && <SkeletonRows />}
             {favourites.isError && (

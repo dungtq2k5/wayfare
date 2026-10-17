@@ -2,10 +2,10 @@ import { narrationPrefetch, ApiError } from '@wayfare/api-client';
 import type { LocationFix } from '@wayfare/core';
 import { useAppStore } from '../state/app-store';
 import { useNetworkStore } from '../network/network-store';
-import { downloadToCache, cachedFile } from '../player/audio-cache';
+import { downloadToCache, cachedFile } from '../data/audio-cache';
 import { playerPlaceOf, viewFromRecord } from '../places/place-view';
 import { walkPlaces } from './geofence-places';
-import { useHeardStore } from './heard';
+import { useHeardStore } from '../data/heard';
 import { afterPrefetch, mayPrefetch, openGate, planPrefetch } from './prefetch';
 import type { PrefetchGate } from './prefetch';
 

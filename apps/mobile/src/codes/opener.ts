@@ -10,7 +10,7 @@ import { tourist } from '../i18n';
 import { useNetworkStore } from '../network/network-store';
 import { narrationPlayer } from '../player/narration-player';
 import { usePlayerStore } from '../player/store';
-import type { PlayerPlace } from '../player/types';
+import type { PlayerPlace } from '../data/player-place';
 import { playerPlaceOf, viewFromDetail, viewFromRecord } from '../places/place-view';
 import type { PlaceView } from '../places/place-view';
 import { useAppStore } from '../state/app-store';

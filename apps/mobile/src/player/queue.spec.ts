@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { afterManualPlay, decideOffer, relanguagePlan } from './queue';
-import type { PlayerPlace } from './types';
+import type { PlayerPlace } from '../data/player-place';
 
 const place = (id: string) => ({ id }) as unknown as PlayerPlace;
 

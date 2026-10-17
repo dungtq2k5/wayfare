@@ -9,7 +9,7 @@ import sharp from 'sharp';
 const require = createRequire(import.meta.url);
 const { colors } = require('@wayfare/design-tokens/tokens');
 const icons = JSON.parse(
-  readFileSync(new URL('../src/map/category-icons.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/ui/category-icons.json', import.meta.url), 'utf8'),
 );
 const lucide = new URL('../node_modules/lucide-react-native/dist/esm/icons/', import.meta.url);
 const assets = new URL('../assets/map/', import.meta.url);

@@ -1,4 +1,4 @@
-import type { PlayerPlace } from './types';
+import type { PlayerPlace } from '../data/player-place';
 
 /** What the queue holds: the Place that is playing or paused, and the one that waits. */
 export interface QueueState {

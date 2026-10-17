@@ -279,6 +279,8 @@ Four layers of defence, so the tourist never sees a blank screen:
 - Route guards declare the permission they need (`place:delete`), not the role.
 - PII (national ID) encrypted at rest, decrypted only when an admin actually views it, auto-redacted after 180 days, never logged.
 - Data deletion: an authenticated tourist can delete their account. Their personal data is erased; their purchase records are kept in anonymised form because tax and dispute handling require them ([ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)).
+- **Support:** `support@wayfare.app` is the one support contact the apps name — a locked account is told to write there. There is **no self-service unlock**: only staff lock an account, to investigate, and a lock may lapse by itself; failed passwords are rate-limited, never locked, and *Forgot password?* is their way out. The address must exist before launch.
+- **The tourist's account is offered, never required:** in Settings, and on Favourites once a signed-out tourist has 2 favourites — never at launch.
 
 ---
 

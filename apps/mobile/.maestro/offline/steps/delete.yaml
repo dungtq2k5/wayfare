@@ -1,0 +1,30 @@
+# Deletes District 1 centre's download if there is one, and ends on Offline downloads.
+appId: app.wayfare
+---
+- runFlow: tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Preferences'
+    direction: UP
+- tapOn: 'Offline downloads'
+- runFlow:
+    when:
+      notVisible: 'Nothing downloaded yet'
+    commands:
+      - tapOn: 'District 1 centre'
+      - scrollUntilVisible:
+          element: 'Delete this download|Cancel'
+      - runFlow:
+          when:
+            visible: 'Delete this download'
+          commands:
+            - tapOn: 'Delete this download'
+            - tapOn: 'DELETE|Delete'
+      - runFlow:
+          when:
+            visible: 'Cancel'
+          commands:
+            - tapOn: 'Cancel'
+- extendedWaitUntil:
+    visible: 'Nothing downloaded yet'
+    timeout: 10000

@@ -1,0 +1,13 @@
+# Run by language/system.sh after the network went mid-switch: released, the hotset is asked again
+# (within 60 s), finds no network, and the switch waits for a connection (edge 2).
+appId: app.wayfare
+---
+- tapOn: 'Back'
+- runFlow:
+    file: toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: 'Bahasa Melayu · waiting for a connection'
+    timeout: 90000

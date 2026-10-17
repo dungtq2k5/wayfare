@@ -11,7 +11,7 @@ import { errorMessage } from '../../src/i18n';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { requestForegroundLocation, useLocationStore } from '../../src/location/location-store';
 import { usePosition } from '../../src/location/use-position';
-import { CATEGORY_CODES, categoryIcon } from '../../src/map/categories';
+import { CATEGORY_CODES, categoryIcon } from '../../src/ui/categories';
 import { useNetworkStore } from '../../src/network/network-store';
 import { joinNames } from '../../src/places/format-distance';
 import { NEARBY_LIST_RADIUS_M } from '../../src/places/limits';
@@ -25,9 +25,9 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { areaName as packAreaName } from '../../src/packs/area-name';
 import { usePackIndex } from '../../src/packs/use-pack-files';
 import { LIST_END_PADDING } from '../../src/ui/layout';
-import { PlaceRow, rowFromRecord } from '../../src/ui/place-row';
-import type { RowPlace } from '../../src/ui/place-row';
-import { ScreenHeader } from '../../src/ui/screen-header';
+import { PlaceRow, rowFromRecord } from '../../src/places/place-row';
+import type { RowPlace } from '../../src/places/place-row';
+import { TabHeader } from '../../src/shell/tab-header';
 import { SkeletonRows } from '../../src/ui/skeleton';
 
 /**
@@ -156,7 +156,7 @@ export default function ExploreScreen() {
         contentContainerStyle={{ paddingBottom: LIST_END_PADDING }}
         ListHeaderComponent={
           <View className="gap-3 pb-2">
-            <ScreenHeader title={t('explore.title')} />
+            <TabHeader title={t('explore.title')} />
             {source === 'unknown' && (
               <InlineNote
                 icon={LocateOff}

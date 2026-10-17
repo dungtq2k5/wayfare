@@ -1,0 +1,38 @@
+# Run by language/system.sh with the gateway unreachable and a cold start: a language on the phone
+# switches at once, with the note (X6); one never used waits for a connection and changes nothing
+# (X5), and is left waiting for `language/steps/resumed.yaml`.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+# 日本語 is on the phone: at once, offline, and said so.
+- runFlow:
+    file: ../../common/language-pick.yaml
+    env:
+      NAME: '日本語'
+- extendedWaitUntil:
+    visible: '.*Switched to 日本語'
+    timeout: 10000
+- assertVisible: '.*Offline · showing the 日本語 saved on this phone.'
+- runFlow:
+    file: ../../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+# 한국어 is not: it waits.
+- tapOn:
+    text: '한국어'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: '한국어 needs a connection'
+    timeout: 20000
+- assertVisible: 'Korean · waiting for a connection'
+- assertVisible: 'Language'
+- tapOn: 'Back'
+- tapOn: 'Map'
+- assertVisible: '한국어 · waiting for a connection'
