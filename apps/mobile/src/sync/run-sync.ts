@@ -3,6 +3,7 @@ import type { Language } from '@wayfare/contracts';
 import type { SyncPlaces200 } from '@wayfare/api-client';
 import { create } from 'zustand';
 import { databaseReady } from '../data/boot';
+import { LOCAL_QUERY_KEY } from '../data/hooks';
 import { errorMessage } from '../i18n';
 import { routeApiError } from '../state/api-errors';
 import { useAppStore } from '../state/app-store';
@@ -22,9 +23,6 @@ export const useSyncStore = create<SyncState>(() => ({
   syncing: false,
   error: null,
 }));
-
-/** Every local query starts with this key, so a finished sync invalidates them all at once. */
-export const LOCAL_QUERY_KEY = ['local'] as const;
 
 const client: SyncClient = {
   async places({ areaId, lang, since, ifNoneMatch }) {

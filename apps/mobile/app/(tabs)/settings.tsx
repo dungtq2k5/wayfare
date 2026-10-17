@@ -22,7 +22,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { forgetLocalData } from '../../src/data/forget';
+import { forgetLocalData } from '../../src/shell/forget';
 import { DIAGNOSTICS_ENABLED, PRIVACY_POLICY_URL } from '../../src/env';
 import { errorMessage } from '../../src/i18n';
 import { LANGUAGE_NAMES } from '../../src/i18n/languages';
@@ -32,7 +32,7 @@ import { routeApiError } from '../../src/state/api-errors';
 import { useAppStore } from '../../src/state/app-store';
 import { Icon } from '../../src/theme/icon';
 import { LIST_END_PADDING } from '../../src/ui/layout';
-import { ScreenHeader } from '../../src/ui/screen-header';
+import { TabHeader } from '../../src/shell/tab-header';
 import { SegmentedControl } from '../../src/ui/segmented-control';
 import { APP_VERSION } from '../../src/api';
 import { allowBackground } from '../../src/walk/start';
@@ -126,7 +126,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerStyle={{ paddingBottom: LIST_END_PADDING }}>
-        <ScreenHeader title={t('nav.settings')} />
+        <TabHeader title={t('nav.settings')} />
         <View className="gap-6 px-4">
           <Group title={t('settings.preferences')}>
             <Row

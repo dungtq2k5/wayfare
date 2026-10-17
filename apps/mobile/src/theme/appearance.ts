@@ -2,9 +2,7 @@ import { colors } from '@wayfare/design-tokens/tokens';
 import { colorScheme, useColorScheme } from 'nativewind';
 import * as SystemUI from 'expo-system-ui';
 import { useAppStore } from '../state/app-store';
-
-/** The user's choice: follow the system, or stay light or dark. */
-export type Appearance = 'system' | 'light' | 'dark';
+import type { Appearance } from '../state/app-store';
 
 export const APPEARANCES: readonly Appearance[] = ['system', 'light', 'dark'];
 

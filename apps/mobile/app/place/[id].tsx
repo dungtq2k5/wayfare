@@ -1,9 +1,9 @@
 import { distanceMeters, walkingEtaMinutes } from '@wayfare/core';
 import { space } from '@wayfare/design-tokens/tokens';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, LoaderCircle } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { usePosition } from '../../src/location/use-position';
@@ -38,7 +38,7 @@ export default function PlaceScreen() {
   if (state.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator accessibilityLabel={t('map.firstSync')} />
+        <Icon icon={LoaderCircle} size="xl" color="muted-foreground" label={t('map.firstSync')} />
       </SafeAreaView>
     );
   }

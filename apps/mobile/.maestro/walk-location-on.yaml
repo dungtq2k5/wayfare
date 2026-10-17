@@ -1,9 +1,0 @@
-# Run by walk-system.sh once the phone's location is back on: the note clears by itself.
-appId: app.wayfare
----
-- launchApp:
-    clearState: false
-- extendedWaitUntil:
-    notVisible: "Location is off — the walk can't listen"
-    timeout: 30000
-- assertVisible: 'Walking · .*'

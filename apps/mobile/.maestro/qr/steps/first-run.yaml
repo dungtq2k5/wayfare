@@ -1,0 +1,16 @@
+# Run by qr/system.sh after `pm clear` and a link (L3): the first run says why it is there, in the
+# phone's language, then the Place opens.
+appId: app.wayfare
+---
+- extendedWaitUntil:
+    visible: "(Choose your language to hear this place's story.|Chọn ngôn ngữ để nghe câu chuyện của nơi này.)"
+    timeout: 30000
+- tapOn: 'English'
+- tapOn: '(Continue in English|Tiếp tục bằng English)'
+- extendedWaitUntil:
+    visible: 'Your privacy'
+    timeout: 15000
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: '.*Chợ Bến Thành.*'
+    timeout: 60000

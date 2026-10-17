@@ -14,7 +14,7 @@ import { PLAYBACK_SPEEDS, useAppStore } from '../state/app-store';
 import { areaNameOf } from './area-name';
 import { fallbackArtworkUrl } from './fallback-artwork';
 import { packAudioUri } from '../packs/use-pack-files';
-import { cachedFile, downloadToCache } from './audio-cache';
+import { cachedFile, downloadToCache } from '../data/audio-cache';
 import { resolveSource } from './ladder';
 import type { LadderDeps, OnDemandAnswer, Resolution, Rung } from './ladder';
 import { nextPause } from './pause-machine';
@@ -22,7 +22,8 @@ import { afterManualPlay, decideOffer, relanguagePlan } from './queue';
 import type { OfferResult } from './queue';
 import { engineLocale, hasVoiceFor, splitSentences } from './speech-text';
 import { usePlayerStore } from './store';
-import type { Narration, PauseReason, PlayerNotice, PlayerPlace, SourceKind } from './types';
+import type { PlayerPlace } from '../data/player-place';
+import type { Narration, PauseReason, PlayerNotice, SourceKind } from './types';
 
 const RING_MS = 2_000;
 const SWITCHED_MS = 4_000;

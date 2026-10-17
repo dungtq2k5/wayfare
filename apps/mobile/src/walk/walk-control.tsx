@@ -11,13 +11,11 @@ import {
   TriangleAlert,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { WALK_UNDO_MS } from '../env';
 import { useNetworkStore } from '../network/network-store';
-import { useTheme } from '../theme/appearance';
 import { Icon } from '../theme/icon';
-import { useDuration } from '../theme/use-duration';
 import { TALL_CONTROL } from '../ui/layout';
 import { showToast } from '../ui/toast';
 import { stopWalk, undoStop } from './controller';
@@ -94,8 +92,6 @@ export function WalkControl() {
   const stacked = useWindowDimensions().fontScale >= LARGE_TEXT_SCALE;
   const note = useWalkNote();
   const offline = useNetworkStore((state) => state.status === 'offline');
-  const animated = useDuration('normal') > 0;
-  const theme = useTheme();
 
   if (phase === 'off' || phase === 'ended' || phase === 'starting') {
     const starting = phase === 'starting';
@@ -110,11 +106,7 @@ export function WalkControl() {
         className="flex-row items-center gap-3 self-stretch rounded-full bg-primary px-4 py-2 elevation-2"
       >
         {starting ? (
-          animated ? (
-            <ActivityIndicator color={theme.colors['primary-foreground']} />
-          ) : (
-            <Icon icon={LoaderCircle} size="md" color="primary-foreground" />
-          )
+          <Icon icon={LoaderCircle} size="md" color="primary-foreground" />
         ) : (
           <Icon icon={Footprints} size="lg" color="primary-foreground" />
         )}

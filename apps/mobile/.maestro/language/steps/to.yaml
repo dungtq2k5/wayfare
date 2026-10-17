@@ -1,0 +1,24 @@
+# Switches online to NAME (CODE its machine translation's prefix), waits for it, then back to
+# English: the language is then on the phone.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runFlow:
+    file: ../../common/language-pick.yaml
+    env:
+      NAME: '${NAME}'
+- extendedWaitUntil:
+    visible: '\[${CODE}\] (Language|Settings)'
+    timeout: 120000
+- runFlow:
+    file: ../../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- tapOn: 'Back'

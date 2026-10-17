@@ -1,0 +1,16 @@
+# Run by qr/system.sh after it removed a seeded Place and the app synced on a cold start (edge 8).
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 30000
+- runFlow:
+    file: type.yaml
+    env:
+      CODE: 'SCT7J6K3'
+- extendedWaitUntil:
+    visible: 'This place is no longer on Wayfare'
+    timeout: 15000
+- tapOn: 'Back to the map'

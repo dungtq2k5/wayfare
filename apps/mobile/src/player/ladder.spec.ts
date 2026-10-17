@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { resolveSource } from './ladder';
 import type { LadderDeps, OnDemandAnswer } from './ladder';
-import type { PlaceAudio, PlayerPlace } from './types';
+import type { PlaceAudio, PlayerPlace } from '../data/player-place';
 
 const audio: PlaceAudio = { url: 'https://x.test/a.mp3', sha256: 'a'.repeat(64), durationMs: 5 };
 const place = (withAudio: boolean) =>

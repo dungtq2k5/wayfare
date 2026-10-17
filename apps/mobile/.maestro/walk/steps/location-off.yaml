@@ -1,0 +1,10 @@
+# Run by walk/system.sh while the phone's location is off and a walk is on (W12).
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: "Location is off — the walk can't listen"
+    timeout: 30000
+- assertVisible: 'Turn on'

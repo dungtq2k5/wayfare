@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
-import { categoryIcon } from '../map/categories';
+import { categoryIcon } from '../ui/categories';
 import { Icon } from '../theme/icon';
 import { narrationPlayer } from './narration-player';
 import { usePlayerStore } from './store';

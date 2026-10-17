@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ChevronDown, FileText, Info, Navigation, Play } from 'lucide-react-native';
-import { categoryIcon } from '../src/map/categories';
+import { categoryIcon } from '../src/ui/categories';
 import { useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, Text, View, PanResponder, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +14,7 @@ import { UpNextRow } from '../src/player/up-next-row';
 import { useNote } from '../src/player/use-player';
 import { formatDistance } from '../src/places/format-distance';
 import { Icon } from '../src/theme/icon';
-import { PlacePhoto } from '../src/ui/place-photo';
+import { PlacePhoto } from '../src/places/place-photo';
 
 /** The artwork's size at the largest text sizes. */
 const SMALL_ARTWORK = 120;

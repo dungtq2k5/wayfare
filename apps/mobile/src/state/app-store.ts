@@ -1,9 +1,11 @@
 import { isSupportedLanguage, LEGAL_DOCUMENT_VERSIONS, LegalDocument } from '@wayfare/contracts';
 import type { Language } from '@wayfare/contracts';
 import Storage from 'expo-sqlite/kv-store';
-import type { Appearance } from '../theme/appearance';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+
+/** The user's choice: follow the system, or stay light or dark. */
+export type Appearance = 'system' | 'light' | 'dark';
 
 /** The narration speeds, in the order the pill cycles through them. */
 export const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5] as const;

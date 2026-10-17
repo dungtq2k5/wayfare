@@ -811,7 +811,24 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - **On Android, a view with both `overflow-hidden` and `elevation` can draw its children invisible** (seen on the test phone: the mini player rendered as a blank bar). Put the elevation on an outer view and the clipping on an inner one.
 - **A third-party component that takes `style` but not `className`** — `expo-image`'s `Image` among them — is registered once with NativeWind's `cssInterop` (`cssInterop(Image, { className: 'style' })`); unregistered, its classes are dropped without a warning, and the component renders with no size.
 - **Spacing in a style object comes from `space`** (`tokens.js`) or from a layout constant in `src/ui/layout.ts`, itself built from tokens — the tab bar's and the mini-player band's heights are the `size` tokens `tab-bar` and `mini-player-band`. Lint enforces it: in `apps/mobile` outside `src/theme/` and `src/ui/layout.ts`, a numeric literal other than `0` anywhere in the value of a padding, margin, gap, position or `textSize` property — negative, inside an expression or a call — fails, in a `style`, a `StyleSheet` or a navigator's options alike. Component geometry that is not spacing (a sheet's handle or peek height, media and hit-area sizes) is a named constant the component owns, outside the rule.
-- **Motion:** every animation is built with `react-native-reanimated`, and its duration comes through `useDuration()` (its rule is the pure `durationFor()`), which returns 0 when the system removes animations. Each design round names its animations and their duration tokens; nothing may depend on motion to be understood.
+- **Motion:** every animation runs on the UI thread — `react-native-reanimated`, or React Native's `Animated` with the native driver (the skeleton, the spinner) — and its duration comes through `useDuration()` (its rule is the pure `durationFor()`), which returns 0 when the system removes animations; a looping animation with a 0 duration starts no loop at all. Each design round names its animations and their duration tokens; nothing may depend on motion to be understood.
+- **Spinners:** `LoaderCircle` means work in progress and nothing else, so `Icon` turns it — one turn per `duration.spin` (1000 ms), in place, sized exactly to the icon — and it is still with animations removed. No other spinner (`ActivityIndicator`) is used.
+- **Progress bars are honest and smooth:** the fill and its label show the same real value; a new value glides over `duration.slow`; within a run the value never goes back (a re-fetched file holds it until passed — the pack store's `heldProgress`, so the bar, its label, the pill and the notification agree), and a new run starts from 0; a wait that never had measurable progress has a spinner, never an invented bar. A playback position (the player's line, the scrubber) is exact and is not a progress bar.
+
+### 12.7 The mobile app's folders
+
+`apps/mobile/src` is organised by feature, in layers:
+
+| Layer | Folders | May import |
+| :---- | :---- | :---- |
+| **Shared** | `ui`, `theme`, `i18n`, `db`, `data`, `sync`, `network`, `session`, `state`, `location`, `env.ts`, `api.ts` | shared only |
+| **Features** | `map`, `places`, `player`, `walk`, `codes`, `packs`, `favorites`, `language` | shared, and other features |
+| **Shell** | `shell`: what runs at launch (`use-data-boot`), what *Forget this install* clears, the tabs' header | anything |
+| **Routes** | `app/` | anything |
+
+- **No two folders import each other**, whatever their layer: a piece two folders need moves down to the lower one, or to a shared folder. Local read state several features use (what was heard, the audio cache and its types) lives in `data/`.
+- **A shared component takes a slot, not a feature:** `ScreenHeader` takes `accessory` and `below` elements; `shell/tab-header.tsx` fills them with the walk chip and the language-switch pill.
+- **The guard** `packages/config/guards/mobile-layers.spec.ts` enforces both rules over every non-spec `.ts`/`.tsx` under `src/`, counting `import type` and JSON imports, and names the files of any breach.
 
 ---
 
@@ -1019,7 +1036,7 @@ Rules for writing one:
 **Every doc that builds a screen ships two Maestro flows for it,** under `apps/mobile/.maestro/`, run on the phone against the local stack:
 
 - **A basic flow** — the happy path through the screen, asserting what the Figma frames show in the order a tourist meets them.
-- **A sabotage flow** (`<name>-sabotage.yaml`) — the edge cases a person really produces: a double tap, a second action before the first finishes, switching tabs mid-action, *Home* and back, reopening what is already open, the largest text size, the same Place from two routes. It ends by asserting that nothing is left in a wrong state (one player, one sheet, no orphan screen).
+- **A sabotage flow** (`sabotage.yaml`) — the edge cases a person really produces: a double tap, a second action before the first finishes, switching tabs mid-action, *Home* and back, reopening what is already open, the largest text size, the same Place from two routes. It ends by asserting that nothing is left in a wrong state (one player, one sheet, no orphan screen).
 
 The flows are written from the design's frames and states, not from the build: each assertion names the frame it checks. **What Maestro cannot reach is listed in the doc as a manual check**, never silently skipped.
 
@@ -1033,7 +1050,9 @@ The flows are written from the design's frames and states, not from the build: e
 6. **A tap on text inside a container can fall through** to the view behind it: tap the labelled control, or a `point:`.
 7. **`takeScreenshot` writes only inside its output folder,** and a folder under a file-sync tool can hang it: pass `--test-output-dir` on a non-synced path.
 8. **System UI is out of reach:** notification seeks, unplugging headphones, phone calls.
-9. **MIUI / HyperOS phones** need *USB debugging (Security settings)*, *Install via USB* and MIUI optimisation off, and a direct USB link (no hub).
+9. **Maestro waits for the screen to settle before each step,** and a turning spinner or a playing narration never lets it: the flows run with Android's animations off (`common/animations.sh`, sourced by every `system.sh`, restores the phone's values on exit); where something must move during a step (a narration playing), a tap shortens its wait with `waitToSettleTimeoutMs`.
+10. **The layout:** one folder per feature (`first-run/`, `player/`, `walk/`, `qr/`, `language/`, `offline/`), each with its basic flow `<feature>.yaml`, its `sabotage.yaml`, its `system.sh` when `adb` must prepare the phone, and `steps/` for every flow only another flow or the script runs; `common/` holds the steps two features share. `config.yaml` lists the entry flows **by name** (a glob would run `common/`'s steps). `maestro test .maestro` is a convenience: a feature is run by its `system.sh`, since several entry flows rely on what it sets up. **The guard** `packages/config/guards/maestro-paths.spec.ts` fails when a `runFlow: file:`, a script's flow or a `config.yaml` entry names a file that does not exist.
+11. **MIUI / HyperOS phones** need *USB debugging (Security settings)*, *Install via USB* and MIUI optimisation off, and a direct USB link (no hub).
 
 ---
 

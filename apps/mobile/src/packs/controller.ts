@@ -16,7 +16,7 @@ import {
   savePack,
   setPackState,
 } from './db';
-import { runDownload } from './engine';
+import { heldProgress, runDownload } from './engine';
 import type { Progress } from './engine';
 import { engineDeps, networkKind } from './engine-deps';
 import { areaFolder, packFile, packsRoot } from './files';
@@ -62,11 +62,13 @@ export async function refreshPacks(): Promise<void> {
     'SELECT SUM(bytes) AS bytes FROM pack_files WHERE verified = 1',
   );
   if (mine !== refreshes) return;
-  usePackStore.setState((state) => ({
-    packs,
-    progress: { ...standing, ...live(state.progress) },
-    usedBytes: used?.bytes ?? 0,
-  }));
+  usePackStore.setState((state) => {
+    const fresh = { ...standing, ...live(state.progress) };
+    const progress = Object.fromEntries(
+      Object.entries(fresh).map(([key, next]) => [key, heldProgress(state.progress[key], next)]),
+    );
+    return { packs, progress, usedBytes: used?.bytes ?? 0 };
+  });
 }
 
 /** The progress of the runs under way, which is fresher than the rows. */
@@ -80,10 +82,11 @@ async function deps() {
   return engineDeps(await databaseReady, {
     changed: () => void refreshPacks(),
     progress: (areaId, lang, progress) => {
-      usePackStore.setState((state) => ({
-        progress: { ...state.progress, [packKey(areaId, lang)]: progress },
-      }));
-      notifyPack(areaId, lang, 'progress', progress);
+      const key = packKey(areaId, lang);
+      // The notification says what the bar shows.
+      const shown = heldProgress(usePackStore.getState().progress[key], progress);
+      usePackStore.setState((state) => ({ progress: { ...state.progress, [key]: shown } }));
+      notifyPack(areaId, lang, 'progress', shown);
     },
   });
 }

@@ -2,7 +2,7 @@ import { CloudOff } from 'lucide-react-native';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LANGUAGE_NAMES } from '../../src/i18n/languages';
-import { switchTo, useSwitchStore } from '../../src/i18n/switch';
+import { switchTo, useSwitchStore } from '../../src/language/switch';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { useNetworkStore } from '../../src/network/network-store';
 import { useAppStore } from '../../src/state/app-store';
@@ -10,7 +10,7 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { LIST_END_PADDING } from '../../src/ui/layout';
 import { LanguageList } from '../../src/ui/language-list';
 import { ScreenHeader } from '../../src/ui/screen-header';
-import { SwitchCard } from '../../src/ui/switch-status';
+import { SwitchCard } from '../../src/language/switch-status';
 
 /**
  * Settings › Language: the picker, one level down, with the switch under way on top. Nothing

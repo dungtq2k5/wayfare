@@ -22,6 +22,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
+import { ProgressBar } from '../ui/progress-bar';
 import type { SemanticColor } from '@wayfare/design-tokens/tokens';
 import type { Pack } from './db';
 import type { Progress } from './engine';
@@ -29,9 +30,6 @@ import { formatSize, listeningTime } from './format';
 import type { FileKind } from './plan';
 import { FILE_KINDS } from './plan';
 import type { PackPlan } from './use-pack-plan';
-
-// ponytail: the spinners are a still LoaderCircle (the handoff's reduced-motion form), as in the
-// rest of the app; the words carry every state.
 
 type T = ReturnType<typeof useTourist>['t'];
 
@@ -337,16 +335,10 @@ export function ProgressCard({
           <Text className="text-label text-muted-foreground">{body}</Text>
         </View>
       </View>
-      <View
-        accessibilityRole="progressbar"
-        accessibilityValue={{ min: 0, max: 100, now: finished ? 100 : p }}
-        className="h-2 overflow-hidden rounded-full bg-muted"
-      >
-        <View
-          style={{ width: `${finished ? 100 : p}%` }}
-          className={`h-2 rounded-full ${pack.state === 'failed' || pack.state === 'no-space' ? 'bg-muted-foreground' : 'bg-primary'}`}
-        />
-      </View>
+      <ProgressBar
+        fraction={finished ? 1 : progress?.total ? progress.done / progress.total : 0}
+        muted={pack.state === 'failed' || pack.state === 'no-space'}
+      />
       <Stages stage={stage} finished={finished} />
       <View className="flex-row flex-wrap items-center justify-end gap-2">{buttons}</View>
     </View>

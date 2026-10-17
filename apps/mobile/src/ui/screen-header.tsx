@@ -4,21 +4,29 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
-import { WalkChip } from '../walk/walk-chip';
-import { SwitchPill } from './switch-status';
 
 interface ScreenHeaderProps {
   title: string;
   /** `large` on a tab; `back` on a sub-screen. */
   type?: 'large' | 'back';
+  /** Beside the title, before `trailing`: the tabs' walk chip. */
+  accessory?: ReactNode;
   trailing?: ReactNode;
+  /** Under the title row: the tabs' language-switch pill. */
+  below?: ReactNode;
 }
 
 /**
  * The title lives in the content, never a native header bar, so it grows with the system text size
  * and wraps (handoff: header pattern).
  */
-export function ScreenHeader({ title, type = 'large', trailing }: ScreenHeaderProps) {
+export function ScreenHeader({
+  title,
+  type = 'large',
+  accessory,
+  trailing,
+  below,
+}: ScreenHeaderProps) {
   const router = useRouter();
   const { t } = useTourist();
   return (
@@ -40,10 +48,10 @@ export function ScreenHeader({ title, type = 'large', trailing }: ScreenHeaderPr
         >
           {title}
         </Text>
-        {type === 'large' && <WalkChip />}
+        {accessory}
         {trailing}
       </View>
-      {type === 'large' && <SwitchPill />}
+      {below}
     </View>
   );
 }

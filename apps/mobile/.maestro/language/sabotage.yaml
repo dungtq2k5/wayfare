@@ -1,0 +1,182 @@
+# The language switch under abuse: a choice replaced at once and then undone, taking long and
+# *Switch now*, a failure and *Try again*, a story and its Up next through a switch, the screens
+# mid-switch, and a long-tail language whose screens arrive late. Each step asserts the state that
+# must follow; the last leaves the app in English with no switch.
+#
+# After `language/language.yaml`, same set-up: 日本語 and 한국어 are then on the phone (a cancelled switch keeps
+# what it synced), Tiếng Việt, 简体中文 and the long tail are not. The network,
+# a killed app, the largest text and the first run need adb: `language/system.sh` drives them.
+#   maestro test apps/mobile/.maestro/language/sabotage.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+# Edge 1: two choices at once leave one card; the current language cancels it.
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: '简体中文'
+- tapOn:
+    text: 'Tiếng Việt'
+    retryTapIfNoChange: false
+- assertVisible: 'Switching to Tiếng Việt'
+- assertNotVisible: 'Switching to 简体中文'
+- tapOn:
+    text: 'English'
+    retryTapIfNoChange: false
+- assertNotVisible: 'Switching to .*'
+- assertVisible: 'Language'
+# X4: held past 30 s, the switch takes long; Switch now completes it without the hotset.
+- tapOn: 'Back'
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'Español'
+- extendedWaitUntil:
+    visible: 'Switching to Español is taking a while'
+    timeout: 45000
+- tapOn: 'Switch now'
+- extendedWaitUntil:
+    visible: '.*Switched to Español'
+    timeout: 10000
+- tapOn:
+    text: 'English'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- tapOn: 'Back'
+# X7: the next switch fails, even to a language on the phone; Try again completes it.
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Fail the next switch'
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: '简体中文'
+- assertVisible: "Couldn't switch to 简体中文"
+- assertVisible: 'Chinese \(Simplified\)'
+- tapOn: 'Try again'
+- extendedWaitUntil:
+    visible: '.*Switched to 简体中文'
+    timeout: 20000
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- tapOn: 'Back'
+# Edge 5: a story playing and one in Up next; the switch lets the story finish in English and
+# rebuilds Up next from the Japanese record.
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- tapOn: 'Offer two places to the player'
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible: 'Open the player.*'
+    timeout: 15000
+# Sounding, then paused: a story still being prepared would start again in Japanese instead, and
+# the flow's own pace must not end it.
+- extendedWaitUntil:
+    notVisible: '.*Preparing.*'
+    timeout: 30000
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: '日本語'
+- extendedWaitUntil:
+    visible: '.*Switched to 日本語'
+    timeout: 10000
+- tapOn: '(\[ja\] )?Back'
+- tapOn:
+    point: '50%,89%'
+# Diagnostics offers the seed's first two Places: Chợ Bến Thành plays, Phố đi bộ Nguyễn Huệ waits.
+- assertVisible: '\[en\] Chợ Bến Thành'
+- assertVisible: '\[ja\] Up next · .*'
+- assertVisible: '\[ja\] Phố đi bộ Nguyễn Huệ'
+- tapOn: '.*Close the player'
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- tapOn: 'Back'
+# Edge 6: mid-switch, Explore and a Place's detail stay wholly in English, and the area keeps its Places.
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'Deutsch'
+- assertVisible: 'Switching to Deutsch'
+- tapOn: 'Back'
+- tapOn: 'Map'
+- assertNotVisible: 'No places in this area'
+- tapOn: 'Explore'
+- assertVisible: 'Explore'
+- assertVisible: 'Deutsch is taking a while|Switching to Deutsch · .*'
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- tapOn: 'Back'
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+# T1 → T2 (edge 7): a long tail with its words held completes in English with the note; released,
+# the screens change at once and say so in French.
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the bundle'
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'Français'
+- extendedWaitUntil:
+    visible: 'Places and stories are in Français'
+    timeout: 20000
+- assertVisible: 'Being translated'
+- assertVisible: 'Language'
+- tapOn: 'Back'
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the bundle'
+- extendedWaitUntil:
+    visible: '\[fr\] Settings'
+    timeout: 30000
+# The end: English, no switch.
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- assertNotVisible: 'Switching to .*'
+- tapOn: 'Back'

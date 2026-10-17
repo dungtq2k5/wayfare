@@ -1,5 +1,5 @@
 import type { Language } from '@wayfare/contracts';
-import type { PlaceAudio, PlayerPlace } from './types';
+import type { PlaceAudio, PlayerPlace } from '../data/player-place';
 
 /** The steps of the source ladder, best first (product §F3). */
 export type Rung = 'file' | 'on-demand' | 'stream' | 'device';

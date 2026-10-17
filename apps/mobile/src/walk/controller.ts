@@ -12,7 +12,7 @@ import { playerPlaceOf, viewFromRecord } from '../places/place-view';
 import { handleFix } from './handler';
 import type { OfferOutcome } from './handler';
 import { loadWalkPlaces, walkPlaces } from './geofence-places';
-import { markHeard } from './heard';
+import { markHeard } from '../data/heard';
 import { walkLog } from './log';
 import { initialWalk, step } from './machine';
 import type { WalkEffect, WalkEvent } from './machine';

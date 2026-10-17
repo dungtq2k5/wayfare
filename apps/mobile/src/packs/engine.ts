@@ -1,4 +1,5 @@
 import type { Database } from '../db/database';
+import { displayedFraction } from '../ui/progress';
 import type { Pack, PackState } from './db';
 import { filesOfPack, packOfArea, setPackState, setVerified } from './db';
 import type { FileKind, PackFile } from './plan';
@@ -55,6 +56,19 @@ export interface Progress {
   readonly done: number;
   readonly total: number;
   readonly stage: FileKind | 'checking';
+}
+
+/**
+ * The progress every screen shows: within a run it never falls — a pause reading the verified
+ * rows, or a file fetched again, holds the bar and its label until the real value passes them. A
+ * different total (an update) or a run that had finished (a repair) starts again from the real value.
+ */
+export function heldProgress(previous: Progress | undefined, next: Progress): Progress {
+  const sameRun =
+    previous !== undefined && previous.total === next.total && previous.done < previous.total;
+  if (!sameRun || next.total === 0) return next;
+  const fraction = displayedFraction(previous.done / previous.total, next.done / next.total, true);
+  return { ...next, done: Math.round(fraction * next.total) };
 }
 
 /** How much more than the remaining bytes must be free before a download starts (K7). */
