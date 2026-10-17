@@ -1,0 +1,28 @@
+# Run by offline-system.sh with the gateway and the bucket out of reach, a cold start, the pack
+# installed (frame U1, edge 9): Explore names the download, a detail shows its photo and says more
+# come online, and a story plays from the pack.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- assertNotVisible: ".*this area's streets need its download.*"
+- tapOn: 'Explore'
+- scrollUntilVisible:
+    element: 'Offline · from your District 1 centre download.'
+    timeout: 60000
+- scrollUntilVisible:
+    element: '.*Bưu điện.*'
+    direction: UP
+    timeout: 60000
+- tapOn: '.*Bưu điện.*'
+- takeScreenshot: offline-in-use-detail
+- tapOn: 'Play narration.*'
+- extendedWaitUntil:
+    visible: 'Pause'
+    timeout: 15000
+- tapOn: 'Pause'
+- scrollUntilVisible:
+    element: 'Offline · from your download. More photos load when you.re back online.'

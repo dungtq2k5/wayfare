@@ -21,6 +21,8 @@ export interface PlayerPlace {
   readonly areaId: string | null;
   readonly audio: PlaceAudio | null;
   readonly cardPhotoUrl: string | null;
+  /** The card photo's hash, for a downloaded pack's copy. */
+  readonly cardPhotoSha256?: string | null;
 }
 
 /** Where the sound comes from: the file, the live stream, or the phone's voice. */

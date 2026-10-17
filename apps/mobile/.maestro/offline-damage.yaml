@@ -1,0 +1,16 @@
+# Run by offline-system.sh: one of the ready pack's stories cut short (Diagnostics' Damage a file).
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element: 'Damage a file'
+- tapOn: 'Damage a file'
+- tapOn: 'Back'

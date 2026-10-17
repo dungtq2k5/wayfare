@@ -1,0 +1,110 @@
+# Offline packs, end to end: the offer on the Map, the sheet, the download with its pause, the pill,
+# checking and installed, Offline downloads, the pack's screen, the area switcher, and delete.
+#
+# After `language-fresh.yaml` (a fresh install in English: no pack, the offer not yet shown), on
+# Wi-Fi, against the local stack (`pnpm mobile:reverse`) and a Diagnostics build. *Slow downloads*
+# holds the first ten files of a run (3 s each) and the checking, so each state can be seen.
+#   maestro test apps/mobile/.maestro/offline.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runFlow:
+    file: offline-toggle.yaml
+    env:
+      LABEL: 'Slow downloads'
+      TO: 'on'
+# Frame O1: the offer under the area switcher.
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: 'Take District 1 centre offline'
+    timeout: 20000
+- assertVisible: 'Not now'
+# Frame D1: the sheet.
+- tapOn: 'Download'
+- extendedWaitUntil:
+    visible: 'Download District 1 centre'
+    timeout: 10000
+- assertVisible: 'The map'
+- assertVisible: 'Total'
+- assertVisible: '.* free after downloading'
+- assertVisible: 'On Wi-Fi'
+# Frame D2, the pill on the Map while it runs (frame D2b), then a pause (frame D3) and Resume.
+- tapOn:
+    id: 'pack-sheet-download'
+- extendedWaitUntil:
+    visible: 'Downloading · .*'
+    timeout: 10000
+- assertVisible: '.* of .* · now the .*'
+- tapOn: 'Back'
+- tapOn: 'Map'
+- assertVisible: 'Downloading District 1 centre · .*'
+- tapOn: 'Downloading District 1 centre · .*'
+- assertVisible: 'Cancel'
+- tapOn: 'Pause'
+- extendedWaitUntil:
+    visible: 'Paused · .*'
+    timeout: 10000
+- assertVisible: '.*Nothing is lost.'
+- tapOn: 'Resume'
+# Frames D4 and D5: checking, then installed.
+# After Resume the next ten files are slowed again: half a minute, then checking.
+- extendedWaitUntil:
+    visible: 'Checking the files…'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Ready offline'
+    timeout: 90000
+# Frame O4 and frame M1: Settings' row, Offline downloads, the switch off.
+- tapOn: 'Back'
+- tapOn: 'Settings'
+# Settings keeps its scroll from Diagnostics.
+- scrollUntilVisible:
+    element: 'Preferences'
+    direction: UP
+- assertVisible: 'Offline downloads'
+- assertVisible: '1 area · .* on this phone'
+- tapOn: 'Offline downloads'
+- assertVisible: 'On this phone: .*'
+- assertVisible: 'Update automatically on Wi-Fi'
+- assertVisible: 'Downloaded'
+- assertVisible: 'Available to download'
+- assertVisible: 'Download · .*'
+# Frame M2: the pack.
+- tapOn: 'District 1 centre'
+- assertVisible: 'In this download'
+- assertVisible: '.* of listening'
+- assertVisible: '18 places'
+- tapOn: 'Back'
+- tapOn: 'Back'
+# Frame O3: the area switcher's states.
+- tapOn: 'Map'
+- tapOn: 'District 1 centre'
+- assertVisible: 'Ready offline'
+- assertVisible: 'Download · .*'
+- tapOn: 'Close'
+# Frame M5: delete.
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Preferences'
+    direction: UP
+- tapOn: 'Offline downloads'
+- tapOn: 'District 1 centre'
+- scrollUntilVisible:
+    element: 'Delete this download'
+- tapOn: 'Delete this download'
+- assertVisible: 'Delete District 1 centre\?'
+- assertVisible: 'This frees .*'
+- tapOn: 'DELETE|Delete'
+- extendedWaitUntil:
+    visible: 'District 1 centre deleted · .* freed'
+    timeout: 10000
+- tapOn: 'Back'
+- runFlow:
+    file: offline-toggle.yaml
+    env:
+      LABEL: 'Slow downloads'
+      TO: 'off'

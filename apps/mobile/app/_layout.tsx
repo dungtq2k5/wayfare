@@ -13,6 +13,8 @@ import { hydrateWalk } from '../src/walk/controller';
 import { loadHeard } from '../src/walk/heard';
 import { persistOptions } from '../src/data/persister';
 import { useDataBoot } from '../src/data/use-data-boot';
+import { DownloadSheetHost } from '../src/packs/download-sheet';
+import { usePackBoot } from '../src/packs/use-pack-boot';
 import { useLanguageSwitch } from '../src/i18n/switch-deps';
 import { applyAppearance, useTheme } from '../src/theme/appearance';
 import { scriptLeading } from '../src/theme/script-leading';
@@ -64,6 +66,7 @@ export default function RootLayout() {
   const firstRun = !blocked && (!onboarded || policyChanged);
   // Sync needs a device token, so it waits for registration.
   useDataBoot(checked && onboarded && !blocked);
+  usePackBoot(checked && onboarded && !blocked);
 
   if (!hydrated || !checked) return null;
   // Navigation reads the active mode's tokens: header, card and page colours follow the theme.
@@ -104,8 +107,11 @@ export default function RootLayout() {
               <Stack.Screen name="settings/language" />
               <Stack.Screen name="settings/credits" />
               <Stack.Screen name="settings/diagnostics" />
+              <Stack.Screen name="settings/downloads" />
+              <Stack.Screen name="settings/pack" />
             </Stack.Protected>
           </Stack>
+          <DownloadSheetHost />
           <ToastHost />
           <WalkPromptHost />
         </View>

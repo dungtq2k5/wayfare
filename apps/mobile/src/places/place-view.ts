@@ -8,6 +8,8 @@ export interface PhotoView {
   readonly card: string;
   readonly full: string;
   readonly alt: string | null;
+  /** The card variant's hash, matched against a downloaded pack's photos. */
+  readonly sha256?: string;
 }
 
 export interface MenuItemView {
@@ -75,6 +77,7 @@ export function viewFromDetail(dto: PlaceDetailResponseDto): PlaceView {
       card: photo.card.url,
       full: photo.full.url,
       alt: photo.altText,
+      sha256: photo.card.sha256,
     })),
     menu:
       dto.menu === null
@@ -118,7 +121,7 @@ export function viewFromRecord(record: PlaceSyncRecordStored): PlaceView {
     photos:
       photo === null || photo === undefined
         ? []
-        : [{ id: record.id, card: photo.url, full: photo.url, alt: null }],
+        : [{ id: record.id, card: photo.url, full: photo.url, alt: null, sha256: photo.sha256 }],
     menu: null,
     phone: null,
     websiteUrl: null,
@@ -143,6 +146,7 @@ export function playerPlaceOf(view: PlaceView): PlayerPlace {
     areaId: view.areaId,
     audio: view.audio,
     cardPhotoUrl: view.photos[0]?.card ?? null,
+    cardPhotoSha256: view.photos[0]?.sha256 ?? null,
   };
 }
 

@@ -1,0 +1,23 @@
+# Run by offline-system.sh after a second edit and a cold start, with Update automatically on Wi-Fi
+# on (frame M3b): the update runs by itself and says what changed, with no tap. The switch then off.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'District 1 centre updated · 1 place changed, .*'
+    timeout: 60000
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Preferences'
+    direction: UP
+- tapOn: 'Offline downloads'
+- assertVisible: 'Ready offline'
+- assertVisible:
+    text: 'Update automatically on Wi-Fi'
+    checked: true
+- tapOn: 'Update automatically on Wi-Fi'
+- assertVisible:
+    text: 'Update automatically on Wi-Fi'
+    checked: false
+- runFlow: offline-tabs.yaml

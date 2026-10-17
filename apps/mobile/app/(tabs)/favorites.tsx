@@ -30,6 +30,7 @@ export default function FavoritesScreen() {
     categoryCode: place.categoryCode,
     name: place.name,
     cardPhotoUrl: place.cardPhoto?.url ?? null,
+    cardPhotoSha256: place.cardPhoto?.sha256 ?? null,
     priceBand: place.priceBand,
     distanceM: null,
     walkingMinutes: null,

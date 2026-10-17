@@ -2,6 +2,7 @@ import { ApiError, useDevicesForget } from '@wayfare/api-client';
 import * as Application from 'expo-application';
 import { useRouter } from 'expo-router';
 import {
+  Download,
   Activity,
   Bell,
   BatteryWarning,
@@ -36,6 +37,8 @@ import { SegmentedControl } from '../../src/ui/segmented-control';
 import { APP_VERSION } from '../../src/api';
 import { allowBackground } from '../../src/walk/start';
 import { useWalkPermissions } from '../../src/walk/use-walk-permissions';
+import { formatSize } from '../../src/packs/format';
+import { usePackUsage } from '../../src/packs/use-pack-plan';
 
 /** One group of settings in a card, with its name above (handoff E1). */
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -101,6 +104,7 @@ export default function SettingsScreen() {
   const [failure, setFailure] = useState<string | null>(null);
   const forgetCall = useDevicesForget();
   const walkPermissions = useWalkPermissions();
+  const packUsage = usePackUsage();
 
   const forget = async (): Promise<void> => {
     try {
@@ -131,6 +135,16 @@ export default function SettingsScreen() {
               value={LANGUAGE_NAMES[language ?? 'en'] ?? language ?? 'English'}
               end={ChevronRight}
               onPress={() => router.push('/settings/language')}
+            />
+            <Row
+              icon={Download}
+              title={t('pack.downloads')}
+              subtitle={t('pack.settingsSummary', {
+                count: packUsage.areas,
+                size: formatSize(packUsage.bytes),
+              })}
+              end={ChevronRight}
+              onPress={() => router.push('/settings/downloads')}
             />
             <View className="gap-2 px-4 pb-3">
               <View className="min-h-12 flex-row items-center gap-3">

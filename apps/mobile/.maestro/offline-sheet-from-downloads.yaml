@@ -1,0 +1,10 @@
+# From the tabs: Settings › Offline downloads, then District 1 centre's sheet.
+appId: app.wayfare
+---
+- runFlow: offline-tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Preferences'
+    direction: UP
+- tapOn: 'Offline downloads'
+- runFlow: offline-sheet.yaml

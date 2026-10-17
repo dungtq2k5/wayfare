@@ -3,6 +3,7 @@ import { CheckCircle2, Circle } from 'lucide-react-native';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
+import { AreaPackState } from '../packs/map-extras';
 import { areaIcon } from './categories';
 
 /** The areas to choose from, over the map: an icon, a name and a subtitle, with a check on the current one. */
@@ -53,6 +54,7 @@ export function AreaSheet({
                   <Text className="text-caption text-muted-foreground">
                     {tFamily('area', `${area.code}.subtitle`, tFamily('area', 'generic.subtitle'))}
                   </Text>
+                  <AreaPackState areaId={area.id} />
                 </View>
                 <Icon
                   icon={selected ? CheckCircle2 : Circle}

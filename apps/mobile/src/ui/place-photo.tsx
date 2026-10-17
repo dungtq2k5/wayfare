@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { cssInterop } from 'nativewind';
 import { View } from 'react-native';
 import { categoryIcon } from '../map/categories';
+import { usePhotoUri } from '../packs/use-pack-files';
 import { Icon } from '../theme/icon';
 
 // expo-image is not a React Native view NativeWind knows: without this its `className` is dropped
@@ -10,16 +11,20 @@ cssInterop(Image, { className: 'style' });
 
 /** A Place's photo, or the designed placeholder: its category's icon on a quiet surface. */
 export function PlacePhoto({
-  uri,
+  uri: remote,
   categoryCode,
+  sha256,
   className = 'h-16 w-16',
   label,
 }: {
   uri: string | null;
+  /** The photo's hash: a downloaded pack's copy is shown when it holds one. */
+  sha256?: string | null;
   categoryCode: string;
   className?: string;
   label?: string;
 }) {
+  const uri = usePhotoUri(remote, sha256);
   if (uri === null) {
     return (
       <View

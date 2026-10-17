@@ -13,6 +13,7 @@ import { deviceSession } from '../session';
 import { PLAYBACK_SPEEDS, useAppStore } from '../state/app-store';
 import { areaNameOf } from './area-name';
 import { fallbackArtworkUrl } from './fallback-artwork';
+import { packAudioUri } from '../packs/use-pack-files';
 import { cachedFile, downloadToCache } from './audio-cache';
 import { resolveSource } from './ladder';
 import type { LadderDeps, OnDemandAnswer, Resolution, Rung } from './ladder';
@@ -41,7 +42,11 @@ const deps: LadderDeps = {
     return { status: 'UNAVAILABLE' };
   },
   status: async (placeId, lang) => (await narrationStatus(placeId, { lang })).data.audio ?? null,
-  cachedFile,
+  // A downloaded pack's story first, only while it is this record's (K13), then the audio cache.
+  cachedFile: (place, audio, lang) =>
+    Promise.resolve(packAudioUri(audio.sha256)).then(
+      (uri) => uri ?? cachedFile(place, audio, lang),
+    ),
   download: downloadToCache,
   hasDeviceVoice: async (lang) => {
     const voices = await Speech.getAvailableVoicesAsync();

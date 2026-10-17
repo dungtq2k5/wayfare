@@ -30,6 +30,7 @@ import { Button } from '../ui/button';
 import { FavouriteToggle } from '../ui/favourite-toggle';
 import { InlineNote } from '../ui/inline-note';
 import { MetaPair } from '../ui/meta-pair';
+import { usePackIndex, usePhotoUri } from '../packs/use-pack-files';
 import { PlacePhoto } from '../ui/place-photo';
 import { HoursBlock } from './hours-block';
 import { formatDuration, formatPrice, playerPlaceOf } from './place-view';
@@ -41,6 +42,19 @@ import { useDistanceText } from './use-walk-text';
 export type DetailLevel = 'peek' | 'half' | 'full';
 
 const open = (url: string) => void Linking.openURL(url);
+
+/** One photo of the gallery: a downloaded pack's copy when one holds it. */
+function GalleryPhoto({ photo, width }: { photo: PlaceView['photos'][number]; width: number }) {
+  const uri = usePhotoUri(photo.card, photo.sha256);
+  return (
+    <Image
+      source={{ uri: uri ?? photo.card }}
+      contentFit="cover"
+      accessibilityLabel={photo.alt ?? undefined}
+      style={{ width, aspectRatio: 16 / 9 }}
+    />
+  );
+}
 
 function Gallery({ view }: { view: PlaceView }) {
   const { width } = useWindowDimensions();
@@ -61,14 +75,7 @@ function Gallery({ view }: { view: PlaceView }) {
         onMomentumScrollEnd={(event) =>
           setIndex(Math.round(event.nativeEvent.contentOffset.x / width))
         }
-        renderItem={({ item }) => (
-          <Image
-            source={{ uri: item.card }}
-            contentFit="cover"
-            accessibilityLabel={item.alt ?? undefined}
-            style={{ width, aspectRatio: 16 / 9 }}
-          />
-        )}
+        renderItem={({ item }) => <GalleryPhoto photo={item} width={width} />}
       />
       {view.photos.length > 1 && (
         <View className="absolute bottom-2 w-full flex-row justify-center gap-1">
@@ -196,6 +203,8 @@ export function PlaceDetail({
     view.priceBand === null || view.priceBand < 1 ? null : '$'.repeat(Math.min(view.priceBand, 4));
   const ownLanguage = view.contentTier === 'REQUESTED';
   const playingHere = usePlayerStore((state) => state.current?.place.id === view.id);
+  // Offline from a download (frame U1c): the note says so, and that more photos come online.
+  const fromPack = usePackIndex((index) => view.areaId !== null && index.areas.has(view.areaId));
   const shownBadgeLanguage =
     view.contentTier === 'ENGLISH'
       ? LANGUAGE_NAMES.en
@@ -298,7 +307,10 @@ export function PlaceDetail({
           </View>
           <Menu view={view} />
           {view.source === 'offline' && (
-            <InlineNote icon={CloudOff} text={t('place.offline.note')} />
+            <InlineNote
+              icon={CloudOff}
+              text={fromPack ? t('pack.note.detail') : t('place.offline.note')}
+            />
           )}
         </View>
       )}

@@ -22,17 +22,20 @@ export function blankStyle(background: string) {
 }
 
 /**
- * What the map is drawn on. Online, the area's published style, read remotely — dark when the
- * pack has a dark style. Offline, or an area with no pack, the plain background: the download state.
- * (A downloaded pack will take precedence.)
+ * What the map is drawn on. An area's downloaded pack first, online or offline: faster, and no
+ * data. Otherwise, online, the area's published style, read remotely — dark when the pack has a
+ * dark style. Offline, or an area with no pack, the plain background: the download state.
  */
 export function chooseMapStyle(input: {
   pack: PackStyles | null;
+  /** The area's downloaded style, its URLs already pointing at the phone. */
+  local?: object | null;
   dark: boolean;
   offline: boolean;
   background: string;
 }) {
-  const { pack, dark, offline, background } = input;
+  const { pack, local, dark, offline, background } = input;
+  if (local != null) return { kind: 'local' as const, style: local };
   if (pack === null || offline) return { kind: 'blank' as const, style: blankStyle(background) };
   return { kind: 'remote' as const, style: dark ? (pack.styleDark ?? pack.style) : pack.style };
 }

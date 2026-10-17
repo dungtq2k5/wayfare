@@ -1,0 +1,16 @@
+# Run by offline-system.sh: District 1 centre downloaded at full speed, ready.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runFlow: offline-delete.yaml
+- runFlow: offline-sheet.yaml
+- tapOn:
+    id: 'pack-sheet-download'
+- extendedWaitUntil:
+    visible: 'Ready offline'
+    timeout: 120000
+- runFlow: offline-tabs.yaml

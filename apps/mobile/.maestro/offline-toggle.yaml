@@ -1,0 +1,18 @@
+# Sets one of Diagnostics' download switches to TO ('on', 'off', or for 'Report free space' '1 MB')
+# — LABEL: 'Slow downloads', 'Report free space', 'Report mobile data' or 'Fail the next file' —
+# and comes back. A switch already there is left alone.
+appId: app.wayfare
+---
+- runFlow: offline-tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element: '${LABEL}: .*'
+- runFlow:
+    when:
+      notVisible: '${LABEL}: ${TO}'
+    commands:
+      - tapOn: '${LABEL}: .*'
+- tapOn: 'Back'

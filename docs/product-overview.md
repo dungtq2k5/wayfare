@@ -290,7 +290,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 2. Location is asked for in context, never at launch: foreground the first time the tourist asks the map where they are, and background — with a plain-language reason — when they first start a walk (F2), because a walk is what needs it.
 3. In parallel: read whatever is already in the local DB (instant render), request a best-effort position (prefer a recent cached fix), and full-sync the Place corpus.
 4. A **startup network probe** with a short timeout decides "offline" vs "slow" before the UI accuses the network of being down.
-5. App offers: *"Download Ho Chi Minh City for offline use — 180 MB"*. Strongly suggested while on Wi-Fi.
+5. App offers the area on screen: *"Download District 1 centre for offline use — 48 MB"* — once per area, on Wi-Fi. A pack is one area in one language; there is no city-wide pack.
 6. Map appears with the tourist's dot and nearby Places. **Quick-start in English is allowed** while the chosen language's hotset and UI bundle finish warming in the background; the app switches over when both lanes are ready.
 
 ### J2 — The core loop: walking and hearing (P0, demo this one)

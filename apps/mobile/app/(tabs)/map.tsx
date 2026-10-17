@@ -28,6 +28,8 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { useControlsBottom } from '../../src/player/mini-player';
 import { AreaSheet } from '../../src/map/area-sheet';
 import { SwitchPill } from '../../src/ui/switch-status';
+import { MapPackExtras, OfflineMapNote } from '../../src/packs/map-extras';
+import { useLocalStyle } from '../../src/packs/use-local-style';
 import { WalkControl } from '../../src/walk/walk-control';
 import { WalkNotice } from '../../src/walk/walk-notices';
 import { areaMove } from '../../src/codes/area-move';
@@ -120,8 +122,10 @@ export default function MapScreen() {
   }, [opened?.seq]);
 
   const pack = useMapPack(area);
+  const local = useLocalStyle(area?.id, theme.mode === 'dark');
   const mapStyle = chooseMapStyle({
     pack: pack.data ?? null,
+    local,
     dark: theme.mode === 'dark',
     offline,
     background: theme.colors.background,
@@ -245,10 +249,9 @@ export default function MapScreen() {
           </Pressable>
         </View>
         <SwitchPill />
+        {area !== undefined && <MapPackExtras areaId={area.id} />}
         <WalkNotice />
-        {offline && mapStyle.kind === 'blank' && (
-          <InlineNote text={`${t('map.noMap.title')}. ${t('map.noMap.body')}`} />
-        )}
+        {offline && mapStyle.kind === 'blank' && <OfflineMapNote />}
         {firstSync && syncing && <InlineNote text={t('map.firstSync')} />}
         {noPlacesHere && !firstSync && <InlineNote text={t('map.noPlaces')} />}
         {explainer && (
