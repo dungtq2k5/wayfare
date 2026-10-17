@@ -1,4 +1,5 @@
 import { clearAudioCache } from '../player/audio-cache';
+import { forgetPacks } from '../packs/controller';
 import { narrationPlayer } from '../player/narration-player';
 import { clearLocalData } from '../sync/sync';
 import { useNetworkStore } from '../network/network-store';
@@ -14,7 +15,10 @@ import { deleteWalkLog } from '../walk/log';
 import { resetWalk } from '../walk/controller';
 import { dropWalkPlaces } from '../walk/geofence-places';
 
-/** What *Forget this install* clears beyond the session: Places, cursors, cached areas, verdict, the walk. */
+/**
+ * What *Forget this install* clears beyond the session: Places, cursors, cached areas, verdict, the
+ * walk, the offline packs.
+ */
 export async function forgetLocalData(): Promise<void> {
   narrationPlayer.stop();
   await resetWalk();
@@ -24,6 +28,7 @@ export async function forgetLocalData(): Promise<void> {
   deleteWalkLog();
   dropWalkPlaces();
   await clearAudioCache();
+  await forgetPacks();
   await clearLocalData(await databaseReady);
   await persister.removeClient();
   queryClient.clear();

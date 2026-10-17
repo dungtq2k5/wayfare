@@ -1,0 +1,32 @@
+# Run by offline-system.sh online again, after a cold start (frame M3, edge 7): the update is found,
+# sized and counted, and Update brings the pack back to ready. Then Update automatically on Wi-Fi is
+# switched on for the next update.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Preferences'
+    direction: UP
+- tapOn: 'Offline downloads'
+- extendedWaitUntil:
+    visible: 'Update · .*'
+    timeout: 30000
+- tapOn: 'District 1 centre'
+- assertVisible: 'Update available · .*'
+- assertVisible: '1 place changed and .* new since .*'
+- tapOn:
+    id: 'pack-update'
+- extendedWaitUntil:
+    visible: 'Ready offline'
+    timeout: 60000
+- tapOn: 'Back'
+- tapOn: 'Update automatically on Wi-Fi'
+- assertVisible:
+    text: 'Update automatically on Wi-Fi'
+    checked: true
+- runFlow: offline-tabs.yaml

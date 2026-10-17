@@ -17,6 +17,7 @@ export interface RowPlace {
   readonly categoryCode: string;
   readonly name: string;
   readonly cardPhotoUrl: string | null;
+  readonly cardPhotoSha256?: string | null;
   readonly priceBand: number | null;
   readonly distanceM: number | null;
   readonly walkingMinutes: number | null;
@@ -72,6 +73,7 @@ export function PlaceRow({ place, onPress }: { place: RowPlace; onPress: () => v
     >
       <PlacePhoto
         uri={place.cardPhotoUrl}
+        sha256={place.cardPhotoSha256}
         categoryCode={place.categoryCode}
         className={stacked ? 'aspect-video w-full' : undefined}
       />
@@ -113,6 +115,7 @@ export function rowFromRecord(
     categoryCode: record.categoryCode,
     name: record.localization.name,
     cardPhotoUrl: record.cardPhoto?.url ?? null,
+    cardPhotoSha256: record.cardPhoto?.sha256 ?? null,
     priceBand: record.priceBand,
     distanceM: distance.distanceM,
     walkingMinutes: distance.walkingMinutes,

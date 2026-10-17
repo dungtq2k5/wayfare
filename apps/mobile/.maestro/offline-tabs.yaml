@@ -1,0 +1,8 @@
+# Back to the tabs from a screen above them (a pack, Offline downloads), however deep.
+appId: app.wayfare
+---
+- repeat:
+    while:
+      visible: '(\[.*\] )?Back'
+    commands:
+      - tapOn: '(\[.*\] )?Back'

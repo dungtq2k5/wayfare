@@ -22,6 +22,8 @@ import { Icon } from '../../src/theme/icon';
 import { Button } from '../../src/ui/button';
 import { CategoryChip } from '../../src/ui/category-chip';
 import { InlineNote } from '../../src/ui/inline-note';
+import { areaName as packAreaName } from '../../src/packs/area-name';
+import { usePackIndex } from '../../src/packs/use-pack-files';
 import { LIST_END_PADDING } from '../../src/ui/layout';
 import { PlaceRow, rowFromRecord } from '../../src/ui/place-row';
 import type { RowPlace } from '../../src/ui/place-row';
@@ -38,6 +40,12 @@ export default function ExploreScreen() {
   const lang = useAppStore((state) => state.language) ?? 'en';
   const currentAreaId = useAppStore((state) => state.currentAreaId);
   const offline = useNetworkStore((state) => state.status === 'offline');
+  // Offline with a download in use, the note names it (frame U1b): the Map's area's, or the first.
+  const packArea = usePackIndex((index) =>
+    currentAreaId !== null && index.areas.has(currentAreaId)
+      ? currentAreaId
+      : index.areas.keys().next().value,
+  );
   const permission = useLocationStore((state) => state.permission);
   const lastChecked = useSyncStore((state) => state.lastCheckedAt);
   const position = usePosition();
@@ -81,6 +89,7 @@ export default function ExploreScreen() {
         categoryCode: item.categoryCode,
         name: item.name,
         cardPhotoUrl: item.cardPhoto?.url ?? null,
+        cardPhotoSha256: item.cardPhoto?.sha256 ?? null,
         priceBand: item.priceBand,
         distanceM: item.distanceM,
         walkingMinutes: item.walkingEtaMinutes,
@@ -236,7 +245,14 @@ export default function ExploreScreen() {
         ListFooterComponent={
           <View className="gap-2 pt-2">
             {source === 'offline' && (
-              <InlineNote icon={WifiOff} text={t('explore.offlineNote', { when })} />
+              <InlineNote
+                icon={WifiOff}
+                text={
+                  packArea === undefined
+                    ? t('explore.offlineNote', { when })
+                    : t('pack.note.explore', { area: packAreaName(packArea) })
+                }
+              />
             )}
             {source === 'online' && rows.length >= NEARBY_LIMIT_MAX && (
               <Text className="text-caption text-muted-foreground">

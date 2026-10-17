@@ -1,0 +1,8 @@
+# Run by offline-system.sh with the gateway and the bucket out of reach mid-download (frame D3b):
+# the next file fails, and the download waits for a connection.
+appId: app.wayfare
+---
+- extendedWaitUntil:
+    visible: 'Waiting for a connection'
+    timeout: 60000
+- assertVisible: '.*It goes on by itself when you.re back online.'

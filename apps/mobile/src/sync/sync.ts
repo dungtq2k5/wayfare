@@ -1,6 +1,6 @@
 import { zPlaceSyncRecordStored } from '@wayfare/contracts';
 import type { Language, PlaceSyncRecordStored } from '@wayfare/contracts';
-import type { Database } from '../db/database';
+import type { Database, Queries } from '../db/database';
 
 /** One page as the sync reads it from the wire. */
 export interface SyncPage {
@@ -44,7 +44,7 @@ const DELETE_CHUNK = 500;
 
 /** The version this area was last synced to, in this language. */
 export async function cursorOf(
-  db: Database,
+  db: Queries,
   areaId: string,
   lang: Language,
 ): Promise<number | null> {
@@ -118,9 +118,13 @@ export async function syncArea(input: {
   return { areaId, pages, written, removed, unchanged, datasetVersion: cursor };
 }
 
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
-async function upsertRecord(tx: Tx, record: PlaceSyncRecordStored, lang: Language): Promise<void> {
+export async function upsertRecord(
+  tx: Tx,
+  record: PlaceSyncRecordStored,
+  lang: Language,
+): Promise<void> {
   await tx.run(
     `INSERT INTO place_records
        (place_id, lang, area_id, kind, category_code, lat, lng, record_json)

@@ -3,6 +3,8 @@ import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAllPlaces, useLocalAreas } from '../../src/data/hooks';
 import { useSwitchHolds } from '../../src/i18n/switch-holds';
+import { damageAFile } from '../../src/packs/controller';
+import { usePackHolds } from '../../src/packs/holds';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { useNetworkStore } from '../../src/network/network-store';
 import { narrationPlayer } from '../../src/player/narration-player';
@@ -36,6 +38,7 @@ export default function DiagnosticsScreen() {
   const noPosition = useWalkStore((state) => state.noPosition);
   const stationaryMode = useWalkStore((state) => state.stationaryMode);
   const holds = useSwitchHolds();
+  const packHolds = usePackHolds();
   const onOff = (on: boolean) => t(on ? 'settings.diagnostics.on' : 'settings.diagnostics.off');
   const time = (at: number | null) =>
     at === null ? t('settings.data.never') : new Date(at).toLocaleTimeString();
@@ -142,6 +145,33 @@ export default function DiagnosticsScreen() {
             label={t('settings.diagnostics.failNext', { state: onOff(holds.failNext) })}
             variant="secondary"
             onPress={() => useSwitchHolds.setState({ failNext: !holds.failNext })}
+          />
+          <Button
+            label={t('settings.diagnostics.packSlow', { state: onOff(packHolds.slow) })}
+            variant="secondary"
+            onPress={() => usePackHolds.setState({ slow: !packHolds.slow })}
+          />
+          <Button
+            label={t('settings.diagnostics.packFree', {
+              state: packHolds.freeMb === null ? onOff(false) : `${packHolds.freeMb} MB`,
+            })}
+            variant="secondary"
+            onPress={() => usePackHolds.setState({ freeMb: packHolds.freeMb === null ? 1 : null })}
+          />
+          <Button
+            label={t('settings.diagnostics.packMobile', { state: onOff(packHolds.mobileData) })}
+            variant="secondary"
+            onPress={() => usePackHolds.setState({ mobileData: !packHolds.mobileData })}
+          />
+          <Button
+            label={t('settings.diagnostics.packFailNext', { state: onOff(packHolds.failNext) })}
+            variant="secondary"
+            onPress={() => usePackHolds.setState({ failNext: !packHolds.failNext })}
+          />
+          <Button
+            label={t('settings.diagnostics.packDamage')}
+            variant="secondary"
+            onPress={() => void damageAFile()}
           />
           <Button
             label={t('settings.diagnostics.walkLog')}

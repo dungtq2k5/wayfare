@@ -1,0 +1,10 @@
+# From Offline downloads with nothing downloaded: District 1 centre's sheet (frame D1).
+appId: app.wayfare
+---
+# At the largest text the row can be below the fold.
+- scrollUntilVisible:
+    element: 'District 1 centre'
+- tapOn: 'District 1 centre'
+- extendedWaitUntil:
+    visible: 'Download District 1 centre'
+    timeout: 15000

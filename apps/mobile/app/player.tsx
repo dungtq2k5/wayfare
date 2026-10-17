@@ -107,6 +107,7 @@ export default function PlayerScreen() {
           >
             <PlacePhoto
               uri={place.cardPhotoUrl}
+              sha256={place.cardPhotoSha256}
               categoryCode={place.categoryCode}
               className="h-full w-full"
             />

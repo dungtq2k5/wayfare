@@ -38,19 +38,24 @@ let transactions: Promise<unknown> = Promise.resolve();
 
 /** The app's one database, opened once. */
 export function openDatabase(): Promise<Database> {
-  opened ??= SQLite.openDatabaseAsync(DATABASE_NAME).then((db) => ({
-    ...over(db),
-    async transaction(fn) {
-      let result: Awaited<ReturnType<typeof fn>> | undefined;
-      const turn = transactions.then(() =>
-        db.withExclusiveTransactionAsync(async (txn) => {
-          result = await fn(over(txn));
-        }),
-      );
-      transactions = turn.catch(() => undefined);
-      await turn;
-      return result as Awaited<ReturnType<typeof fn>>;
-    },
-  }));
+  opened ??= SQLite.openDatabaseAsync(DATABASE_NAME).then(async (db) => {
+    // A write outside a transaction waits for an exclusive transaction on its own connection (a
+    // sync, an activation) instead of failing at once with "database is locked".
+    await db.execAsync('PRAGMA busy_timeout = 5000');
+    return {
+      ...over(db),
+      async transaction(fn) {
+        let result: Awaited<ReturnType<typeof fn>> | undefined;
+        const turn = transactions.then(() =>
+          db.withExclusiveTransactionAsync(async (txn) => {
+            result = await fn(over(txn));
+          }),
+        );
+        transactions = turn.catch(() => undefined);
+        await turn;
+        return result as Awaited<ReturnType<typeof fn>>;
+      },
+    };
+  });
   return opened;
 }
