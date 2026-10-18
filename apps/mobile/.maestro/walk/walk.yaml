@@ -64,6 +64,8 @@ appId: app.wayfare
 - tapOn: 'Close the player'
 - tapOn: 'Close'
 - tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
 - tapOn: 'Diagnostics'
 - scrollUntilVisible:
     element: 'Next place'

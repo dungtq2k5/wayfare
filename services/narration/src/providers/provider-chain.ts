@@ -15,15 +15,64 @@ export class InputRefusedError extends Error {
   }
 }
 
+/** The network codes of a provider that could not be reached at all (rdm-spec N-2). */
+const UNREACHABLE_CODES = new Set([
+  'EAI_AGAIN',
+  'ENOTFOUND',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_SOCKET',
+]);
+
+/** A call the chain gave up on after `PROVIDER_CALL_TIMEOUT_MS`. */
+export class ProviderTimeoutError extends Error {
+  constructor(ms: number) {
+    super(`timed out after ${ms} ms`);
+    this.name = 'ProviderTimeoutError';
+  }
+}
+
+const codeOf = (value: unknown): unknown =>
+  typeof value === 'object' && value !== null ? (value as { code?: unknown }).code : undefined;
+
+/**
+ * Whether a failure says the provider could not be reached — a timeout, or a network error on the
+ * error or its cause (Edge's WebSocket wraps `getaddrinfo EAI_AGAIN` that way) — rather than an
+ * answer it refused or got wrong.
+ */
+export function isUnreachable(error: unknown): boolean {
+  if (error instanceof ProviderTimeoutError) return true;
+  const cause = error instanceof Error ? error.cause : undefined;
+  return [codeOf(error), codeOf(cause)].some(
+    (code) => typeof code === 'string' && UNREACHABLE_CODES.has(code),
+  );
+}
+
 /** Every provider was tried or skipped, and none answered. */
 export class NoProviderAnsweredError extends Error {
-  constructor(role: string, reasons: readonly string[]) {
+  /**
+   * True when there was a provider for the call and none could be reached: each one tried failed
+   * unreachable, and each one skipped is cooling down after such a failure. A task waits out an
+   * outage like that without spending its attempts (rdm-spec N-2).
+   */
+  readonly unreachable: boolean;
+
+  constructor(
+    readonly role: 'translation' | 'speech',
+    reasons: readonly string[],
+    unreachable = false,
+  ) {
     super(
       reasons.length === 0
         ? `no ${role} provider is available`
         : `every ${role} provider failed: ${reasons.join('; ')}`,
     );
     this.name = 'NoProviderAnsweredError';
+    this.unreachable = unreachable;
   }
 }
 
@@ -45,6 +94,8 @@ interface Breaker {
   consecutiveFailures: number;
   coolingUntil: number | null;
   recent: boolean[];
+  /** Whether its last failure was a provider that could not be reached. */
+  lastUnreachable: boolean;
 }
 
 const isEmpty = (value: unknown): boolean =>
@@ -73,7 +124,12 @@ export class ProviderChain<P extends { readonly name: string }> {
     } = {},
   ) {
     for (const provider of providers) {
-      this.breakers.set(provider.name, { consecutiveFailures: 0, coolingUntil: null, recent: [] });
+      this.breakers.set(provider.name, {
+        consecutiveFailures: 0,
+        coolingUntil: null,
+        recent: [],
+        lastUnreachable: false,
+      });
     }
   }
 
@@ -92,7 +148,12 @@ export class ProviderChain<P extends { readonly name: string }> {
     call: (provider: P) => Promise<T>,
   ): Promise<{ result: T; provider: P }> {
     const reasons: string[] = [];
-    for (const provider of this.candidates(eligible)) {
+    const candidates = this.candidates(eligible);
+    // The eligible providers skipped for cooling down count by why they last failed.
+    const unreachable = this.providers
+      .filter((provider) => eligible(provider) && !candidates.includes(provider))
+      .map((provider) => this.breakers.get(provider.name)!.lastUnreachable);
+    for (const provider of candidates) {
       try {
         const result = await this.withTimeout(call(provider));
         if (isEmpty(result)) throw new Error('empty result');
@@ -100,11 +161,16 @@ export class ProviderChain<P extends { readonly name: string }> {
         return { result, provider };
       } catch (error) {
         if (error instanceof InputRefusedError) throw error;
-        this.record(provider.name, false);
+        this.record(provider.name, false, isUnreachable(error));
+        unreachable.push(isUnreachable(error));
         reasons.push(`${provider.name}: ${redact(error)}`);
       }
     }
-    throw new NoProviderAnsweredError(this.role, reasons);
+    throw new NoProviderAnsweredError(
+      this.role,
+      reasons,
+      unreachable.length > 0 && unreachable.every(Boolean),
+    );
   }
 
   /** Every provider's state. */
@@ -126,8 +192,9 @@ export class ProviderChain<P extends { readonly name: string }> {
     });
   }
 
-  private record(name: string, ok: boolean): void {
+  private record(name: string, ok: boolean, unreachable = false): void {
     const breaker = this.breakers.get(name)!;
+    if (!ok) breaker.lastUnreachable = unreachable;
     breaker.recent.push(ok);
     if (breaker.recent.length > ERROR_RATE_WINDOW) breaker.recent.shift();
     if (ok) {
@@ -150,7 +217,7 @@ export class ProviderChain<P extends { readonly name: string }> {
   private withTimeout<T>(promise: Promise<T>): Promise<T> {
     const ms = this.options.timeoutMs ?? PROVIDER_CALL_TIMEOUT_MS;
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
+      const timer = setTimeout(() => reject(new ProviderTimeoutError(ms)), ms);
       promise.then(
         (value) => {
           clearTimeout(timer);

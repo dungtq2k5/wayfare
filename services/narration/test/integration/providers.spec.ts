@@ -2,6 +2,8 @@
 import {
   NARRATION_LOCALIZATION_FAILED,
   PROVIDER_FAILURE_THRESHOLD,
+  PROVIDER_OUTAGE_RETRY_WINDOW_MS,
+  SynthesisFailureReason,
   SynthesisJobStatus,
   SynthesisTaskStatus,
 } from '@wayfare/contracts';
@@ -118,5 +120,89 @@ describe('a final failure', () => {
     await services.tasks.run(item.taskId);
     const task = await prisma.synthesisTask.findUniqueOrThrow({ where: { id: item.taskId } });
     expect(task).toMatchObject({ status: SynthesisTaskStatus.QUEUED, attempts: 1 });
+  });
+});
+
+/** Edge with no network: the WebSocket's `getaddrinfo EAI_AGAIN`, its code on the cause. */
+class OfflineSpeech extends FakeSpeechProvider {
+  override synthesize(): Promise<Buffer> {
+    const cause = Object.assign(new Error('getaddrinfo EAI_AGAIN'), { code: 'EAI_AGAIN' });
+    return Promise.reject(new Error('Edge TTS WebSocket error: getaddrinfo EAI_AGAIN', { cause }));
+  }
+}
+
+describe('a speech provider that cannot be reached (rdm-spec N-2)', () => {
+  const outage = () =>
+    narrationServices(prisma, {
+      chains: {
+        translation: new ProviderChain('translation', [new FakeTranslationProvider()]),
+        speech: new ProviderChain('speech', [new OfflineSpeech()]),
+      },
+    });
+
+  it('waits on the outage back-off without spending the attempts', async () => {
+    const services = outage();
+    const place = services.catalog.place();
+    await services.jobs.createManualJob(manualRequest(place.id, ['en']), staff());
+    const delays: (number | undefined)[] = [];
+    // Five attempts, past the three a task gets: the breaker opens after the third, and a provider
+    // cooling down after such failures is still unreachable.
+    for (let n = 0; n < 5; n += 1) {
+      const item = services.queue.take()!;
+      await services.tasks.run(item.taskId);
+      delays.push([...services.queue.items.values()][0]?.delayMs);
+    }
+    expect(delays).toEqual([60_000, 300_000, 900_000, 900_000, 900_000]);
+    const task = await prisma.synthesisTask.findFirstOrThrow();
+    expect(task).toMatchObject({
+      status: SynthesisTaskStatus.QUEUED,
+      attempts: 5,
+      providerWaits: 5,
+      failureReason: SynthesisFailureReason.PROVIDER_UNAVAILABLE,
+    });
+    expect(task.nextAttemptAt!.getTime()).toBeGreaterThan(Date.now() + 800_000);
+    const events = await outboxPayloads(prisma, NARRATION_LOCALIZATION_FAILED.subject);
+    expect(events.map((event) => event.final)).toEqual([false, false, false, false, false]);
+  });
+
+  it('fails the task once the outage has lasted the window, with one final event', async () => {
+    const services = outage();
+    const place = services.catalog.place();
+    const { job } = await services.jobs.createManualJob(manualRequest(place.id, ['en']), staff());
+    await services.tasks.run(services.queue.take()!.taskId);
+    await prisma.synthesisTask.updateMany({
+      data: { providerDownSince: new Date(Date.now() - PROVIDER_OUTAGE_RETRY_WINDOW_MS) },
+    });
+    await services.tasks.run(services.queue.take()!.taskId);
+
+    const failed = await jobOf(prisma, job!.id);
+    expect(failed.status).toBe(SynthesisJobStatus.FAILED);
+    expect(failed.tasks[0]).toMatchObject({
+      status: SynthesisTaskStatus.FAILED,
+      failureReason: SynthesisFailureReason.PROVIDER_UNAVAILABLE,
+    });
+    expect(services.queue.items.size).toBe(0);
+    const events = await outboxPayloads(prisma, NARRATION_LOCALIZATION_FAILED.subject);
+    expect(events.map((event) => event.final)).toEqual([false, true]);
+  });
+
+  it('a staff retry starts the task over, outage marks cleared', async () => {
+    const services = outage();
+    const place = services.catalog.place();
+    const { job } = await services.jobs.createManualJob(manualRequest(place.id, ['en']), staff());
+    await services.tasks.run(services.queue.take()!.taskId);
+    await prisma.synthesisTask.updateMany({
+      data: { providerDownSince: new Date(Date.now() - PROVIDER_OUTAGE_RETRY_WINDOW_MS) },
+    });
+    await services.tasks.run(services.queue.take()!.taskId);
+    await services.jobs.retryFailedTasks({ jobId: job!.id }, staff());
+    const task = await prisma.synthesisTask.findFirstOrThrow();
+    expect(task).toMatchObject({
+      attempts: 0,
+      providerWaits: 0,
+      providerDownSince: null,
+      failureReason: null,
+      nextAttemptAt: null,
+    });
   });
 });

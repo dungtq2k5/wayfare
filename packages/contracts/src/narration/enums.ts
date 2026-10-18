@@ -67,6 +67,15 @@ export enum SynthesisStage {
 /** Every `SynthesisStage` value. */
 export const SYNTHESIS_STAGES = Object.values(SynthesisStage);
 
+/** Why a synthesis task's last attempt failed, when it is retried differently — rdm-spec N-2 `failure_reason`. */
+export enum SynthesisFailureReason {
+  /** No speech provider could be reached: retried within `PROVIDER_OUTAGE_RETRY_WINDOW_MS`, uncounted. */
+  PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE',
+}
+
+/** Every `SynthesisFailureReason` value. */
+export const SYNTHESIS_FAILURE_REASONS = Object.values(SynthesisFailureReason);
+
 /** A synthesis task's state — rdm-spec N-2 `status`. */
 export enum SynthesisTaskStatus {
   QUEUED = 'QUEUED',

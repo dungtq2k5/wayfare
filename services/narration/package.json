@@ -2,7 +2,7 @@
   "name": "@wayfare/narration",
   "version": "0.0.0",
   "private": true,
-  "description": "Translation, pronunciation and synthesis: jobs, audio assets and the localization events catalog serves (architecture \u00a72).",
+  "description": "Translation, pronunciation and synthesis: jobs, audio assets and the localization events catalog serves (architecture §2).",
   "main": "dist/src/main.js",
   "scripts": {
     "build": "nest build",
@@ -42,7 +42,7 @@
     "dotenv": "^17.4.2",
     "google-translate-api-x": "10.7.3",
     "ioredis": "^5.11.1",
-    "msedge-tts": "2.0.7",
+    "msedge-tts": "2.1.0",
     "nestjs-zod": "^5.5.0",
     "pg": "^8.23.0",
     "prom-client": "^15.1.3",

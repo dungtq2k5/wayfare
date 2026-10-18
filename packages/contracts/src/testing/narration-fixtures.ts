@@ -71,6 +71,9 @@ export function synthesisTaskFixture(overrides: Partial<SynthesisTask> = {}): Sy
     lastError: undefined,
     startedAt: FIXTURE_TIMESTAMP,
     finishedAt: undefined,
+    failureReason: undefined,
+    providerWaits: 0,
+    nextAttemptAt: undefined,
     ...overrides,
   };
 }

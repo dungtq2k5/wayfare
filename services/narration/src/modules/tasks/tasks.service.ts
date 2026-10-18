@@ -7,8 +7,6 @@ import {
   MAX_FAILURE_REASON_LENGTH,
   NARRATION_LOCALIZATION_FAILED,
   NARRATION_LOCALIZATION_READY,
-  SYNTHESIS_RETRY_BACKOFF_MS,
-  SYNTHESIS_TASK_ATTEMPTS,
   SynthesisJobStatus,
   SynthesisStage,
   SynthesisTaskStatus,
@@ -19,7 +17,7 @@ import { OutboxService } from '@wayfare/nest-common';
 import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
 import type { Prisma } from '../../../generated/prisma/client';
-import { InputRefusedError, redact } from '../../providers/provider-chain';
+import { InputRefusedError, NoProviderAnsweredError, redact } from '../../providers/provider-chain';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import {
   ACTIVE_TASK_STATUSES,
@@ -32,6 +30,7 @@ import { SynthesisService } from '../synthesis/synthesis.service';
 import type { Audio, FoundAudio, LocalizedText, Speaker } from '../synthesis/synthesis.service';
 import { ProvidersHealthService } from '../providers-health/providers-health.service';
 import { afterCommit } from './domain/after-commit';
+import { attemptOutcome } from './domain/attempt-outcome';
 import type { AfterCommit } from './domain/after-commit';
 import { placeSsmlBody } from './domain/ssml';
 import { TaskQueue } from './tasks.module';
@@ -294,7 +293,16 @@ export class TasksService implements OnApplicationBootstrap {
     const now = new Date();
     const { count } = await tx.synthesisTask.updateMany({
       where: { id: task.id, status: SynthesisTaskStatus.RUNNING },
-      data: { ...data, status: outcome, finishedAt: now },
+      data: {
+        nextAttemptAt: null,
+        // A success ends any outage; a failure keeps its reason for the monitor.
+        ...(outcome === SynthesisTaskStatus.SUCCEEDED
+          ? { failureReason: null, providerDownSince: null }
+          : {}),
+        ...data,
+        status: outcome,
+        finishedAt: now,
+      },
     });
     if (count === 0) return false;
     fx.jobChanged(task.jobId);
@@ -448,7 +456,8 @@ export class TasksService implements OnApplicationBootstrap {
       }
       const claimed = await tx.$queryRaw<{ id: string }[]>`
         UPDATE synthesis_tasks
-        SET status = 'RUNNING', started_at = COALESCE(started_at, now()), updated_at = now()
+        SET status = 'RUNNING', started_at = COALESCE(started_at, now()), next_attempt_at = NULL,
+          updated_at = now()
         WHERE id = ${taskId}::uuid AND status = 'QUEUED'
         RETURNING id`;
       if (claimed.length === 0) return null;
@@ -705,18 +714,25 @@ export class TasksService implements OnApplicationBootstrap {
   }
 
   /**
-   * A failed attempt (rdm-spec N-2): counted, reported with `final: false`, and retried after the
-   * backoff from its recorded stage — or, after the last attempt or a refused input, `FAILED` with
-   * its followers, reported `final: true`.
+   * A failed attempt (rdm-spec N-2): reported with `final: false` and retried after its back-off
+   * from its recorded stage — or, after the last counted attempt, a refused input or an outage that
+   * outlasted its window, `FAILED` with its followers, reported `final: true`. An attempt no speech
+   * provider could be reached for is not counted (`attemptOutcome`).
    */
   private async failAttempt(task: RunningTask, error: unknown): Promise<void> {
     const reason = reasonOf(error);
-    const refused = error instanceof InputRefusedError;
     this.logger.warn({ taskId: task.id, stage: task.stage, err: reason }, 'task attempt failed');
     await this.transact(async (tx, fx) => {
       const now = await tx.synthesisTask.findUnique({
         where: { id: task.id },
-        select: { status: true, attempts: true, stage: true, job: { select: { status: true } } },
+        select: {
+          status: true,
+          attempts: true,
+          providerWaits: true,
+          providerDownSince: true,
+          stage: true,
+          job: { select: { status: true } },
+        },
       });
       if (now?.status !== RUNNING) return;
       const jobStatus = now.job.status as SynthesisJobStatus;
@@ -724,8 +740,17 @@ export class TasksService implements OnApplicationBootstrap {
         await this.cancelActive(tx, task, fx);
         return;
       }
-      const attempts = now.attempts + 1;
-      const final = refused || attempts >= SYNTHESIS_TASK_ATTEMPTS;
+      const at = new Date();
+      const outcome = attemptOutcome({
+        attempts: now.attempts,
+        providerWaits: now.providerWaits,
+        providerDownSince: now.providerDownSince,
+        refused: error instanceof InputRefusedError,
+        providerUnavailable:
+          error instanceof NoProviderAnsweredError && error.role === 'speech' && error.unreachable,
+        now: at,
+      });
+      const { attempts, final } = outcome;
       await this.outbox.add(tx, NARRATION_LOCALIZATION_FAILED, {
         occurredAt: new Date().toISOString(),
         targetType:
@@ -743,14 +768,24 @@ export class TasksService implements OnApplicationBootstrap {
           tx,
           { ...task, stage: now.stage },
           SynthesisTaskStatus.FAILED,
-          { attempts, lastError: reason },
+          { attempts, providerWaits: outcome.providerWaits, lastError: reason },
           fx,
         );
         return;
       }
+      const paused = jobStatus === SynthesisJobStatus.PAUSED;
       await tx.synthesisTask.update({
         where: { id: task.id },
-        data: { status: SynthesisTaskStatus.QUEUED, attempts, lastError: reason },
+        data: {
+          status: SynthesisTaskStatus.QUEUED,
+          attempts,
+          providerWaits: outcome.providerWaits,
+          providerDownSince: outcome.providerDownSince,
+          failureReason: outcome.failureReason,
+          // A paused job's task waits for resume, not for a time.
+          nextAttemptAt: paused ? null : new Date(at.getTime() + outcome.delayMs),
+          lastError: reason,
+        },
         select: { id: true },
       });
       fx.jobChanged(task.jobId);
@@ -760,10 +795,13 @@ export class TasksService implements OnApplicationBootstrap {
         stage: now.stage,
         status: SynthesisTaskStatus.QUEUED,
       });
-      if (jobStatus !== SynthesisJobStatus.PAUSED) {
-        const backoff =
-          SYNTHESIS_RETRY_BACKOFF_MS[Math.min(attempts, SYNTHESIS_RETRY_BACKOFF_MS.length) - 1]!;
-        fx.enqueue({ taskId: task.id, attempts, priority: task.job.priority, delayMs: backoff });
+      if (!paused) {
+        fx.enqueue({
+          taskId: task.id,
+          attempts,
+          priority: task.job.priority,
+          delayMs: outcome.delayMs,
+        });
       }
     });
   }

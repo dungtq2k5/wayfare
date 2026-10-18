@@ -18,6 +18,7 @@ import { useNetworkStore } from '../network/network-store';
 import { Icon } from '../theme/icon';
 import { TALL_CONTROL } from '../ui/layout';
 import { showToast } from '../ui/toast';
+import { actionAccepted } from '../ui/toast-grace';
 import { stopWalk, undoStop } from './controller';
 import { WALK_PILL_LIFT } from './toast-lift';
 import { minutesOn } from './machine';
@@ -69,8 +70,12 @@ export function useWalkNote(): {
   return null;
 }
 
+/** When *Stop* was last pressed: *Start walk*, which takes its place, ignores that gesture's second tap. */
+let stoppedAt = Number.NEGATIVE_INFINITY;
+
 /** Stop acts at once; a toast offers *Undo* for the length of the window. */
 export function stopWithUndo(message: string, undoLabel: string): void {
+  stoppedAt = Date.now();
   stopWalk();
   showToast(
     message,
@@ -100,7 +105,10 @@ export function WalkControl() {
         accessibilityRole="button"
         accessibilityLabel={starting ? t('walk.starting') : t('walk.start')}
         accessibilityState={{ busy: starting }}
-        onPress={() => void startWalk()}
+        onPress={() => {
+          // A double tap on Stop must not start a new walk with its second tap.
+          if (actionAccepted(stoppedAt, Date.now())) void startWalk();
+        }}
         disabled={starting}
         style={{ minHeight: TALL_CONTROL }}
         className="flex-row items-center gap-3 self-stretch rounded-full bg-primary px-4 py-2 elevation-2"

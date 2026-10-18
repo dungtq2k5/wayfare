@@ -35,6 +35,7 @@ import {
   ReplacementType,
   UiBundleStatus,
   LocalizationTargetType,
+  SynthesisFailureReason,
   SynthesisJobStatus,
   SynthesisStage,
   SynthesisTaskStatus,
@@ -83,6 +84,7 @@ import { OnDemandStatus } from '../narration/schemas';
 import { LocalizationTargetType as ProtoLocalizationTargetType } from '../generated/wayfare/common/localization.pb';
 import { OnDemandStatus as ProtoOnDemandStatus } from '../generated/wayfare/narration/narration.pb';
 import {
+  SynthesisFailureReason as ProtoSynthesisFailureReason,
   SynthesisJobStatus as ProtoSynthesisJobStatus,
   SynthesisStage as ProtoSynthesisStage,
   SynthesisTaskStatus as ProtoSynthesisTaskStatus,
@@ -281,6 +283,13 @@ export const synthesisStageProto = protoEnumBridge(
   ProtoSynthesisStage,
 );
 
+/** `SynthesisFailureReason` ⇄ `wayfare.narration.SynthesisFailureReason`. */
+export const synthesisFailureReasonProto = protoEnumBridge(
+  'SynthesisFailureReason',
+  SynthesisFailureReason,
+  ProtoSynthesisFailureReason,
+);
+
 /** `SynthesisTaskStatus` ⇄ `wayfare.narration.SynthesisTaskStatus`. */
 export const synthesisTaskStatusProto = protoEnumBridge(
   'SynthesisTaskStatus',
@@ -367,6 +376,7 @@ export const PROTO_ENUM_BRIDGES = [
   synthesisTriggerProto,
   synthesisJobStatusProto,
   synthesisStageProto,
+  synthesisFailureReasonProto,
   synthesisTaskStatusProto,
   onDemandStatusProto,
   subscriptionStatusProto,

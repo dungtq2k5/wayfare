@@ -4,6 +4,7 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { SynthesisJobDetailResponseDtoTasksItemFailureReason } from './synthesisJobDetailResponseDtoTasksItemFailureReason.js';
 import type { SynthesisJobDetailResponseDtoTasksItemLang } from './synthesisJobDetailResponseDtoTasksItemLang.js';
 import type { SynthesisJobDetailResponseDtoTasksItemStage } from './synthesisJobDetailResponseDtoTasksItemStage.js';
 import type { SynthesisJobDetailResponseDtoTasksItemStatus } from './synthesisJobDetailResponseDtoTasksItemStatus.js';
@@ -29,6 +30,13 @@ export type SynthesisJobDetailResponseDtoTasksItem = {
   coalescedIntoTaskId: string | null;
   /** @nullable */
   lastError: string | null;
+  failureReason: SynthesisJobDetailResponseDtoTasksItemFailureReason;
+  /**
+     * @minimum 0
+     * @maximum 9007199254740991
+     */
+  providerWaits: number;
+  nextAttemptAt: string | null;
   startedAt: string | null;
   finishedAt: string | null;
 };

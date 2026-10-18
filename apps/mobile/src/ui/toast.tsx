@@ -6,10 +6,13 @@ import { Icon } from '../theme/icon';
 import { useDuration } from '../theme/use-duration';
 import { space } from '@wayfare/design-tokens/tokens';
 import { TAB_BAR_CLEARANCE } from './layout';
+import { actionAccepted } from './toast-grace';
 
 interface ToastState {
   toast: {
     id: number;
+    /** When `showToast` set it: its action ignores taps for `TOAST_ACTION_GRACE_MS` after. */
+    shownAt: number;
     message: string;
     icon?: LucideIcon;
     /** Extra height above the usual spot, so the toast clears a control that sits there. */
@@ -33,7 +36,7 @@ export function showToast(
   counter += 1;
   clearTimeout(timer);
   useToastStore.setState({
-    toast: { id: counter, message, ...options, ...(action ? { action } : {}) },
+    toast: { id: counter, shownAt: Date.now(), message, ...options, ...(action ? { action } : {}) },
   });
   timer = setTimeout(() => useToastStore.setState({ toast: null }), ms);
 }
@@ -75,6 +78,7 @@ export function ToastHost() {
           accessibilityRole="button"
           accessibilityLabel={toast.action.label}
           onPress={() => {
+            if (!actionAccepted(toast.shownAt, Date.now())) return;
             toast.action?.onPress();
             hideToast();
           }}

@@ -63,6 +63,14 @@ model SynthesisTask {
   coalescedIntoTaskId String?   @map("coalesced_into_task_id") @db.Uuid
   /// Redacted.
   lastError           String?   @map("last_error") @db.Text
+  /// `PROVIDER_UNAVAILABLE` while the task waits on a speech provider that could not be reached.
+  failureReason       String?   @map("failure_reason") @db.VarChar(32)
+  /// Of `attempts`, the ones a provider outage took: they do not count toward the limit.
+  providerWaits       Int       @default(0) @map("provider_waits") @db.SmallInt
+  /// When the current outage began for this task; the retry window runs from it.
+  providerDownSince   DateTime? @map("provider_down_since") @db.Timestamptz(3)
+  /// When a waiting task is tried next.
+  nextAttemptAt       DateTime? @map("next_attempt_at") @db.Timestamptz(3)
   startedAt           DateTime? @map("started_at") @db.Timestamptz(3)
   finishedAt          DateTime? @map("finished_at") @db.Timestamptz(3)
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)

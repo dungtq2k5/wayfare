@@ -510,7 +510,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 
 - **Content translation (server-side):** a `TranslationProvider` interface with **two** implementations.
 - **Text-to-speech (server-side):** a `SpeechProvider` interface with **two** implementations.
-  - Free tier: an **Edge TTS** client giving access to Microsoft neural voices — **`msedge-tts`**, pinned exactly. ⚠️ This corner of npm churns: re-check the package (CommonJS, no native build, published within six months) whenever it is upgraded; `edge-tts-universal` and `node-edge-tts` failed that check.
+  - Free tier: an **Edge TTS** client giving access to Microsoft neural voices — **`msedge-tts`**, pinned exactly. ⚠️ This corner of npm churns: re-check the package (CommonJS, no native build, published within six months) whenever it is upgraded; `edge-tts-universal` and `node-edge-tts` failed that check. **2.1.0 or later:** Microsoft answers 2.0.7's endpoint with HTTP 403 since October 2026, and 2.1.0 connects to the new host.
   - Paid fallback: **Google Cloud TTS** (already in our ecosystem) or **Azure Speech**, configured and smoke-tested from day one.
 - **What ships first:** a deterministic **fake** of each interface (the local and test default — a translation is `[<lang>] text`, a synthesis is valid silent MP3), **Google Cloud Translation v3 and Text-to-Speech** as the paid providers, and the free routes as the second implementation once a package passes the install-time criteria (CommonJS, no native build, recently published), smoke-tested by hand and never in CI.
 - **The free translation route** is **`google-translate-api-x`**, pinned exactly, under the same criteria.

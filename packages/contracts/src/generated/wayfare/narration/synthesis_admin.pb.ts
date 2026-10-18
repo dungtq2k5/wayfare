@@ -56,6 +56,12 @@ export enum SynthesisStage {
   UNRECOGNIZED = -1,
 }
 
+export enum SynthesisFailureReason {
+  SYNTHESIS_FAILURE_REASON_UNSPECIFIED = 0,
+  SYNTHESIS_FAILURE_REASON_PROVIDER_UNAVAILABLE = 1,
+  UNRECOGNIZED = -1,
+}
+
 /** A task's state (rdm-spec N-2). */
 export enum SynthesisTaskStatus {
   SYNTHESIS_TASK_STATUS_UNSPECIFIED = 0,
@@ -105,7 +111,17 @@ export interface SynthesisTask {
   /** Redacted. */
   lastError?: string | undefined;
   startedAt: Timestamp | undefined;
-  finishedAt: Timestamp | undefined;
+  finishedAt:
+    | Timestamp
+    | undefined;
+  /** Set while the task waits on a speech provider that could not be reached. */
+  failureReason?:
+    | SynthesisFailureReason
+    | undefined;
+  /** Of `attempts`, the ones a provider outage took: they do not count toward the limit. */
+  providerWaits: number;
+  /** When a waiting task is tried next. */
+  nextAttemptAt: Timestamp | undefined;
 }
 
 export interface ListJobsRequest {

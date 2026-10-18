@@ -474,6 +474,7 @@ These are **product** decisions, not implementation details. They must be config
 | Hotset ready threshold | 3 places cached, or every Place within the radius when there are fewer | Enough to make a language switch feel done; a quiet street with two Places must still finish. |
 | Language switch patience | 30 s | Past it, a slow switch offers *switch now*: three stories normally arrive within the 5 s on-demand wait each. |
 | Locate request budget | 15 s, accept cached fix ≤30 s old, accuracy ≤100 m | A first fix can take 30 s+; a slightly stale fix beats a spinner. |
+| Speech-provider outage retry | 1 min, 5 min, then every 15 min, for up to 24 h | An edit during an outage keeps the Place offline (the activation gate); retrying without spending attempts brings it back by itself, and the owner hears of a failure only when the 24 hours end. A provider that answers with an error fails at once, as before. |
 | On-demand wait before streaming | 5 s | Product §10's tier-1.5 latency: past it, the player streams the narration live (tier 2) instead of waiting for the stored file. |
 | Startup network probe | 2.5 s timeout, max 2 attempts in an 8 s window | Decide "offline" fast, but do not libel a slow network. |
 | Place cache TTL | 15 min | Content changes rarely; delta sync covers the rest. |

@@ -7,6 +7,7 @@ import type {
 } from '@wayfare/contracts';
 import {
   localizationTargetTypeProto,
+  synthesisFailureReasonProto,
   synthesisJobStatusProto,
   synthesisStageProto,
   synthesisTaskStatusProto,
@@ -72,6 +73,12 @@ export function toSynthesisJobDetail(response: narrationGrpc.GetJobResponse): Sy
       cacheKey: task.cacheKey ?? null,
       coalescedIntoTaskId: task.coalescedIntoTaskId ?? null,
       lastError: task.lastError ?? null,
+      failureReason:
+        task.failureReason === undefined
+          ? null
+          : known(synthesisFailureReasonProto, task.failureReason, 'failure reason'),
+      providerWaits: task.providerWaits,
+      nextAttemptAt: iso(fromOptionalProtoTimestamp(task.nextAttemptAt, 'nextAttemptAt')),
       startedAt: iso(fromOptionalProtoTimestamp(task.startedAt, 'startedAt')),
       finishedAt: iso(fromOptionalProtoTimestamp(task.finishedAt, 'finishedAt')),
     })),

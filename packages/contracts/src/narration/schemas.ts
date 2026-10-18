@@ -7,6 +7,7 @@ import { MAX_LANGUAGE_CODE_LENGTH, zRequestedLanguage, zServedLanguage } from '.
 import { zSha256Hex } from '../events/event-definition';
 import {
   LocalizationTargetType,
+  SynthesisFailureReason,
   SynthesisJobStatus,
   SynthesisStage,
   SynthesisTaskStatus,
@@ -103,6 +104,12 @@ export const zSynthesisTaskView = z
     cacheKey: zSha256Hex.nullable(),
     coalescedIntoTaskId: zUuidV7.nullable(),
     lastError: z.string().nullable(),
+    /** Set while the task waits on a speech provider that could not be reached. */
+    failureReason: z.enum(SynthesisFailureReason).nullable(),
+    /** Of `attempts`, the ones a provider outage took: they do not count toward the limit. */
+    providerWaits: z.number().int().min(0),
+    /** When a waiting task is tried next. */
+    nextAttemptAt: zInstant.nullable(),
     startedAt: zInstant.nullable(),
     finishedAt: zInstant.nullable(),
   })

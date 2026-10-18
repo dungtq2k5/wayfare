@@ -462,7 +462,7 @@ Owners upload for their submissions through the same routes; an upload is consum
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
 | GET | `/admin/narration/jobs` | `?status=&targetType=&targetId=&trigger=`, page style, newest first. | perm:`narration.job.read` |
-| GET | `/admin/narration/jobs/:id` | Job with every task: stage, provider actually used, attempts, redacted error. | perm:`narration.job.read` |
+| GET | `/admin/narration/jobs/:id` | Job with every task: stage, provider actually used, attempts, redacted error, and — for a task waiting out a speech-provider outage — `failureReason` (`PROVIDER_UNAVAILABLE`), `providerWaits` and `nextAttemptAt` (rdm-spec N-2), so staff can tell a waiting task from a stuck one. | perm:`narration.job.read` |
 | POST | `/admin/narration/jobs` ✎ | Manual regenerate `{ targetType, targetId, langs[], includeAudio }`. Supersedes older jobs for the target. | perm:`narration.job.manage` |
 | POST | `/admin/narration/jobs/:id/pause` ✎ | Running tasks finish; queued tasks wait. `409` unless `QUEUED`/`RUNNING`. | perm:`narration.job.manage` |
 | POST | `/admin/narration/jobs/:id/resume` ✎ | — | perm:`narration.job.manage` |

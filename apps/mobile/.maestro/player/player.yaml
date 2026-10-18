@@ -16,12 +16,15 @@ appId: app.wayfare
     element: '.*Bưu điện.*'
     timeout: 60000
 - tapOn: '.*Bưu điện.*'
-- tapOn: 'Play narration.*'
+- tapOn:
+    text: 'Play narration.*'
+    waitToSettleTimeoutMs: 1000
 # The detail shows the inline player in place of the button.
 - assertVisible: 'Pause'
 - tapOn:
     text: 'Pause'
     retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1000
 - tapOn: 'Back'
 # The mini player rides above the tab bar on every tab; Close appears only while paused.
 - assertVisible: 'Open the player.*'
@@ -38,10 +41,12 @@ appId: app.wayfare
 - tapOn:
     text: 'Play'
     retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1000
 - assertVisible: 'Now playing'
 - tapOn:
     text: 'Pause'
     retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1000
 - tapOn: 'Close the player'
 - tapOn: 'Close'
 - assertNotVisible: 'Open the player.*'

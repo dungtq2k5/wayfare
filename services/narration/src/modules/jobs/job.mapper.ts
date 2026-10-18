@@ -1,5 +1,6 @@
 import type {
   LocalizationTargetType,
+  SynthesisFailureReason,
   SynthesisJobStatus,
   SynthesisStage,
   SynthesisTaskStatus,
@@ -7,6 +8,7 @@ import type {
 } from '@wayfare/contracts';
 import {
   localizationTargetTypeProto,
+  synthesisFailureReasonProto,
   synthesisJobStatusProto,
   synthesisStageProto,
   synthesisTaskStatusProto,
@@ -54,6 +56,9 @@ export const TASK_SELECT = {
   cacheKey: true,
   coalescedIntoTaskId: true,
   lastError: true,
+  failureReason: true,
+  providerWaits: true,
+  nextAttemptAt: true,
   startedAt: true,
   finishedAt: true,
 } as const satisfies Prisma.SynthesisTaskSelect;
@@ -102,6 +107,12 @@ export function toSynthesisTask(row: TaskRow): narrationGrpc.SynthesisTask {
     cacheKey: optional(row.cacheKey),
     coalescedIntoTaskId: optional(row.coalescedIntoTaskId),
     lastError: optional(row.lastError),
+    failureReason:
+      row.failureReason === null
+        ? undefined
+        : synthesisFailureReasonProto.toProto(row.failureReason as SynthesisFailureReason),
+    providerWaits: row.providerWaits,
+    nextAttemptAt: instant(row.nextAttemptAt),
     startedAt: instant(row.startedAt),
     finishedAt: instant(row.finishedAt),
   };

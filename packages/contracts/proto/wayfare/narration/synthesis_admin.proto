@@ -59,6 +59,11 @@ enum SynthesisStage {
   SYNTHESIS_STAGE_PUBLISH = 5;
 }
 
+enum SynthesisFailureReason {
+  SYNTHESIS_FAILURE_REASON_UNSPECIFIED = 0;
+  SYNTHESIS_FAILURE_REASON_PROVIDER_UNAVAILABLE = 1;
+}
+
 // A task's state (rdm-spec N-2).
 enum SynthesisTaskStatus {
   SYNTHESIS_TASK_STATUS_UNSPECIFIED = 0;
@@ -106,6 +111,12 @@ message SynthesisTask {
   optional string last_error = 11;
   google.protobuf.Timestamp started_at = 12;
   google.protobuf.Timestamp finished_at = 13;
+  // Set while the task waits on a speech provider that could not be reached.
+  optional SynthesisFailureReason failure_reason = 14;
+  // Of `attempts`, the ones a provider outage took: they do not count toward the limit.
+  int32 provider_waits = 15;
+  // When a waiting task is tried next.
+  google.protobuf.Timestamp next_attempt_at = 16;
 }
 
 message ListJobsRequest {

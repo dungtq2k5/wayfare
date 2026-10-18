@@ -23,19 +23,28 @@ appId: app.wayfare
 
 # A second Place played over the first must replace it, not join it.
 - tapOn: '.*Bưu điện.*'
-- tapOn: 'Play narration.*'
-- tapOn: 'Back'
+- tapOn:
+    text: 'Play narration.*'
+    waitToSettleTimeoutMs: 1000
+- tapOn:
+    text: 'Back'
+    waitToSettleTimeoutMs: 1000
 - scrollUntilVisible:
     element: '.*Chợ Bến Thành.*'
-- tapOn: '.*Chợ Bến Thành.*'
+- tapOn:
+    text: '.*Chợ Bến Thành.*'
+    waitToSettleTimeoutMs: 1000
 # A double tap starts one narration: the button becomes the inline player, never a second one.
-- doubleTapOn: 'Play narration.*'
+- doubleTapOn:
+    text: 'Play narration.*'
+    waitToSettleTimeoutMs: 1000
 - assertVisible: 'Open the player'
 - assertNotVisible: 'Play narration.*'
 - tapOn:
     text: 'Pause'
     retryTapIfNoChange: false
     optional: true
+    waitToSettleTimeoutMs: 1000
 - tapOn: 'Back'
 - assertVisible: '.*Chợ Bến Thành.*'
 
@@ -79,18 +88,23 @@ appId: app.wayfare
 # Replay restarts from zero (so there is a minute of narration to play with), then pause and play
 # once more. No automatic second tap: Maestro repeats a tap when the screen looks unchanged, and
 # the Close button of the mini player sits right where Pause was.
-- tapOn: 'Replay from start'
+- tapOn:
+    text: 'Replay from start'
+    waitToSettleTimeoutMs: 1000
 - tapOn:
     text: 'Pause'
     retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1000
 - assertVisible: 'Paused'
 - tapOn:
     text: 'Play'
     retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1000
 - assertVisible: 'Now playing'
 - tapOn:
     text: 'Pause'
     retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1000
 - assertVisible: 'Paused'
 - tapOn: 'Read transcript'
 - assertVisible: 'Transcript'

@@ -1061,7 +1061,11 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **source_content_hash** | CHAR(64) | NOT NULL | Denormalized from the job. |
 | **stage** | VARCHAR(16) | NOT NULL | `TRANSLATE \| PRONOUNCE \| SYNTHESIZE \| STORE \| PUBLISH` — the step the task is in or failed at. A retry resumes here; earlier stages' outputs come back from N-3 and N-4 as cache hits. |
 | **status** | VARCHAR(16) | NOT NULL | `QUEUED \| RUNNING \| SUCCEEDED \| FAILED \| CANCELLED \| COALESCED` |
-| **attempts** | SMALLINT | NOT NULL, 0 | The only retry counter: the BullMQ queue keeps no finished jobs and never retries by itself; a failed attempt below the limit re-adds the task with a backoff delay. |
+| **attempts** | SMALLINT | NOT NULL, 0 | The only retry counter: the BullMQ queue keeps no finished jobs and never retries by itself; a failed attempt below the limit re-adds the task with a backoff delay. Every attempt adds to it (queue item ids stay unique); the limit is checked against `attempts − provider_waits`. |
+| **provider_waits** | SMALLINT | NOT NULL, 0 | Attempts that failed because **no speech provider could be reached** — a network error (`EAI_AGAIN`, a refused connection), a timeout, or every provider skipped while cooling down after such errors. They do not count toward the limit. A provider that **answers** with an error is an ordinary failure. |
+| **failure_reason** | VARCHAR(32) | Nullable | `PROVIDER_UNAVAILABLE` — the last attempt reached no speech provider; NULL otherwise. |
+| **provider_down_since** | TIMESTAMPTZ(3) | Nullable | The first unreachable attempt of the current outage; cleared by an attempt that reaches a provider. When it is older than `PROVIDER_OUTAGE_RETRY_WINDOW_MS` (24 h), the next unreachable attempt fails the task as an ordinary failure would — `FAILED`, the job's final event, the owner's notice. |
+| **next_attempt_at** | TIMESTAMPTZ(3) | Nullable | When a waiting task is re-added: 1, 5, then every 15 minutes after an unreachable attempt (`PROVIDER_OUTAGE_BACKOFF_MS`). Shown to staff in the job view. |
 | **translation_provider** | VARCHAR(32) | Nullable | The implementation that actually answered ([ADR 0033](./decisions/0033-translation-and-tts-behind-provider-interfaces.md)). Recorded per task, because "which provider produced this bad translation" is unanswerable after a fallback otherwise. |
 | **speech_provider** | VARCHAR(32) | Nullable | — |
 | **voice_id** | VARCHAR(64) | Nullable | — |

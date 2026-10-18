@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   InputRefusedError,
+  isUnreachable,
   NoProviderAnsweredError,
   ProviderChain,
+  ProviderTimeoutError,
   redact,
 } from './provider-chain';
 
@@ -107,5 +109,60 @@ describe('redact', () => {
       '[ { "code": "invalid" } ]',
     );
     expect(redact(new Error('x'.repeat(500)))).toHaveLength(200);
+  });
+});
+
+/** Edge's WebSocket failure with no network: the code sits on the cause. */
+const offline = () =>
+  new Error('Edge TTS WebSocket error: getaddrinfo EAI_AGAIN speech.platform.bing.com', {
+    cause: Object.assign(new Error('getaddrinfo EAI_AGAIN'), { code: 'EAI_AGAIN' }),
+  });
+
+describe('a provider that cannot be reached', () => {
+  it('is a network code on the error or its cause, or the chain timing out', () => {
+    expect(isUnreachable(offline())).toBe(true);
+    expect(isUnreachable(Object.assign(new Error('x'), { code: 'ECONNREFUSED' }))).toBe(true);
+    expect(isUnreachable(new ProviderTimeoutError(50))).toBe(true);
+    expect(isUnreachable(new Error('503 Service Unavailable'))).toBe(false);
+  });
+
+  it('makes the chain unreachable only when every provider was', async () => {
+    const clock = { now: 0 };
+    const providers = chain(['a', 'b'], clock);
+    const both = providers.run(all, () => Promise.reject(offline()));
+    await expect(both).rejects.toMatchObject({ unreachable: true });
+    const mixed = providers.run(all, (p) =>
+      Promise.reject(p.name === 'a' ? offline() : new Error('bad answer')),
+    );
+    await expect(mixed).rejects.toMatchObject({ unreachable: false });
+  });
+
+  it('counts a provider cooling down by why it last failed', async () => {
+    const clock = { now: 0 };
+    const providers = chain(['a'], clock);
+    for (let i = 0; i < 3; i += 1) {
+      await providers.run(all, () => Promise.reject(offline())).catch(() => undefined);
+    }
+    const cooling = providers.run(all, () => Promise.resolve('never called'));
+    await expect(cooling).rejects.toBeInstanceOf(NoProviderAnsweredError);
+    await expect(cooling).rejects.toMatchObject({ unreachable: true });
+
+    const failing = chain(['a'], clock);
+    for (let i = 0; i < 3; i += 1) {
+      await failing.run(all, () => Promise.reject(new Error('500'))).catch(() => undefined);
+    }
+    await expect(failing.run(all, () => Promise.resolve('x'))).rejects.toMatchObject({
+      unreachable: false,
+    });
+  });
+
+  it('is not unreachable when no provider fits the call at all', async () => {
+    const providers = chain(['a'], { now: 0 });
+    await expect(
+      providers.run(
+        () => false,
+        () => Promise.resolve('x'),
+      ),
+    ).rejects.toMatchObject({ unreachable: false });
   });
 });

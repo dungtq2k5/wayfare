@@ -685,6 +685,7 @@ export * from './synthesisJobDetailResponseDto.js';
 export * from './synthesisJobDetailResponseDtoStatus.js';
 export * from './synthesisJobDetailResponseDtoTargetType.js';
 export * from './synthesisJobDetailResponseDtoTasksItem.js';
+export * from './synthesisJobDetailResponseDtoTasksItemFailureReason.js';
 export * from './synthesisJobDetailResponseDtoTasksItemLang.js';
 export * from './synthesisJobDetailResponseDtoTasksItemStage.js';
 export * from './synthesisJobDetailResponseDtoTasksItemStatus.js';

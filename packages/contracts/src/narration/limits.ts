@@ -4,6 +4,16 @@ export const SYNTHESIS_TASK_ATTEMPTS = 3;
 /** The delay before each retry of a failed task, by attempt; the last entry repeats. */
 export const SYNTHESIS_RETRY_BACKOFF_MS = [5_000, 30_000] as const;
 
+/**
+ * How long a task keeps retrying while no speech provider can be reached (rdm-spec N-2): such an
+ * attempt spends none of `SYNTHESIS_TASK_ATTEMPTS`, so an outage that heals within the window
+ * makes the audio with no staff action, and the owner hears of a failure only after it.
+ */
+export const PROVIDER_OUTAGE_RETRY_WINDOW_MS = 24 * 60 * 60_000;
+
+/** The delay before each retry while no speech provider can be reached; the last entry repeats. */
+export const PROVIDER_OUTAGE_BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000] as const;
+
 /** Consecutive failures before a provider is skipped for `PROVIDER_COOLDOWN_MS` (conventions §11.5). */
 export const PROVIDER_FAILURE_THRESHOLD = 3;
 
