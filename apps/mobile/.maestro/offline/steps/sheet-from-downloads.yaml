@@ -6,5 +6,8 @@ appId: app.wayfare
 - scrollUntilVisible:
     element: 'Preferences'
     direction: UP
+# In *Walk and offline*, below the fold when the Account group is tall (signed in, a notice).
+- scrollUntilVisible:
+    element: 'Offline downloads'
 - tapOn: 'Offline downloads'
 - runFlow: sheet.yaml

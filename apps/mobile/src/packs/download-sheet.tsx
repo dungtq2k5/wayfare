@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Download, Globe, Smartphone, TriangleAlert } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { create } from 'zustand';
 import { errorMessage } from '../i18n';
 import { LANGUAGE_NAMES } from '../i18n/languages';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
+import { BottomSheet } from '../ui/bottom-sheet';
 import { showToast } from '../ui/toast';
 import type { Language } from '@wayfare/contracts';
 import { areaName } from './area-name';
@@ -66,8 +67,7 @@ function Sheet({ areaId, lang }: { areaId: string; lang: string }) {
   };
 
   return (
-    <View className="max-h-full gap-3 rounded-t-2xl bg-card p-4 elevation-3">
-      <View className="h-1 w-10 self-center rounded-full bg-muted" />
+    <>
       <Text accessibilityRole="header" className="text-title text-foreground">
         {t('pack.sheet.title', { area })}
       </Text>
@@ -145,7 +145,7 @@ function Sheet({ areaId, lang }: { areaId: string; lang: string }) {
       <View className="items-center">
         <TextButton label={t('pack.sheet.cancel')} onPress={close} />
       </View>
-    </View>
+    </>
   );
 }
 
@@ -155,14 +155,8 @@ export function DownloadSheetHost() {
   const open = useDownloadSheet((state) => state.open);
   if (open === null) return null;
   return (
-    <View className="absolute inset-0 justify-end">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('action.close')}
-        onPress={close}
-        className="absolute inset-0 bg-overlay/50"
-      />
+    <BottomSheet onClose={close} closeLabel={t('action.close')}>
       <Sheet areaId={open.areaId} lang={open.lang} />
-    </View>
+    </BottomSheet>
   );
 }

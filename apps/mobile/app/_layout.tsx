@@ -115,7 +115,11 @@ export default function RootLayout() {
               <Stack.Screen name="account/create" />
               <Stack.Screen name="account/sign-in" />
               <Stack.Screen name="account/forgot" />
-              <Stack.Screen name="account/name" />
+              {/* A bottom sheet over the Account screen: the route draws its own scrim. */}
+              <Stack.Screen
+                name="account/name"
+                options={{ presentation: 'transparentModal', animation: 'fade' }}
+              />
               <Stack.Screen name="account/email" />
               <Stack.Screen name="account/password" />
               <Stack.Screen name="account/delete" />

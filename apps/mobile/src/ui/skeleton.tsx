@@ -35,8 +35,8 @@ export function SkeletonRows({ count = 4 }: { count?: number }) {
         >
           <View className="h-16 w-16 rounded-lg bg-secondary" />
           <View className="flex-1 gap-2">
-            <View className="h-4 w-2/3 rounded bg-secondary" />
-            <View className="h-3 w-1/2 rounded bg-secondary" />
+            <View className="h-4 w-2/3 rounded-sm bg-secondary" />
+            <View className="h-3 w-1/2 rounded-sm bg-secondary" />
           </View>
         </Animated.View>
       ))}

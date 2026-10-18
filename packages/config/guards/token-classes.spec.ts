@@ -17,8 +17,12 @@ const RADIUS = new Set(Object.keys(tokens.radius));
 /** Spacing-scale utilities with a number: `p-4`, `min-h-12`, `-mt-2`, `gap-x-3`, `inset-x-0`. */
 const SPACING =
   /(?<![\w-])-?(?:min-|max-)?(?:[hw]|size|gap(?:-[xy])?|[pm][xytblrse]?|inset(?:-[xy])?|top|bottom|left|right|space-[xy]|translate-[xy])-(\d+(?:\.\d+)?)(?![\w./-])/g;
-/** Corner utilities: `rounded-xl`, `rounded-t-2xl`. */
-const ROUNDED = /(?<![\w-])rounded(?:-(?:[tblrse]|tl|tr|bl|br|ss|se|es|ee))?-([\w.]+)(?![\w-])/g;
+/**
+ * Corner utilities: `rounded-xl`, `rounded-t-2xl`, and a bare `rounded` or `rounded-t`, whose
+ * default size the tokens do not define — it draws square corners.
+ */
+const ROUNDED =
+  /(?<![\w-])rounded(?:-(?:[tblrse]|tl|tr|bl|br|ss|se|es|ee))?(?:-([\w.]+))?(?![\w-])/g;
 
 /** Every off-scale class in one file, as `file:line: class`. */
 export function scanClasses(file: string, text: string): string[] {
@@ -28,7 +32,8 @@ export function scanClasses(file: string, text: string): string[] {
       if (!SPACE.has(match[1]!)) problems.push(`${file}:${index + 1}: ${match[0].trim()}`);
     }
     for (const match of line.matchAll(ROUNDED)) {
-      if (!RADIUS.has(match[1]!)) problems.push(`${file}:${index + 1}: ${match[0].trim()}`);
+      if (match[1] === undefined || !RADIUS.has(match[1]))
+        problems.push(`${file}:${index + 1}: ${match[0].trim()}`);
     }
   });
   return problems;
@@ -47,6 +52,9 @@ describe('mobile class names', () => {
     expect(
       scanClasses('x.tsx', 'className="h-40 w-40 min-h-14 rounded-t-3xl p-4 rounded-full -mt-2"'),
     ).toEqual(['x.tsx:1: h-40', 'x.tsx:1: w-40', 'x.tsx:1: min-h-14', 'x.tsx:1: rounded-t-3xl']);
+    expect(
+      scanClasses('x.tsx', 'className="rounded rounded-t rounded-sm rounded-lg rounded-b-xl"'),
+    ).toEqual(['x.tsx:1: rounded', 'x.tsx:1: rounded-t']);
     expect(
       scanClasses('x.tsx', 'className="min-h-target rounded-t-2xl gap-x-3 inset-x-0"'),
     ).toEqual([]);
