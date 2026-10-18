@@ -5,7 +5,7 @@ appId: app.wayfare
 - launchApp:
     clearState: false
     stopApp: false
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml
 - tapOn: 'Settings'
 - scrollUntilVisible:
     element: 'Preferences'

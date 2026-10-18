@@ -46,15 +46,14 @@ beforeEach(() => {
     Promise.resolve({
       purpose: identityGrpc.ActionTokenPurpose.ACTION_TOKEN_PURPOSE_ACCOUNT_SETUP,
       emailMasked: 'a***e@example.com',
+      sameAccount: false,
     });
-  for (const method of [
-    'requestEmailVerification',
-    'verifyEmail',
-    'requestEmailChange',
-    'confirmEmailChange',
-    'revertEmailChange',
-  ]) {
+  for (const method of ['requestEmailVerification', 'requestEmailChange']) {
     emailChange.handlers[method] = ok;
+  }
+  const answer = () => Promise.resolve({ emailMasked: 'a***e@example.com', sameAccount: false });
+  for (const method of ['verifyEmail', 'confirmEmailChange', 'revertEmailChange']) {
+    emailChange.handlers[method] = answer;
   }
   emailWebhooks.handlers.receiveResendEvent = ok;
   adminUsers.handlers.listEmailDeliveries = () =>
@@ -88,9 +87,9 @@ const PUBLIC_ROUTES: [string, number, object][] = [
   ['/auth/password/forgot', 202, { email: 'ann@example.com' }],
   ['/auth/password/reset/validate', 200, { token: TOKEN }],
   ['/auth/password/reset', 204, { token: TOKEN, newPassword: 'a new password' }],
-  ['/auth/email/verify', 204, { token: TOKEN }],
-  ['/auth/email/change/confirm', 204, { token: TOKEN }],
-  ['/auth/email/change/revert', 204, { token: TOKEN }],
+  ['/auth/email/verify', 200, { token: TOKEN }],
+  ['/auth/email/change/confirm', 200, { token: TOKEN }],
+  ['/auth/email/change/revert', 200, { token: TOKEN }],
 ];
 
 describe('link routes', () => {
@@ -118,8 +117,29 @@ describe('link routes', () => {
       token: TOKEN,
     });
     expect(res.body).toEqual({
-      data: { valid: true, purpose: 'ACCOUNT_SETUP', emailMasked: 'a***e@example.com' },
+      data: {
+        valid: true,
+        purpose: 'ACCOUNT_SETUP',
+        emailMasked: 'a***e@example.com',
+        sameAccount: false,
+      },
     });
+  });
+
+  it('verify, confirm and revert answer the masked address and whether it is the caller', async () => {
+    gateway.identity.emailChange.handlers.verifyEmail = () =>
+      Promise.resolve({ emailMasked: 'a***a@x.com', sameAccount: true });
+    const res = await consoleRequest('post', '/auth/email/verify', signedIn()).send({
+      token: TOKEN,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { emailMasked: 'a***a@x.com', sameAccount: true } });
+    for (const path of ['/auth/email/change/confirm', '/auth/email/change/revert']) {
+      const answered = await consoleRequest('post', path).send({ token: TOKEN });
+      expect(answered.body, path).toEqual({
+        data: { emailMasked: 'a***e@example.com', sameAccount: false },
+      });
+    }
   });
 
   it('an expired link is 410, and a reset or a revert clears the session cookies', async () => {
@@ -136,7 +156,7 @@ describe('link routes', () => {
       const res = await consoleRequest('post', path, signedIn()).send(
         path.endsWith('reset') ? { token: TOKEN, newPassword: 'a new password' } : { token: TOKEN },
       );
-      expect(res.status, path).toBe(204);
+      expect(res.status, path).toBe(path.endsWith('reset') ? 204 : 200);
       const cleared = cookiesOf(res);
       expect(
         cleared.some((c) => c.startsWith('wf_at=;')),

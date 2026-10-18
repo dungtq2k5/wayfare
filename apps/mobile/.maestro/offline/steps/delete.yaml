@@ -1,7 +1,7 @@
 # Deletes District 1 centre's download if there is one, and ends on Offline downloads.
 appId: app.wayfare
 ---
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml
 - tapOn: 'Settings'
 - scrollUntilVisible:
     element: 'Preferences'

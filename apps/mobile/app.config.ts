@@ -27,7 +27,14 @@ const config: ExpoConfig = {
       {
         action: 'VIEW',
         autoVerify: true,
-        data: [{ scheme: 'https', host: 'wayfare.app', pathPrefix: '/p/' }],
+        data: [
+          { scheme: 'https', host: 'wayfare.app', pathPrefix: '/p/' },
+          // The account's emailed links (K8): verify, reset, confirm and revert.
+          { scheme: 'https', host: 'wayfare.app', path: '/verify-email' },
+          { scheme: 'https', host: 'wayfare.app', path: '/reset-password' },
+          { scheme: 'https', host: 'wayfare.app', path: '/confirm-email-change' },
+          { scheme: 'https', host: 'wayfare.app', path: '/revert-email-change' },
+        ],
         category: ['BROWSABLE', 'DEFAULT'],
       },
       {

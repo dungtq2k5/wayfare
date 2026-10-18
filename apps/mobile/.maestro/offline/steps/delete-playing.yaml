@@ -20,7 +20,7 @@ appId: app.wayfare
 - tapOn:
     text: 'Pause'
     retryTapIfNoChange: false
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml
 - tapOn: 'Settings'
 - scrollUntilVisible:
     element: 'Preferences'
@@ -36,7 +36,7 @@ appId: app.wayfare
 - extendedWaitUntil:
     visible: 'District 1 centre deleted · .* freed'
     timeout: 10000
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml
 - assertNotVisible: 'Open the player.*'
 - assertNotVisible: 'Close'
 - tapOn: 'Map'

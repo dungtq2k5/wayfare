@@ -161,5 +161,16 @@ describe('apiFetch', () => {
       await expect(apiFetch('/x')).rejects.toMatchObject({ code: 'DEVICE_REVOKED' });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it('for a wrong address or password is the answer: sent once, the bearer kept', async () => {
+      const recover = vi.fn(() => Promise.resolve(true));
+      const fetchMock = setup([() => json(401, errorBody('INVALID_CREDENTIALS'))], {
+        accessToken: () => Promise.resolve('t'),
+        recover,
+      });
+      await expect(apiFetch('/x')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(recover).not.toHaveBeenCalled();
+    });
   });
 });

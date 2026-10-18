@@ -1,0 +1,56 @@
+# The account under abuse: what a tourist does that nobody planned for. The parts a flow can drive
+# by itself, in order: Create and Sign in tapped twice, a taken address and a short password
+# (edges 1–2); a second account on this phone (edge 5, G7); a link for another account whose
+# masked address is the same (L6); resets signed in and signed out, a used link, the same answer
+# for anyone (edge 6); an email changed and undone (edge 8); a deletion with a wrong password and a
+# mistyped word (edge 8). `system.sh` runs these and the parts that need adb, the API or the
+# databases (edges 3, 7, 9, 10, 12, DoD 4), resetting the `AUTH` budget before each: run alone,
+# this flow makes more sign-in calls than one budget of 10 allows, and the later parts meet
+# *Too many tries*. Same set-up as `account.yaml`; it makes its own accounts.
+#   maestro test apps/mobile/.maestro/account/sabotage.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runScript: steps/accounts.js
+- runFlow:
+    file: steps/create-twice.yaml
+    env:
+      C: ${output.C}
+      A: ${output.A}
+      PASSWORD: ${output.PASSWORD}
+- runFlow:
+    file: steps/moved.yaml
+    env:
+      A: ${output.A}
+      PASSWORD: ${output.PASSWORD}
+- runFlow:
+    file: steps/other-account.yaml
+    env:
+      A: ${output.A}
+      B: ${output.B}
+- runScript:
+    file: steps/forgot.js
+    env:
+      EMAIL: ${output.A}
+- runFlow:
+    file: steps/reset.yaml
+    env:
+      A: ${output.A}
+      B: ${output.B}
+      NEWPASS: ${output.NEWPASS}
+      NOBODY: ${output.NOBODY}
+- runFlow:
+    file: steps/change-email.yaml
+    env:
+      B: ${output.B}
+      NEWPASS: ${output.NEWPASS}
+      B2: ${output.B2}
+- runFlow:
+    file: steps/delete.yaml
+    env:
+      A: ${output.A}
+      NEWPASS: ${output.NEWPASS}

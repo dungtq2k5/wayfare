@@ -1,0 +1,23 @@
+# From Settings signed out: signs in as EMAIL with PASSWORD, and closes Google's save sheet.
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- tapOn:
+    id: 'sign-in-email'
+- inputText: ${EMAIL}
+- tapOn:
+    id: 'sign-in-password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: 'sign-in-submit'
+- extendedWaitUntil:
+    visible: 'Save password to Google\?|Settings'
+    timeout: 15000
+- runFlow: ../../common/no-password-save.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'account-entry'
+    timeout: 15000

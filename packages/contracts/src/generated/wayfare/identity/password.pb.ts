@@ -39,6 +39,8 @@ export interface ValidateResetTokenResponse {
   /** PASSWORD_RESET or ACCOUNT_SETUP. */
   purpose: ActionTokenPurpose;
   emailMasked: string;
+  /** True only when the call carried the bearer of the link's own account. */
+  sameAccount: boolean;
 }
 
 export interface CompletePasswordResetRequest {

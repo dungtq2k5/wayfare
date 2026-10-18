@@ -1,4 +1,5 @@
 import { ActionTokenPurpose } from './enums';
+import { SessionClient } from '../access/clients';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -44,8 +45,16 @@ export const ACCOUNT_ACCESS_TOKEN_TTL_MS = 30 * MINUTE_MS;
 /** A device's access token lifetime (product-overview §9, api-endpoints-plan §1.1). */
 export const DEVICE_ACCESS_TOKEN_TTL_MS = 15 * MINUTE_MS;
 
-/** A refresh token's lifetime (product-overview §9, api-endpoints-plan §1.1). */
-export const REFRESH_TOKEN_TTL_MS = 7 * DAY_MS;
+/**
+ * A refresh token family's lifetime from sign-in, by client (product-overview §9, rdm-spec I-3):
+ * rotation never extends it. The app's session lasts a month, so a tourist travelling weeks apart
+ * keeps it; the web and the console keep a week.
+ */
+export const REFRESH_TOKEN_TTL_MS: Readonly<Record<SessionClient, number>> = {
+  [SessionClient.CONSOLE]: 7 * DAY_MS,
+  [SessionClient.WEB]: 7 * DAY_MS,
+  [SessionClient.MOBILE]: 30 * DAY_MS,
+};
 
 /** Shortest accepted password (conventions §9.1). */
 export const MIN_PASSWORD_LENGTH = 10;

@@ -1,0 +1,24 @@
+# Edges 1 and 5: *Sign in* tapped twice is one session; a second account on this phone is said
+# once (frame G7). The last account here was C; A signs in.
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- tapOn:
+    id: 'sign-in-email'
+- inputText: ${A}
+- tapOn:
+    id: 'sign-in-password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: 'sign-in-submit'
+    repeat: 2
+    delay: 100
+- extendedWaitUntil:
+    visible: 'Save password to Google\?|This phone moved to your account'
+    timeout: 15000
+- runFlow: ../../common/no-password-save.yaml
+- assertVisible: 'This phone moved to your account'
+- assertVisible: '.*Favourites saved on this phone are now in your account.*'

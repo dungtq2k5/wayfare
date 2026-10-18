@@ -14,13 +14,18 @@ import { clearHeard } from '../data/heard';
 import { deleteWalkLog } from '../walk/log';
 import { resetWalk } from '../walk/controller';
 import { dropWalkPlaces } from '../walk/geofence-places';
+import { accountSession } from '../session';
+import { resetAccountState } from '../session/account-store';
 
 /**
- * What *Forget this install* clears beyond the session: Places, cursors, cached areas, verdict, the
+ * What *Forget this install* clears beyond the session: the account's session and what the phone
+ * knew of it (a new install knows no account, K2), Places, cursors, cached areas, verdict, the
  * walk, the offline packs.
  */
 export async function forgetLocalData(): Promise<void> {
   narrationPlayer.stop();
+  await accountSession.end();
+  resetAccountState();
   await resetWalk();
   clearHeard();
   resetWalkFlags();

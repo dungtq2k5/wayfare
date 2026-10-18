@@ -1,0 +1,71 @@
+# Edge 6: a reset link for the signed-in account signs in again with the new password (L2b); the
+# same link again no longer works (L5); *Forgot password?* answers alike for any address (G8b);
+# signed out, a reset leads to Sign in with its note (L2c). The script asked A's link first.
+appId: app.wayfare
+---
+- runFlow:
+    file: open-link.yaml
+    env:
+      EMAIL: ${A}
+      PAGE: 'reset-password'
+- extendedWaitUntil:
+    visible: 'Choose a new password'
+    timeout: 15000
+- tapOn:
+    id: 'reset-password'
+- inputText: ${NEWPASS}
+- hideKeyboard
+- tapOn:
+    id: 'reset-submit'
+- runFlow: ../../common/no-password-save.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'account-entry'
+    timeout: 15000
+- openLink: ${output.link}
+- extendedWaitUntil:
+    visible: 'This link no longer works'
+    timeout: 15000
+- tapOn: 'Not now'
+# Signed out: the same answer for an account and for nobody.
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- tapOn: 'Forgot password?'
+- tapOn:
+    id: 'forgot-email'
+- inputText: ${B}
+- tapOn:
+    id: 'forgot-submit'
+- extendedWaitUntil:
+    visible: 'If an account uses .*'
+    timeout: 15000
+- tapOn: 'Back to sign in'
+- tapOn: 'Forgot password?'
+- tapOn:
+    id: 'forgot-email'
+- inputText: ${NOBODY}
+- tapOn:
+    id: 'forgot-submit'
+- extendedWaitUntil:
+    visible: 'If an account uses .*'
+    timeout: 15000
+- runFlow: ../../common/tabs.yaml
+- runFlow:
+    file: open-link.yaml
+    env:
+      EMAIL: ${B}
+      PAGE: 'reset-password'
+- extendedWaitUntil:
+    visible: 'Choose a new password'
+    timeout: 15000
+- tapOn:
+    id: 'reset-password'
+- inputText: ${NEWPASS}
+- hideKeyboard
+- tapOn:
+    id: 'reset-submit'
+- runFlow: ../../common/no-password-save.yaml
+- extendedWaitUntil:
+    visible: 'Password saved — sign in with your new password.'
+    timeout: 15000

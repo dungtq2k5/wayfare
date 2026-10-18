@@ -16,7 +16,7 @@ import { useTourist } from '../i18n/use-tourist';
 import { WALK_UNDO_MS } from '../env';
 import { useNetworkStore } from '../network/network-store';
 import { Icon } from '../theme/icon';
-import { TALL_CONTROL } from '../ui/layout';
+import { LARGE_TEXT_SCALE, TALL_CONTROL } from '../ui/layout';
 import { showToast } from '../ui/toast';
 import { actionAccepted } from '../ui/toast-grace';
 import { stopWalk, undoStop } from './controller';
@@ -24,9 +24,6 @@ import { WALK_PILL_LIFT } from './toast-lift';
 import { minutesOn } from './machine';
 import { allowBackground, startWalk } from './start';
 import { problemOf, useWalkStore } from './store';
-
-/** From this text size on, the status card puts Stop on its own row. */
-const LARGE_TEXT_SCALE = 1.5;
 
 /** The minutes the walk has been on, ticking while the screen is in front. */
 export function useWalkMinutes(): number {

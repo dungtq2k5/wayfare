@@ -21,8 +21,7 @@ export class PasswordGrpcController implements identityGrpc.PasswordServiceContr
     request: identityGrpc.ValidateResetTokenRequest,
     metadata?: Metadata,
   ): Promise<identityGrpc.ValidateResetTokenResponse> {
-    unpackCallerContext(metadata);
-    return this.passwords.validateResetToken(request);
+    return this.passwords.validateResetToken(request, unpackCallerContext(metadata));
   }
 
   completePasswordReset(

@@ -23,6 +23,10 @@ export interface VerifyEmailRequest {
 }
 
 export interface VerifyEmailResponse {
+  /** The link's account's address through `maskEmail`, for the result's text. */
+  emailMasked: string;
+  /** True only when the call carried the bearer of the link's own account. */
+  sameAccount: boolean;
 }
 
 export interface RequestEmailChangeRequest {
@@ -40,6 +44,10 @@ export interface ConfirmEmailChangeRequest {
 }
 
 export interface ConfirmEmailChangeResponse {
+  /** The link's account's address through `maskEmail`, for the result's text. */
+  emailMasked: string;
+  /** True only when the call carried the bearer of the link's own account. */
+  sameAccount: boolean;
 }
 
 export interface RevertEmailChangeRequest {
@@ -48,6 +56,10 @@ export interface RevertEmailChangeRequest {
 }
 
 export interface RevertEmailChangeResponse {
+  /** The link's account's address through `maskEmail`, for the result's text. */
+  emailMasked: string;
+  /** True only when the call carried the bearer of the link's own account. */
+  sameAccount: boolean;
 }
 
 export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";

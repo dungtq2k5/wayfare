@@ -1,4 +1,4 @@
-import { AuditAction, SystemRole } from '@wayfare/contracts';
+import { AuditAction, maskEmail, SystemRole } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
 import { buildAccountContext, buildAnonymousContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -64,7 +64,11 @@ describe('verification', () => {
     expect(mail.subject).toBe('Confirm your email address');
     expect(mail.text).toContain('http://web.localhost/verify-email#token=');
     await prisma.user.update({ where: { id: userId }, data: { emailBouncedAt: new Date() } });
-    await emailChange.verifyEmail({ token }, anonymous);
+    // Opened where that account is signed in: the answer says so, and names the address masked.
+    expect(await emailChange.verifyEmail({ token }, buildAccountContext({ userId }))).toEqual({
+      emailMasked: maskEmail(email),
+      sameAccount: true,
+    });
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     expect(user).toMatchObject({ isEmailVerified: true, emailBouncedAt: null });
     expect(user.tokensValidAfter).toBeNull(); // no cutoff bump
@@ -117,10 +121,15 @@ describe('password reset', () => {
     const { email, userId } = await account();
     await passwords.requestPasswordReset({ email }, anonymous);
     const { token } = await lastMail(email, /Reset/);
-    expect(await passwords.validateResetToken({ token })).toEqual({
+    expect(await passwords.validateResetToken({ token }, anonymous)).toEqual({
       purpose: identityGrpc.ActionTokenPurpose.ACTION_TOKEN_PURPOSE_PASSWORD_RESET,
       emailMasked: `p***${email.split('@')[0]!.at(-1)}@example.com`,
+      sameAccount: false,
     });
+    // The link's own account, signed in where it opens: the app keeps that session.
+    expect(
+      await passwords.validateResetToken({ token }, buildAccountContext({ userId })),
+    ).toMatchObject({ sameAccount: true });
     expect(
       (await errorOf(passwords.completePasswordReset({ token, newPassword: email }, anonymous)))
         .code,
@@ -131,7 +140,9 @@ describe('password reset', () => {
     expect(user.tokensValidAfter).not.toBeNull();
     expect(user.isEmailVerified).toBe(true);
     expect(await prisma.session.count({ where: { userId, revokedAt: null } })).toBe(0);
-    expect((await errorOf(passwords.validateResetToken({ token }))).code).toBe('TOKEN_EXPIRED');
+    expect((await errorOf(passwords.validateResetToken({ token }, anonymous))).code).toBe(
+      'TOKEN_EXPIRED',
+    );
     expect(
       (
         await errorOf(
@@ -153,7 +164,9 @@ describe('password reset', () => {
     await passwords.requestPasswordReset({ email }, anonymous);
     const { token } = await lastMail(email, /Reset/);
     await prisma.user.update({ where: { id: userId }, data: { deletedAt: new Date() } });
-    expect((await errorOf(passwords.validateResetToken({ token }))).code).toBe('TOKEN_EXPIRED');
+    expect((await errorOf(passwords.validateResetToken({ token }, anonymous))).code).toBe(
+      'TOKEN_EXPIRED',
+    );
     mailbox.reset();
     await passwords.requestPasswordReset({ email }, anonymous);
     await dispatcher.idle();
@@ -174,7 +187,7 @@ describe('staff setup', () => {
     expect(mail.subject).toBe('Your Wayfare console account is ready');
     expect(mail.text).toContain('(Super admin)');
     expect(mail.text).toContain('http://console.localhost/setup-account#token=');
-    expect(await passwords.validateResetToken({ token })).toMatchObject({
+    expect(await passwords.validateResetToken({ token }, anonymous)).toMatchObject({
       purpose: identityGrpc.ActionTokenPurpose.ACTION_TOKEN_PURPOSE_ACCOUNT_SETUP,
     });
     await passwords.completePasswordReset({ token, newPassword: NEW_PASSWORD }, anonymous);
@@ -224,9 +237,9 @@ describe('password change', () => {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     expect(user.credentialsChangedAt).toBeNull();
     expect(user.tokensValidAfter).toBeNull();
-    expect((await errorOf(passwords.validateResetToken({ token: reset.token }))).code).toBe(
-      'TOKEN_EXPIRED',
-    );
+    expect(
+      (await errorOf(passwords.validateResetToken({ token: reset.token }, anonymous))).code,
+    ).toBe('TOKEN_EXPIRED');
     expect(await auditActions()).toContain(AuditAction.PASSWORD_CHANGED);
   });
 });
@@ -250,13 +263,16 @@ describe('address change and revert', () => {
     });
     expect(changeRow.recipientUserId).toBe(userId);
 
-    await emailChange.confirmEmailChange({ token: change.token }, anonymous);
+    expect(await emailChange.confirmEmailChange({ token: change.token }, anonymous)).toEqual({
+      emailMasked: maskEmail(newAddress),
+      sameAccount: false,
+    });
     const moved = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     expect(moved).toMatchObject({ email: newAddress, isEmailVerified: true });
     expect(moved.credentialsChangedAt).not.toBeNull();
-    expect((await errorOf(passwords.validateResetToken({ token: staleReset.token }))).code).toBe(
-      'TOKEN_EXPIRED',
-    );
+    expect(
+      (await errorOf(passwords.validateResetToken({ token: staleReset.token }, anonymous))).code,
+    ).toBe('TOKEN_EXPIRED');
     const notice = await lastMail(oldAddress, /was changed/);
     expect(notice.mail.text).toContain(`${newAddress.charAt(0)}***`);
     expect(notice.mail.text).toContain('203.0.113.9');
@@ -278,7 +294,10 @@ describe('address change and revert', () => {
       ).code,
     ).toBe('EMAIL_CHANGE_REVERT_PENDING');
 
-    await emailChange.revertEmailChange({ token: notice.token }, anonymous);
+    expect(await emailChange.revertEmailChange({ token: notice.token }, context)).toEqual({
+      emailMasked: maskEmail(oldAddress),
+      sameAccount: true,
+    });
     const restored = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     expect(restored.email).toBe(oldAddress);
     expect(restored.tokensValidAfter).not.toBeNull();

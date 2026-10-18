@@ -21,7 +21,12 @@ message VerifyEmailRequest {
   string token = 1;
 }
 
-message VerifyEmailResponse {}
+message VerifyEmailResponse {
+  // The link's account's address through `maskEmail`, for the result's text.
+  string email_masked = 1;
+  // True only when the call carried the bearer of the link's own account.
+  bool same_account = 2;
+}
 
 message RequestEmailChangeRequest {
   string new_email = 1;
@@ -36,11 +41,21 @@ message ConfirmEmailChangeRequest {
   string token = 1;
 }
 
-message ConfirmEmailChangeResponse {}
+message ConfirmEmailChangeResponse {
+  // The link's account's address through `maskEmail`, for the result's text.
+  string email_masked = 1;
+  // True only when the call carried the bearer of the link's own account.
+  bool same_account = 2;
+}
 
 message RevertEmailChangeRequest {
   // Secret: never logged.
   string token = 1;
 }
 
-message RevertEmailChangeResponse {}
+message RevertEmailChangeResponse {
+  // The link's account's address through `maskEmail`, for the result's text.
+  string email_masked = 1;
+  // True only when the call carried the bearer of the link's own account.
+  bool same_account = 2;
+}

@@ -15,6 +15,7 @@ import { persistOptions } from '../src/data/persister';
 import { useDataBoot } from '../src/shell/use-data-boot';
 import { DownloadSheetHost } from '../src/packs/download-sheet';
 import { usePackBoot } from '../src/packs/use-pack-boot';
+import { useAccountBoot } from '../src/account/use-account-boot';
 import { useLanguageSwitch } from '../src/language/switch-deps';
 import { applyAppearance, useTheme } from '../src/theme/appearance';
 import { scriptLeading } from '../src/theme/script-leading';
@@ -67,6 +68,7 @@ export default function RootLayout() {
   // Sync needs a device token, so it waits for registration.
   useDataBoot(checked && onboarded && !blocked);
   usePackBoot(checked && onboarded && !blocked);
+  useAccountBoot(checked && onboarded && !blocked);
 
   if (!hydrated || !checked) return null;
   // Navigation reads the active mode's tokens: header, card and page colours follow the theme.
@@ -109,6 +111,16 @@ export default function RootLayout() {
               <Stack.Screen name="settings/diagnostics" />
               <Stack.Screen name="settings/downloads" />
               <Stack.Screen name="settings/pack" />
+              <Stack.Screen name="account/index" />
+              <Stack.Screen name="account/create" />
+              <Stack.Screen name="account/sign-in" />
+              <Stack.Screen name="account/forgot" />
+              <Stack.Screen name="account/name" />
+              <Stack.Screen name="account/email" />
+              <Stack.Screen name="account/password" />
+              <Stack.Screen name="account/delete" />
+              <Stack.Screen name="account/terms" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="account/link" />
             </Stack.Protected>
           </Stack>
           <DownloadSheetHost />

@@ -107,16 +107,17 @@ export class EmailChangeService {
   ): Promise<identityGrpc.VerifyEmailResponse> {
     const { token } = parseRpcRequest(tokenField, request);
     const now = new Date();
-    await this.prisma.$transaction(async (tx) => {
-      const link = await this.links.consume(tx, token, [ActionTokenPurpose.EMAIL_VERIFICATION]);
+    const link = await this.prisma.$transaction(async (tx) => {
+      const consumed = await this.links.consume(tx, token, [ActionTokenPurpose.EMAIL_VERIFICATION]);
       await tx.user.update({
-        where: { id: link.userId },
+        where: { id: consumed.userId },
         data: { isEmailVerified: true, emailBouncedAt: null },
         select: { id: true },
       });
-      await this.audit(tx, link.userId, AuditAction.EMAIL_VERIFIED, context.origin, now, {});
+      await this.audit(tx, consumed.userId, AuditAction.EMAIL_VERIFIED, context.origin, now, {});
+      return consumed;
     });
-    return {};
+    return linkAnswer(link.userId, link.targetEmail, context);
   }
 
   /**
@@ -223,11 +224,11 @@ export class EmailChangeService {
           links: { action: { path: 'revertEmailChange', token: revert.token } },
         });
         await this.audit(tx, link.userId, AuditAction.EMAIL_CHANGED, context.origin, now, {});
-        return notice;
+        return { notice, answer: linkAnswer(link.userId, newAddress, context) };
       }),
     );
-    this.dispatcher.run([pending]);
-    return {};
+    this.dispatcher.run([pending.notice]);
+    return pending.answer;
   }
 
   /**
@@ -275,11 +276,11 @@ export class EmailChangeService {
         await this.audit(tx, link.userId, AuditAction.EMAIL_CHANGE_REVERTED, context.origin, now, {
           after: { revokedFamilies },
         });
-        return mail;
+        return { mail, answer: linkAnswer(link.userId, restored, context) };
       }),
     );
-    this.dispatcher.run([pending]);
-    return {};
+    this.dispatcher.run([pending.mail]);
+    return pending.answer;
   }
 
   /** `EMAIL_TAKEN` for an address in use, or reserved by a live revert (rdm-spec I-9). */
@@ -330,4 +331,20 @@ export class EmailChangeService {
       }),
     );
   }
+}
+
+/**
+ * What a link's answer says about its account (api-endpoints-plan §1.2): the address masked, for
+ * the result's text, and whether the caller is that account — a masked address cannot tell, since
+ * different addresses mask alike.
+ */
+export function linkAnswer(
+  userId: string,
+  email: string,
+  context: RequestContext,
+): { emailMasked: string; sameAccount: boolean } {
+  return {
+    emailMasked: maskEmail(email),
+    sameAccount: context.kind === 'account' && context.userId === userId,
+  };
 }

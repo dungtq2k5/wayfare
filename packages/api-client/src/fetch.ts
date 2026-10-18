@@ -100,7 +100,7 @@ async function send(
  * The mutator every generated hook calls (ADR 0028): it adds the client headers and the bearer,
  * returns the documented envelope (`{ data, meta? }`) — `undefined` for a `204` or a `304` — and
  * throws an `ApiError` for anything else.
- * A `401` asks the session to recover and retries once.
+ * A `401` for the bearer asks the session to recover and retries once.
  */
 export async function apiFetch<T>(url: string, options: ApiRequestInit = {}): Promise<T> {
   const settings = configured();
@@ -109,6 +109,9 @@ export async function apiFetch<T>(url: string, options: ApiRequestInit = {}): Pr
   let response = await send(settings, url, options, token);
   if (response.status === 401 && session !== undefined) {
     const error = await toApiError(response);
+    // A wrong address or password is the request's answer, not the bearer's: sent again, it
+    // would only spend one more of the sign-in budget.
+    if (error.code === 'INVALID_CREDENTIALS') throw error;
     if (!(await session.recover(error, token))) throw error;
     token = await session.accessToken();
     response = await send(settings, url, options, token);

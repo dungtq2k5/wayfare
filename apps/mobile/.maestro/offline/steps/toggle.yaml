@@ -3,7 +3,7 @@
 # and comes back. A switch already there is left alone.
 appId: app.wayfare
 ---
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml
 - tapOn: 'Settings'
 - scrollUntilVisible:
     element: 'Diagnostics'

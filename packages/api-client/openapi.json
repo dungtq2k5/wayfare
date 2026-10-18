@@ -16361,8 +16361,23 @@
           }
         },
         "responses": {
-          "204": {
-            "description": "No content"
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LinkAnswerResponseDto"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "CLIENT_HEADER_REQUIRED | VALIDATION_FAILED",
@@ -17107,8 +17122,23 @@
           }
         },
         "responses": {
-          "204": {
-            "description": "No content"
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LinkAnswerResponseDto"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "CLIENT_HEADER_REQUIRED | VALIDATION_FAILED",
@@ -17475,8 +17505,23 @@
           }
         },
         "responses": {
-          "204": {
-            "description": "No content"
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LinkAnswerResponseDto"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "CLIENT_HEADER_REQUIRED | VALIDATION_FAILED",
@@ -65668,12 +65713,16 @@
           },
           "emailMasked": {
             "type": "string"
+          },
+          "sameAccount": {
+            "type": "boolean"
           }
         },
         "required": [
           "valid",
           "purpose",
-          "emailMasked"
+          "emailMasked",
+          "sameAccount"
         ]
       },
       "LinkTokenDto": {
@@ -65729,6 +65778,21 @@
           "newPassword"
         ],
         "additionalProperties": false
+      },
+      "LinkAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "emailMasked": {
+            "type": "string"
+          },
+          "sameAccount": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "emailMasked",
+          "sameAccount"
+        ]
       },
       "ChangeEmailDto": {
         "type": "object",

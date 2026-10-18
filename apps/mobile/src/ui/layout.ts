@@ -29,3 +29,9 @@ export const SHEET_ICON_DISC = 56;
 export const STEP_BADGE = 28;
 /** A skeleton row's least height. */
 export const SKELETON_ROW = 80;
+
+/**
+ * Android's font scale above which side-by-side layouts stack (conventions §12.5): a row's value
+ * goes under its title, a card's buttons go full width, the walk card stacks.
+ */
+export const LARGE_TEXT_SCALE = 1.5;

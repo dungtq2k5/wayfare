@@ -1,7 +1,7 @@
 import { configureApiClient } from '@wayfare/api-client';
 import * as Application from 'expo-application';
 import { API_URL } from './env';
-import { deviceSession } from './session';
+import { accountSession } from './session';
 
 /** The installed build's version, which the gateway checks against `MIN_SUPPORTED_APP_VERSION`. */
 export const APP_VERSION = Application.nativeApplicationVersion ?? '0.0.0';
@@ -11,5 +11,5 @@ configureApiClient({
   baseUrl: API_URL,
   client: 'mobile',
   appVersion: APP_VERSION,
-  session: deviceSession,
+  session: accountSession,
 });

@@ -6,7 +6,6 @@ import {
   AuditActorType,
   AuditResourceType,
   EmailTemplate,
-  maskEmail,
   MAX_PASSWORD_LENGTH,
   MAX_REFRESH_TOKEN_LENGTH,
   SessionRevokedReason,
@@ -26,6 +25,7 @@ import { AccountLinksService } from '../account-links/account-links.service';
 import { auditRecord } from '../audit/domain/audit-record';
 import { EmailDispatcher } from '../email/email.module';
 import { EmailService } from '../email/email.service';
+import { linkAnswer } from '../email-change/email-change.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { isPasswordTheEmail, zNewPassword } from '../tokens/domain/password';
@@ -118,13 +118,14 @@ export class PasswordService {
   /** Whether a reset or setup link is live, so the page can choose its form. */
   async validateResetToken(
     request: identityGrpc.ValidateResetTokenRequest,
+    context: RequestContext,
   ): Promise<identityGrpc.ValidateResetTokenResponse> {
     const { token } = parseRpcRequest(tokenField, request);
     const live = await this.links.inspect(this.prisma, token, RESET_PURPOSES);
     if (live === null) throw rpcError('TOKEN_EXPIRED');
     return {
       purpose: actionTokenPurposeProto.toProto(live.purpose),
-      emailMasked: maskEmail(live.targetEmail),
+      ...linkAnswer(live.userId, live.targetEmail, context),
     };
   }
 

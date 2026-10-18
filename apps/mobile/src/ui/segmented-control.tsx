@@ -1,6 +1,8 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { CircleCheck } from 'lucide-react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { Icon } from '../theme/icon';
+import { LARGE_TEXT_SCALE } from './layout';
 
 interface SegmentedControlProps<T extends string> {
   options: readonly { value: T; label: string; icon?: LucideIcon }[];
@@ -9,13 +11,43 @@ interface SegmentedControlProps<T extends string> {
   label: string;
 }
 
-/** One choice of a few, side by side; each segment is a 48 dp radio. */
+/**
+ * One choice of a few, side by side; each segment is a 48 dp radio. At large text the segments
+ * would overflow (the 200 % frames), so they become rows, one under another (conventions §12.5).
+ */
 export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
   label,
 }: SegmentedControlProps<T>) {
+  const rows = useWindowDimensions().fontScale >= LARGE_TEXT_SCALE;
+  if (rows) {
+    return (
+      <View accessibilityRole="radiogroup" accessibilityLabel={label} className="gap-1">
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              onPress={() => onChange(option.value)}
+              className={`min-h-12 flex-row items-center gap-3 rounded-lg px-3 py-2 ${
+                selected ? 'border-2 border-primary bg-accent' : 'border border-border bg-card'
+              }`}
+            >
+              {option.icon !== undefined && (
+                <Icon icon={option.icon} size="md" color="muted-foreground" />
+              )}
+              <Text className="flex-1 text-body text-foreground">{option.label}</Text>
+              {selected && <Icon icon={CircleCheck} size="md" color="primary" />}
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
   return (
     <View
       accessibilityRole="radiogroup"

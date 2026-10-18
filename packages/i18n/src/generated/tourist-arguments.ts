@@ -136,4 +136,22 @@ export interface TouristArguments {
   readonly "settings.diagnostics.packFree": { "state": string | number };
   readonly "settings.diagnostics.packMobile": { "state": string | number };
   readonly "settings.diagnostics.packFailNext": { "state": string | number };
+  readonly "account.notVerified": { "email": string | number };
+  readonly "account.offer.title": { "count": string | number };
+  readonly "account.error.tooShort": { "count": string | number };
+  readonly "account.notice.verify.body": { "email": string | number };
+  readonly "account.resend.wait": { "time": string | number };
+  readonly "account.error.tooMany.body": { "minutes": number };
+  readonly "account.signedIn": { "count": number };
+  readonly "account.forgot.sent.body": { "email": string | number };
+  readonly "account.link.verified.body": { "email": string | number };
+  readonly "account.link.reset.for": { "email": string | number };
+  readonly "account.link.confirmed.title": { "email": string | number };
+  readonly "account.link.reverted.body": { "email": string | number };
+  readonly "account.link.other.body": { "linkEmail": string | number; "email": string | number };
+  readonly "account.notice.pending.body": { "newEmail": string | number; "email": string | number };
+  readonly "account.delete.wordLabel": { "word": string | number };
+  readonly "account.error.word": { "word": string | number };
+  readonly "account.terms.body": { "date": string | number };
+  readonly "account.terms.updated": { "date": string | number };
 }

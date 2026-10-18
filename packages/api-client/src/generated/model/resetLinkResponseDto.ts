@@ -10,4 +10,5 @@ export interface ResetLinkResponseDto {
   valid: true;
   purpose: ResetLinkResponseDtoPurpose;
   emailMasked: string;
+  sameAccount: boolean;
 }

@@ -14,7 +14,7 @@ appId: app.wayfare
 - extendedWaitUntil:
     visible: '\[ja\] Language'
     timeout: 120000
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml
 - scrollUntilVisible:
     element: '\[ja\] Preferences'
     direction: UP
@@ -23,5 +23,5 @@ appId: app.wayfare
 - scrollUntilVisible:
     element: '.*Download in 日本語'
 - assertVisible: '.*The map and photos are already on this phone.*'
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml
 - runFlow: ../../common/language-english.yaml

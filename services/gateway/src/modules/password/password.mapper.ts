@@ -14,5 +14,10 @@ export function toResetLinkResponseDto(
   ) {
     throw new Error('A reset link validated with an unexpected purpose');
   }
-  return { valid: true, purpose, emailMasked: response.emailMasked };
+  return {
+    valid: true,
+    purpose,
+    emailMasked: response.emailMasked,
+    sameAccount: response.sameAccount,
+  };
 }

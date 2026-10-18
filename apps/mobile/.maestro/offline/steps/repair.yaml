@@ -21,4 +21,4 @@ appId: app.wayfare
 - extendedWaitUntil:
     visible: 'Ready offline'
     timeout: 60000
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml

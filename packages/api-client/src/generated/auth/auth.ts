@@ -20,6 +20,9 @@ import type {
   AuthRegister201,
   ChangeEmailDto,
   ChangePasswordDto,
+  EmailChangeConfirmChange200,
+  EmailChangeRevertChange200,
+  EmailChangeVerify200,
   ForgotPasswordDto,
   LinkTokenDto,
   LoginDto,
@@ -966,7 +969,7 @@ export const useEmailChangeRequestVerification = <TError = unknown,
 /**
  * @summary Verify the address a link was sent to. Refresh afterwards to carry it in the token.
  */
-export const emailChangeVerify = async (linkTokenDto: LinkTokenDto, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+export const emailChangeVerify = async (linkTokenDto: LinkTokenDto, options?: Parameters<typeof apiFetch>[1]): Promise<EmailChangeVerify200> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -982,7 +985,7 @@ export const emailChangeVerify = async (linkTokenDto: LinkTokenDto, options?: Pa
     }
     return headers;
   };
-return apiFetch<void>(getEmailChangeVerifyUrl(),
+return apiFetch<EmailChangeVerify200>(getEmailChangeVerifyUrl(),
   {
     ...options,
     method: 'POST',
@@ -1140,7 +1143,7 @@ export const useEmailChangeRequestChange = <TError = unknown,
 /**
  * @summary Move the account to the confirmed address; the old one gets a revert link.
  */
-export const emailChangeConfirmChange = async (linkTokenDto: LinkTokenDto, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+export const emailChangeConfirmChange = async (linkTokenDto: LinkTokenDto, options?: Parameters<typeof apiFetch>[1]): Promise<EmailChangeConfirmChange200> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1156,7 +1159,7 @@ export const emailChangeConfirmChange = async (linkTokenDto: LinkTokenDto, optio
     }
     return headers;
   };
-return apiFetch<void>(getEmailChangeConfirmChangeUrl(),
+return apiFetch<EmailChangeConfirmChange200>(getEmailChangeConfirmChangeUrl(),
   {
     ...options,
     method: 'POST',
@@ -1227,7 +1230,7 @@ export const useEmailChangeConfirmChange = <TError = unknown,
 /**
  * @summary "This wasn't me": restore the old address and sign every session out.
  */
-export const emailChangeRevertChange = async (linkTokenDto: LinkTokenDto, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+export const emailChangeRevertChange = async (linkTokenDto: LinkTokenDto, options?: Parameters<typeof apiFetch>[1]): Promise<EmailChangeRevertChange200> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1243,7 +1246,7 @@ export const emailChangeRevertChange = async (linkTokenDto: LinkTokenDto, option
     }
     return headers;
   };
-return apiFetch<void>(getEmailChangeRevertChangeUrl(),
+return apiFetch<EmailChangeRevertChange200>(getEmailChangeRevertChangeUrl(),
   {
     ...options,
     method: 'POST',

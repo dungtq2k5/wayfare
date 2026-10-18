@@ -20,4 +20,4 @@ appId: app.wayfare
 - assertVisible:
     text: 'Update automatically on Wi-Fi'
     checked: false
-- runFlow: tabs.yaml
+- runFlow: ../../common/tabs.yaml

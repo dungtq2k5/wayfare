@@ -11,8 +11,10 @@ import {
 } from '@wayfare/nest-common';
 import type { AccountContext, RequestContext } from '@wayfare/nest-common';
 import type { Response } from 'express';
+import { ZodSerializerDto } from 'nestjs-zod';
 import { LinkTokenDto } from '../password/dto/password.dto';
 import { ChangeEmailDto } from './dto/email-change.dto';
+import { LinkAnswerResponseDto } from './dto/link-answer-response.dto';
 import { EmailChangeService } from './email-change.service';
 
 /**
@@ -37,17 +39,21 @@ export class EmailChangeController {
   }
 
   @Post('verify')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Auth('PUBLIC')
   @RateLimit('PUBLIC_READ')
   @NoStore()
   @ApiOperation({
     summary: 'Verify the address a link was sent to. Refresh afterwards to carry it in the token.',
   })
-  @ApiEnvelope(null)
+  @ApiEnvelope(LinkAnswerResponseDto)
   @ApiErrors('TOKEN_EXPIRED')
-  async verify(@Ctx() context: RequestContext, @Body() body: LinkTokenDto): Promise<void> {
-    await this.emails.verify(context, body);
+  @ZodSerializerDto(LinkAnswerResponseDto)
+  verify(
+    @Ctx() context: RequestContext,
+    @Body() body: LinkTokenDto,
+  ): Promise<LinkAnswerResponseDto> {
+    return this.emails.verify(context, body);
   }
 
   @Post('change')
@@ -68,34 +74,39 @@ export class EmailChangeController {
   }
 
   @Post('change/confirm')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Auth('PUBLIC')
   @RateLimit('PUBLIC_READ')
   @NoStore()
   @ApiOperation({
     summary: 'Move the account to the confirmed address; the old one gets a revert link.',
   })
-  @ApiEnvelope(null)
+  @ApiEnvelope(LinkAnswerResponseDto)
   @ApiErrors('TOKEN_EXPIRED', 'EMAIL_TAKEN')
-  async confirmChange(@Ctx() context: RequestContext, @Body() body: LinkTokenDto): Promise<void> {
-    await this.emails.confirmChange(context, body);
+  @ZodSerializerDto(LinkAnswerResponseDto)
+  confirmChange(
+    @Ctx() context: RequestContext,
+    @Body() body: LinkTokenDto,
+  ): Promise<LinkAnswerResponseDto> {
+    return this.emails.confirmChange(context, body);
   }
 
   @Post('change/revert')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Auth('PUBLIC')
   @RateLimit('PUBLIC_READ')
   @NoStore()
   @ApiOperation({
     summary: '"This wasn\'t me": restore the old address and sign every session out.',
   })
-  @ApiEnvelope(null)
+  @ApiEnvelope(LinkAnswerResponseDto)
   @ApiErrors('TOKEN_EXPIRED')
+  @ZodSerializerDto(LinkAnswerResponseDto)
   async revertChange(
     @Ctx() context: RequestContext,
     @Body() body: LinkTokenDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<void> {
-    await this.emails.revertChange(context, body, res);
+  ): Promise<LinkAnswerResponseDto> {
+    return this.emails.revertChange(context, body, res);
   }
 }

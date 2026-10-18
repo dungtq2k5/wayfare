@@ -482,7 +482,7 @@ These are **product** decisions, not implementation details. They must be config
 | Max photos / size | 8 per place / 5 MB each | Owner content quality vs. pack size. |
 | Concurrent TTS jobs | 3 | Protects the TTS provider and our own CPU. |
 | On-demand rate limit | 30 requests / 10 min / device | Anti-abuse on an endpoint that costs us real work. |
-| Access / refresh token TTL | 30 min / 7 days | Short access window, rotating refresh. |
+| Access / refresh token TTL | 30 min / 7 days (web, console), 30 days (mobile), from sign-in | Short access window, rotating refresh. A mobile tourist's trips are weeks apart; the account holds only favourites today — revisit when purchases arrive. |
 | AI credits | 10/day per owner | Caps LLM spend per account. |
 | PII retention | 180 days, then auto-redact | Data minimisation. |
 | TTS job retention | 14 days | Enough to debug, not enough to accumulate. |

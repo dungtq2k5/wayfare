@@ -1,0 +1,30 @@
+# Starts from Settings signed out: an account left signed in by an earlier run is signed out.
+appId: app.wayfare
+---
+# The app in front, as it was left: a part can follow another, or start the run.
+- launchApp:
+    stopApp: false
+# A save sheet an earlier part left open still covers the app.
+- runFlow: ../../common/no-password-save.yaml
+# The tabs, or a screen above them that tabs.yaml backs out of.
+- extendedWaitUntil:
+    visible: 'Explore|Settings|Favourites|(\[.*\] )?Back'
+    timeout: 30000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Account'
+    direction: UP
+- runFlow:
+    when:
+      visible:
+        id: 'account-entry'
+    commands:
+      - tapOn:
+          id: 'account-entry'
+      - tapOn:
+          id: 'account-sign-out'
+      - tapOn: 'SIGN OUT|Sign out'
+- extendedWaitUntil:
+    visible: 'Keep your favourites on every phone'
+    timeout: 15000

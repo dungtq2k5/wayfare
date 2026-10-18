@@ -1,0 +1,15 @@
+# DoD 4: the favourite the second device saved is on this phone, the account's union.
+appId: app.wayfare
+---
+# The app in front, as it was left: a part can follow another, or start the run.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'Explore|Settings|Favourites'
+    timeout: 30000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+- tapOn: 'Favourites'
+- extendedWaitUntil:
+    visible: ${FAV}
+    timeout: 15000

@@ -8,6 +8,8 @@ export const resetLinkResponseSchema = z.object({
   /** `ACCOUNT_SETUP` says "choose your password", `PASSWORD_RESET` "reset your password". */
   purpose: z.enum([ActionTokenPurpose.PASSWORD_RESET, ActionTokenPurpose.ACCOUNT_SETUP]),
   emailMasked: z.string(),
+  /** Whether the caller's bearer is the link's own account: masked addresses collide. */
+  sameAccount: z.boolean(),
 });
 
 /** What `POST /auth/password/reset/validate` returns under `data`. */

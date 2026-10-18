@@ -12,3 +12,16 @@ animations_back() {
   done
 }
 for key in $ANIMATION_KEYS; do adb shell settings put global "$key" 0; done
+
+# Every `maestro test` of a system run: a stale driver on the phone, left by a run that was
+# stopped, is stopped first, and a run that hangs (a driver that never answers) ends after
+# MAESTRO_TIMEOUT seconds instead of holding the run for hours. A timed-out run fails the script.
+maestro() {
+  adb shell am force-stop dev.mobile.maestro > /dev/null 2>&1 || true
+  adb shell am force-stop dev.mobile.maestro.test > /dev/null 2>&1 || true
+  sleep 2
+  local status=0
+  timeout -k 30 "${MAESTRO_TIMEOUT:-900}" maestro "$@" || status=$?
+  [ "$status" -eq 124 ] && echo "maestro: timed out after ${MAESTRO_TIMEOUT:-900}s: $*" >&2
+  return "$status"
+}

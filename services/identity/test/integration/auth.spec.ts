@@ -1,4 +1,4 @@
-import { compareStrings } from '@wayfare/contracts';
+import { compareStrings, REFRESH_TOKEN_TTL_MS, SessionClient } from '@wayfare/contracts';
 import { hashToken } from '@wayfare/nest-common';
 import type { RequestContext } from '@wayfare/nest-common';
 import { buildAccountContext, buildAnonymousContext } from '@wayfare/nest-common/testing';
@@ -132,6 +132,27 @@ describe('register', () => {
     });
     const subjects = (await prisma.outboxEvent.findMany()).map((event) => event.subject);
     expect(subjects).toContain('identity.device.claimed');
+  });
+});
+
+describe('session length', () => {
+  it('lasts a month from sign-in on the app, a week on the web', async () => {
+    const device = await registerDevice(services);
+    await registerAccount(services, { client: CLIENT.mobile, context: device.context });
+    await registerAccount(services, { client: CLIENT.web });
+    const lengths = (await prisma.session.findMany()).map((row) => ({
+      client: row.client,
+      ms: row.expiresAt.getTime() - row.createdAt.getTime(),
+    }));
+    for (const { client, ms } of lengths) {
+      // Within a second: `created_at` is the database's clock, the expiry the service's.
+      expect(Math.abs(ms - REFRESH_TOKEN_TTL_MS[client as SessionClient])).toBeLessThan(1_000);
+    }
+    expect(lengths.map((row) => row.client).sort((a, b) => a.localeCompare(b))).toEqual([
+      'MOBILE',
+      'WEB',
+    ]);
+    expect(REFRESH_TOKEN_TTL_MS[SessionClient.MOBILE]).toBe(30 * 24 * 60 * 60 * 1000);
   });
 });
 

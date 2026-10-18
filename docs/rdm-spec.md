@@ -405,13 +405,14 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **client** | VARCHAR(16) | NOT NULL | `CONSOLE \| WEB \| MOBILE` — decides whether tokens travel in cookies or in the body. |
 | **ip** | VARCHAR(45) | Nullable | Observed by the gateway, never client-supplied. |
 | **user_agent** | VARCHAR(512) | Nullable | Truncated, never rejected. |
-| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | `created_at + REFRESH_TOKEN_TTL` (7 d). |
+| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | `created_at + REFRESH_TOKEN_TTL` for the session's client: **30 d for `MOBILE`** (a tourist's trips are weeks apart), 7 d for `CONSOLE` and `WEB`. |
 | **rotated_at** | TIMESTAMPTZ(3) | Nullable | Set when this token is exchanged for its successor. |
 | **revoked_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **revoked_reason** | VARCHAR(32) | Nullable | `LOGOUT \| LOGOUT_ALL \| REPLAY_DETECTED \| PASSWORD_CHANGED \| LOCKED \| ADMIN \| ERASED` |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **A spent row is kept, not deleted — that is the replay defence.** A refresh presenting a hash whose row has `rotated_at` set proves two parties hold the same token; the handler revokes **every row in the `family_id`** and returns `401`. Delete the spent row and the replay looks like an unknown token, indistinguishable from a typo.
+- **For `MOBILE`, every second use is a replay**, with no grace: the app refreshes one call at a time and stores the new token before using it. An app killed between the answer and that write replays at its next launch and is signed out — accepted as rare, for strict detection.
 - **A lost race is not a replay — for cookie clients.** A `CONSOLE` or `WEB` session's hash rotated less than `REFRESH_RACE_GRACE_MS` (10 s) earlier is a second tab sharing the cookie jar that refreshed at the same moment; it gets `409` and nothing is revoked. A `MOBILE` session has no grace: its app refreshes single-flight, so any rotated hash is a replay. Rotation is a conditional update (`WHERE rotated_at IS NULL`), so exactly one of two concurrent refreshes wins.
 - **A successor keeps its family's `expires_at`.** Rotation never extends a session beyond `REFRESH_TOKEN_TTL` from the login.
 - A session is live iff `rotated_at IS NULL AND revoked_at IS NULL AND expires_at > now()`. Rows are pruned 30 days after `expires_at`.

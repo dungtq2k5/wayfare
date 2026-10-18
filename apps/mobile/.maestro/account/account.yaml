@@ -1,0 +1,156 @@
+# The optional account, end to end: Settings signed out (frame E1) in its five groups, creating an
+# account (G1–G3), the emailed verification opened in the app (L1), the account and its name (A1,
+# A2), signing out (A5) with this phone's favourites kept, signing in again (G4) with the
+# favourites now the account's, Credits (S3), and deleting the account (A7) — the phone left as it
+# began, signed out.
+#
+# Against the local stack (`pnpm mobile:reverse`), its Mailpit on localhost:8025, the app in
+# English after `first-run/first-run.yaml`, with location off and animations off. A new address
+# each run; three Places saved here first, as a tourist would before signing up.
+#   maestro test apps/mobile/.maestro/account/account.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runFlow: steps/signed-out.yaml
+- runScript: steps/new-email.js
+- runFlow:
+    file: steps/save.yaml
+    env:
+      NAME: '.*Bảo tàng Mỹ thuật.*'
+- runFlow:
+    file: steps/save.yaml
+    env:
+      NAME: '.*Bảo tàng Thành phố.*'
+- runFlow:
+    file: steps/save.yaml
+    env:
+      NAME: '.*Bến Bạch Đằng.*'
+# E1: the account offered first, and Settings as one list (S1).
+- tapOn: 'Settings'
+- assertVisible: 'Keep your favourites on every phone'
+- assertVisible: 'Account'
+- assertVisible: 'Preferences'
+- scrollUntilVisible:
+    element: 'Walk and offline'
+- scrollUntilVisible:
+    element: 'Privacy'
+- scrollUntilVisible:
+    element: 'About'
+- scrollUntilVisible:
+    element: 'Account'
+    direction: UP
+# G1–G3: create, signed in at once, the address to confirm.
+- tapOn: 'Create an account'
+- assertVisible: 'At least 10 characters.'
+- tapOn:
+    id: 'create-email'
+- inputText: ${output.email}
+- tapOn:
+    id: 'create-password'
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: 'create-terms'
+- tapOn:
+    id: 'create-submit'
+- runFlow: ../common/no-password-save.yaml
+- extendedWaitUntil:
+    visible: 'Check your email'
+    timeout: 15000
+- assertVisible: 'Not verified'
+# L1: the verification link from Mailpit, opened in the app.
+- runScript:
+    file: steps/mail-link.js
+    env:
+      EMAIL: ${output.email}
+      PAGE: 'verify-email'
+- openLink: ${output.link}
+- extendedWaitUntil:
+    visible: 'Email confirmed'
+    timeout: 15000
+- tapOn: 'Done'
+- assertNotVisible: 'Not verified'
+# A1, A2: the account, and a name.
+- tapOn:
+    id: 'account-entry'
+- assertVisible: 'Verified'
+- tapOn:
+    id: 'account-name'
+- tapOn:
+    id: 'name-field'
+- inputText: 'Mai Nguyen'
+- hideKeyboard
+- tapOn:
+    id: 'name-save'
+- assertVisible: 'Mai Nguyen'
+# A5: signing out keeps this phone's favourites.
+- tapOn:
+    id: 'account-sign-out'
+- assertVisible: '.*stay, without an account.*'
+- tapOn: 'SIGN OUT|Sign out'
+- extendedWaitUntil:
+    visible: 'Keep your favourites on every phone'
+    timeout: 15000
+- tapOn: 'Favourites'
+- assertVisible: '.*Bảo tàng Mỹ thuật.*'
+- assertVisible: '.*Bảo tàng Thành phố.*'
+- assertVisible: '.*Bến Bạch Đằng.*'
+# G4: signing in again.
+- tapOn: 'Settings'
+- tapOn:
+    id: 'account-sign-in'
+- tapOn:
+    id: 'sign-in-email'
+- inputText: ${output.email}
+- tapOn:
+    id: 'sign-in-password'
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: 'sign-in-submit'
+# Google's save sheet covers G6's toast (its count is the specs' and a manual check): the
+# favourites are read from the list instead, now the account's.
+- extendedWaitUntil:
+    visible: 'Save password to Google\?|Mai Nguyen'
+    timeout: 15000
+- runFlow: ../common/no-password-save.yaml
+- assertVisible: 'Mai Nguyen'
+- tapOn: 'Favourites'
+- assertVisible: '.*Bảo tàng Mỹ thuật.*'
+- assertVisible: '.*Bến Bạch Đằng.*'
+- assertNotVisible:
+    id: 'favourites-offer'
+- tapOn: 'Settings'
+# S3: Credits, the map's attribution first.
+- scrollUntilVisible:
+    element: 'Credits'
+- tapOn: 'Credits'
+- assertVisible: '© OpenStreetMap contributors'
+- assertVisible: '.*ODbL.*'
+- tapOn: 'Back'
+# A7: deleting it, this phone keeping its favourites; signed out at the end.
+- scrollUntilVisible:
+    element: 'Mai Nguyen'
+    direction: UP
+- tapOn:
+    id: 'account-entry'
+- tapOn:
+    id: 'account-delete'
+- tapOn:
+    id: 'delete-password'
+- inputText: ${output.password}
+- tapOn:
+    id: 'delete-word'
+- inputText: 'DELETE'
+- hideKeyboard
+- tapOn:
+    id: 'delete-submit'
+- extendedWaitUntil:
+    visible: 'Keep your favourites on every phone'
+    timeout: 15000
+- tapOn: 'Favourites'
+- assertVisible: '.*Bến Bạch Đằng.*'

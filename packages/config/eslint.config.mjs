@@ -436,6 +436,12 @@ export function wayfareConfig({ tsconfigRootDir }) {
       rules: { '@typescript-eslint/no-require-imports': 'off' },
     },
     {
+      // Maestro's runScript files: `output`, `http`, `json` and each flow's env values are globals
+      // its runtime injects, and the env names differ by flow.
+      files: ['apps/mobile/.maestro/**/*.js'],
+      rules: { 'no-undef': 'off' },
+    },
+    {
       // Every translation goes through useTourist(), whose keys and ICU arguments are type-checked.
       // This block replaces the base no-restricted-imports, so its vendor and testing bans are repeated.
       files: ['apps/mobile/**/*.{ts,tsx}'],

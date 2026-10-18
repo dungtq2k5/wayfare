@@ -115,7 +115,8 @@ export class SessionsService {
     const { user, origin, now, lineage } = input;
     const familyId = lineage?.familyId ?? newId();
     const refreshToken = generateToken();
-    const refreshExpiresAt = lineage?.expiresAt ?? new Date(now.getTime() + REFRESH_TOKEN_TTL_MS);
+    const refreshExpiresAt =
+      lineage?.expiresAt ?? new Date(now.getTime() + REFRESH_TOKEN_TTL_MS[input.client]);
     // I-3: only a mobile session lives on a device.
     const sessionDeviceId =
       (lineage?.client ?? input.client) === SessionClient.MOBILE
