@@ -1009,6 +1009,19 @@ export class PlacesService {
         await this.audit(tx, actor, AuditAction.PLACE_RESTORED, placeId, now, {
           before: { status: write.place.status },
         });
+        // A Place deleted while it waited for narration had its task dropped as gone: asked again
+        // for its current text, or it would wait for good (a cached result answers at once).
+        if (write.place.status === PlaceStatus.PROCESSING) {
+          await this.requestNarration(
+            tx,
+            placeId,
+            write.place.kind,
+            write.place.ownerUserId,
+            write.place.contentHash,
+            SynthesisTrigger.CONTENT_CHANGED,
+            now,
+          );
+        }
         write.after = { ...write.after, deleted: false };
         write.observable = true;
       },

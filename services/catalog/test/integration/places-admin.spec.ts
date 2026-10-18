@@ -628,6 +628,29 @@ describe('DeletePlace and RestorePlace', () => {
     expect((await errorOf(places.restorePlace({ placeId: place.id }, staff()))).code).toBe(
       'INVALID_STATE',
     );
+    // A live Place has its narration: restoring it asks for none.
+    expect(await outboxPayloads(prisma, CATALOG_PLACE_CONTENT_CHANGED.subject)).toEqual([]);
+  });
+
+  it('asks narration again for a Place deleted while it waited for its audio', async () => {
+    // Narration dropped its task as gone when it found the Place deleted; nothing else would ask.
+    const place = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.landmark.id,
+      status: PlaceStatus.PROCESSING,
+      deleted: true,
+    });
+    const { contentHash } = await prisma.place.findUniqueOrThrow({ where: { id: place.id } });
+    const { place: restored } = await places.restorePlace({ placeId: place.id }, staff());
+    expect(restored).toMatchObject({ status: S.PLACE_STATUS_PROCESSING });
+    expect(await outboxPayloads(prisma, CATALOG_PLACE_CONTENT_CHANGED.subject)).toEqual([
+      expect.objectContaining({
+        placeId: place.id,
+        contentHash,
+        trigger: 'CONTENT_CHANGED',
+        langs: ['vi', 'en', 'zh-Hans', 'ja', 'ko'],
+      }),
+    ]);
   });
 
   it('asks billing before deleting a Venue, failing closed', async () => {
