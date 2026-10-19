@@ -40,6 +40,7 @@ export * from './http/openapi-post-pass';
 export * from './http/paged';
 export * from './http/public-cache.decorator';
 export * from './http/rate-limit.guard';
+export * from './http/rate-limit-refund.interceptor';
 export * from './http/rate-limiter';
 export * from './http/request-context';
 export * from './http/request-of';

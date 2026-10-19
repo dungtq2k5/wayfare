@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { normalizeEmail } from '@wayfare/contracts';
-import type { RateLimitKey } from '@wayfare/contracts';
+import { normalizeEmail, RATE_LIMITS } from '@wayfare/contracts';
+import type { RateLimitKey, RateLimitSpec } from '@wayfare/contracts';
 import type { Request } from 'express';
 import { deviceIdOf } from '../context/request-context';
 import type { RequestContext } from '../context/request-context';
@@ -25,6 +25,17 @@ export function rateLimitValues(
     ...(deviceId === null ? {} : { deviceId }),
     ...(context.kind === 'account' ? { userId: context.userId } : {}),
   };
+}
+
+/**
+ * Where a `countFailuresOnly` class leaves what it counted, for `RateLimitRefundInterceptor` to take
+ * back when the request does not fail.
+ */
+export const RATE_LIMIT_RESERVED = Symbol('rateLimitReserved');
+
+/** A request a failures-only class counted up front. */
+export interface ReservedRequest {
+  [RATE_LIMIT_RESERVED]?: readonly string[];
 }
 
 /**
@@ -65,6 +76,8 @@ export class RateLimitGuard implements CanActivate {
     }
     if (!verdict.allowed)
       throw new AppHttpException('RATE_LIMITED', { retryAfterSeconds: verdict.retryAfterSeconds });
+    if ((RATE_LIMITS[cls] as RateLimitSpec).countFailuresOnly === true)
+      (request as Request & ReservedRequest)[RATE_LIMIT_RESERVED] = verdict.counted;
     return true;
   }
 }

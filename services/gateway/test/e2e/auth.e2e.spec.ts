@@ -266,6 +266,102 @@ describe('brute force', () => {
   });
 });
 
+describe('a hotel’s guests (sign-in by device, the network as a ceiling)', () => {
+  const ip = '198.51.100.20';
+  const wrongPassword = () => {
+    gateway.identity.auth.handlers.login = () =>
+      Promise.reject(
+        serviceError(status.UNAUTHENTICATED, { 'wf-error-code': 'INVALID_CREDENTIALS' }),
+      );
+  };
+  const login = (email: string, bearer?: string) => {
+    const req = request(server())
+      .post('/api/v1/auth/login')
+      .set('X-Wayfare-Client', 'mobile')
+      .set('X-Forwarded-For', ip);
+    return (bearer === undefined ? req : req.set('Authorization', `Bearer ${bearer}`)).send({
+      ...credentials,
+      email,
+    });
+  };
+  const loginCounts = () =>
+    [...gateway.redis.values.keys()].filter((key) => key.startsWith('rl:AUTH_LOGIN:'));
+
+  it('lets 11 guests on one network each sign in, and keeps nothing counted', async () => {
+    for (let n = 0; n < 11; n++) {
+      expect((await login(`guest${n}@example.com`, deviceToken())).status).toBe(200);
+    }
+    expect(loginCounts()).toEqual([]);
+  });
+
+  it('refuses one install’s 11th wrong password, not its neighbour’s first', async () => {
+    wrongPassword();
+    const phone = deviceToken();
+    for (let n = 0; n < 10; n++) {
+      expect((await login(`try${n}@example.com`, phone)).status).toBe(401);
+    }
+    expect((await login('try10@example.com', phone)).status).toBe(429);
+    expect((await login('try10@example.com', deviceToken())).status).toBe(401);
+  });
+
+  it('refuses the 31st wrong password from one network across installs and emails', async () => {
+    wrongPassword();
+    for (let n = 0; n < 30; n++) {
+      expect((await login(`many${n}@example.com`, deviceToken())).status).toBe(401);
+    }
+    expect((await login('many30@example.com', deviceToken())).status).toBe(429);
+  });
+
+  it('refuses the 11th from one network without a device, or with a forged bearer', async () => {
+    wrongPassword();
+    for (let n = 0; n < 10; n++) {
+      const bearer = n % 2 === 0 ? 'forged.token.value' : undefined;
+      expect((await login(`bare${n}@example.com`, bearer)).status).toBe(401);
+    }
+    expect((await login('bare10@example.com')).status).toBe(429);
+  });
+
+  it('never takes a device id from the body', async () => {
+    const res = await request(server())
+      .post('/api/v1/auth/login')
+      .set('X-Wayfare-Client', 'mobile')
+      .set('X-Forwarded-For', ip)
+      .send({ ...credentials, deviceId: newId() });
+    expect(res.status).toBe(400);
+    expect(loginCounts()).toEqual([]);
+  });
+
+  it('counts only a wrong password: a locked account is given back', async () => {
+    gateway.identity.auth.handlers.login = () =>
+      Promise.reject(serviceError(status.PERMISSION_DENIED, { 'wf-error-code': 'ACCOUNT_LOCKED' }));
+    expect((await login('locked@example.com', deviceToken())).status).toBe(403);
+    expect(loginCounts()).toEqual([]);
+    wrongPassword();
+    expect((await login('locked@example.com', deviceToken())).status).toBe(401);
+    expect(loginCounts()).toHaveLength(3);
+  });
+
+  it('counts every registration, successful or not', async () => {
+    const phone = deviceToken();
+    for (let n = 0; n < 10; n++) {
+      const res = await request(server())
+        .post('/api/v1/auth/register')
+        .set('X-Wayfare-Client', 'mobile')
+        .set('X-Forwarded-For', ip)
+        .set('Authorization', `Bearer ${phone}`)
+        .send({ ...registration, email: `new${n}@example.com` });
+      expect(res.status).toBe(201);
+    }
+    const res = await request(server())
+      .post('/api/v1/auth/register')
+      .set('X-Wayfare-Client', 'mobile')
+      .set('X-Forwarded-For', ip)
+      .set('Authorization', `Bearer ${phone}`)
+      .send({ ...registration, email: 'new10@example.com' });
+    expect(res.status).toBe(429);
+  });
+});
+
 describe('old builds', () => {
   let strict: E2eApp;
 

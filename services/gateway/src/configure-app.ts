@@ -8,6 +8,8 @@ import {
   ErrorFilter,
   ETagInterceptor,
   isProductionEnv,
+  RateLimiter,
+  RateLimitRefundInterceptor,
   ResponseEnvelopeInterceptor,
   ResponseValidationInterceptor,
   securityHeaders,
@@ -63,6 +65,8 @@ export function configureApp(app: NestExpressApplication, config: GatewayConfig)
     // Registered LAST = runs FIRST on the way out: a matching If-None-Match becomes a 304
     // before validation and the envelope see anything.
     new ETagInterceptor(app.get(Reflector)),
+    // A failures-only class (sign-in) takes back what the guard counted unless the answer failed.
+    new RateLimitRefundInterceptor(app.get(RateLimiter)),
   );
   app.useGlobalFilters(new ErrorFilter(isProduction));
   if (read('SWAGGER_ENABLED')) setupSwagger(app, openApiOptions(config));

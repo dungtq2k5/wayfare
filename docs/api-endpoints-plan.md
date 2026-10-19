@@ -124,14 +124,19 @@ Every id in this API is a **UUIDv7** ([ADR 0055](./decisions/0055-every-identifi
 
 ### 0.9 Rate limits
 
-Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, keyed as shown — each key of a class is its own bucket, and every bucket must pass. Numbers are defaults in `RATE_LIMITS`.
+Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, keyed as shown — each key of a class is its own bucket, with its own limit, and every bucket that applies must pass. **One script checks them together: if any bucket is full, nothing is counted**, so a refused request costs no bucket anything, and the `429`'s wait is the longest remaining window. Numbers are defaults in `RATE_LIMITS`.
+
+- **The IP key:** an IPv4-mapped address (`::ffff:a.b.c.d`, as Node reports IPv4 on a dual-stack socket) is unwrapped and keyed whole; a real IPv6 address is keyed by its `/64`. A class's IP buckets share one counter; only the limit differs by caller.
+- **The device key** comes only from a device or account token the gateway verified — never from a header or a body. An invalid or expired token is no device. A revoked device's token still counts as a device until it expires (at most 15 minutes): revocation is checked by identity at refresh, and a lookup per request would cost more than it saves.
+- **Failures only** (`countFailuresOnly`): the attempt is counted up front, so parallel guesses cannot slip past, and `RateLimitRefundInterceptor` refunds it when the answer is not the class's failure.
 
 | Class | Key | Limit |
 | :---- | :---- | :---- |
 | Public reads | IP | 120 / min |
 | Device reads | deviceId | 300 / min |
-| Device registration | IP | 10 / hour |
-| Auth (login, register, forgot password) | IP **and** normalized email | 10 / 15 min |
+| Device registration | IP | 60 / hour — a busy hotel's installs on one Wi-Fi |
+| Sign-in (`AUTH_LOGIN`: `POST /auth/login`) — **failed attempts only** (`401 INVALID_CREDENTIALS`) | normalized email · deviceId (with a verified device token) · IP | email 10 · device 10 · IP 10 without a device token (the console, scripts), 30 with one — per 15 min |
+| Auth (`AUTH`: register, forgot password, account recovery's cancel and complete) — every call | normalized email · deviceId (with a verified device token) · IP | as `AUTH_LOGIN`'s buckets |
 | On-demand narration, hotset, TTS stream | deviceId | 30 / 10 min |
 | Analytics ingest | analyticsDeviceId | 60 batches / hour |
 | AI enhancement | userId | quota (X-2), plus 20 / hour burst |

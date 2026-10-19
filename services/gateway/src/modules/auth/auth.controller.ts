@@ -49,7 +49,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Auth('PUBLIC')
-  @RateLimit('AUTH')
+  @RateLimit('AUTH_LOGIN')
   @NoStore()
   @ApiOperation({ summary: 'Sign in. Wrong email and wrong password are indistinguishable.' })
   @ApiEnvelope(SessionResponseDto)

@@ -150,8 +150,8 @@ describe('POST /api/v1/devices', () => {
     });
   });
 
-  it('is limited per IP: the eleventh registration in an hour is 429 with Retry-After', async () => {
-    for (let n = 0; n < 10; n++) {
+  it('is limited per IP: a hotel’s 60 installs in an hour pass, the 61st is 429', async () => {
+    for (let n = 0; n < 60; n++) {
       expect(
         (
           await post()
