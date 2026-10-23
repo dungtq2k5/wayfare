@@ -5,6 +5,9 @@
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:13000/api/v1';
 
 /** Where the full privacy policy is read. */
+/** The terms of service, on the product owner's site. */
+export const TERMS_URL = 'https://wayfare.app/terms';
+
 export const PRIVACY_POLICY_URL =
   process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? 'https://wayfare.app/privacy';
 
@@ -22,3 +25,7 @@ export const WALK_UNDO_MS = testMs(process.env.EXPO_PUBLIC_WALK_UNDO_MS);
 /** The printed sticker host and the Place link host, the only bases a code's link may use; a local build points them at the stack. */
 export const QR_BASE_URL = process.env.EXPO_PUBLIC_QR_BASE_URL ?? 'https://go.wayfare.app';
 export const LINK_BASE_URL = process.env.EXPO_PUBLIC_LINK_BASE_URL ?? 'https://wayfare.app';
+
+// Continue with Google (ADR 0062): the Web OAuth client's id, which Google puts in the token's
+// audience. Unset, the real chooser is off; Diagnostics' fake account still works locally.
+export const GOOGLE_SERVER_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID ?? '';

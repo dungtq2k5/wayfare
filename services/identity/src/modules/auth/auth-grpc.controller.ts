@@ -2,13 +2,17 @@ import type { Metadata } from '@grpc/grpc-js';
 import { Controller } from '@nestjs/common';
 import { identityGrpc } from '@wayfare/contracts/grpc';
 import { unpackCallerContext } from '@wayfare/nest-common';
+import { GoogleService } from '../google/google.service';
 import { AuthService } from './auth.service';
 
 /** `wayfare.identity.AuthService` — unpack the caller, delegate once. */
 @Controller()
 @identityGrpc.AuthServiceControllerMethods()
 export class AuthGrpcController implements identityGrpc.AuthServiceController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly google: GoogleService,
+  ) {}
 
   register(
     request: identityGrpc.RegisterRequest,
@@ -58,5 +62,48 @@ export class AuthGrpcController implements identityGrpc.AuthServiceController {
   ): Promise<identityGrpc.GetTokenCutoffResponse> {
     unpackCallerContext(metadata); // internal, but still called with caller metadata
     return this.auth.getTokenCutoff(request);
+  }
+
+  googleNonce(
+    _request: identityGrpc.GoogleNonceRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.GoogleNonceResponse> {
+    return this.google.nonce(unpackCallerContext(metadata));
+  }
+
+  googleSignIn(
+    request: identityGrpc.GoogleSignInRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.GoogleSignInResponse> {
+    return this.google.signIn(request, unpackCallerContext(metadata));
+  }
+
+  googleConfirm(
+    request: identityGrpc.GoogleConfirmRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.GoogleConfirmResponse> {
+    return this.google.confirm(request, unpackCallerContext(metadata));
+  }
+
+  googleLink(
+    request: identityGrpc.GoogleLinkRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.GoogleLinkResponse> {
+    return this.google.link(request, unpackCallerContext(metadata));
+  }
+
+  unlinkGoogle(
+    request: identityGrpc.UnlinkGoogleRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.UnlinkGoogleResponse> {
+    return this.google.unlink(request, unpackCallerContext(metadata));
+  }
+
+  mintFakeGoogleToken(
+    request: identityGrpc.MintFakeGoogleTokenRequest,
+    metadata?: Metadata,
+  ): identityGrpc.MintFakeGoogleTokenResponse {
+    unpackCallerContext(metadata); // development only, but still called with caller metadata
+    return this.google.mintFake(request);
   }
 }

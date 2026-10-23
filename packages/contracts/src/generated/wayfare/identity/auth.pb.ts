@@ -5,12 +5,12 @@
 // source: wayfare/identity/auth.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 /** How a session was opened; decides the token transport (rdm-spec I-3). */
 export enum SessionClient {
@@ -18,6 +18,16 @@ export enum SessionClient {
   SESSION_CLIENT_CONSOLE = 1,
   SESSION_CLIENT_WEB = 2,
   SESSION_CLIENT_MOBILE = 3,
+  UNRECOGNIZED = -1,
+}
+
+/** What a Google sign-in did (api-endpoints-plan §1.2). */
+export enum GoogleOutcome {
+  GOOGLE_OUTCOME_UNSPECIFIED = 0,
+  GOOGLE_OUTCOME_CREATED = 1,
+  GOOGLE_OUTCOME_SIGNED_IN = 2,
+  GOOGLE_OUTCOME_LINKED = 3,
+  GOOGLE_OUTCOME_LINKED_PASSWORD_REMOVED = 4,
   UNRECOGNIZED = -1,
 }
 
@@ -49,20 +59,15 @@ export interface LogoutRequest {
   refreshToken?: string | undefined;
 }
 
-export interface LogoutAllRequest {
-}
+export interface LogoutAllRequest {}
 
-export interface LogoutResponse {
-}
+export interface LogoutResponse {}
 
-export interface LogoutAllResponse {
-}
+export interface LogoutAllResponse {}
 
-export interface ClaimDeviceRequest {
-}
+export interface ClaimDeviceRequest {}
 
-export interface ClaimDeviceResponse {
-}
+export interface ClaimDeviceResponse {}
 
 export interface GetTokenCutoffRequest {
   userId: string;
@@ -80,9 +85,7 @@ export interface SessionUser {
   fullName?: string | undefined;
   preferredLocale: string;
   isEmailVerified: boolean;
-  createdAt:
-    | Timestamp
-    | undefined;
+  createdAt: Timestamp | undefined;
   /** A hard bounce was recorded since the address was last verified. */
   emailBounced: boolean;
 }
@@ -103,15 +106,68 @@ export interface RefreshResponse {
 export interface Session {
   user: SessionUser | undefined;
   accessToken: string;
-  accessExpiresAt:
-    | Timestamp
-    | undefined;
+  accessExpiresAt: Timestamp | undefined;
   /** Secret: never logged. */
   refreshToken: string;
   refreshExpiresAt: Timestamp | undefined;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export interface GoogleNonceRequest {}
+
+export interface GoogleNonceResponse {
+  nonce: string;
+}
+
+export interface GoogleSignInRequest {
+  /** Secret: never logged. */
+  idToken: string;
+  preferredLocale: string;
+  client: SessionClient;
+}
+
+export interface GoogleSignInResponse {
+  session: Session | undefined;
+  outcome: GoogleOutcome;
+}
+
+export interface GoogleConfirmRequest {
+  /** Secret: never logged. */
+  idToken: string;
+}
+
+export interface GoogleConfirmResponse {
+  confirmation: string;
+}
+
+export interface GoogleLinkRequest {
+  linkTicket: string;
+}
+
+export interface GoogleLinkResponse {}
+
+/** Exactly one of the two: the current password, or a Google confirmation. */
+export interface UnlinkGoogleRequest {
+  /** Secret: never logged. */
+  currentPassword: string;
+  confirmation: string;
+}
+
+export interface UnlinkGoogleResponse {}
+
+export interface MintFakeGoogleTokenRequest {
+  email: string;
+  name?: string | undefined;
+  sub?: string | undefined;
+  emailVerified: boolean;
+  hd?: string | undefined;
+  nonce: string;
+}
+
+export interface MintFakeGoogleTokenResponse {
+  idToken: string;
+}
+
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /** Signs people in and out. The caller (and any device) travels as metadata. */
 
@@ -130,7 +186,39 @@ export interface AuthServiceClient {
 
   /** Internal, called by the gateway only (api-endpoints-plan §12.2). */
 
-  getTokenCutoff(request: GetTokenCutoffRequest, metadata?: Metadata): Observable<GetTokenCutoffResponse>;
+  getTokenCutoff(
+    request: GetTokenCutoffRequest,
+    metadata?: Metadata,
+  ): Observable<GetTokenCutoffResponse>;
+
+  /**
+   * Continue with Google (ADRs 0062–0064): a nonce for the caller's device, then the token that
+   * carries it — signs in, creates, links, or asks for the password first.
+   */
+
+  googleNonce(request: GoogleNonceRequest, metadata?: Metadata): Observable<GoogleNonceResponse>;
+
+  googleSignIn(request: GoogleSignInRequest, metadata?: Metadata): Observable<GoogleSignInResponse>;
+
+  /** A fresh token for the caller's linked Google account, in place of the current password. */
+
+  googleConfirm(
+    request: GoogleConfirmRequest,
+    metadata?: Metadata,
+  ): Observable<GoogleConfirmResponse>;
+
+  /** Links the ticket's Google account after the password sign-in it asked for (ADR 0064). */
+
+  googleLink(request: GoogleLinkRequest, metadata?: Metadata): Observable<GoogleLinkResponse>;
+
+  unlinkGoogle(request: UnlinkGoogleRequest, metadata?: Metadata): Observable<UnlinkGoogleResponse>;
+
+  /** Development only — absent unless identity runs with GOOGLE_ISSUER=fake. */
+
+  mintFakeGoogleToken(
+    request: MintFakeGoogleTokenRequest,
+    metadata?: Metadata,
+  ): Observable<MintFakeGoogleTokenResponse>;
 }
 
 /** Signs people in and out. The caller (and any device) travels as metadata. */
@@ -141,7 +229,10 @@ export interface AuthServiceController {
     metadata?: Metadata,
   ): Promise<RegisterResponse> | Observable<RegisterResponse> | RegisterResponse;
 
-  login(request: LoginRequest, metadata?: Metadata): Promise<LoginResponse> | Observable<LoginResponse> | LoginResponse;
+  login(
+    request: LoginRequest,
+    metadata?: Metadata,
+  ): Promise<LoginResponse> | Observable<LoginResponse> | LoginResponse;
 
   refresh(
     request: RefreshRequest,
@@ -169,31 +260,81 @@ export interface AuthServiceController {
     request: GetTokenCutoffRequest,
     metadata?: Metadata,
   ): Promise<GetTokenCutoffResponse> | Observable<GetTokenCutoffResponse> | GetTokenCutoffResponse;
+
+  /**
+   * Continue with Google (ADRs 0062–0064): a nonce for the caller's device, then the token that
+   * carries it — signs in, creates, links, or asks for the password first.
+   */
+
+  googleNonce(
+    request: GoogleNonceRequest,
+    metadata?: Metadata,
+  ): Promise<GoogleNonceResponse> | Observable<GoogleNonceResponse> | GoogleNonceResponse;
+
+  googleSignIn(
+    request: GoogleSignInRequest,
+    metadata?: Metadata,
+  ): Promise<GoogleSignInResponse> | Observable<GoogleSignInResponse> | GoogleSignInResponse;
+
+  /** A fresh token for the caller's linked Google account, in place of the current password. */
+
+  googleConfirm(
+    request: GoogleConfirmRequest,
+    metadata?: Metadata,
+  ): Promise<GoogleConfirmResponse> | Observable<GoogleConfirmResponse> | GoogleConfirmResponse;
+
+  /** Links the ticket's Google account after the password sign-in it asked for (ADR 0064). */
+
+  googleLink(
+    request: GoogleLinkRequest,
+    metadata?: Metadata,
+  ): Promise<GoogleLinkResponse> | Observable<GoogleLinkResponse> | GoogleLinkResponse;
+
+  unlinkGoogle(
+    request: UnlinkGoogleRequest,
+    metadata?: Metadata,
+  ): Promise<UnlinkGoogleResponse> | Observable<UnlinkGoogleResponse> | UnlinkGoogleResponse;
+
+  /** Development only — absent unless identity runs with GOOGLE_ISSUER=fake. */
+
+  mintFakeGoogleToken(
+    request: MintFakeGoogleTokenRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<MintFakeGoogleTokenResponse>
+    | Observable<MintFakeGoogleTokenResponse>
+    | MintFakeGoogleTokenResponse;
 }
 
 export function AuthServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "register",
-      "login",
-      "refresh",
-      "logout",
-      "logoutAll",
-      "claimDevice",
-      "getTokenCutoff",
+      'register',
+      'login',
+      'refresh',
+      'logout',
+      'logoutAll',
+      'claimDevice',
+      'getTokenCutoff',
+      'googleNonce',
+      'googleSignIn',
+      'googleConfirm',
+      'googleLink',
+      'unlinkGoogle',
+      'mintFakeGoogleToken',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("AuthService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('AuthService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("AuthService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('AuthService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const AUTH_SERVICE_NAME = "AuthService";
+export const AUTH_SERVICE_NAME = 'AuthService';

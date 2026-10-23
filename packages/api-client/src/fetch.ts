@@ -96,6 +96,9 @@ async function send(
   }
 }
 
+/** The `401` codes about the bearer itself: the only ones a session can recover from. */
+const BEARER_CODES: ReadonlySet<string> = new Set(['UNAUTHENTICATED', 'DEVICE_REVOKED']);
+
 /**
  * The mutator every generated hook calls (ADR 0028): it adds the client headers and the bearer,
  * returns the documented envelope (`{ data, meta? }`) — `undefined` for a `204` or a `304` — and
@@ -109,9 +112,10 @@ export async function apiFetch<T>(url: string, options: ApiRequestInit = {}): Pr
   let response = await send(settings, url, options, token);
   if (response.status === 401 && session !== undefined) {
     const error = await toApiError(response);
-    // A wrong address or password is the request's answer, not the bearer's: sent again, it
-    // would only spend one more of the sign-in budget.
-    if (error.code === 'INVALID_CREDENTIALS') throw error;
+    // Only the bearer's own refusals are recovered. Any other 401 is the request's answer — a wrong
+    // password, a refused Google token, an expired confirmation — and sent again it would spend the
+    // sign-in budget twice or replay what was refused.
+    if (!BEARER_CODES.has(error.code)) throw error;
     if (!(await session.recover(error, token))) throw error;
     token = await session.accessToken();
     response = await send(settings, url, options, token);

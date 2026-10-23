@@ -5,6 +5,8 @@ import {
   areaHasLivePlacesDetails,
   areaOverlapsDetails,
   coolingDownDetails,
+  googleLinkNeedsPasswordDetails,
+  invalidGoogleTokenDetails,
   invalidStateDetails,
   legalVersionOutdatedDetails,
   limitDetails,
@@ -87,10 +89,16 @@ export const ERRORS = {
   UNAUTHENTICATED: unauthenticated,
   INVALID_CREDENTIALS: unauthenticated,
   DEVICE_REVOKED: unauthenticated,
+  INVALID_GOOGLE_TOKEN: { ...unauthenticated, details: invalidGoogleTokenDetails },
+  CONFIRMATION_EXPIRED: unauthenticated,
 
   // 403
   PERMISSION_DENIED: { ...forbidden, details: permissionDeniedDetails },
   ACCOUNT_LOCKED: forbidden,
+  // Google sign-in only: the caller proved the address, so a closed account is no secret to them.
+  ACCOUNT_DEACTIVATED: forbidden,
+  GOOGLE_ACCOUNT_MISMATCH: forbidden,
+  GOOGLE_SIGN_IN_NOT_ALLOWED: forbidden,
   CURRENT_PASSWORD_INCORRECT: forbidden,
   INVITATION_EMAIL_MISMATCH: forbidden,
   RECOVERY_SELF_APPROVAL: forbidden,
@@ -109,6 +117,10 @@ export const ERRORS = {
 
   // 409
   EMAIL_TAKEN: exists,
+  GOOGLE_ACCOUNT_ALREADY_LINKED: exists,
+  GOOGLE_LINK_NEEDS_PASSWORD: { ...conflict, details: googleLinkNeedsPasswordDetails },
+  PASSWORD_REQUIRED: conflict,
+  PASSWORD_NOT_SET: conflict,
   SHORT_CODE_COLLISION: exists,
   SUBSCRIPTION_EXISTS: exists,
   REGISTRATION_ALREADY_PENDING: exists,
@@ -184,6 +196,7 @@ export const ERRORS = {
   INTERNAL: { http: 500, grpc: 'INTERNAL' },
   AI_OUTPUT_REJECTED: { http: 502, grpc: 'INTERNAL' },
   UPSTREAM_UNAVAILABLE: unavailable,
+  GOOGLE_UNAVAILABLE: unavailable,
   ENTITLEMENTS_UNAVAILABLE: unavailable,
   UPSTREAM_TIMEOUT: timeout,
   AI_TIMEOUT: timeout,

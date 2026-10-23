@@ -154,4 +154,6 @@ export interface TouristArguments {
   readonly "account.error.word": { "word": string | number };
   readonly "account.terms.body": { "date": string | number };
   readonly "account.terms.updated": { "date": string | number };
+  readonly "account.addPassword.sent": { "email": string | number };
+  readonly "settings.diagnostics.fakeGoogle": { "state": string | number };
 }

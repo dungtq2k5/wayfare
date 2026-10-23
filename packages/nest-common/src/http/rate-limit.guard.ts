@@ -35,7 +35,10 @@ export const RATE_LIMIT_RESERVED = Symbol('rateLimitReserved');
 
 /** A request a failures-only class counted up front. */
 export interface ReservedRequest {
-  [RATE_LIMIT_RESERVED]?: readonly string[];
+  [RATE_LIMIT_RESERVED]?: {
+    readonly keys: readonly string[];
+    readonly failures: readonly string[];
+  };
 }
 
 /**
@@ -76,8 +79,12 @@ export class RateLimitGuard implements CanActivate {
     }
     if (!verdict.allowed)
       throw new AppHttpException('RATE_LIMITED', { retryAfterSeconds: verdict.retryAfterSeconds });
-    if ((RATE_LIMITS[cls] as RateLimitSpec).countFailuresOnly === true)
-      (request as Request & ReservedRequest)[RATE_LIMIT_RESERVED] = verdict.counted;
+    const failures = (RATE_LIMITS[cls] as RateLimitSpec).countFailuresOnly;
+    if (failures !== undefined)
+      (request as Request & ReservedRequest)[RATE_LIMIT_RESERVED] = {
+        keys: verdict.counted,
+        failures,
+      };
     return true;
   }
 }

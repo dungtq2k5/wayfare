@@ -1,4 +1,5 @@
 import { SessionClient } from '../access/clients';
+import { GoogleOutcome } from '../identity/enums';
 import {
   BillingEventStatus,
   BillingInterval,
@@ -46,7 +47,10 @@ import { OverrideStatus as ProtoOverrideStatus } from '../generated/wayfare/narr
 import { UiBundleStatus as ProtoUiBundleStatus } from '../generated/wayfare/narration/i18n.pb';
 import { ReplacementType as ProtoReplacementType } from '../generated/wayfare/narration/pronunciation.pb';
 import { protoEnumBridge } from '../common/proto-enum-bridge';
-import { SessionClient as ProtoSessionClient } from '../generated/wayfare/identity/auth.pb';
+import {
+  GoogleOutcome as ProtoGoogleOutcome,
+  SessionClient as ProtoSessionClient,
+} from '../generated/wayfare/identity/auth.pb';
 import { Platform as ProtoPlatform } from '../generated/wayfare/identity/device.pb';
 import {
   LegalDocument as ProtoLegalDocument,
@@ -109,6 +113,13 @@ export const sessionClientProto = protoEnumBridge(
   'SessionClient',
   SessionClient,
   ProtoSessionClient,
+);
+
+/** `GoogleOutcome` ⇄ `wayfare.identity.GoogleOutcome`. */
+export const googleOutcomeProto = protoEnumBridge(
+  'GoogleOutcome',
+  GoogleOutcome,
+  ProtoGoogleOutcome,
 );
 
 /** `LegalDocument` ⇄ `wayfare.identity.LegalDocument`. */
@@ -350,6 +361,7 @@ export const analyticsLevelProto = protoEnumBridge(
 export const PROTO_ENUM_BRIDGES = [
   platformProto,
   sessionClientProto,
+  googleOutcomeProto,
   legalDocumentProto,
   legalPartyProto,
   actionTokenPurposeProto,

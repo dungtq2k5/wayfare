@@ -5,7 +5,11 @@ import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SemanticColor } from '@wayfare/design-tokens/tokens';
+import { ApiError } from '@wayfare/api-client';
 import { deleteAccount } from '../../src/account/actions';
+import type { ItsYou } from '../../src/account/actions';
+import { ConfirmWithGoogle } from '../../src/account/google-components';
+import { useAccountStore } from '../../src/session/account-store';
 import { ErrorBanner, FormBody, LinkButton } from '../../src/account/components';
 import { formErrorOf } from '../../src/account/form-errors';
 import type { FormError } from '../../src/account/form-errors';
@@ -54,15 +58,27 @@ export default function DeleteAccountScreen() {
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<FormError | null>(null);
   const word = t('account.delete.word');
-  const ready = password !== '' && deleteWordMatches(typed, word);
+  // A Google-only account confirms with Google where others give a password (frame A7g).
+  const googleOnly = useAccountStore((state) => state.user?.signIn?.password === false);
+  const [confirmed, setConfirmed] = useState<{ proof: ItsYou; email: string } | null>(null);
+  const [confirmFailed, setConfirmFailed] = useState(false);
+  const ready =
+    (googleOnly ? confirmed !== null : password !== '') && deleteWordMatches(typed, word);
 
   const erase = () =>
     submit(async () => {
       try {
-        await deleteAccount(password);
+        await deleteAccount(
+          googleOnly && confirmed !== null ? confirmed.proof : { currentPassword: password },
+        );
         showToast(t('account.deleted'));
         router.dismissTo('/settings');
       } catch (caught) {
+        if (caught instanceof ApiError && caught.code === 'CONFIRMATION_EXPIRED') {
+          setConfirmed(null);
+          setConfirmFailed(true);
+          return;
+        }
         setError(
           formErrorOf('delete', caught, t) ?? { place: 'banner', title: errorMessage(caught) },
         );
@@ -96,17 +112,29 @@ export default function DeleteAccountScreen() {
             />
           </View>
           {error?.place === 'banner' && <ErrorBanner title={error.title} />}
-          <TextField
-            testID="delete-password"
-            label={t('account.field.currentPassword')}
-            value={password}
-            onChangeText={setPassword}
-            secure
-            showLabel={t('account.password.show')}
-            hideLabel={t('account.password.hide')}
-            autoComplete="password"
-            error={error?.place === 'current' ? error.title : null}
-          />
+          {googleOnly ? (
+            <ConfirmWithGoogle
+              proof={confirmed}
+              onProof={(proof, address) => {
+                setConfirmed({ proof, email: address });
+                setConfirmFailed(false);
+              }}
+              failed={confirmFailed}
+              onError={(caught) => setError({ place: 'banner', title: errorMessage(caught) })}
+            />
+          ) : (
+            <TextField
+              testID="delete-password"
+              label={t('account.field.currentPassword')}
+              value={password}
+              onChangeText={setPassword}
+              secure
+              showLabel={t('account.password.show')}
+              hideLabel={t('account.password.hide')}
+              autoComplete="password"
+              error={error?.place === 'current' ? error.title : null}
+            />
+          )}
           <TextField
             testID="delete-word"
             label={t('account.delete.wordLabel', { word })}

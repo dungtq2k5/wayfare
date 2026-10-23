@@ -5,11 +5,11 @@
 // source: wayfare/identity/email_webhook.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 export interface ReceiveResendEventRequest {
   /** Exactly as received: the signature covers these bytes. Never logged — it names the recipient. */
@@ -19,15 +19,17 @@ export interface ReceiveResendEventRequest {
   svixSignature: string;
 }
 
-export interface ReceiveResendEventResponse {
-}
+export interface ReceiveResendEventResponse {}
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /** identity holds the signing secret and verifies; the gateway only forwards. */
 
 export interface EmailWebhookServiceClient {
-  receiveResendEvent(request: ReceiveResendEventRequest, metadata?: Metadata): Observable<ReceiveResendEventResponse>;
+  receiveResendEvent(
+    request: ReceiveResendEventRequest,
+    metadata?: Metadata,
+  ): Observable<ReceiveResendEventResponse>;
 }
 
 /** identity holds the signing secret and verifies; the gateway only forwards. */
@@ -36,24 +38,31 @@ export interface EmailWebhookServiceController {
   receiveResendEvent(
     request: ReceiveResendEventRequest,
     metadata?: Metadata,
-  ): Promise<ReceiveResendEventResponse> | Observable<ReceiveResendEventResponse> | ReceiveResendEventResponse;
+  ):
+    | Promise<ReceiveResendEventResponse>
+    | Observable<ReceiveResendEventResponse>
+    | ReceiveResendEventResponse;
 }
 
 export function EmailWebhookServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["receiveResendEvent"];
+    const grpcMethods: string[] = ['receiveResendEvent'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("EmailWebhookService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('EmailWebhookService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("EmailWebhookService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('EmailWebhookService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const EMAIL_WEBHOOK_SERVICE_NAME = "EmailWebhookService";
+export const EMAIL_WEBHOOK_SERVICE_NAME = 'EmailWebhookService';

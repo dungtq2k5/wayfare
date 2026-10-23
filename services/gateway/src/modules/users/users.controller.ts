@@ -26,7 +26,7 @@ import { LegalAcceptanceResponseDto } from '../devices/dto/device-response.dto';
 import { RecordLegalAcceptanceDto } from '../devices/dto/device.dto';
 import { LegalAcceptanceStatusResponseDto } from './dto/legal-acceptance-response.dto';
 import { MeResponseDto, UpdateMeResponseDto } from './dto/user-response.dto';
-import { EraseMeDto, UpdateMeDto } from './dto/user.dto';
+import { EraseMeDto, UnlinkGoogleDto, UpdateMeDto } from './dto/user.dto';
 import { UsersService } from './users.service';
 
 /** `/users/me` (api-endpoints-plan §1.3). Every response is account-specific: never cached. */
@@ -107,5 +107,25 @@ export class UsersController {
     @Body() body: RecordLegalAcceptanceDto,
   ): Promise<LegalAcceptanceResponseDto> {
     return this.users.recordAcceptance(context, body);
+  }
+
+  @Delete('identities/google')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Auth('USER')
+  @RateLimit('PASSWORD_CHECK')
+  @NoStore()
+  @ApiOperation({
+    summary:
+      'Remove Google sign-in, with the password or a Google confirmation. Every other session ends; this one stays.',
+  })
+  @ApiEnvelope(null)
+  @ApiErrors(
+    'CURRENT_PASSWORD_INCORRECT',
+    'CONFIRMATION_EXPIRED',
+    'PASSWORD_REQUIRED',
+    'RESOURCE_NOT_FOUND',
+  )
+  async unlinkGoogle(@Ctx() context: AccountContext, @Body() body: UnlinkGoogleDto): Promise<void> {
+    await this.users.unlinkGoogle(context, body);
   }
 }

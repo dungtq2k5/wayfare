@@ -5,16 +5,16 @@
 // source: wayfare/billing/billing_admin.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { PageNumberMeta, PageNumberRequest } from "../common/page.pb";
-import { BillingInterval, PlanPrice, SubscriptionStatus } from "./billing.pb";
-import { BillingEventStatus, StripeEndpoint } from "./billing_webhook.pb";
-import { Entitlements } from "./entitlement.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { PageNumberMeta, PageNumberRequest } from '../common/page.pb';
+import { BillingInterval, PlanPrice, SubscriptionStatus } from './billing.pb';
+import { BillingEventStatus, StripeEndpoint } from './billing_webhook.pb';
+import { Entitlements } from './entitlement.pb';
 
-export const protobufPackage = "wayfare.billing";
+export const protobufPackage = 'wayfare.billing';
 
 /** A catalogue plan, with every price and its subscriber count. */
 export interface AdminPlan {
@@ -29,8 +29,7 @@ export interface AdminPlan {
   subscriberCount: number;
 }
 
-export interface ListPlansRequest {
-}
+export interface ListPlansRequest {}
 
 export interface ListPlansResponse {
   plans: AdminPlan[];
@@ -52,9 +51,7 @@ export interface UpdatePlanRequest {
   planId: string;
   name?: string | undefined;
   sortOrder?: number | undefined;
-  isActive?:
-    | boolean
-    | undefined;
+  isActive?: boolean | undefined;
   /** Absent: the grants are unchanged. */
   grants: Entitlements | undefined;
 }
@@ -103,8 +100,7 @@ export interface RetirePlanRequest {
   planId: string;
 }
 
-export interface RetirePlanResponse {
-}
+export interface RetirePlanResponse {}
 
 /** An account as the admin list shows it. */
 export interface BillingAccountSummary {
@@ -133,9 +129,7 @@ export interface BillingAccountDetail {
 
 export interface ListAccountsRequest {
   page: PageNumberRequest | undefined;
-  planCode?:
-    | string
-    | undefined;
+  planCode?: string | undefined;
   /** UNSPECIFIED: any status. */
   status: SubscriptionStatus;
   pinned?: boolean | undefined;
@@ -186,17 +180,13 @@ export interface BillingEvent {
   status: BillingEventStatus;
   errorLog?: string | undefined;
   receivedAt: Timestamp | undefined;
-  processedAt:
-    | Timestamp
-    | undefined;
+  processedAt: Timestamp | undefined;
   /** The raw event, JSON-encoded. */
   payloadJson: string;
 }
 
 export interface ListBillingEventsRequest {
-  page:
-    | PageNumberRequest
-    | undefined;
+  page: PageNumberRequest | undefined;
   /** UNSPECIFIED: any status. */
   status: BillingEventStatus;
   eventType?: string | undefined;
@@ -216,7 +206,7 @@ export interface ReplayBillingEventResponse {
   event: BillingEvent | undefined;
 }
 
-export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";
+export const WAYFARE_BILLING_PACKAGE_NAME = 'wayfare.billing';
 
 /** The plan catalogue (api-endpoints-plan §6.1). */
 
@@ -227,7 +217,10 @@ export interface PlanAdminServiceClient {
 
   updatePlan(request: UpdatePlanRequest, metadata?: Metadata): Observable<UpdatePlanResponse>;
 
-  registerPrice(request: RegisterPriceRequest, metadata?: Metadata): Observable<RegisterPriceResponse>;
+  registerPrice(
+    request: RegisterPriceRequest,
+    metadata?: Metadata,
+  ): Observable<RegisterPriceResponse>;
 
   applyPlan(request: ApplyPlanRequest, metadata?: Metadata): Observable<ApplyPlanResponse>;
 
@@ -270,22 +263,33 @@ export interface PlanAdminServiceController {
 
 export function PlanAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listPlans", "createPlan", "updatePlan", "registerPrice", "applyPlan", "retirePlan"];
+    const grpcMethods: string[] = [
+      'listPlans',
+      'createPlan',
+      'updatePlan',
+      'registerPrice',
+      'applyPlan',
+      'retirePlan',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("PlanAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('PlanAdminService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("PlanAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('PlanAdminService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const PLAN_ADMIN_SERVICE_NAME = "PlanAdminService";
+export const PLAN_ADMIN_SERVICE_NAME = 'PlanAdminService';
 
 /** Billing accounts and their pinned grants (api-endpoints-plan §6.2). */
 
@@ -299,7 +303,10 @@ export interface AccountAdminServiceClient {
     metadata?: Metadata,
   ): Observable<OverrideEntitlementsResponse>;
 
-  unpinEntitlements(request: UnpinEntitlementsRequest, metadata?: Metadata): Observable<UnpinEntitlementsResponse>;
+  unpinEntitlements(
+    request: UnpinEntitlementsRequest,
+    metadata?: Metadata,
+  ): Observable<UnpinEntitlementsResponse>;
 }
 
 /** Billing accounts and their pinned grants (api-endpoints-plan §6.2). */
@@ -318,39 +325,60 @@ export interface AccountAdminServiceController {
   overrideEntitlements(
     request: OverrideEntitlementsRequest,
     metadata?: Metadata,
-  ): Promise<OverrideEntitlementsResponse> | Observable<OverrideEntitlementsResponse> | OverrideEntitlementsResponse;
+  ):
+    | Promise<OverrideEntitlementsResponse>
+    | Observable<OverrideEntitlementsResponse>
+    | OverrideEntitlementsResponse;
 
   unpinEntitlements(
     request: UnpinEntitlementsRequest,
     metadata?: Metadata,
-  ): Promise<UnpinEntitlementsResponse> | Observable<UnpinEntitlementsResponse> | UnpinEntitlementsResponse;
+  ):
+    | Promise<UnpinEntitlementsResponse>
+    | Observable<UnpinEntitlementsResponse>
+    | UnpinEntitlementsResponse;
 }
 
 export function AccountAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listAccounts", "getAccount", "overrideEntitlements", "unpinEntitlements"];
+    const grpcMethods: string[] = [
+      'listAccounts',
+      'getAccount',
+      'overrideEntitlements',
+      'unpinEntitlements',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("AccountAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('AccountAdminService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("AccountAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('AccountAdminService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const ACCOUNT_ADMIN_SERVICE_NAME = "AccountAdminService";
+export const ACCOUNT_ADMIN_SERVICE_NAME = 'AccountAdminService';
 
 /** Recorded Stripe events (api-endpoints-plan §6.2). */
 
 export interface BillingEventAdminServiceClient {
-  listBillingEvents(request: ListBillingEventsRequest, metadata?: Metadata): Observable<ListBillingEventsResponse>;
+  listBillingEvents(
+    request: ListBillingEventsRequest,
+    metadata?: Metadata,
+  ): Observable<ListBillingEventsResponse>;
 
-  replayBillingEvent(request: ReplayBillingEventRequest, metadata?: Metadata): Observable<ReplayBillingEventResponse>;
+  replayBillingEvent(
+    request: ReplayBillingEventRequest,
+    metadata?: Metadata,
+  ): Observable<ReplayBillingEventResponse>;
 }
 
 /** Recorded Stripe events (api-endpoints-plan §6.2). */
@@ -359,29 +387,43 @@ export interface BillingEventAdminServiceController {
   listBillingEvents(
     request: ListBillingEventsRequest,
     metadata?: Metadata,
-  ): Promise<ListBillingEventsResponse> | Observable<ListBillingEventsResponse> | ListBillingEventsResponse;
+  ):
+    | Promise<ListBillingEventsResponse>
+    | Observable<ListBillingEventsResponse>
+    | ListBillingEventsResponse;
 
   replayBillingEvent(
     request: ReplayBillingEventRequest,
     metadata?: Metadata,
-  ): Promise<ReplayBillingEventResponse> | Observable<ReplayBillingEventResponse> | ReplayBillingEventResponse;
+  ):
+    | Promise<ReplayBillingEventResponse>
+    | Observable<ReplayBillingEventResponse>
+    | ReplayBillingEventResponse;
 }
 
 export function BillingEventAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listBillingEvents", "replayBillingEvent"];
+    const grpcMethods: string[] = ['listBillingEvents', 'replayBillingEvent'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("BillingEventAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('BillingEventAdminService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("BillingEventAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('BillingEventAdminService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const BILLING_EVENT_ADMIN_SERVICE_NAME = "BillingEventAdminService";
+export const BILLING_EVENT_ADMIN_SERVICE_NAME = 'BillingEventAdminService';

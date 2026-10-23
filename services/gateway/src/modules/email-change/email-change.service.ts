@@ -28,7 +28,11 @@ export class EmailChangeService {
   async requestChange(context: AccountContext, body: ChangeEmailDto): Promise<void> {
     await this.identity.emailChange.call(
       'requestEmailChange',
-      { newEmail: body.newEmail, currentPassword: body.currentPassword },
+      {
+        newEmail: body.newEmail,
+        currentPassword: body.currentPassword ?? '',
+        confirmation: body.confirmation ?? '',
+      },
       context,
     );
   }

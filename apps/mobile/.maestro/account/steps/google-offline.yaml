@@ -1,0 +1,21 @@
+# Edge 3 (frame K8a): the gateway unreachable from a cold start — Sign in says offline, and the
+# Google button rests, before any picker opens.
+appId: app.wayfare
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Explore|Settings|Favourites'
+    timeout: 30000
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element:
+      id: 'account-sign-in'
+    direction: UP
+- tapOn:
+    id: 'account-sign-in'
+- extendedWaitUntil:
+    visible: 'Offline · signing in needs a connection.'
+    timeout: 20000
+- assertVisible:
+    id: 'google-continue'
+    enabled: false

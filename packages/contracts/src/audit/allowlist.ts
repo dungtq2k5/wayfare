@@ -23,6 +23,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<AuditAction, AuditMetadat
   [AuditAction.PASSWORD_RESET_REQUESTED]: { after: ['found'] },
   [AuditAction.PASSWORD_RESET_COMPLETED]: { after: ['purpose', 'hadPassword', 'revokedFamilies'] },
   [AuditAction.PASSWORD_CHANGED]: { after: ['revokedFamilies'] },
+  [AuditAction.GOOGLE_LINKED]: { after: ['client', 'passwordRemoved', 'revokedFamilies'] },
+  [AuditAction.GOOGLE_UNLINKED]: { after: ['revokedFamilies'] },
   [AuditAction.EMAIL_VERIFIED]: {},
   [AuditAction.EMAIL_CHANGED]: {},
   [AuditAction.EMAIL_CHANGE_REVERTED]: { after: ['revokedFamilies'] },

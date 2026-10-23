@@ -260,6 +260,8 @@ describe('wayfare.identity device, auth and user RPCs', () => {
       ownerVerified: false,
       // Neither an owner nor an applicant: the message field travels unset.
       owner: null,
+      // A password account, no Google link.
+      signIn: { password: true, google: false },
     });
   });
 

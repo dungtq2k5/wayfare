@@ -113,3 +113,14 @@ export const mapPackTooLargeDetails = z
 export const pronunciationTermExistsDetails = z
   .object({ term: z.string().min(1), targetLang: z.string().min(1).nullable() })
   .strict();
+
+/** Why a Google ID token was refused (`INVALID_GOOGLE_TOKEN`). */
+export const GOOGLE_TOKEN_REJECTIONS = ['EMAIL_NOT_VERIFIED', 'NONCE', 'INVALID'] as const;
+
+/** `INVALID_GOOGLE_TOKEN`: why the token was refused. */
+export const invalidGoogleTokenDetails = z
+  .object({ reason: z.enum(GOOGLE_TOKEN_REJECTIONS) })
+  .strict();
+
+/** `GOOGLE_LINK_NEEDS_PASSWORD`: the proof `POST /auth/google/link` takes after a password sign-in. */
+export const googleLinkNeedsPasswordDetails = z.object({ linkTicket: z.string().min(1) }).strict();

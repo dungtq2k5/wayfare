@@ -43,6 +43,8 @@ export const EMAIL_TEMPLATE_DATA = {
     .object({ inviterRoleNames: z.array(z.string().min(1).max(MAX_ROLE_NAME_LENGTH)).max(20) })
     .strict(),
   [EmailTemplate.EMAIL_CHANGE]: empty,
+  // Says only that the password was removed; the app or Forgot password? sets a new one.
+  [EmailTemplate.GOOGLE_PASSWORD_REMOVED]: empty,
   // `newEmailMasked` is `maskEmail()` output, never the address; the IP helps a victim recognise an attack.
   [EmailTemplate.EMAIL_CHANGED_NOTICE]: z
     .object({
@@ -123,6 +125,7 @@ export const EMAIL_TEMPLATE_LINKS = {
   [EmailTemplate.ACCOUNT_RECOVERY_OUTCOME]: ['action'],
   [EmailTemplate.VOUCHER_MOVED]: ['action'],
   [EmailTemplate.VOUCHER_REFUNDED]: ['action'],
+  [EmailTemplate.GOOGLE_PASSWORD_REMOVED]: [],
 } as const satisfies Record<EmailTemplate, readonly EmailLinkSlot[]>;
 
 /** The link slots of one template. */
@@ -141,4 +144,5 @@ export const EMAIL_SECURITY_TEMPLATES: ReadonlySet<EmailTemplate> = new Set([
   EmailTemplate.EMAIL_CHANGED_NOTICE,
   EmailTemplate.ACCOUNT_RECOVERY_NOTICE,
   EmailTemplate.ACCOUNT_RECOVERY_OUTCOME,
+  EmailTemplate.GOOGLE_PASSWORD_REMOVED,
 ]);

@@ -1,0 +1,29 @@
+# Edge 5 (frame K6): an address someone registered and never confirmed, picked as Workspace — Google
+# owns the mailbox, so the password is removed and the card says so once, with Add a password. The
+# account then goes, confirmed with Google. A was registered by the script.
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- runFlow:
+    file: google-pick.yaml
+    env:
+      EMAIL: ${A}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible: 'Signed in.*'
+    timeout: 15000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Your old password was removed'
+    direction: UP
+- assertVisible: 'Add a password'
+- tapOn: 'Dismiss|Close'
+- assertNotVisible: 'Your old password was removed'
+- runFlow:
+    file: google-delete-confirmed.yaml
+    env:
+      EMAIL: ${A}

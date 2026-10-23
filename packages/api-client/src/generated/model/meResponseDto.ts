@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.0.0-dev
  */
 import type { MeResponseDtoOwner } from './meResponseDtoOwner.js';
+import type { MeResponseDtoSignIn } from './meResponseDtoSignIn.js';
 import type { MeResponseDtoUser } from './meResponseDtoUser.js';
 
 export interface MeResponseDto {
@@ -12,5 +13,6 @@ export interface MeResponseDto {
   roles: string[];
   permissions: string[];
   ownerVerified: boolean;
+  signIn: MeResponseDtoSignIn;
   owner: MeResponseDtoOwner;
 }

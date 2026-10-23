@@ -200,6 +200,8 @@ export class PasswordService {
       select: { email: true, passwordHash: true },
     });
     if (user === null) throw rpcError('UNAUTHENTICATED');
+    // A Google-only account has no password to change: the app offers Add a password (K9).
+    if (user.passwordHash === null) throw rpcError('PASSWORD_NOT_SET');
     if (!(await this.tokens.verifyPassword(user.passwordHash, fields.currentPassword))) {
       throw rpcError('CURRENT_PASSWORD_INCORRECT');
     }

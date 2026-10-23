@@ -57,7 +57,7 @@ beforeEach(async () => {
 afterAll(() => prisma.$disconnect());
 
 const erase = (context: AccountContext, currentPassword = PASSWORD) =>
-  users.eraseMe({ currentPassword }, context);
+  users.eraseMe({ currentPassword, confirmation: '' }, context);
 
 async function person(options: Parameters<typeof registerAccount>[1] = {}) {
   const { email, session } = await registerAccount(services, options);

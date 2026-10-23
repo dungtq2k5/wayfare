@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 
-export const protobufPackage = "wayfare.common";
+export const protobufPackage = 'wayfare.common';
 
 /** A WGS 84 point. Longitude is second here and first in SQL (`ST_MakePoint(lng, lat)`). */
 export interface GeoPoint {
@@ -14,4 +14,4 @@ export interface GeoPoint {
   lng: number;
 }
 
-export const WAYFARE_COMMON_PACKAGE_NAME = "wayfare.common";
+export const WAYFARE_COMMON_PACKAGE_NAME = 'wayfare.common';

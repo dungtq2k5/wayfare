@@ -5,11 +5,11 @@
 // source: wayfare/identity/device.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 /** The install's platform. Stored as its domain value (IOS | ANDROID | WEB). */
 export enum Platform {
@@ -67,20 +67,21 @@ export interface DeviceView {
   contentLocale: string;
 }
 
-export interface ForgetDeviceRequest {
-}
+export interface ForgetDeviceRequest {}
 
-export interface ForgetDeviceResponse {
-}
+export interface ForgetDeviceResponse {}
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /** Registers and manages anonymous installs (ADR 0003). The caller travels as metadata. */
 
 export interface DeviceServiceClient {
   /** Creates a device and returns its secret exactly once, with a first device token. */
 
-  registerDevice(request: RegisterDeviceRequest, metadata?: Metadata): Observable<RegisterDeviceResponse>;
+  registerDevice(
+    request: RegisterDeviceRequest,
+    metadata?: Metadata,
+  ): Observable<RegisterDeviceResponse>;
 
   /** Exchanges a device secret for a fresh device access token. */
 
@@ -113,7 +114,10 @@ export interface DeviceServiceController {
   exchangeDeviceToken(
     request: ExchangeDeviceTokenRequest,
     metadata?: Metadata,
-  ): Promise<ExchangeDeviceTokenResponse> | Observable<ExchangeDeviceTokenResponse> | ExchangeDeviceTokenResponse;
+  ):
+    | Promise<ExchangeDeviceTokenResponse>
+    | Observable<ExchangeDeviceTokenResponse>
+    | ExchangeDeviceTokenResponse;
 
   /** Updates the calling device. */
 
@@ -132,19 +136,24 @@ export interface DeviceServiceController {
 
 export function DeviceServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["registerDevice", "exchangeDeviceToken", "updateDevice", "forgetDevice"];
+    const grpcMethods: string[] = [
+      'registerDevice',
+      'exchangeDeviceToken',
+      'updateDevice',
+      'forgetDevice',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("DeviceService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('DeviceService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("DeviceService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('DeviceService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const DEVICE_SERVICE_NAME = "DeviceService";
+export const DEVICE_SERVICE_NAME = 'DeviceService';

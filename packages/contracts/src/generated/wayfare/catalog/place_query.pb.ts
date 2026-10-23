@@ -5,10 +5,10 @@
 // source: wayfare/catalog/place_query.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { GeoPoint } from "../common/geo.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { GeoPoint } from '../common/geo.pb';
 import {
   CategoryAppliesTo,
   ContentTier,
@@ -18,9 +18,9 @@ import {
   PhotoView,
   PlaceKind,
   PlaceLocalization,
-} from "./place_types.pb";
+} from './place_types.pb';
 
-export const protobufPackage = "wayfare.catalog";
+export const protobufPackage = 'wayfare.catalog';
 
 export interface SyncPlacesRequest {
   areaId: string;
@@ -123,9 +123,7 @@ export interface PlaceDetail {
   openingHours: OpeningHoursRow[];
   priceBand?: number | undefined;
   phone?: string | undefined;
-  websiteUrl?:
-    | string
-    | undefined;
+  websiteUrl?: string | undefined;
   /** The ETag's version. */
   syncVersion: string;
   /** The calling device, or the signed-in account on any of its devices, has saved this Place. */
@@ -163,8 +161,7 @@ export interface ResolvePublicCodeResponse {
   exists: boolean;
 }
 
-export interface ListCategoriesRequest {
-}
+export interface ListCategoriesRequest {}
 
 export interface ListCategoriesResponse {
   categories: Category[];
@@ -179,8 +176,7 @@ export interface Category {
   sortOrder: number;
 }
 
-export interface ListAreasRequest {
-}
+export interface ListAreasRequest {}
 
 export interface ListAreasResponse {
   areas: Area[];
@@ -208,7 +204,7 @@ export interface AreaMapPack {
   bytes: string;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
+export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
 
 /** Delta sync, nearby, detail, QR resolution, categories and areas. */
 
@@ -219,13 +215,22 @@ export interface PlaceQueryServiceClient {
 
   getPlace(request: GetPlaceRequest, metadata?: Metadata): Observable<GetPlaceResponse>;
 
-  getPlaceByCode(request: GetPlaceByCodeRequest, metadata?: Metadata): Observable<GetPlaceByCodeResponse>;
+  getPlaceByCode(
+    request: GetPlaceByCodeRequest,
+    metadata?: Metadata,
+  ): Observable<GetPlaceByCodeResponse>;
 
   /** Counts the scan (rdm-spec C-15) and says whether the code names any Place. */
 
-  resolvePublicCode(request: ResolvePublicCodeRequest, metadata?: Metadata): Observable<ResolvePublicCodeResponse>;
+  resolvePublicCode(
+    request: ResolvePublicCodeRequest,
+    metadata?: Metadata,
+  ): Observable<ResolvePublicCodeResponse>;
 
-  listCategories(request: ListCategoriesRequest, metadata?: Metadata): Observable<ListCategoriesResponse>;
+  listCategories(
+    request: ListCategoriesRequest,
+    metadata?: Metadata,
+  ): Observable<ListCategoriesResponse>;
 
   listAreas(request: ListAreasRequest, metadata?: Metadata): Observable<ListAreasResponse>;
 }
@@ -258,7 +263,10 @@ export interface PlaceQueryServiceController {
   resolvePublicCode(
     request: ResolvePublicCodeRequest,
     metadata?: Metadata,
-  ): Promise<ResolvePublicCodeResponse> | Observable<ResolvePublicCodeResponse> | ResolvePublicCodeResponse;
+  ):
+    | Promise<ResolvePublicCodeResponse>
+    | Observable<ResolvePublicCodeResponse>
+    | ResolvePublicCodeResponse;
 
   listCategories(
     request: ListCategoriesRequest,
@@ -274,26 +282,30 @@ export interface PlaceQueryServiceController {
 export function PlaceQueryServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "syncPlaces",
-      "nearbyPlaces",
-      "getPlace",
-      "getPlaceByCode",
-      "resolvePublicCode",
-      "listCategories",
-      "listAreas",
+      'syncPlaces',
+      'nearbyPlaces',
+      'getPlace',
+      'getPlaceByCode',
+      'resolvePublicCode',
+      'listCategories',
+      'listAreas',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("PlaceQueryService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('PlaceQueryService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("PlaceQueryService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('PlaceQueryService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const PLACE_QUERY_SERVICE_NAME = "PlaceQueryService";
+export const PLACE_QUERY_SERVICE_NAME = 'PlaceQueryService';

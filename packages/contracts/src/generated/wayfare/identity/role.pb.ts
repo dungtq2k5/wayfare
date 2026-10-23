@@ -5,11 +5,11 @@
 // source: wayfare/identity/role.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 /** A role with its grants. */
 export interface Role {
@@ -24,8 +24,7 @@ export interface Role {
   holders: number;
 }
 
-export interface ListRolesRequest {
-}
+export interface ListRolesRequest {}
 
 export interface ListRolesResponse {
   roles: Role[];
@@ -43,9 +42,7 @@ export interface CreateRoleResponse {
 
 export interface UpdateRoleRequest {
   roleId: string;
-  name?:
-    | string
-    | undefined;
+  name?: string | undefined;
   /** An empty string clears the description. */
   description?: string | undefined;
 }
@@ -67,11 +64,9 @@ export interface DeleteRoleRequest {
   roleId: string;
 }
 
-export interface DeleteRoleResponse {
-}
+export interface DeleteRoleResponse {}
 
-export interface ListPermissionsRequest {
-}
+export interface ListPermissionsRequest {}
 
 export interface ListPermissionsResponse {
   groups: PermissionGroupView[];
@@ -90,7 +85,7 @@ export interface PermissionView {
   isRetired: boolean;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /** Manages custom roles and reads the catalogue. The caller travels as metadata. */
 
@@ -101,11 +96,17 @@ export interface RoleServiceClient {
 
   updateRole(request: UpdateRoleRequest, metadata?: Metadata): Observable<UpdateRoleResponse>;
 
-  setRolePermissions(request: SetRolePermissionsRequest, metadata?: Metadata): Observable<SetRolePermissionsResponse>;
+  setRolePermissions(
+    request: SetRolePermissionsRequest,
+    metadata?: Metadata,
+  ): Observable<SetRolePermissionsResponse>;
 
   deleteRole(request: DeleteRoleRequest, metadata?: Metadata): Observable<DeleteRoleResponse>;
 
-  listPermissions(request: ListPermissionsRequest, metadata?: Metadata): Observable<ListPermissionsResponse>;
+  listPermissions(
+    request: ListPermissionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListPermissionsResponse>;
 }
 
 /** Manages custom roles and reads the catalogue. The caller travels as metadata. */
@@ -129,7 +130,10 @@ export interface RoleServiceController {
   setRolePermissions(
     request: SetRolePermissionsRequest,
     metadata?: Metadata,
-  ): Promise<SetRolePermissionsResponse> | Observable<SetRolePermissionsResponse> | SetRolePermissionsResponse;
+  ):
+    | Promise<SetRolePermissionsResponse>
+    | Observable<SetRolePermissionsResponse>
+    | SetRolePermissionsResponse;
 
   deleteRole(
     request: DeleteRoleRequest,
@@ -139,31 +143,34 @@ export interface RoleServiceController {
   listPermissions(
     request: ListPermissionsRequest,
     metadata?: Metadata,
-  ): Promise<ListPermissionsResponse> | Observable<ListPermissionsResponse> | ListPermissionsResponse;
+  ):
+    | Promise<ListPermissionsResponse>
+    | Observable<ListPermissionsResponse>
+    | ListPermissionsResponse;
 }
 
 export function RoleServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "listRoles",
-      "createRole",
-      "updateRole",
-      "setRolePermissions",
-      "deleteRole",
-      "listPermissions",
+      'listRoles',
+      'createRole',
+      'updateRole',
+      'setRolePermissions',
+      'deleteRole',
+      'listPermissions',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("RoleService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('RoleService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("RoleService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('RoleService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const ROLE_SERVICE_NAME = "RoleService";
+export const ROLE_SERVICE_NAME = 'RoleService';

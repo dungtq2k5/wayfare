@@ -32,6 +32,8 @@ message RequestEmailChangeRequest {
   string new_email = 1;
   // Secret: never logged.
   string current_password = 2;
+  // In place of the password, for an account that signs in with Google only.
+  string confirmation = 3;
 }
 
 message RequestEmailChangeResponse {}

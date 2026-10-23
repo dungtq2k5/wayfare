@@ -1,0 +1,128 @@
+# Continue with Google, end to end through the stack's fake issuer (round 31a): the buttons on Sign
+# in (frame K2); a new address creates a verified account at once (K5a); the account says how it
+# signs in and offers a password (A1g); the emailed link adds one (A1g2); Google sign-in removed
+# with that password (U1–U3); and, signed out, Google links back to the same account (K5b).
+#
+# Against the local stack on GOOGLE_ISSUER=fake (`pnpm mobile:reverse`), its Mailpit on
+# localhost:8025, a Diagnostics build in English, location off and animations off. The address is
+# a Workspace one under example.com: Google owns its mailbox, and Mailpit receives its mail.
+#   maestro test apps/mobile/.maestro/account/google.yaml
+appId: app.wayfare
+---
+- runScript: steps/new-email.js
+- launchApp:
+    stopApp: false
+- runFlow: steps/fake-google-on.yaml
+- runFlow: steps/signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+# K2: the button first, the terms its tap accepts, then the email form.
+- assertVisible: 'Continue with Google'
+- assertVisible: 'By continuing, you accept the.*'
+- assertVisible: 'or'
+# K5a: a new address — the account is created and signed in, verified.
+- runFlow:
+    file: steps/google-pick.yaml
+    env:
+      EMAIL: ${output.email}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible: 'Account created.*'
+    timeout: 15000
+- runFlow: ../common/tabs.yaml
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible:
+      id: 'account-entry'
+    timeout: 15000
+- assertNotVisible: 'Check your email'
+# A1g: Google is the only way in, so a password can be added.
+- tapOn:
+    id: 'account-entry'
+- assertVisible: 'Signed in with Google'
+- tapOn:
+    id: 'account-add-password'
+- extendedWaitUntil:
+    visible: 'Link sent.*'
+    timeout: 15000
+# The link from Mailpit, in the app: L2 sets the password, and this phone signs in again.
+- runFlow:
+    file: steps/open-link.yaml
+    env:
+      EMAIL: ${output.email}
+      PAGE: 'reset-password'
+- extendedWaitUntil:
+    visible: 'Choose a new password'
+    timeout: 15000
+- tapOn:
+    id: 'reset-password'
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: 'reset-submit'
+- runFlow: ../common/no-password-save.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'account-entry'
+    timeout: 15000
+# A1g2: both ways in; Change password is back, and Google sign-in can go.
+- tapOn:
+    id: 'account-entry'
+- assertVisible: 'Google or a password'
+- assertVisible: 'Change password'
+- scrollUntilVisible:
+    element:
+      id: 'account-unlink-google'
+- tapOn:
+    id: 'account-unlink-google'
+- tapOn:
+    id: 'unlink-password'
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: 'unlink-submit'
+- extendedWaitUntil:
+    visible: 'Google sign-in removed.*'
+    timeout: 15000
+- assertNotVisible: 'Google or a password'
+# Signed out, Google links back to the account by its address (K5b), and signs it in.
+- runFlow: steps/signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- runFlow:
+    file: steps/google-pick.yaml
+    env:
+      EMAIL: ${output.email}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible: 'Signed in.*'
+    timeout: 15000
+- runFlow: ../common/tabs.yaml
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible:
+      id: 'account-entry'
+    timeout: 15000
+- tapOn:
+    id: 'account-entry'
+- assertVisible: 'Google or a password'
+# The account goes, with its password.
+- scrollUntilVisible:
+    element:
+      id: 'account-delete'
+- tapOn:
+    id: 'account-delete'
+- tapOn:
+    id: 'delete-password'
+- inputText: ${output.password}
+- tapOn:
+    id: 'delete-word'
+- inputText: 'DELETE'
+- hideKeyboard
+- tapOn:
+    id: 'delete-submit'
+- extendedWaitUntil:
+    visible: 'Keep your favourites on every phone'
+    timeout: 15000

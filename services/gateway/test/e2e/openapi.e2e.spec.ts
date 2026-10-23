@@ -55,6 +55,7 @@ const NO_SECURITY = new Set([
   'POST /api/v1/devices/token',
   'POST /api/v1/auth/register',
   'POST /api/v1/auth/login',
+  'POST /api/v1/auth/google',
   'POST /api/v1/auth/password/forgot',
   'POST /api/v1/auth/password/reset/validate',
   'POST /api/v1/auth/password/reset',
@@ -65,6 +66,7 @@ const NO_SECURITY = new Set([
 const REFRESH_COOKIE = new Set(['POST /api/v1/auth/refresh', 'POST /api/v1/auth/logout']);
 const DEVICE_ROUTES = new Set([
   'PATCH /api/v1/devices/me',
+  'POST /api/v1/auth/google/nonce',
   'DELETE /api/v1/devices/me',
   'POST /api/v1/devices/me/legal-acceptances',
   'GET /api/v1/sync/places',
@@ -109,7 +111,9 @@ const NON_JSON = new Map([
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    expect(names).toHaveLength(152);
+    // 152, and Continue with Google's five; the dev route stays out of the document.
+    expect(names).toHaveLength(157);
+    expect(names.some((name) => name.includes('/dev/'))).toBe(false);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);
     expect(names.some((name) => name.includes('/q/'))).toBe(false);

@@ -60,6 +60,7 @@ import { RolesModule } from './modules/roles/roles.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
+import { DevModule } from './modules/dev/dev.module';
 
 /** The gateway — the only public HTTP surface. No database, no business logic (conventions §2.2). */
 @Module({})
@@ -131,6 +132,8 @@ export class AppModule {
         AdminPlansModule,
         AdminBillingModule,
         StripeWebhooksModule,
+        // Development only: it answers 404 unless GOOGLE_ISSUER=fake, which production refuses.
+        DevModule,
       ],
       providers: [
         {

@@ -34,6 +34,8 @@ export const envSchema = z
     // too high lets a client forge X-Forwarded-For.
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10),
     SWAGGER_ENABLED: zBooleanString,
+    // `fake` mounts POST /dev/google-token, which asks identity's fake Google issuer (ADR 0063).
+    GOOGLE_ISSUER: z.enum(['google', 'fake']),
     IDENTITY_GRPC_URL: z.string().min(1),
     CATALOG_GRPC_URL: z.string().min(1),
     NARRATION_GRPC_URL: z.string().min(1),
@@ -55,6 +57,10 @@ export const envSchema = z
   .refine((env) => !(env.NODE_ENV === 'production' && env.SWAGGER_ENABLED), {
     message: 'SWAGGER_ENABLED must be false in production',
     path: ['SWAGGER_ENABLED'],
+  })
+  .refine((env) => !(env.NODE_ENV === 'production' && env.GOOGLE_ISSUER === 'fake'), {
+    message: 'GOOGLE_ISSUER=fake is refused in production',
+    path: ['GOOGLE_ISSUER'],
   });
 
 /** The validated environment. */

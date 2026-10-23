@@ -1,0 +1,16 @@
+# Continue with Google under abuse (round 31a): the parts a flow drives by itself, in order, given
+# the accounts google-system.sh makes for them (A never confirmed, B verified, C under an address
+# Google does not own, D new, STAFF and LINKED); google-system.sh runs these and the parts that
+# need adb — the gateway unreachable and the largest text — and checks the email and the old
+# password through the API.
+#   bash apps/mobile/.maestro/account/google-system.sh
+appId: app.wayfare
+---
+- launchApp:
+    stopApp: false
+- runFlow: steps/fake-google-on.yaml
+- runFlow: steps/google-failures.yaml
+- runFlow: steps/google-removed.yaml
+- runFlow: steps/google-linked.yaml
+- runFlow: steps/google-password-step.yaml
+- runFlow: steps/google-only.yaml

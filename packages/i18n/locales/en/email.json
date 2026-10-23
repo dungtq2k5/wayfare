@@ -124,5 +124,15 @@
       "The refund goes back to the card you paid with."
     ],
     "action": "See my orders"
+  },
+  "GOOGLE_PASSWORD_REMOVED": {
+    "subject": "Your Wayfare password was removed",
+    "preheader": "Your address was confirmed through Google. Your account is yours.",
+    "body": [
+      "This address was just used to continue with Google in Wayfare, and Google confirmed it.",
+      "The address had never been confirmed before, so the password set on the account was removed and every other device was signed out. Nothing else changed: your favourites are still there.",
+      "To use a password again, choose Add a password in the app's Account screen, or Forgot password? when you sign in.",
+      "If you didn't continue with Google, your Google account may be in someone else's hands: secure it with Google first."
+    ]
   }
 }

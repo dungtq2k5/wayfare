@@ -8,14 +8,15 @@ import {
   LegalDocument,
   LegalParty,
   MAX_FULL_NAME_LENGTH,
-  MAX_PASSWORD_LENGTH,
   MAX_POLICY_VERSION_LENGTH,
   normalizeText,
   SessionRevokedReason,
   zLanguage,
+  IdentityProvider,
 } from '@wayfare/contracts';
 import { legalDocumentProto, legalPartyProto } from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
+import { proveItsYou } from '../google/domain/prove-its-you';
 import {
   deviceIdOf,
   OutboxService,
@@ -55,8 +56,6 @@ const updateMeFields = z
 
 const acceptanceFields = z.object({ version: z.string().min(1).max(MAX_POLICY_VERSION_LENGTH) });
 
-const eraseFields = z.object({ currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH) });
-
 /** The caller's own account (api-endpoints-plan §1.3, rdm-spec I-1, I-12). */
 @Injectable()
 export class UsersService {
@@ -84,7 +83,16 @@ export class UsersService {
       const { roles, permissions } = await this.access.accessOf(tx, user.id);
       const ownerVerified = user.ownerVerifiedAt !== null;
       const pendingRegistration = await this.registrations.pendingFor(tx, user.id);
+      const { passwordHash, identities } = await tx.user.findUniqueOrThrow({
+        where: { id: user.id },
+        select: {
+          passwordHash: true,
+          identities: { where: { provider: IdentityProvider.GOOGLE }, select: { id: true } },
+        },
+      });
       return {
+        // How the account signs in (frames A1g, A1g2): a password, Google, or both.
+        signIn: { password: passwordHash !== null, google: identities.length > 0 },
         user: toSessionUser(user),
         roles,
         permissions,
@@ -173,15 +181,19 @@ export class UsersService {
     context: RequestContext,
   ): Promise<identityGrpc.EraseMeResponse> {
     const account = requireAccountContext(context);
-    const { currentPassword } = parseRpcRequest(eraseFields, request);
     const user = await this.prisma.user.findFirst({
       where: { id: account.userId, deletedAt: null },
       select: { id: true, passwordHash: true },
     });
     if (user === null) throw rpcError('UNAUTHENTICATED');
-    if (!(await this.tokens.verifyPassword(user.passwordHash, currentPassword))) {
-      throw rpcError('INVALID_CREDENTIALS');
-    }
+    // The password, or for a Google-only account a confirmation (api §1.3).
+    await proveItsYou(
+      this.tokens,
+      request,
+      { userId: user.id, sessionId: account.sessionId, passwordHash: user.passwordHash },
+      new Date(),
+      'INVALID_CREDENTIALS',
+    );
     const blockers = await this.billing.getErasureBlockers(user.id);
     if (blockers.pendingBuyerOrder) throw rpcError('BUYER_HAS_PENDING_ORDER');
     if (
@@ -244,6 +256,8 @@ export class UsersService {
     // The push token is the phone's, not the person's.
     await tx.device.updateMany({ where: { userId }, data: { userId: null, claimedAt: null } });
     await tx.actionToken.deleteMany({ where: { userId } });
+    // The Google link is the person's: an erased account has none (rdm-spec I-15).
+    await tx.userIdentity.deleteMany({ where: { userId } });
     await tx.notification.deleteMany({ where: { recipientUserId: userId } });
     await tx.emailDelivery.updateMany({
       where: { recipientUserId: userId },

@@ -88,6 +88,9 @@ Every ADR carries the **cost** of its decision, not only the upside. An ADR with
 | [0059](./decisions/0059-the-native-app-is-android-only.md) | The native app is Android only; iPhone users get the web PWA — partly supersedes 0026 |
 | [0060](./decisions/0060-the-web-apps-are-nextjs.md) | The web apps are Next.js, server-rendered, and the gateway stays the only API — partly supersedes 0036 |
 | [0061](./decisions/0061-tokens-are-shared-components-are-per-platform.md) | Design tokens are shared; components are per platform — partly supersedes 0030 |
+| [0062](./decisions/0062-tourists-may-continue-with-google.md) | Tourists may continue with Google, beside email and password — *partly superseded by 0063, 0064* |
+| [0063](./decisions/0063-google-sign-in-reaches-the-web-and-owners-never-staff.md) | Google sign-in reaches the web app and owners, never staff, and can be unlinked — partly supersedes 0062 |
+| [0064](./decisions/0064-google-links-by-itself-only-where-google-owns-the-mailbox.md) | A Google sign-in links to an existing account by itself only where Google owns the mailbox — partly supersedes 0062 |
 
 ### Payments and providers
 

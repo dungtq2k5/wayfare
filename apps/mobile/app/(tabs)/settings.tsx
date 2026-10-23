@@ -38,9 +38,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { resendVerification, signOut } from '../../src/account/actions';
 import { AccountEntry, AccountNotice } from '../../src/account/components';
+import { addPassword } from '../../src/account/google-components';
 import { countdown, retryAfterSeconds } from '../../src/account/form-errors';
 import { forgetLocalData } from '../../src/shell/forget';
-import { DIAGNOSTICS_ENABLED, PRIVACY_POLICY_URL } from '../../src/env';
+import { DIAGNOSTICS_ENABLED, PRIVACY_POLICY_URL, TERMS_URL } from '../../src/env';
 import { errorMessage } from '../../src/i18n';
 import { LANGUAGE_NAMES } from '../../src/i18n/languages';
 import { useTourist } from '../../src/i18n/use-tourist';
@@ -119,8 +120,6 @@ function Row({
   );
 }
 
-const TERMS_URL = 'https://wayfare.app/terms';
-
 /**
  * The account's cards under its entry, each once: verify the address (G3, with *Resend* and its
  * count, G3b), this phone moved (G7), signed out elsewhere (A8), or after 30 days (A8b).
@@ -166,6 +165,15 @@ function AccountNotices() {
               : (failure ?? t('account.notice.verify.body', { email: user.email }))
           }
           action={{ label: t('account.resend'), disabled: waiting, onPress: () => void resend() }}
+        />
+      )}
+      {notice === 'password-removed' && (
+        <AccountNotice
+          icon={ShieldCheck}
+          title={t('account.notice.passwordRemoved.title')}
+          body={t('account.notice.passwordRemoved.body')}
+          action={{ label: t('account.addPassword'), onPress: () => void addPassword(t) }}
+          onDismiss={dismiss}
         />
       )}
       {notice === 'phone-moved' && (

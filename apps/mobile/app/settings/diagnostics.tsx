@@ -2,6 +2,7 @@ import { useAreasList } from '@wayfare/api-client';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAllPlaces, useLocalAreas } from '../../src/data/hooks';
+import { useFakeGoogle } from '../../src/account/google';
 import { useSwitchHolds } from '../../src/i18n/switch-holds';
 import { damageAFile } from '../../src/packs/controller';
 import { usePackHolds } from '../../src/packs/holds';
@@ -38,6 +39,8 @@ export default function DiagnosticsScreen() {
   const noPosition = useWalkStore((state) => state.noPosition);
   const stationaryMode = useWalkStore((state) => state.stationaryMode);
   const holds = useSwitchHolds();
+  // Continue with Google through the stack's fake issuer (K12).
+  const fakeGoogle = useFakeGoogle((state) => state.enabled);
   const packHolds = usePackHolds();
   const onOff = (on: boolean) => t(on ? 'settings.diagnostics.on' : 'settings.diagnostics.off');
   const time = (at: number | null) =>
@@ -130,6 +133,12 @@ export default function DiagnosticsScreen() {
             })}
             variant="secondary"
             onPress={() => useWalkStore.setState({ stationaryMode: !stationaryMode })}
+          />
+          <Button
+            testID="diagnostics-fake-google"
+            label={t('settings.diagnostics.fakeGoogle', { state: onOff(fakeGoogle) })}
+            variant="secondary"
+            onPress={() => useFakeGoogle.setState({ enabled: !fakeGoogle })}
           />
           <Button
             label={t('settings.diagnostics.holdHotset', { state: onOff(holds.holdHotset) })}

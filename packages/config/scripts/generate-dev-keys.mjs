@@ -3,7 +3,8 @@
 // Writes JWT_PRIVATE_KEY and JWT_KEY_ID into services/identity/.env and JWT_PUBLIC_KEYS into
 // services/gateway/.env, replacing only those lines. EMAIL_HASH_KEY and PII_ENCRYPTION_KEY are
 // written only when absent or empty: a new key would stop every stored address hash from matching,
-// and would make every stored national ID undecryptable. billing's STRIPE_WEBHOOK_SECRET is written
+// and would make every stored national ID undecryptable. So is the fake Google issuer's RSA key
+// (with GOOGLE_ISSUER=fake), which identity alone holds. billing's STRIPE_WEBHOOK_SECRET is written
 // the same way, only when absent: the local walks sign Stripe events with it, and a sandbox's
 // `stripe listen` secret, once pasted in, must never be replaced. catalog gets a
 // throwaway service-account key to sign upload URLs against the storage emulator (architecture
@@ -51,11 +52,21 @@ const identityPath = resolve(root, 'services/identity/.env');
 const identityEnv = existsSync(identityPath) ? readFileSync(identityPath, 'utf8') : '';
 const hasHashKey = /^EMAIL_HASH_KEY=.+$/m.test(identityEnv);
 const hasPiiKey = /^PII_ENCRYPTION_KEY=.+$/m.test(identityEnv);
+// The fake Google issuer's key (ADR 0063): local only, written once like the hash key.
+const hasGoogleKey = /^GOOGLE_FAKE_SIGNING_KEY=.+$/m.test(identityEnv);
+const googleFakeKey = () =>
+  base64(
+    generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
+      type: 'pkcs8',
+      format: 'pem',
+    }),
+  );
 setEnv('services/identity/.env', {
   JWT_PRIVATE_KEY: base64(privatePem),
   JWT_KEY_ID: keyId,
   ...(hasHashKey ? {} : { EMAIL_HASH_KEY: randomBytes(32).toString('base64') }),
   ...(hasPiiKey ? {} : { PII_ENCRYPTION_KEY: randomBytes(32).toString('base64') }),
+  ...(hasGoogleKey ? {} : { GOOGLE_ISSUER: 'fake', GOOGLE_FAKE_SIGNING_KEY: googleFakeKey() }),
 });
 // Single-quoted: the JSON holds double quotes, and both dotenv and node --env-file accept it.
 setEnv('services/gateway/.env', {

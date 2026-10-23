@@ -9,10 +9,17 @@ export interface AccountUser {
   readonly email: string;
   readonly fullName: string | null;
   readonly isEmailVerified: boolean;
+  /** How it signs in (frames A1g, A1g2), once `/users/me` has said; unknown right after sign-in. */
+  readonly signIn?: { readonly password: boolean; readonly google: boolean };
 }
 
 /** A card shown once in Settings (frames A8, A8b, G7). */
-export type AccountNotice = 'signed-out-elsewhere' | 'session-ended' | 'phone-moved';
+export type AccountNotice =
+  | 'signed-out-elsewhere'
+  | 'session-ended'
+  | 'phone-moved'
+  // Continuing with Google removed a never-confirmed address's password (frame K6).
+  | 'password-removed';
 
 export interface AccountState {
   user: AccountUser | null;

@@ -5,6 +5,7 @@ import { ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createAccount } from '../../src/account/actions';
 import { ErrorBanner, FormBody, LinkButton } from '../../src/account/components';
+import { GoogleSection } from '../../src/account/google-components';
 import { emailInvalid, formErrorOf, passwordTooShort } from '../../src/account/form-errors';
 import type { FormError } from '../../src/account/form-errors';
 import { useSubmit } from '../../src/account/use-form';
@@ -29,6 +30,7 @@ export default function CreateAccountScreen() {
   const [error, setError] = useState<FormError | null>(null);
   const [termsError, setTermsError] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   const create = () =>
     submit(async () => {
@@ -59,6 +61,15 @@ export default function CreateAccountScreen() {
           <Text className="text-body text-muted-foreground">{t('account.create.lead')}</Text>
           {error?.place === 'banner' && <ErrorBanner title={error.title} body={error.body} />}
           {failure !== null && <ErrorBanner title={failure} />}
+          <GoogleSection
+            offline={offline}
+            onBusy={setGoogleBusy}
+            onError={(caught) => {
+              const known = formErrorOf('signIn', caught, t);
+              setError(known);
+              if (known === null) setFailure(errorMessage(caught));
+            }}
+          />
           <TextField
             testID="create-email"
             label={t('account.field.email')}
@@ -111,7 +122,7 @@ export default function CreateAccountScreen() {
             label={t('account.create.submit')}
             onPress={() => void create()}
             loading={running}
-            disabled={offline}
+            disabled={offline || googleBusy}
           />
           <LinkButton
             label={t('account.create.haveAccount')}

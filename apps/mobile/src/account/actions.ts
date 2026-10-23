@@ -27,6 +27,8 @@ import type { AccountUser } from '../session/account-store';
 import { useAppStore } from '../state/app-store';
 import { queryClient } from '../state/query-client';
 import { API_DELETE_WORD, outdatedDocuments, phoneMoved } from './rules';
+import { forgetGoogleChoice } from '../../modules/google-sign-in/src';
+import { GOOGLE_SERVER_CLIENT_ID } from '../env';
 
 /** The documents an account must hold current (K16): the terms, and the device's privacy policy. */
 const ACCOUNT_DOCUMENTS: readonly LegalDocument[] = [
@@ -51,7 +53,7 @@ const refreshFavourites = () =>
   queryClient.invalidateQueries({ queryKey: ['/api/v1/me/favorites'], refetchType: 'all' });
 
 /** How many favourites this phone holds, before it joins an account (K6); 0 when it cannot tell. */
-async function favouritesOnPhone(): Promise<number> {
+export async function favouritesOnPhone(): Promise<number> {
   try {
     const lang = useAppStore.getState().language ?? 'en';
     return (await favoritesList({ lang, limit: 50 })).data.length;
@@ -68,7 +70,8 @@ export interface SignedIn {
   readonly needsTerms: boolean;
 }
 
-async function signedIn(session: SessionResponseDto, favourites: number): Promise<SignedIn> {
+/** Every way in ends here: the session kept, the account remembered, its favourites refetched. */
+export async function signedIn(session: SessionResponseDto, favourites: number): Promise<SignedIn> {
   await accountSession.start({
     accessToken: session.accessToken!,
     refreshToken: session.refreshToken!,
@@ -87,6 +90,8 @@ async function signedIn(session: SessionResponseDto, favourites: number): Promis
     offerDismissed: true,
   });
   await refreshFavourites();
+  // How the account signs in, for the account screen (frames A1g, A1g2).
+  await refreshMe().catch(() => undefined);
   return { favourites, needsTerms: (await outdatedTerms()).length > 0 };
 }
 
@@ -120,6 +125,8 @@ export async function signIn(email: string, password: string): Promise<SignedIn>
 /** Ends the account on this phone: the device's token from now on (K2). */
 export async function endLocally(): Promise<void> {
   await accountSession.end();
+  // The next Continue with Google shows the chooser again (frame S1g); the fake picker has no pick.
+  if (GOOGLE_SERVER_CLIENT_ID !== '') await forgetGoogleChoice().catch(() => undefined);
   useAccountStore.setState({ user: null, pendingEmail: null });
   await refreshFavourites();
 }
@@ -139,16 +146,22 @@ export async function signOutEverywhere(): Promise<void> {
   await endLocally();
 }
 
+/**
+ * What a protected form sends: the current password, or for an account that signs in with Google
+ * only, a Google confirmation (frames A3g, A7g).
+ */
+export type ItsYou = { readonly currentPassword: string } | { readonly confirmation: string };
+
 /** *Delete account* (frame A7, K14): the API's word, whatever the tourist typed. */
-export async function deleteAccount(currentPassword: string): Promise<void> {
-  await usersErase({ currentPassword, confirm: API_DELETE_WORD });
+export async function deleteAccount(proof: ItsYou): Promise<void> {
+  await usersErase({ ...proof, confirm: API_DELETE_WORD });
   await endLocally();
 }
 
 /** The account as the server holds it now (frame A1); a waiting change ends once it shows (A3b). */
 export async function refreshMe(): Promise<void> {
   const { data } = await usersMe();
-  const user = userOf(data.user);
+  const user = { ...userOf(data.user), signIn: data.signIn };
   const { pendingEmail } = useAccountStore.getState();
   useAccountStore.setState({
     user,
@@ -168,8 +181,8 @@ export async function changeName(fullName: string): Promise<void> {
 }
 
 /** *Change email* (frame A3): the address changes only when the link is opened (A3b). */
-export async function requestEmailChange(newEmail: string, currentPassword: string) {
-  await emailChangeRequestChange({ newEmail: newEmail.trim(), currentPassword });
+export async function requestEmailChange(newEmail: string, proof: ItsYou) {
+  await emailChangeRequestChange({ newEmail: newEmail.trim(), ...proof });
   useAccountStore.setState({ pendingEmail: newEmail.trim().toLowerCase() });
 }
 

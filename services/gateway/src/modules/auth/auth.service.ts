@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { WayfareClient } from '@wayfare/contracts';
+import type { GoogleOutcome, WayfareClient } from '@wayfare/contracts';
+import { googleOutcomeProto } from '@wayfare/contracts/grpc';
 import {
   AppHttpException,
   httpStatusOf,
@@ -16,7 +17,14 @@ import type {
 import type { Response } from 'express';
 import { IdentityServiceGrpcClient } from '../identity/identity-service-grpc.client';
 import type { UserResponseDto } from '../users/dto/user-response.dto';
-import type { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+import type {
+  GoogleConfirmDto,
+  GoogleLinkDto,
+  GoogleSignInDto,
+  LoginDto,
+  RefreshDto,
+  RegisterDto,
+} from './dto/auth.dto';
 import { toGatewaySession, toSessionClient } from './session.mapper';
 
 /** A session as the gateway holds it, before deciding what travels where. */
@@ -131,6 +139,45 @@ export class AuthService {
 
   async claimDevice(context: AccountContext): Promise<void> {
     await this.identity.auth.call('claimDevice', {}, context);
+  }
+
+  /** A nonce for this device's next Google ID token (ADR 0062). */
+  async googleNonce(context: RequestContext): Promise<{ nonce: string }> {
+    return this.identity.auth.call('googleNonce', {}, context);
+  }
+
+  /** Continue with Google: a session and its outcome, or K6's refusals (api-endpoints-plan §1.2). */
+  async googleSignIn(
+    context: RequestContext,
+    client: WayfareClient,
+    body: GoogleSignInDto,
+    res: Response,
+  ): Promise<SessionBody & { outcome: GoogleOutcome }> {
+    const response = await this.identity.auth.call(
+      'googleSignIn',
+      {
+        idToken: body.idToken,
+        preferredLocale: body.preferredLocale,
+        client: toSessionClient(client),
+      },
+      context,
+    );
+    const outcome = googleOutcomeProto.fromProto(response.outcome);
+    if (outcome === null) throw new AppHttpException('UPSTREAM_UNAVAILABLE');
+    return { ...this.respond(client, toGatewaySession(response.session), res), outcome };
+  }
+
+  /** A Google confirmation in place of the current password. */
+  async googleConfirm(
+    context: AccountContext,
+    body: GoogleConfirmDto,
+  ): Promise<{ confirmation: string }> {
+    return this.identity.auth.call('googleConfirm', { idToken: body.idToken }, context);
+  }
+
+  /** Links the ticket's Google account after the password sign-in (ADR 0064). */
+  async googleLink(context: AccountContext, body: GoogleLinkDto): Promise<void> {
+    await this.identity.auth.call('googleLink', { linkTicket: body.linkTicket }, context);
   }
 
   private respond(client: WayfareClient, session: GatewaySession, res: Response): SessionBody {

@@ -1,3 +1,4 @@
+import { createPrivateKey } from 'node:crypto';
 import { zEmail } from '@wayfare/contracts';
 import { zKeyId, zLogLevel, zNodeEnv, zPort, zPrivateKeyEnv } from '@wayfare/nest-common';
 import type { TypedConfigService } from '@wayfare/nest-common';
@@ -37,6 +38,21 @@ const zPiiKey = z
       return z.NEVER;
     }
     return key;
+  });
+
+/** `GOOGLE_FAKE_SIGNING_KEY`: an RSA private key, PEM then base64 — the fake Google issuer's. */
+const zRsaPrivateKey = z
+  .string()
+  .min(1)
+  .transform((value, ctx) => {
+    try {
+      const key = createPrivateKey(Buffer.from(value, 'base64').toString('utf8'));
+      if (key.asymmetricKeyType === 'rsa') return key;
+    } catch {
+      // Reported below.
+    }
+    ctx.addIssue({ code: 'custom', message: 'Expected an RSA private key, PEM then base64' });
+    return z.NEVER;
   });
 
 /** identity's environment, parsed once at boot (conventions §13). */
@@ -81,6 +97,11 @@ export const envSchema = z
     // Bases of emailed links: the console for staff and owners, the web app for everyone else.
     CONSOLE_URL: z.url(),
     WEB_URL: z.url(),
+    // Continue with Google (ADR 0063): Google's keys, or locally a fake issuer with its own key.
+    // Required with no default, so a deploy never falls into the fake.
+    GOOGLE_ISSUER: z.enum(['google', 'fake']),
+    GOOGLE_SERVER_CLIENT_ID: optional(z.string().min(1)),
+    GOOGLE_FAKE_SIGNING_KEY: optional(zRsaPrivateKey),
   })
   .superRefine((env, ctx) => {
     const require = (key: keyof typeof env, when: string) => {
@@ -97,6 +118,15 @@ export const envSchema = z
       require('RESEND_WEBHOOK_SECRET', 'EMAIL_PROVIDER=resend');
     }
     if (env.EMAIL_PROVIDER === 'smtp') require('SMTP_URL', 'EMAIL_PROVIDER=smtp');
+    if (env.GOOGLE_ISSUER === 'google') require('GOOGLE_SERVER_CLIENT_ID', 'GOOGLE_ISSUER=google');
+    if (env.GOOGLE_ISSUER === 'fake') require('GOOGLE_FAKE_SIGNING_KEY', 'GOOGLE_ISSUER=fake');
+    if (env.NODE_ENV === 'production' && env.GOOGLE_ISSUER === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GOOGLE_ISSUER'],
+        message: 'GOOGLE_ISSUER=fake is refused in production',
+      });
+    }
     if (env.NODE_ENV === 'production' && env.EMAIL_PROVIDER === 'smtp') {
       ctx.addIssue({
         code: 'custom',

@@ -5,20 +5,18 @@
 // source: wayfare/catalog/favorite.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { CursorPage, PageRequest } from "../common/page.pb";
-import { PlaceSummary } from "./place_query.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { CursorPage, PageRequest } from '../common/page.pb';
+import { PlaceSummary } from './place_query.pb';
 
-export const protobufPackage = "wayfare.catalog";
+export const protobufPackage = 'wayfare.catalog';
 
 export interface Favorite {
   placeId: string;
-  savedAt:
-    | Timestamp
-    | undefined;
+  savedAt: Timestamp | undefined;
   /** Distance, walking time and `sponsored` are unset: a favourite has no origin. */
   place: PlaceSummary | undefined;
 }
@@ -37,24 +35,28 @@ export interface AddFavoriteRequest {
   placeId: string;
 }
 
-export interface AddFavoriteResponse {
-}
+export interface AddFavoriteResponse {}
 
 export interface RemoveFavoriteRequest {
   placeId: string;
 }
 
-export interface RemoveFavoriteResponse {
-}
+export interface RemoveFavoriteResponse {}
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
+export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
 
 export interface FavoriteServiceClient {
-  listFavorites(request: ListFavoritesRequest, metadata?: Metadata): Observable<ListFavoritesResponse>;
+  listFavorites(
+    request: ListFavoritesRequest,
+    metadata?: Metadata,
+  ): Observable<ListFavoritesResponse>;
 
   addFavorite(request: AddFavoriteRequest, metadata?: Metadata): Observable<AddFavoriteResponse>;
 
-  removeFavorite(request: RemoveFavoriteRequest, metadata?: Metadata): Observable<RemoveFavoriteResponse>;
+  removeFavorite(
+    request: RemoveFavoriteRequest,
+    metadata?: Metadata,
+  ): Observable<RemoveFavoriteResponse>;
 }
 
 export interface FavoriteServiceController {
@@ -76,19 +78,23 @@ export interface FavoriteServiceController {
 
 export function FavoriteServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listFavorites", "addFavorite", "removeFavorite"];
+    const grpcMethods: string[] = ['listFavorites', 'addFavorite', 'removeFavorite'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("FavoriteService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('FavoriteService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("FavoriteService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('FavoriteService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const FAVORITE_SERVICE_NAME = "FavoriteService";
+export const FAVORITE_SERVICE_NAME = 'FavoriteService';

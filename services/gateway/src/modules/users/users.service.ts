@@ -14,7 +14,7 @@ import type { RecordLegalAcceptanceDto } from '../devices/dto/device.dto';
 import { IdentityServiceGrpcClient } from '../identity/identity-service-grpc.client';
 import type { LegalAcceptanceStatusResponseDto } from './dto/legal-acceptance-response.dto';
 import type { MeResponseDto, UpdateMeResponseDto } from './dto/user-response.dto';
-import type { EraseMeDto, UpdateMeDto } from './dto/user.dto';
+import type { EraseMeDto, UnlinkGoogleDto, UpdateMeDto } from './dto/user.dto';
 import {
   toLegalAcceptanceStatusResponseDto,
   toMeResponseDto,
@@ -62,8 +62,21 @@ export class UsersService {
    * with it; a refusal leaves them, as the session still stands.
    */
   async erase(context: AccountContext, body: EraseMeDto, res: Response): Promise<void> {
-    await this.identity.users.call('eraseMe', { currentPassword: body.currentPassword }, context);
+    await this.identity.users.call(
+      'eraseMe',
+      { currentPassword: body.currentPassword ?? '', confirmation: body.confirmation ?? '' },
+      context,
+    );
     this.responder.clear(res);
+  }
+
+  /** Removes Google sign-in, with the password or a confirmation (api-endpoints-plan §1.3). */
+  async unlinkGoogle(context: AccountContext, body: UnlinkGoogleDto): Promise<void> {
+    await this.identity.auth.call(
+      'unlinkGoogle',
+      { currentPassword: body.currentPassword ?? '', confirmation: body.confirmation ?? '' },
+      context,
+    );
   }
 
   async update(context: AccountContext, body: UpdateMeDto): Promise<UpdateMeResponseDto> {

@@ -14,6 +14,7 @@ import { loadHeard } from '../src/data/heard';
 import { persistOptions } from '../src/data/persister';
 import { useDataBoot } from '../src/shell/use-data-boot';
 import { DownloadSheetHost } from '../src/packs/download-sheet';
+import { FakeGooglePickerHost } from '../src/account/fake-google-picker';
 import { usePackBoot } from '../src/packs/use-pack-boot';
 import { useAccountBoot } from '../src/account/use-account-boot';
 import { useLanguageSwitch } from '../src/language/switch-deps';
@@ -125,9 +126,12 @@ export default function RootLayout() {
               <Stack.Screen name="account/delete" />
               <Stack.Screen name="account/terms" options={{ gestureEnabled: false }} />
               <Stack.Screen name="account/link" />
+              <Stack.Screen name="account/google-link" />
+              <Stack.Screen name="account/unlink-google" />
             </Stack.Protected>
           </Stack>
           <DownloadSheetHost />
+          <FakeGooglePickerHost />
           <ToastHost />
           <WalkPromptHost />
         </View>

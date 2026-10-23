@@ -10,6 +10,11 @@ export interface EraseMeDto {
      * @minLength 1
      * @maxLength 128
      */
-  currentPassword: string;
+  currentPassword?: string;
+  /**
+     * @minLength 1
+     * @maxLength 4096
+     */
+  confirmation?: string;
   confirm: 'DELETE';
 }

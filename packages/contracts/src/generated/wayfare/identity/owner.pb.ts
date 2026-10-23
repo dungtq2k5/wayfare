@@ -5,13 +5,13 @@
 // source: wayfare/identity/owner.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from "../common/page.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from '../common/page.pb';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 /** Where an application stands (rdm-spec I-8). */
 export enum OwnerRegistrationStatus {
@@ -103,8 +103,7 @@ export interface SubmitRegistrationResponse {
   registration: OwnerRegistration | undefined;
 }
 
-export interface ListMyRegistrationsRequest {
-}
+export interface ListMyRegistrationsRequest {}
 
 export interface ListMyRegistrationsResponse {
   registrations: OwnerRegistration[];
@@ -183,12 +182,15 @@ export interface ListVerifiedOwnerIdsResponse {
   page: CursorPage | undefined;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /** The caller's own applications. The caller travels as metadata. */
 
 export interface OwnerServiceClient {
-  submitRegistration(request: SubmitRegistrationRequest, metadata?: Metadata): Observable<SubmitRegistrationResponse>;
+  submitRegistration(
+    request: SubmitRegistrationRequest,
+    metadata?: Metadata,
+  ): Observable<SubmitRegistrationResponse>;
 
   listMyRegistrations(
     request: ListMyRegistrationsRequest,
@@ -227,17 +229,26 @@ export interface OwnerServiceController {
   submitRegistration(
     request: SubmitRegistrationRequest,
     metadata?: Metadata,
-  ): Promise<SubmitRegistrationResponse> | Observable<SubmitRegistrationResponse> | SubmitRegistrationResponse;
+  ):
+    | Promise<SubmitRegistrationResponse>
+    | Observable<SubmitRegistrationResponse>
+    | SubmitRegistrationResponse;
 
   listMyRegistrations(
     request: ListMyRegistrationsRequest,
     metadata?: Metadata,
-  ): Promise<ListMyRegistrationsResponse> | Observable<ListMyRegistrationsResponse> | ListMyRegistrationsResponse;
+  ):
+    | Promise<ListMyRegistrationsResponse>
+    | Observable<ListMyRegistrationsResponse>
+    | ListMyRegistrationsResponse;
 
   withdrawRegistration(
     request: WithdrawRegistrationRequest,
     metadata?: Metadata,
-  ): Promise<WithdrawRegistrationResponse> | Observable<WithdrawRegistrationResponse> | WithdrawRegistrationResponse;
+  ):
+    | Promise<WithdrawRegistrationResponse>
+    | Observable<WithdrawRegistrationResponse>
+    | WithdrawRegistrationResponse;
 
   /**
    * Internal (api-endpoints-plan §12.2): whether an owner is still verified and live, asked by
@@ -247,7 +258,10 @@ export interface OwnerServiceController {
   getOwnerVerification(
     request: GetOwnerVerificationRequest,
     metadata?: Metadata,
-  ): Promise<GetOwnerVerificationResponse> | Observable<GetOwnerVerificationResponse> | GetOwnerVerificationResponse;
+  ):
+    | Promise<GetOwnerVerificationResponse>
+    | Observable<GetOwnerVerificationResponse>
+    | GetOwnerVerificationResponse;
 
   /**
    * Internal (api-endpoints-plan §12.2): live, verified owners, paged — billing's daily reconcile
@@ -257,33 +271,36 @@ export interface OwnerServiceController {
   listVerifiedOwnerIds(
     request: ListVerifiedOwnerIdsRequest,
     metadata?: Metadata,
-  ): Promise<ListVerifiedOwnerIdsResponse> | Observable<ListVerifiedOwnerIdsResponse> | ListVerifiedOwnerIdsResponse;
+  ):
+    | Promise<ListVerifiedOwnerIdsResponse>
+    | Observable<ListVerifiedOwnerIdsResponse>
+    | ListVerifiedOwnerIdsResponse;
 }
 
 export function OwnerServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "submitRegistration",
-      "listMyRegistrations",
-      "withdrawRegistration",
-      "getOwnerVerification",
-      "listVerifiedOwnerIds",
+      'submitRegistration',
+      'listMyRegistrations',
+      'withdrawRegistration',
+      'getOwnerVerification',
+      'listVerifiedOwnerIds',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("OwnerService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('OwnerService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("OwnerService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('OwnerService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const OWNER_SERVICE_NAME = "OwnerService";
+export const OWNER_SERVICE_NAME = 'OwnerService';
 
 /**
  * The review queue. The gateway checks the route's permission; identity checks the rules it alone
@@ -291,18 +308,30 @@ export const OWNER_SERVICE_NAME = "OwnerService";
  */
 
 export interface OwnerReviewServiceClient {
-  listRegistrations(request: ListRegistrationsRequest, metadata?: Metadata): Observable<ListRegistrationsResponse>;
+  listRegistrations(
+    request: ListRegistrationsRequest,
+    metadata?: Metadata,
+  ): Observable<ListRegistrationsResponse>;
 
-  getRegistration(request: GetRegistrationRequest, metadata?: Metadata): Observable<GetRegistrationResponse>;
+  getRegistration(
+    request: GetRegistrationRequest,
+    metadata?: Metadata,
+  ): Observable<GetRegistrationResponse>;
 
-  revealNationalId(request: RevealNationalIdRequest, metadata?: Metadata): Observable<RevealNationalIdResponse>;
+  revealNationalId(
+    request: RevealNationalIdRequest,
+    metadata?: Metadata,
+  ): Observable<RevealNationalIdResponse>;
 
   approveRegistration(
     request: ApproveRegistrationRequest,
     metadata?: Metadata,
   ): Observable<ApproveRegistrationResponse>;
 
-  rejectRegistration(request: RejectRegistrationRequest, metadata?: Metadata): Observable<RejectRegistrationResponse>;
+  rejectRegistration(
+    request: RejectRegistrationRequest,
+    metadata?: Metadata,
+  ): Observable<RejectRegistrationResponse>;
 }
 
 /**
@@ -314,50 +343,69 @@ export interface OwnerReviewServiceController {
   listRegistrations(
     request: ListRegistrationsRequest,
     metadata?: Metadata,
-  ): Promise<ListRegistrationsResponse> | Observable<ListRegistrationsResponse> | ListRegistrationsResponse;
+  ):
+    | Promise<ListRegistrationsResponse>
+    | Observable<ListRegistrationsResponse>
+    | ListRegistrationsResponse;
 
   getRegistration(
     request: GetRegistrationRequest,
     metadata?: Metadata,
-  ): Promise<GetRegistrationResponse> | Observable<GetRegistrationResponse> | GetRegistrationResponse;
+  ):
+    | Promise<GetRegistrationResponse>
+    | Observable<GetRegistrationResponse>
+    | GetRegistrationResponse;
 
   revealNationalId(
     request: RevealNationalIdRequest,
     metadata?: Metadata,
-  ): Promise<RevealNationalIdResponse> | Observable<RevealNationalIdResponse> | RevealNationalIdResponse;
+  ):
+    | Promise<RevealNationalIdResponse>
+    | Observable<RevealNationalIdResponse>
+    | RevealNationalIdResponse;
 
   approveRegistration(
     request: ApproveRegistrationRequest,
     metadata?: Metadata,
-  ): Promise<ApproveRegistrationResponse> | Observable<ApproveRegistrationResponse> | ApproveRegistrationResponse;
+  ):
+    | Promise<ApproveRegistrationResponse>
+    | Observable<ApproveRegistrationResponse>
+    | ApproveRegistrationResponse;
 
   rejectRegistration(
     request: RejectRegistrationRequest,
     metadata?: Metadata,
-  ): Promise<RejectRegistrationResponse> | Observable<RejectRegistrationResponse> | RejectRegistrationResponse;
+  ):
+    | Promise<RejectRegistrationResponse>
+    | Observable<RejectRegistrationResponse>
+    | RejectRegistrationResponse;
 }
 
 export function OwnerReviewServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "listRegistrations",
-      "getRegistration",
-      "revealNationalId",
-      "approveRegistration",
-      "rejectRegistration",
+      'listRegistrations',
+      'getRegistration',
+      'revealNationalId',
+      'approveRegistration',
+      'rejectRegistration',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("OwnerReviewService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('OwnerReviewService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("OwnerReviewService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('OwnerReviewService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const OWNER_REVIEW_SERVICE_NAME = "OwnerReviewService";
+export const OWNER_REVIEW_SERVICE_NAME = 'OwnerReviewService';

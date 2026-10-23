@@ -21,10 +21,10 @@ export interface RateLimitSpec {
   readonly windowMs: number;
   readonly buckets: readonly RateLimitBucket[];
   /**
-   * Only failed attempts count: each attempt is counted up front, so parallel ones cannot all slip
-   * past, and refunded when it does not fail.
+   * Only failed attempts count, these answers' codes: each attempt is counted up front, so parallel
+   * ones cannot all slip past, and refunded when its answer is not one of them.
    */
-  readonly countFailuresOnly?: true;
+  readonly countFailuresOnly?: readonly string[];
 }
 
 /** A class with one bucket: the shape of every class keyed on one thing. */
@@ -52,16 +52,20 @@ export const RATE_LIMITS = {
   // Register, forgot password, account recovery: each call creates or sends something, so all count.
   AUTH: { windowMs: 15 * MINUTE_MS, buckets: SIGN_IN_BUCKETS },
   // Sign-in: a success proves the password, so only wrong ones spend the budget.
-  AUTH_LOGIN: { windowMs: 15 * MINUTE_MS, buckets: SIGN_IN_BUCKETS, countFailuresOnly: true },
+  AUTH_LOGIN: {
+    windowMs: 15 * MINUTE_MS,
+    buckets: SIGN_IN_BUCKETS,
+    countFailuresOnly: ['INVALID_CREDENTIALS', 'INVALID_GOOGLE_TOKEN'],
+  },
+  // A Google sign-in's nonce, per install: each token needs one, so this bounds tries, not people.
+  AUTH_NONCE: one('deviceId', 30, 15 * MINUTE_MS),
   NARRATION_ON_DEMAND: one('deviceId', 30, 10 * MINUTE_MS),
   ANALYTICS_INGEST: one('analyticsDeviceId', 60, HOUR_MS),
   // The burst limit only; the daily quota is the AI ledger's (rdm-spec X-2).
   AI_ENHANCEMENT: one('userId', 20, HOUR_MS),
-  SHORT_CODE_PER_PERSON: { ...one('userId', 20, 10 * MINUTE_MS), countFailuresOnly: true },
-  SHORT_CODE_PER_SELLER: {
-    ...one('billingAccountId', 20, 10 * MINUTE_MS),
-    countFailuresOnly: true,
-  },
+  // Failures only; their codes come with the short-code routes, none of which exists yet.
+  SHORT_CODE_PER_PERSON: { ...one('userId', 20, 10 * MINUTE_MS), countFailuresOnly: [] },
+  SHORT_CODE_PER_SELLER: { ...one('billingAccountId', 20, 10 * MINUTE_MS), countFailuresOnly: [] },
   // A signed-in person's current-password checks (PATCH /auth/password, POST /auth/email/change).
   PASSWORD_CHECK: one('userId', 10, 15 * MINUTE_MS),
   EMAIL_REQUEST: one('userId', 5, HOUR_MS),

@@ -43,6 +43,7 @@ model User {
   legalAcceptances           LegalAcceptance[]
   auditLogs                  AuditLog[]
   actionTokens               ActionToken[]
+  identities                 UserIdentity[]
   emailDeliveries            EmailDelivery[]
   notifications              Notification[]
   ownerRegistrations         OwnerRegistration[] @relation("OwnerRegistrationApplicant")
@@ -204,6 +205,26 @@ model ActionToken {
 
   @@index([userId, purpose])
   @@map("action_tokens")
+}
+
+/// A sign-in provider linked to an account — rdm-spec I-15 (ADR 0062): by the provider's subject,
+/// never by the address. One Google account per Wayfare account, and the other way round.
+model UserIdentity {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  /// IdentityProvider in `@wayfare/contracts`
+  provider    String   @db.VarChar(16)
+  /// The provider's stable id for the person (Google's `sub`).
+  subject     String   @db.VarChar(255)
+  /// The provider's address when the link was made; the account's own email may differ later.
+  emailAtLink String   @map("email_at_link") @db.VarChar(254)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@unique([userId, provider])
+  @@map("user_identities")
 }
 
 /// One transactional email send — rdm-spec I-13. Metadata only: never a body, subject or link.

@@ -10,7 +10,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react-native';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Alert, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -27,12 +27,15 @@ import { useAccountStore } from '../../src/session/account-store';
 import { Icon } from '../../src/theme/icon';
 import { InlineNote } from '../../src/ui/inline-note';
 import { LARGE_TEXT_SCALE, LIST_END_PADDING } from '../../src/ui/layout';
+import { addPassword, SignedInWith } from '../../src/account/google-components';
+import { GoogleG } from '../../src/ui/google-button';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { showToast } from '../../src/ui/toast';
 
 /** A row of the account's groups: offline it rests at 45 % and, tapped, repeats the note (A9). */
 function Row({
   icon,
+  glyph,
   title,
   subtitle,
   danger = false,
@@ -41,6 +44,8 @@ function Row({
   testID,
 }: {
   icon: LucideIcon;
+  /** Drawn in the icon's place: the Google *G*, which is never recoloured. */
+  glyph?: React.ReactNode;
   title: string;
   subtitle?: string;
   danger?: boolean;
@@ -58,7 +63,11 @@ function Row({
       style={{ opacity: offline ? 0.45 : 1 }}
       className="min-h-12 flex-row items-center gap-3 px-4 py-3"
     >
-      <Icon icon={icon} size="lg" color={danger ? 'destructive' : 'muted-foreground'} />
+      {glyph === undefined ? (
+        <Icon icon={icon} size="lg" color={danger ? 'destructive' : 'muted-foreground'} />
+      ) : (
+        <View className="h-6 w-6 items-center justify-center">{glyph}</View>
+      )}
       <View className="flex-1">
         <Text className={`text-body ${danger ? 'text-destructive' : 'text-foreground'}`}>
           {title}
@@ -103,6 +112,11 @@ export default function AccountScreen() {
     }, [offline]),
   );
 
+  // The account ended while this screen was open (signed out elsewhere, erased): Settings says why.
+  useEffect(() => {
+    if (user === null && router.canGoBack()) router.back();
+  }, [user, router]);
+
   if (user === null) {
     return (
       <SafeAreaView className="flex-1 bg-background">
@@ -119,8 +133,8 @@ export default function AccountScreen() {
         onPress: () =>
           void (async () => {
             await signOut();
+            // The screen closes itself once the account is gone (the effect above).
             showToast(t('account.signedOut'));
-            router.back();
           })(),
       },
     ]);
@@ -135,7 +149,6 @@ export default function AccountScreen() {
             try {
               await signOutEverywhere();
               showToast(t('account.signedOut'));
-              router.back();
             } catch (error) {
               showToast(errorMessage(error));
             }
@@ -154,6 +167,7 @@ export default function AccountScreen() {
             <View className="flex-1 gap-1">
               <Text className="text-title text-foreground">{user.fullName ?? user.email}</Text>
               <Text className="text-label text-muted-foreground">{user.email}</Text>
+              <SignedInWith user={user} />
               {user.isEmailVerified ? (
                 <View className="flex-row items-center gap-1">
                   <Icon icon={CircleCheck} size="xs" color="primary" />
@@ -208,12 +222,35 @@ export default function AccountScreen() {
               offline={offline}
               onPress={() => router.push('/account/email')}
             />
-            <Row
-              icon={Lock}
-              title={t('account.changePassword')}
-              offline={offline}
-              onPress={() => router.push('/account/password')}
-            />
+            {user.signIn?.password === false ? (
+              // A Google-only account adds a password where others change it (frame A1g).
+              <Row
+                testID="account-add-password"
+                icon={Lock}
+                title={t('account.addPassword')}
+                offline={offline}
+                onPress={() => void addPassword(t)}
+              />
+            ) : (
+              <Row
+                icon={Lock}
+                title={t('account.changePassword')}
+                offline={offline}
+                onPress={() => router.push('/account/password')}
+              />
+            )}
+            {user.signIn?.google === true && user.signIn.password && (
+              // Only with a password can Google sign-in go (frame U1).
+              <Row
+                testID="account-unlink-google"
+                icon={Lock}
+                glyph={<GoogleG />}
+                title={t('account.unlink.row')}
+                subtitle={t('account.unlink.rowHint')}
+                offline={offline}
+                onPress={() => router.push('/account/unlink-google')}
+              />
+            )}
           </Group>
 
           <Group title={t('account.group.signingOut')}>

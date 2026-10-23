@@ -5,14 +5,14 @@
 // source: wayfare/narration/synthesis_admin.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { LocalizationTargetType } from "../common/localization.pb";
-import { PageNumberMeta, PageNumberRequest } from "../common/page.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { LocalizationTargetType } from '../common/localization.pb';
+import { PageNumberMeta, PageNumberRequest } from '../common/page.pb';
 
-export const protobufPackage = "wayfare.narration";
+export const protobufPackage = 'wayfare.narration';
 
 /** Why a job exists (rdm-spec N-1). */
 export enum SynthesisTrigger {
@@ -105,19 +105,13 @@ export interface SynthesisTask {
   speechProvider?: string | undefined;
   voiceId?: string | undefined;
   cacheKey?: string | undefined;
-  coalescedIntoTaskId?:
-    | string
-    | undefined;
+  coalescedIntoTaskId?: string | undefined;
   /** Redacted. */
   lastError?: string | undefined;
   startedAt: Timestamp | undefined;
-  finishedAt:
-    | Timestamp
-    | undefined;
+  finishedAt: Timestamp | undefined;
   /** Set while the task waits on a speech provider that could not be reached. */
-  failureReason?:
-    | SynthesisFailureReason
-    | undefined;
+  failureReason?: SynthesisFailureReason | undefined;
   /** Of `attempts`, the ones a provider outage took: they do not count toward the limit. */
   providerWaits: number;
   /** When a waiting task is tried next. */
@@ -189,8 +183,7 @@ export interface RetryFailedTasksResponse {
   job: SynthesisJob | undefined;
 }
 
-export interface ListProvidersRequest {
-}
+export interface ListProvidersRequest {}
 
 export interface ListProvidersResponse {
   providers: ProviderHealth[];
@@ -210,8 +203,7 @@ export interface ProviderHealth {
   coolingUntil: Timestamp | undefined;
 }
 
-export interface ListVoicesRequest {
-}
+export interface ListVoicesRequest {}
 
 export interface ListVoicesResponse {
   voices: VoiceCatalogue[];
@@ -230,7 +222,7 @@ export interface Voice {
   gender?: string | undefined;
 }
 
-export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
+export const WAYFARE_NARRATION_PACKAGE_NAME = 'wayfare.narration';
 
 /** Lists, creates, pauses, resumes, cancels and retries jobs; reports providers and voices. */
 
@@ -239,7 +231,10 @@ export interface SynthesisAdminServiceClient {
 
   getJob(request: GetJobRequest, metadata?: Metadata): Observable<GetJobResponse>;
 
-  createManualJob(request: CreateManualJobRequest, metadata?: Metadata): Observable<CreateManualJobResponse>;
+  createManualJob(
+    request: CreateManualJobRequest,
+    metadata?: Metadata,
+  ): Observable<CreateManualJobResponse>;
 
   pauseJob(request: PauseJobRequest, metadata?: Metadata): Observable<PauseJobResponse>;
 
@@ -247,9 +242,15 @@ export interface SynthesisAdminServiceClient {
 
   cancelJob(request: CancelJobRequest, metadata?: Metadata): Observable<CancelJobResponse>;
 
-  retryFailedTasks(request: RetryFailedTasksRequest, metadata?: Metadata): Observable<RetryFailedTasksResponse>;
+  retryFailedTasks(
+    request: RetryFailedTasksRequest,
+    metadata?: Metadata,
+  ): Observable<RetryFailedTasksResponse>;
 
-  listProviders(request: ListProvidersRequest, metadata?: Metadata): Observable<ListProvidersResponse>;
+  listProviders(
+    request: ListProvidersRequest,
+    metadata?: Metadata,
+  ): Observable<ListProvidersResponse>;
 
   listVoices(request: ListVoicesRequest, metadata?: Metadata): Observable<ListVoicesResponse>;
 }
@@ -270,7 +271,10 @@ export interface SynthesisAdminServiceController {
   createManualJob(
     request: CreateManualJobRequest,
     metadata?: Metadata,
-  ): Promise<CreateManualJobResponse> | Observable<CreateManualJobResponse> | CreateManualJobResponse;
+  ):
+    | Promise<CreateManualJobResponse>
+    | Observable<CreateManualJobResponse>
+    | CreateManualJobResponse;
 
   pauseJob(
     request: PauseJobRequest,
@@ -290,7 +294,10 @@ export interface SynthesisAdminServiceController {
   retryFailedTasks(
     request: RetryFailedTasksRequest,
     metadata?: Metadata,
-  ): Promise<RetryFailedTasksResponse> | Observable<RetryFailedTasksResponse> | RetryFailedTasksResponse;
+  ):
+    | Promise<RetryFailedTasksResponse>
+    | Observable<RetryFailedTasksResponse>
+    | RetryFailedTasksResponse;
 
   listProviders(
     request: ListProvidersRequest,
@@ -306,28 +313,36 @@ export interface SynthesisAdminServiceController {
 export function SynthesisAdminServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "listJobs",
-      "getJob",
-      "createManualJob",
-      "pauseJob",
-      "resumeJob",
-      "cancelJob",
-      "retryFailedTasks",
-      "listProviders",
-      "listVoices",
+      'listJobs',
+      'getJob',
+      'createManualJob',
+      'pauseJob',
+      'resumeJob',
+      'cancelJob',
+      'retryFailedTasks',
+      'listProviders',
+      'listVoices',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("SynthesisAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('SynthesisAdminService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("SynthesisAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('SynthesisAdminService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const SYNTHESIS_ADMIN_SERVICE_NAME = "SynthesisAdminService";
+export const SYNTHESIS_ADMIN_SERVICE_NAME = 'SynthesisAdminService';

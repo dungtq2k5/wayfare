@@ -1,6 +1,6 @@
 // Integration and contract suites run against the paired _test database (ADR 0034) and a separate
 // NATS server: the service reads DATABASE_URL and NATS_URL, so both are repointed before anything connects.
-import { randomBytes } from 'node:crypto';
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { generateTestSigningKeys } from '@wayfare/nest-common/testing';
 import { config } from 'dotenv';
@@ -30,4 +30,13 @@ Object.assign(process.env, {
   PII_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
   CONSOLE_URL: 'http://console.localhost',
   WEB_URL: 'http://web.localhost',
+  // The fake Google issuer, with a per-run key.
+  GOOGLE_ISSUER: 'fake',
+  GOOGLE_SERVER_CLIENT_ID: 'wayfare-test-server-client',
+  GOOGLE_FAKE_SIGNING_KEY: Buffer.from(
+    generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
+      type: 'pkcs8',
+      format: 'pem',
+    }),
+  ).toString('base64'),
 });

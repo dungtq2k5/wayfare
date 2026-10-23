@@ -5,13 +5,13 @@
 // source: wayfare/narration/pronunciation.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { CursorPage, PageRequest } from "../common/page.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { CursorPage, PageRequest } from '../common/page.pb';
 
-export const protobufPackage = "wayfare.narration";
+export const protobufPackage = 'wayfare.narration';
 
 /** SSML `<sub alias>` or `<phoneme>` (rdm-spec N-5). */
 export enum ReplacementType {
@@ -82,8 +82,7 @@ export interface DeleteEntryRequest {
   entryId: string;
 }
 
-export interface DeleteEntryResponse {
-}
+export interface DeleteEntryResponse {}
 
 export interface PreviewAudioRequest {
   text: string;
@@ -98,7 +97,7 @@ export interface PreviewAudioResponse {
   contentType: string;
 }
 
-export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
+export const WAYFARE_NARRATION_PACKAGE_NAME = 'wayfare.narration';
 
 /** How a term is read aloud. The gateway checks `pronunciation.manage`. */
 
@@ -155,19 +154,29 @@ export interface PronunciationServiceController {
 
 export function PronunciationServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listEntries", "createEntry", "updateEntry", "deleteEntry", "previewAudio"];
+    const grpcMethods: string[] = [
+      'listEntries',
+      'createEntry',
+      'updateEntry',
+      'deleteEntry',
+      'previewAudio',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("PronunciationService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('PronunciationService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("PronunciationService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('PronunciationService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const PRONUNCIATION_SERVICE_NAME = "PronunciationService";
+export const PRONUNCIATION_SERVICE_NAME = 'PronunciationService';

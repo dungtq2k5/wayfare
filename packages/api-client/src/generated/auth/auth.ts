@@ -15,6 +15,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuthGoogleConfirm200,
+  AuthGoogleNonce200,
+  AuthGoogleSignIn200,
   AuthLogin200,
   AuthRefresh200,
   AuthRegister201,
@@ -24,6 +27,9 @@ import type {
   EmailChangeRevertChange200,
   EmailChangeVerify200,
   ForgotPasswordDto,
+  GoogleConfirmDto,
+  GoogleLinkDto,
+  GoogleSignInDto,
   LinkTokenDto,
   LoginDto,
   PasswordValidate200,
@@ -536,6 +542,340 @@ export const useAuthClaimDevice = <TError = unknown,
         TContext
       > => {
       return useMutation(getAuthClaimDeviceMutationOptions(options), queryClient);
+    }
+    export const getAuthGoogleNonceUrl = () => {
+
+
+
+
+  return `/auth/google/nonce`
+}
+
+/**
+ * @summary A nonce for this device, which the next Google ID token must carry (5 minutes, once).
+ */
+export const authGoogleNonce = async ( options?: Parameters<typeof apiFetch>[1]): Promise<AuthGoogleNonce200> => {
+
+  return apiFetch<AuthGoogleNonce200>(getAuthGoogleNonceUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAuthGoogleNonceMutationKey = () => ['authGoogleNonce'] as const;
+
+export const getAuthGoogleNonceMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleNonce>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authGoogleNonce>>, TError,void, TContext> => {
+
+const mutationKey = getAuthGoogleNonceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authGoogleNonce>>, void> = () => {
+
+
+          return  authGoogleNonce(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthGoogleNonceMutationResult = NonNullable<Awaited<ReturnType<typeof authGoogleNonce>>>
+
+    export type AuthGoogleNonceMutationError = unknown
+
+
+    /**
+ * @summary A nonce for this device, which the next Google ID token must carry (5 minutes, once).
+ */
+export const useAuthGoogleNonce = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleNonce>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authGoogleNonce>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAuthGoogleNonceMutationOptions(options), queryClient);
+    }
+    export const getAuthGoogleSignInUrl = () => {
+
+
+
+
+  return `/auth/google`
+}
+
+/**
+ * @summary Continue with Google: signs in, creates, links — or, where Google does not own the mailbox, asks for the password first.
+ */
+export const authGoogleSignIn = async (googleSignInDto: GoogleSignInDto, options?: Parameters<typeof apiFetch>[1]): Promise<AuthGoogleSignIn200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<AuthGoogleSignIn200>(getAuthGoogleSignInUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(googleSignInDto)
+  }
+);}
+
+
+
+
+
+export const getAuthGoogleSignInMutationKey = () => ['authGoogleSignIn'] as const;
+
+export const getAuthGoogleSignInMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleSignIn>>, TError,AuthGoogleSignInMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authGoogleSignIn>>, TError,AuthGoogleSignInMutationVariables, TContext> => {
+
+const mutationKey = getAuthGoogleSignInMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authGoogleSignIn>>, AuthGoogleSignInMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authGoogleSignIn(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthGoogleSignInMutationResult = NonNullable<Awaited<ReturnType<typeof authGoogleSignIn>>>
+    export type AuthGoogleSignInMutationBody = GoogleSignInDto
+    export type AuthGoogleSignInMutationError = unknown
+    export type AuthGoogleSignInMutationVariables = {data: GoogleSignInDto}
+
+    /**
+ * @summary Continue with Google: signs in, creates, links — or, where Google does not own the mailbox, asks for the password first.
+ */
+export const useAuthGoogleSignIn = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleSignIn>>, TError,AuthGoogleSignInMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authGoogleSignIn>>,
+        TError,
+        AuthGoogleSignInMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthGoogleSignInMutationOptions(options), queryClient);
+    }
+    export const getAuthGoogleConfirmUrl = () => {
+
+
+
+
+  return `/auth/google/confirm`
+}
+
+/**
+ * @summary A fresh Google ID token for the caller’s own Google account → a proof that stands in for the current password.
+ */
+export const authGoogleConfirm = async (googleConfirmDto: GoogleConfirmDto, options?: Parameters<typeof apiFetch>[1]): Promise<AuthGoogleConfirm200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<AuthGoogleConfirm200>(getAuthGoogleConfirmUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(googleConfirmDto)
+  }
+);}
+
+
+
+
+
+export const getAuthGoogleConfirmMutationKey = () => ['authGoogleConfirm'] as const;
+
+export const getAuthGoogleConfirmMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleConfirm>>, TError,AuthGoogleConfirmMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authGoogleConfirm>>, TError,AuthGoogleConfirmMutationVariables, TContext> => {
+
+const mutationKey = getAuthGoogleConfirmMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authGoogleConfirm>>, AuthGoogleConfirmMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authGoogleConfirm(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthGoogleConfirmMutationResult = NonNullable<Awaited<ReturnType<typeof authGoogleConfirm>>>
+    export type AuthGoogleConfirmMutationBody = GoogleConfirmDto
+    export type AuthGoogleConfirmMutationError = unknown
+    export type AuthGoogleConfirmMutationVariables = {data: GoogleConfirmDto}
+
+    /**
+ * @summary A fresh Google ID token for the caller’s own Google account → a proof that stands in for the current password.
+ */
+export const useAuthGoogleConfirm = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleConfirm>>, TError,AuthGoogleConfirmMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authGoogleConfirm>>,
+        TError,
+        AuthGoogleConfirmMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthGoogleConfirmMutationOptions(options), queryClient);
+    }
+    export const getAuthGoogleLinkUrl = () => {
+
+
+
+
+  return `/auth/google/link`
+}
+
+/**
+ * @summary Link the ticket’s Google account to the caller, signed in with its password (ADR 0064).
+ */
+export const authGoogleLink = async (googleLinkDto: GoogleLinkDto, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getAuthGoogleLinkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(googleLinkDto)
+  }
+);}
+
+
+
+
+
+export const getAuthGoogleLinkMutationKey = () => ['authGoogleLink'] as const;
+
+export const getAuthGoogleLinkMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleLink>>, TError,AuthGoogleLinkMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authGoogleLink>>, TError,AuthGoogleLinkMutationVariables, TContext> => {
+
+const mutationKey = getAuthGoogleLinkMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authGoogleLink>>, AuthGoogleLinkMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authGoogleLink(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthGoogleLinkMutationResult = NonNullable<Awaited<ReturnType<typeof authGoogleLink>>>
+    export type AuthGoogleLinkMutationBody = GoogleLinkDto
+    export type AuthGoogleLinkMutationError = unknown
+    export type AuthGoogleLinkMutationVariables = {data: GoogleLinkDto}
+
+    /**
+ * @summary Link the ticket’s Google account to the caller, signed in with its password (ADR 0064).
+ */
+export const useAuthGoogleLink = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleLink>>, TError,AuthGoogleLinkMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authGoogleLink>>,
+        TError,
+        AuthGoogleLinkMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthGoogleLinkMutationOptions(options), queryClient);
     }
     export const getPasswordForgotUrl = () => {
 

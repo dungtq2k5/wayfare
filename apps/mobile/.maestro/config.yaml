@@ -17,3 +17,4 @@ flows:
   - offline/sabotage.yaml
   - account/account.yaml
   - account/sabotage.yaml
+  - account/google.yaml

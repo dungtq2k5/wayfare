@@ -26,6 +26,7 @@ import type {
 import type {
   EraseMeDto,
   RecordLegalAcceptanceDto,
+  UnlinkGoogleDto,
   UpdateMeDto,
   UsersAccept201,
   UsersAcceptances200,
@@ -519,4 +520,91 @@ export const useUsersAccept = <TError = unknown,
         TContext
       > => {
       return useMutation(getUsersAcceptMutationOptions(options), queryClient);
+    }
+    export const getUsersUnlinkGoogleUrl = () => {
+
+
+
+
+  return `/users/me/identities/google`
+}
+
+/**
+ * @summary Remove Google sign-in, with the password or a Google confirmation. Every other session ends; this one stays.
+ */
+export const usersUnlinkGoogle = async (unlinkGoogleDto: UnlinkGoogleDto, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getUsersUnlinkGoogleUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(unlinkGoogleDto)
+  }
+);}
+
+
+
+
+
+export const getUsersUnlinkGoogleMutationKey = () => ['usersUnlinkGoogle'] as const;
+
+export const getUsersUnlinkGoogleMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersUnlinkGoogle>>, TError,UsersUnlinkGoogleMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersUnlinkGoogle>>, TError,UsersUnlinkGoogleMutationVariables, TContext> => {
+
+const mutationKey = getUsersUnlinkGoogleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersUnlinkGoogle>>, UsersUnlinkGoogleMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersUnlinkGoogle(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersUnlinkGoogleMutationResult = NonNullable<Awaited<ReturnType<typeof usersUnlinkGoogle>>>
+    export type UsersUnlinkGoogleMutationBody = UnlinkGoogleDto
+    export type UsersUnlinkGoogleMutationError = unknown
+    export type UsersUnlinkGoogleMutationVariables = {data: UnlinkGoogleDto}
+
+    /**
+ * @summary Remove Google sign-in, with the password or a Google confirmation. Every other session ends; this one stays.
+ */
+export const useUsersUnlinkGoogle = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersUnlinkGoogle>>, TError,UsersUnlinkGoogleMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof usersUnlinkGoogle>>,
+        TError,
+        UsersUnlinkGoogleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUsersUnlinkGoogleMutationOptions(options), queryClient);
     }

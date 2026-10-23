@@ -81,3 +81,19 @@ export enum RecoveryEvidenceCode {
 
 /** Every `RecoveryEvidenceCode` value. */
 export const RECOVERY_EVIDENCE_CODES = Object.values(RecoveryEvidenceCode);
+
+/** A sign-in provider an account can be linked to — rdm-spec I-15 `user_identities.provider`. */
+export enum IdentityProvider {
+  GOOGLE = 'GOOGLE',
+}
+
+/** Every `IdentityProvider` value. */
+export const IDENTITY_PROVIDERS = Object.values(IdentityProvider);
+
+/** What a Google sign-in did (api-endpoints-plan §1.2). */
+export enum GoogleOutcome {
+  CREATED = 'CREATED',
+  SIGNED_IN = 'SIGNED_IN',
+  LINKED = 'LINKED',
+  LINKED_PASSWORD_REMOVED = 'LINKED_PASSWORD_REMOVED',
+}

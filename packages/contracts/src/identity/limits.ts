@@ -129,3 +129,25 @@ export const MAX_CONTACT_NAME_LENGTH = 120;
 
 /** Upper bound of an applicant's or a reviewer's staff-only note on an owner registration. */
 export const MAX_REGISTRATION_NOTE_LENGTH = 2000;
+
+/**
+ * Identity's own short-lived proofs, signed like access tokens but never accepted as a bearer: a
+ * Google confirmation in place of a current password, and the ticket that links Google after a
+ * password sign-in (ADR 0064).
+ */
+export const PROOF_TOKEN_TYPES = {
+  googleConfirmation: 'google-confirmation',
+  googleLinkTicket: 'google-link',
+} as const;
+
+/** How long a Google sign-in nonce waits for its token (api-endpoints-plan §1.2). */
+export const GOOGLE_NONCE_TTL_MS = 5 * MINUTE_MS;
+
+/** How long a Google confirmation stands in for the current password: the minutes a form takes. */
+export const GOOGLE_CONFIRMATION_TTL_MS = 5 * MINUTE_MS;
+
+/** How long a link ticket waits for the password sign-in that uses it. */
+export const GOOGLE_LINK_TICKET_TTL_MS = 5 * MINUTE_MS;
+
+/** Upper bound of a Google ID token, a confirmation or a link ticket in a request body. */
+export const MAX_GOOGLE_TOKEN_LENGTH = 4096;

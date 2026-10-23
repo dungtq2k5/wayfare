@@ -37,6 +37,7 @@ export function e2eEnv(overrides: Record<string, string> = {}): Record<string, s
     CORS_ORIGINS: 'http://localhost:5173',
     TRUST_PROXY_HOPS: '1',
     SWAGGER_ENABLED: 'true',
+    GOOGLE_ISSUER: 'fake',
     IDENTITY_GRPC_URL: 'localhost:1',
     CATALOG_GRPC_URL: 'localhost:2',
     NARRATION_GRPC_URL: 'localhost:3',

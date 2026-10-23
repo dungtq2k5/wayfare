@@ -14,6 +14,7 @@ const valid = {
   CORS_ORIGINS: 'http://localhost:5173, http://localhost:5174',
   TRUST_PROXY_HOPS: '0',
   SWAGGER_ENABLED: 'true',
+  GOOGLE_ISSUER: 'fake',
   IDENTITY_GRPC_URL: 'localhost:20051',
   CATALOG_GRPC_URL: 'localhost:20052',
   NARRATION_GRPC_URL: 'localhost:20053',
@@ -56,6 +57,16 @@ describe('gateway configuration', () => {
       /SWAGGER_ENABLED: SWAGGER_ENABLED must be false in production/,
     );
     expect(() => parse({ ...valid, CORS_ORIGINS: '*' })).toThrow(/CORS_ORIGINS/);
+  });
+
+  it('refuses the fake Google issuer in production (ADR 0063)', () => {
+    expect(() => parse({ ...valid, NODE_ENV: 'production', SWAGGER_ENABLED: 'false' })).toThrow(
+      /GOOGLE_ISSUER=fake is refused in production/,
+    );
+    expect(
+      parse({ ...valid, NODE_ENV: 'production', SWAGGER_ENABLED: 'false', GOOGLE_ISSUER: 'google' })
+        .GOOGLE_ISSUER,
+    ).toBe('google');
   });
 });
 

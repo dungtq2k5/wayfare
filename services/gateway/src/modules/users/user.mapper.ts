@@ -28,6 +28,10 @@ export function toMeResponseDto(response: identityGrpc.GetMeResponse): MeRespons
     roles: [...response.roles],
     permissions: [...response.permissions],
     ownerVerified: response.ownerVerified,
+    signIn: {
+      password: response.signIn?.password ?? false,
+      google: response.signIn?.google ?? false,
+    },
     owner:
       owner === null
         ? null

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff, Mail } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
@@ -19,7 +19,9 @@ export default function ForgotPasswordScreen() {
   const { t } = useTourist();
   const router = useRouter();
   const { submit, running, offline } = useSubmit();
-  const [email, setEmail] = useState('');
+  // Prefilled from the password step (frame K9).
+  const params = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(params.email ?? '');
   const [sent, setSent] = useState(false);
   const [failure, setFailure] = useState<{ title: string; body?: string } | null>(null);
   const [invalid, setInvalid] = useState<string | null>(null);

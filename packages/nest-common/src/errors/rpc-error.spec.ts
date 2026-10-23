@@ -13,6 +13,8 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   VALIDATION_FAILED: { issues: [{ path: '/a', code: 'invalid_type' }] },
   PERMISSION_DENIED: { required: ['place.update'] },
   RESOURCE_NOT_FOUND: { resource: 'PLACE' },
+  INVALID_GOOGLE_TOKEN: { reason: 'NONCE' },
+  GOOGLE_LINK_NEEDS_PASSWORD: { linkTicket: 'ticket' },
   INVALID_STATE: { status: 'ACTIVE' },
   PAYOUT_CHANGES_COOLING_DOWN: { until: '2026-09-23T00:00:00.000Z' },
   PLACE_LIMIT_REACHED: { limit: 1 },

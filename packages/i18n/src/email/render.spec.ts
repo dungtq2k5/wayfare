@@ -20,6 +20,7 @@ const SAMPLE_DATA: Record<EmailTemplate, Record<string, unknown>> = {
   ACCOUNT_SETUP: { inviterRoleNames: ['Admin'] },
   EMAIL_CHANGE: {},
   EMAIL_CHANGED_NOTICE: { newEmailMasked: 'n***w@example.com', requestIp: '203.0.113.9' },
+  GOOGLE_PASSWORD_REMOVED: {},
   STAFF_INVITE: { membershipId: ID, sellerName: 'Cafe', expiresAt: '2026-09-23T00:00:00.000Z' },
   OWNER_REGISTRATION_OUTCOME: { registrationId: ID, decision: 'APPROVED', decisionNote: 'Ok' },
   SUBMISSION_OUTCOME: { submissionId: ID, decision: 'REJECTED', decisionNote: 'Blurry' },

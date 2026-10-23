@@ -5,14 +5,14 @@
 // source: wayfare/catalog/submission.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from "../common/page.pb";
-import { AdminPlace } from "./place_admin.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from '../common/page.pb';
+import { AdminPlace } from './place_admin.pb';
 
-export const protobufPackage = "wayfare.catalog";
+export const protobufPackage = 'wayfare.catalog';
 
 /** What a submission proposes. */
 export enum SubmissionKind {
@@ -53,19 +53,13 @@ export interface Submission {
 export interface SubmissionAdmin {
   submission: Submission | undefined;
   internalNote?: string | undefined;
-  reviewedById?:
-    | string
-    | undefined;
+  reviewedById?: string | undefined;
   /** The Place an `UPDATE` changes, as it is now. */
-  livePlace:
-    | AdminPlace
-    | undefined;
+  livePlace: AdminPlace | undefined;
   /** `SubmissionDiff`: the owner's base against the payload, as JSON. */
   diffJson: string;
   /** The owner's entitlements, as JSON; absent when billing could not answer. */
-  entitlementsJson?:
-    | string
-    | undefined;
+  entitlementsJson?: string | undefined;
   /** The owner-editable fields someone else changed since the submission. */
   conflictChangedFields: string[];
 }
@@ -152,18 +146,30 @@ export interface RejectSubmissionResponse {
   submission: Submission | undefined;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
+export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
 
 /** A verified owner's own submissions. The caller travels as metadata. */
 
 export interface SubmissionServiceClient {
-  createSubmission(request: CreateSubmissionRequest, metadata?: Metadata): Observable<CreateSubmissionResponse>;
+  createSubmission(
+    request: CreateSubmissionRequest,
+    metadata?: Metadata,
+  ): Observable<CreateSubmissionResponse>;
 
-  listMySubmissions(request: ListMySubmissionsRequest, metadata?: Metadata): Observable<ListMySubmissionsResponse>;
+  listMySubmissions(
+    request: ListMySubmissionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListMySubmissionsResponse>;
 
-  getMySubmission(request: GetMySubmissionRequest, metadata?: Metadata): Observable<GetMySubmissionResponse>;
+  getMySubmission(
+    request: GetMySubmissionRequest,
+    metadata?: Metadata,
+  ): Observable<GetMySubmissionResponse>;
 
-  withdrawSubmission(request: WithdrawSubmissionRequest, metadata?: Metadata): Observable<WithdrawSubmissionResponse>;
+  withdrawSubmission(
+    request: WithdrawSubmissionRequest,
+    metadata?: Metadata,
+  ): Observable<WithdrawSubmissionResponse>;
 }
 
 /** A verified owner's own submissions. The caller travels as metadata. */
@@ -172,53 +178,86 @@ export interface SubmissionServiceController {
   createSubmission(
     request: CreateSubmissionRequest,
     metadata?: Metadata,
-  ): Promise<CreateSubmissionResponse> | Observable<CreateSubmissionResponse> | CreateSubmissionResponse;
+  ):
+    | Promise<CreateSubmissionResponse>
+    | Observable<CreateSubmissionResponse>
+    | CreateSubmissionResponse;
 
   listMySubmissions(
     request: ListMySubmissionsRequest,
     metadata?: Metadata,
-  ): Promise<ListMySubmissionsResponse> | Observable<ListMySubmissionsResponse> | ListMySubmissionsResponse;
+  ):
+    | Promise<ListMySubmissionsResponse>
+    | Observable<ListMySubmissionsResponse>
+    | ListMySubmissionsResponse;
 
   getMySubmission(
     request: GetMySubmissionRequest,
     metadata?: Metadata,
-  ): Promise<GetMySubmissionResponse> | Observable<GetMySubmissionResponse> | GetMySubmissionResponse;
+  ):
+    | Promise<GetMySubmissionResponse>
+    | Observable<GetMySubmissionResponse>
+    | GetMySubmissionResponse;
 
   withdrawSubmission(
     request: WithdrawSubmissionRequest,
     metadata?: Metadata,
-  ): Promise<WithdrawSubmissionResponse> | Observable<WithdrawSubmissionResponse> | WithdrawSubmissionResponse;
+  ):
+    | Promise<WithdrawSubmissionResponse>
+    | Observable<WithdrawSubmissionResponse>
+    | WithdrawSubmissionResponse;
 }
 
 export function SubmissionServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["createSubmission", "listMySubmissions", "getMySubmission", "withdrawSubmission"];
+    const grpcMethods: string[] = [
+      'createSubmission',
+      'listMySubmissions',
+      'getMySubmission',
+      'withdrawSubmission',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("SubmissionService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('SubmissionService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("SubmissionService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('SubmissionService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const SUBMISSION_SERVICE_NAME = "SubmissionService";
+export const SUBMISSION_SERVICE_NAME = 'SubmissionService';
 
 /** The review queue. The gateway checks `submission.read` / `submission.review`. */
 
 export interface SubmissionReviewServiceClient {
-  listSubmissions(request: ListSubmissionsRequest, metadata?: Metadata): Observable<ListSubmissionsResponse>;
+  listSubmissions(
+    request: ListSubmissionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListSubmissionsResponse>;
 
-  getSubmission(request: GetSubmissionRequest, metadata?: Metadata): Observable<GetSubmissionResponse>;
+  getSubmission(
+    request: GetSubmissionRequest,
+    metadata?: Metadata,
+  ): Observable<GetSubmissionResponse>;
 
-  approveSubmission(request: ApproveSubmissionRequest, metadata?: Metadata): Observable<ApproveSubmissionResponse>;
+  approveSubmission(
+    request: ApproveSubmissionRequest,
+    metadata?: Metadata,
+  ): Observable<ApproveSubmissionResponse>;
 
-  rejectSubmission(request: RejectSubmissionRequest, metadata?: Metadata): Observable<RejectSubmissionResponse>;
+  rejectSubmission(
+    request: RejectSubmissionRequest,
+    metadata?: Metadata,
+  ): Observable<RejectSubmissionResponse>;
 }
 
 /** The review queue. The gateway checks `submission.read` / `submission.review`. */
@@ -227,7 +266,10 @@ export interface SubmissionReviewServiceController {
   listSubmissions(
     request: ListSubmissionsRequest,
     metadata?: Metadata,
-  ): Promise<ListSubmissionsResponse> | Observable<ListSubmissionsResponse> | ListSubmissionsResponse;
+  ):
+    | Promise<ListSubmissionsResponse>
+    | Observable<ListSubmissionsResponse>
+    | ListSubmissionsResponse;
 
   getSubmission(
     request: GetSubmissionRequest,
@@ -237,29 +279,48 @@ export interface SubmissionReviewServiceController {
   approveSubmission(
     request: ApproveSubmissionRequest,
     metadata?: Metadata,
-  ): Promise<ApproveSubmissionResponse> | Observable<ApproveSubmissionResponse> | ApproveSubmissionResponse;
+  ):
+    | Promise<ApproveSubmissionResponse>
+    | Observable<ApproveSubmissionResponse>
+    | ApproveSubmissionResponse;
 
   rejectSubmission(
     request: RejectSubmissionRequest,
     metadata?: Metadata,
-  ): Promise<RejectSubmissionResponse> | Observable<RejectSubmissionResponse> | RejectSubmissionResponse;
+  ):
+    | Promise<RejectSubmissionResponse>
+    | Observable<RejectSubmissionResponse>
+    | RejectSubmissionResponse;
 }
 
 export function SubmissionReviewServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listSubmissions", "getSubmission", "approveSubmission", "rejectSubmission"];
+    const grpcMethods: string[] = [
+      'listSubmissions',
+      'getSubmission',
+      'approveSubmission',
+      'rejectSubmission',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("SubmissionReviewService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('SubmissionReviewService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("SubmissionReviewService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('SubmissionReviewService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const SUBMISSION_REVIEW_SERVICE_NAME = "SubmissionReviewService";
+export const SUBMISSION_REVIEW_SERVICE_NAME = 'SubmissionReviewService';

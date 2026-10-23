@@ -124,5 +124,15 @@
       "Tiền sẽ được hoàn về thẻ bạn đã dùng để thanh toán."
     ],
     "action": "Xem đơn hàng"
+  },
+  "GOOGLE_PASSWORD_REMOVED": {
+    "subject": "Mật khẩu Wayfare của bạn đã được xóa",
+    "preheader": "Địa chỉ của bạn đã được xác nhận qua Google. Tài khoản vẫn là của bạn.",
+    "body": [
+      "Địa chỉ này vừa được dùng để tiếp tục với Google trong Wayfare, và Google đã xác nhận nó.",
+      "Trước đó địa chỉ này chưa từng được xác nhận, nên mật khẩu đặt cho tài khoản đã được xóa và mọi thiết bị khác đã đăng xuất. Ngoài ra không có gì thay đổi: mục yêu thích của bạn vẫn còn.",
+      "Để dùng lại mật khẩu, hãy chọn Thêm mật khẩu trong màn hình Tài khoản của ứng dụng, hoặc Quên mật khẩu? khi đăng nhập.",
+      "Nếu bạn không tiếp tục với Google, tài khoản Google của bạn có thể đang ở trong tay người khác: hãy bảo vệ nó với Google trước."
+    ]
   }
 }

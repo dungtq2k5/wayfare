@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import { parseEnvOrThrow } from '@wayfare/nest-common';
@@ -28,6 +29,8 @@ const valid = {
   SMTP_URL: 'smtp://localhost:1025',
   CONSOLE_URL: 'http://localhost:5173',
   WEB_URL: 'http://localhost:5174',
+  GOOGLE_ISSUER: 'google',
+  GOOGLE_SERVER_CLIENT_ID: 'unit-server-client',
 };
 
 const parse = (env: Record<string, string>) => parseEnvOrThrow('identity', envSchema, env);
@@ -104,6 +107,23 @@ describe('email configuration', () => {
         RESEND_WEBHOOK_SECRET: 'x',
       }),
     ).toThrow(/RESEND_WEBHOOK_SECRET/);
+  });
+
+  it('requires the Google settings for its issuer, and refuses the fake in production', () => {
+    const { GOOGLE_SERVER_CLIENT_ID: _id, ...noClient } = valid;
+    expect(() => parse(noClient)).toThrow(/GOOGLE_SERVER_CLIENT_ID/);
+    expect(() => parse({ ...valid, GOOGLE_ISSUER: 'fake' })).toThrow(/GOOGLE_FAKE_SIGNING_KEY/);
+    const fakeKey = Buffer.from(
+      generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
+        type: 'pkcs8',
+        format: 'pem',
+      }),
+    ).toString('base64');
+    const fake = { ...valid, GOOGLE_ISSUER: 'fake', GOOGLE_FAKE_SIGNING_KEY: fakeKey };
+    expect(parse(fake).GOOGLE_FAKE_SIGNING_KEY?.asymmetricKeyType).toBe('rsa');
+    expect(() => parse({ ...fake, NODE_ENV: 'production' })).toThrow(
+      /GOOGLE_ISSUER=fake is refused in production/,
+    );
   });
 
   it('refuses EMAIL_PROVIDER=smtp in production', () => {

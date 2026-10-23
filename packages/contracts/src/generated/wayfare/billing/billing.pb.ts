@@ -5,13 +5,13 @@
 // source: wayfare/billing/billing.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { Entitlements } from "./entitlement.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { Entitlements } from './entitlement.pb';
 
-export const protobufPackage = "wayfare.billing";
+export const protobufPackage = 'wayfare.billing';
 
 /** An owner's Stripe subscription state (rdm-spec B-3), plus NONE. */
 export enum SubscriptionStatus {
@@ -62,8 +62,7 @@ export interface PlanRef {
   name: string;
 }
 
-export interface GetOverviewRequest {
-}
+export interface GetOverviewRequest {}
 
 export interface GetOverviewResponse {
   plan: PlanRef | undefined;
@@ -73,17 +72,14 @@ export interface GetOverviewResponse {
   cancelAtPeriodEnd: boolean;
   /** Set while a failure streak lasts. */
   dunningSince: Timestamp | undefined;
-  entitlements:
-    | Entitlements
-    | undefined;
+  entitlements: Entitlements | undefined;
   /** Absent when catalog could not count. */
   usagePlaces?: number | undefined;
   usageBoostsLive: number;
   pinned: boolean;
 }
 
-export interface ListPurchasablePlansRequest {
-}
+export interface ListPurchasablePlansRequest {}
 
 export interface ListPurchasablePlansResponse {
   plans: Plan[];
@@ -99,8 +95,7 @@ export interface CreateCheckoutSessionResponse {
   url: string;
 }
 
-export interface CreatePortalSessionRequest {
-}
+export interface CreatePortalSessionRequest {}
 
 export interface CreatePortalSessionResponse {
   url: string;
@@ -119,8 +114,7 @@ export interface Invoice {
   invoicePdfUrl?: string | undefined;
 }
 
-export interface ListInvoicesRequest {
-}
+export interface ListInvoicesRequest {}
 
 export interface ListInvoicesResponse {
   invoices: Invoice[];
@@ -136,7 +130,7 @@ export interface GetBillingSummaryResponse {
   dunningSince: Timestamp | undefined;
 }
 
-export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";
+export const WAYFARE_BILLING_PACKAGE_NAME = 'wayfare.billing';
 
 /**
  * The calling owner's subscription. The caller travels as metadata; the gateway checked OWNER.
@@ -163,7 +157,10 @@ export interface BillingServiceClient {
 
   listInvoices(request: ListInvoicesRequest, metadata?: Metadata): Observable<ListInvoicesResponse>;
 
-  getBillingSummary(request: GetBillingSummaryRequest, metadata?: Metadata): Observable<GetBillingSummaryResponse>;
+  getBillingSummary(
+    request: GetBillingSummaryRequest,
+    metadata?: Metadata,
+  ): Observable<GetBillingSummaryResponse>;
 }
 
 /**
@@ -180,17 +177,26 @@ export interface BillingServiceController {
   listPurchasablePlans(
     request: ListPurchasablePlansRequest,
     metadata?: Metadata,
-  ): Promise<ListPurchasablePlansResponse> | Observable<ListPurchasablePlansResponse> | ListPurchasablePlansResponse;
+  ):
+    | Promise<ListPurchasablePlansResponse>
+    | Observable<ListPurchasablePlansResponse>
+    | ListPurchasablePlansResponse;
 
   createCheckoutSession(
     request: CreateCheckoutSessionRequest,
     metadata?: Metadata,
-  ): Promise<CreateCheckoutSessionResponse> | Observable<CreateCheckoutSessionResponse> | CreateCheckoutSessionResponse;
+  ):
+    | Promise<CreateCheckoutSessionResponse>
+    | Observable<CreateCheckoutSessionResponse>
+    | CreateCheckoutSessionResponse;
 
   createPortalSession(
     request: CreatePortalSessionRequest,
     metadata?: Metadata,
-  ): Promise<CreatePortalSessionResponse> | Observable<CreatePortalSessionResponse> | CreatePortalSessionResponse;
+  ):
+    | Promise<CreatePortalSessionResponse>
+    | Observable<CreatePortalSessionResponse>
+    | CreatePortalSessionResponse;
 
   listInvoices(
     request: ListInvoicesRequest,
@@ -200,31 +206,34 @@ export interface BillingServiceController {
   getBillingSummary(
     request: GetBillingSummaryRequest,
     metadata?: Metadata,
-  ): Promise<GetBillingSummaryResponse> | Observable<GetBillingSummaryResponse> | GetBillingSummaryResponse;
+  ):
+    | Promise<GetBillingSummaryResponse>
+    | Observable<GetBillingSummaryResponse>
+    | GetBillingSummaryResponse;
 }
 
 export function BillingServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "getOverview",
-      "listPurchasablePlans",
-      "createCheckoutSession",
-      "createPortalSession",
-      "listInvoices",
-      "getBillingSummary",
+      'getOverview',
+      'listPurchasablePlans',
+      'createCheckoutSession',
+      'createPortalSession',
+      'listInvoices',
+      'getBillingSummary',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("BillingService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('BillingService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("BillingService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('BillingService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const BILLING_SERVICE_NAME = "BillingService";
+export const BILLING_SERVICE_NAME = 'BillingService';

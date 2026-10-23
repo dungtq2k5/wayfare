@@ -22,9 +22,15 @@ appId: app.wayfare
     commands:
       - tapOn:
           id: 'account-entry'
-      - tapOn:
-          id: 'account-sign-out'
-      - tapOn: 'SIGN OUT|Sign out'
+      # An account that ended meanwhile (erased by an earlier run) closes its screen at once.
+      - runFlow:
+          when:
+            visible:
+              id: 'account-sign-out'
+          commands:
+            - tapOn:
+                id: 'account-sign-out'
+            - tapOn: 'SIGN OUT|Sign out'
 - extendedWaitUntil:
     visible: 'Keep your favourites on every phone'
     timeout: 15000

@@ -252,7 +252,7 @@ describe('address change and revert', () => {
     const newAddress = freshEmail();
 
     await emailChange.requestEmailChange(
-      { newEmail: newAddress, currentPassword: PASSWORD },
+      { newEmail: newAddress, currentPassword: PASSWORD, confirmation: '' },
       context,
     );
     const change = await lastMail(newAddress);
@@ -287,7 +287,7 @@ describe('address change and revert', () => {
       (
         await errorOf(
           emailChange.requestEmailChange(
-            { newEmail: freshEmail(), currentPassword: PASSWORD },
+            { newEmail: freshEmail(), currentPassword: PASSWORD, confirmation: '' },
             context,
           ),
         )
@@ -323,7 +323,9 @@ describe('address change and revert', () => {
     const { email, context } = await account();
     const other = await account();
     const change = (newEmail: string, currentPassword = PASSWORD) =>
-      errorOf(emailChange.requestEmailChange({ newEmail, currentPassword }, context));
+      errorOf(
+        emailChange.requestEmailChange({ newEmail, currentPassword, confirmation: '' }, context),
+      );
     expect((await change(freshEmail(), 'wrong password')).code).toBe('CURRENT_PASSWORD_INCORRECT');
     expect(await change(email.toUpperCase())).toEqual({
       code: 'INVALID_STATE',
@@ -336,7 +338,7 @@ describe('address change and revert', () => {
     const { userId, context } = await account();
     const newAddress = freshEmail();
     await emailChange.requestEmailChange(
-      { newEmail: newAddress, currentPassword: PASSWORD },
+      { newEmail: newAddress, currentPassword: PASSWORD, confirmation: '' },
       context,
     );
     const { token } = await lastMail(newAddress);
@@ -354,7 +356,7 @@ describe('address change and revert', () => {
     const reserved = (await prisma.user.findFirstOrThrow()).email;
     const newAddress = freshEmail();
     await emailChange.requestEmailChange(
-      { newEmail: newAddress, currentPassword: PASSWORD },
+      { newEmail: newAddress, currentPassword: PASSWORD, confirmation: '' },
       context,
     );
     const { token } = await lastMail(newAddress);

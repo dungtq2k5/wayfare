@@ -5,13 +5,13 @@
 // source: wayfare/identity/recovery.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { PageNumberMeta, PageNumberRequest } from "../common/page.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { PageNumberMeta, PageNumberRequest } from '../common/page.pb';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 /** Where a recovery stands (rdm-spec I-14). */
 export enum AccountRecoveryStatus {
@@ -66,9 +66,7 @@ export interface OpenRecoveryResponse {
 }
 
 export interface ListRecoveriesRequest {
-  page:
-    | PageNumberRequest
-    | undefined;
+  page: PageNumberRequest | undefined;
   /** Unspecified means every status. */
   status: AccountRecoveryStatus;
 }
@@ -101,18 +99,16 @@ export interface CancelRecoveryRequest {
   token?: string | undefined;
 }
 
-export interface CancelRecoveryResponse {
-}
+export interface CancelRecoveryResponse {}
 
 export interface CompleteRecoveryRequest {
   token: string;
   newPassword: string;
 }
 
-export interface CompleteRecoveryResponse {
-}
+export interface CompleteRecoveryResponse {}
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /**
  * The staff side. The gateway checks the route's permission; identity checks the rules it alone
@@ -122,11 +118,20 @@ export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 export interface RecoveryAdminServiceClient {
   openRecovery(request: OpenRecoveryRequest, metadata?: Metadata): Observable<OpenRecoveryResponse>;
 
-  listRecoveries(request: ListRecoveriesRequest, metadata?: Metadata): Observable<ListRecoveriesResponse>;
+  listRecoveries(
+    request: ListRecoveriesRequest,
+    metadata?: Metadata,
+  ): Observable<ListRecoveriesResponse>;
 
-  approveRecovery(request: ApproveRecoveryRequest, metadata?: Metadata): Observable<ApproveRecoveryResponse>;
+  approveRecovery(
+    request: ApproveRecoveryRequest,
+    metadata?: Metadata,
+  ): Observable<ApproveRecoveryResponse>;
 
-  rejectRecovery(request: RejectRecoveryRequest, metadata?: Metadata): Observable<RejectRecoveryResponse>;
+  rejectRecovery(
+    request: RejectRecoveryRequest,
+    metadata?: Metadata,
+  ): Observable<RejectRecoveryResponse>;
 }
 
 /**
@@ -148,7 +153,10 @@ export interface RecoveryAdminServiceController {
   approveRecovery(
     request: ApproveRecoveryRequest,
     metadata?: Metadata,
-  ): Promise<ApproveRecoveryResponse> | Observable<ApproveRecoveryResponse> | ApproveRecoveryResponse;
+  ):
+    | Promise<ApproveRecoveryResponse>
+    | Observable<ApproveRecoveryResponse>
+    | ApproveRecoveryResponse;
 
   rejectRecovery(
     request: RejectRecoveryRequest,
@@ -158,29 +166,44 @@ export interface RecoveryAdminServiceController {
 
 export function RecoveryAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["openRecovery", "listRecoveries", "approveRecovery", "rejectRecovery"];
+    const grpcMethods: string[] = [
+      'openRecovery',
+      'listRecoveries',
+      'approveRecovery',
+      'rejectRecovery',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("RecoveryAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('RecoveryAdminService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("RecoveryAdminService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('RecoveryAdminService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const RECOVERY_ADMIN_SERVICE_NAME = "RecoveryAdminService";
+export const RECOVERY_ADMIN_SERVICE_NAME = 'RecoveryAdminService';
 
 /** The owner's side: stopping a recovery, and finishing one. Both reach identity unauthenticated. */
 
 export interface RecoveryServiceClient {
-  cancelRecovery(request: CancelRecoveryRequest, metadata?: Metadata): Observable<CancelRecoveryResponse>;
+  cancelRecovery(
+    request: CancelRecoveryRequest,
+    metadata?: Metadata,
+  ): Observable<CancelRecoveryResponse>;
 
-  completeRecovery(request: CompleteRecoveryRequest, metadata?: Metadata): Observable<CompleteRecoveryResponse>;
+  completeRecovery(
+    request: CompleteRecoveryRequest,
+    metadata?: Metadata,
+  ): Observable<CompleteRecoveryResponse>;
 }
 
 /** The owner's side: stopping a recovery, and finishing one. Both reach identity unauthenticated. */
@@ -194,24 +217,31 @@ export interface RecoveryServiceController {
   completeRecovery(
     request: CompleteRecoveryRequest,
     metadata?: Metadata,
-  ): Promise<CompleteRecoveryResponse> | Observable<CompleteRecoveryResponse> | CompleteRecoveryResponse;
+  ):
+    | Promise<CompleteRecoveryResponse>
+    | Observable<CompleteRecoveryResponse>
+    | CompleteRecoveryResponse;
 }
 
 export function RecoveryServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["cancelRecovery", "completeRecovery"];
+    const grpcMethods: string[] = ['cancelRecovery', 'completeRecovery'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("RecoveryService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('RecoveryService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("RecoveryService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('RecoveryService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const RECOVERY_SERVICE_NAME = "RecoveryService";
+export const RECOVERY_SERVICE_NAME = 'RecoveryService';

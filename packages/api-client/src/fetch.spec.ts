@@ -162,15 +162,18 @@ describe('apiFetch', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('for a wrong address or password is the answer: sent once, the bearer kept', async () => {
-      const recover = vi.fn(() => Promise.resolve(true));
-      const fetchMock = setup([() => json(401, errorBody('INVALID_CREDENTIALS'))], {
-        accessToken: () => Promise.resolve('t'),
-        recover,
-      });
-      await expect(apiFetch('/x')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(recover).not.toHaveBeenCalled();
-    });
+    it.each(['INVALID_CREDENTIALS', 'INVALID_GOOGLE_TOKEN', 'CONFIRMATION_EXPIRED'])(
+      'with %s is the request’s answer: sent once, the bearer kept',
+      async (code) => {
+        const recover = vi.fn(() => Promise.resolve(true));
+        const fetchMock = setup([() => json(401, errorBody(code))], {
+          accessToken: () => Promise.resolve('t'),
+          recover,
+        });
+        await expect(apiFetch('/x')).rejects.toMatchObject({ code });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(recover).not.toHaveBeenCalled();
+      },
+    );
   });
 });

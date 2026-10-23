@@ -1,14 +1,18 @@
-import { MAX_PASSWORD_LENGTH, zEmail } from '@wayfare/contracts';
+import { exactlyOneProof, itsYouFields, zEmail } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-/** `POST /auth/email/change` body (api-endpoints-plan §1.2). */
+/**
+ * `POST /auth/email/change` body (api-endpoints-plan §1.2): the current password, or for a
+ * Google-only account a Google confirmation.
+ */
 export const changeEmailBodySchema = z
-  .object({
-    newEmail: zEmail,
-    currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH),
-  })
-  .strict();
+  .object({ newEmail: zEmail, ...itsYouFields })
+  .strict()
+  .refine(exactlyOneProof, {
+    message: 'Exactly one of currentPassword and confirmation',
+    path: ['currentPassword'],
+  });
 
 /** Validated `POST /auth/email/change` body. */
 export class ChangeEmailDto extends createZodDto(changeEmailBodySchema) {}

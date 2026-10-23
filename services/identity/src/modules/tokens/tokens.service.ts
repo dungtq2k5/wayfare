@@ -1,3 +1,4 @@
+import { createPublicKey } from 'node:crypto';
 import type { KeyObject } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
@@ -8,7 +9,8 @@ import {
   DEVICE_ACCESS_TOKEN_TTL_MS,
   TOKEN_TYPES,
 } from '@wayfare/contracts';
-import { signJws } from '@wayfare/nest-common';
+import type { PROOF_TOKEN_TYPES } from '@wayfare/contracts';
+import { signJws, verifyJws } from '@wayfare/nest-common';
 import type { Env } from '../../config/env.schema';
 import { dummyPasswordHash, hashPassword, verifyPassword } from './domain/password';
 
@@ -36,10 +38,12 @@ export interface AccountTokenSubject {
 export class TokensService implements OnModuleInit {
   private readonly privateKey: KeyObject;
   private readonly keyId: string;
+  private readonly publicKeys: ReadonlyMap<string, KeyObject>;
 
   constructor(config: ConfigService<Env, true>) {
     this.privateKey = config.get('JWT_PRIVATE_KEY', { infer: true });
     this.keyId = config.get('JWT_KEY_ID', { infer: true });
+    this.publicKeys = new Map([[this.keyId, createPublicKey(this.privateKey)]]);
   }
 
   /** Computes the dummy hash at boot, so the first unknown-email login is not the slow one. */
@@ -83,6 +87,30 @@ export class TokensService implements OnModuleInit {
     return verifyPassword(passwordHash, password);
   }
 
+  /**
+   * One of identity's short-lived proofs (a Google confirmation, a link ticket), signed like an
+   * access token but of a type no bearer check accepts.
+   */
+  signProof(
+    typ: ProofTokenType,
+    claims: Readonly<Record<string, string>>,
+    ttlMs: number,
+    now: Date,
+  ): IssuedToken {
+    return this.sign({ ...claims, typ }, ttlMs, now);
+  }
+
+  /** A proof's claims when it is one of identity's, of this type; or why not. */
+  verifyProof(
+    typ: ProofTokenType,
+    token: string,
+    now: Date,
+  ): { ok: true; claims: Record<string, unknown> } | { ok: false; expired: boolean } {
+    const result = verifyJws(token, { publicKeys: this.publicKeys, now });
+    if (!result.ok) return { ok: false, expired: result.reason === 'expired' };
+    return result.claims.typ === typ ? result : { ok: false, expired: false };
+  }
+
   private sign(claims: Record<string, unknown>, ttlMs: number, now: Date): IssuedToken {
     return signJws(claims, {
       privateKey: this.privateKey,
@@ -92,3 +120,6 @@ export class TokensService implements OnModuleInit {
     });
   }
 }
+
+/** A proof's type. */
+export type ProofTokenType = (typeof PROOF_TOKEN_TYPES)[keyof typeof PROOF_TOKEN_TYPES];

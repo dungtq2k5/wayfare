@@ -5,13 +5,13 @@
 // source: wayfare/catalog/upload.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { PhotoVariantViews } from "./place_types.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { PhotoVariantViews } from './place_types.pb';
 
-export const protobufPackage = "wayfare.catalog";
+export const protobufPackage = 'wayfare.catalog';
 
 /** What an upload is for (rdm-spec C-12). */
 export enum UploadPurpose {
@@ -30,9 +30,7 @@ export interface CreateUploadRequest {
 export interface CreateUploadResponse {
   uploadId: string;
   uploadUrl: string;
-  expiresAt:
-    | Timestamp
-    | undefined;
+  expiresAt: Timestamp | undefined;
   /** Headers the PUT must carry exactly. */
   requiredHeaders: { [key: string]: string };
 }
@@ -51,14 +49,17 @@ export interface ConfirmUploadResponse {
   variants: PhotoVariantViews | undefined;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
+export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
 
 /** Signs an upload, then checks and converts what arrived. The uploader travels as metadata. */
 
 export interface UploadServiceClient {
   createUpload(request: CreateUploadRequest, metadata?: Metadata): Observable<CreateUploadResponse>;
 
-  confirmUpload(request: ConfirmUploadRequest, metadata?: Metadata): Observable<ConfirmUploadResponse>;
+  confirmUpload(
+    request: ConfirmUploadRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmUploadResponse>;
 }
 
 /** Signs an upload, then checks and converts what arrived. The uploader travels as metadata. */
@@ -77,19 +78,19 @@ export interface UploadServiceController {
 
 export function UploadServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["createUpload", "confirmUpload"];
+    const grpcMethods: string[] = ['createUpload', 'confirmUpload'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("UploadService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('UploadService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("UploadService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('UploadService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const UPLOAD_SERVICE_NAME = "UploadService";
+export const UPLOAD_SERVICE_NAME = 'UploadService';

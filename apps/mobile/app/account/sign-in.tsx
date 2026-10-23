@@ -5,6 +5,7 @@ import { ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn } from '../../src/account/actions';
 import { ErrorBanner, FormBody, LinkButton } from '../../src/account/components';
+import { GoogleSection } from '../../src/account/google-components';
 import { emailInvalid, formErrorOf } from '../../src/account/form-errors';
 import type { FormError } from '../../src/account/form-errors';
 import { signedInCount } from '../../src/account/rules';
@@ -29,6 +30,7 @@ export default function SignInScreen() {
   const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<FormError | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   const go = () =>
     submit(async () => {
@@ -70,6 +72,18 @@ export default function SignInScreen() {
               }
             />
           )}
+          <GoogleSection
+            offline={offline}
+            onBusy={setGoogleBusy}
+            onError={(caught) =>
+              setError(
+                formErrorOf('signIn', caught, t) ?? {
+                  place: 'banner',
+                  title: errorMessage(caught),
+                },
+              )
+            }
+          />
           <TextField
             testID="sign-in-email"
             label={t('account.field.email')}
@@ -96,7 +110,7 @@ export default function SignInScreen() {
             label={t('account.signIn')}
             onPress={() => void go()}
             loading={running}
-            disabled={offline}
+            disabled={offline || googleBusy}
           />
           <LinkButton label={t('account.forgot')} onPress={() => router.push('/account/forgot')} />
           <LinkButton

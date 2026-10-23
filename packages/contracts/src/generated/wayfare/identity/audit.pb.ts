@@ -5,13 +5,13 @@
 // source: wayfare/identity/audit.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { CursorPage, PageRequest } from "../common/page.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { CursorPage, PageRequest } from '../common/page.pb';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 export interface ListAuditLogsRequest {
   page: PageRequest | undefined;
@@ -35,9 +35,7 @@ export interface AuditLogEntry {
   service: string;
   actor: AuditLogActor | undefined;
   action: string;
-  resource:
-    | AuditLogResource
-    | undefined;
+  resource: AuditLogResource | undefined;
   /** `{ before?, after?, reason? }` as stored, JSON-encoded. */
   metadataJson: string;
   ip?: string | undefined;
@@ -55,14 +53,13 @@ export interface AuditLogResource {
   id?: string | undefined;
 }
 
-export interface ListAuditActionsRequest {
-}
+export interface ListAuditActionsRequest {}
 
 export interface ListAuditActionsResponse {
   actions: string[];
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /**
  * Reads the audit log. The caller travels as metadata.
@@ -72,9 +69,15 @@ export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
  */
 
 export interface AuditServiceClient {
-  listAuditLogs(request: ListAuditLogsRequest, metadata?: Metadata): Observable<ListAuditLogsResponse>;
+  listAuditLogs(
+    request: ListAuditLogsRequest,
+    metadata?: Metadata,
+  ): Observable<ListAuditLogsResponse>;
 
-  listAuditActions(request: ListAuditActionsRequest, metadata?: Metadata): Observable<ListAuditActionsResponse>;
+  listAuditActions(
+    request: ListAuditActionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListAuditActionsResponse>;
 }
 
 /**
@@ -93,24 +96,27 @@ export interface AuditServiceController {
   listAuditActions(
     request: ListAuditActionsRequest,
     metadata?: Metadata,
-  ): Promise<ListAuditActionsResponse> | Observable<ListAuditActionsResponse> | ListAuditActionsResponse;
+  ):
+    | Promise<ListAuditActionsResponse>
+    | Observable<ListAuditActionsResponse>
+    | ListAuditActionsResponse;
 }
 
 export function AuditServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listAuditLogs", "listAuditActions"];
+    const grpcMethods: string[] = ['listAuditLogs', 'listAuditActions'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("AuditService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('AuditService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("AuditService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('AuditService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const AUDIT_SERVICE_NAME = "AuditService";
+export const AUDIT_SERVICE_NAME = 'AuditService';

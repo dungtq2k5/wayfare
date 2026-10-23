@@ -5,11 +5,11 @@
 // source: wayfare/narration/i18n.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
 
-export const protobufPackage = "wayfare.narration";
+export const protobufPackage = 'wayfare.narration';
 
 /** A bundle's state. */
 export enum UiBundleStatus {
@@ -46,7 +46,7 @@ export interface GetBundleResponse_MessagesEntry {
   value: string;
 }
 
-export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
+export const WAYFARE_NARRATION_PACKAGE_NAME = 'wayfare.narration';
 
 /** The bundle both apps read. Public: no device and no account reaches it. */
 
@@ -69,19 +69,23 @@ export interface UiBundleServiceController {
 
 export function UiBundleServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getBundle"];
+    const grpcMethods: string[] = ['getBundle'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("UiBundleService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('UiBundleService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("UiBundleService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('UiBundleService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const UI_BUNDLE_SERVICE_NAME = "UiBundleService";
+export const UI_BUNDLE_SERVICE_NAME = 'UiBundleService';

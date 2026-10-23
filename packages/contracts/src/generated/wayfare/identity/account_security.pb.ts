@@ -5,12 +5,12 @@
 // source: wayfare/identity/account_security.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
 
-export const protobufPackage = "wayfare.identity";
+export const protobufPackage = 'wayfare.identity';
 
 export interface GetSecurityStateRequest {
   userId: string;
@@ -18,14 +18,12 @@ export interface GetSecurityStateRequest {
 
 export interface GetSecurityStateResponse {
   /** While a live email-change revert could still undo the address. */
-  revertPendingUntil:
-    | Timestamp
-    | undefined;
+  revertPendingUntil: Timestamp | undefined;
   /** When the password, address or sessions last changed — the payout cooldown's start. */
   credentialsChangedAt: Timestamp | undefined;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
+export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
 
 /**
  * An account's security state. A cached "no restriction" is exactly the window a takeover uses,
@@ -33,7 +31,10 @@ export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
  */
 
 export interface AccountSecurityServiceClient {
-  getSecurityState(request: GetSecurityStateRequest, metadata?: Metadata): Observable<GetSecurityStateResponse>;
+  getSecurityState(
+    request: GetSecurityStateRequest,
+    metadata?: Metadata,
+  ): Observable<GetSecurityStateResponse>;
 }
 
 /**
@@ -45,24 +46,35 @@ export interface AccountSecurityServiceController {
   getSecurityState(
     request: GetSecurityStateRequest,
     metadata?: Metadata,
-  ): Promise<GetSecurityStateResponse> | Observable<GetSecurityStateResponse> | GetSecurityStateResponse;
+  ):
+    | Promise<GetSecurityStateResponse>
+    | Observable<GetSecurityStateResponse>
+    | GetSecurityStateResponse;
 }
 
 export function AccountSecurityServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getSecurityState"];
+    const grpcMethods: string[] = ['getSecurityState'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("AccountSecurityService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('AccountSecurityService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("AccountSecurityService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('AccountSecurityService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const ACCOUNT_SECURITY_SERVICE_NAME = "AccountSecurityService";
+export const ACCOUNT_SECURITY_SERVICE_NAME = 'AccountSecurityService';

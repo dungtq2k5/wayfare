@@ -467,8 +467,11 @@ export class AuthService {
       : { tokensValidAfterMs: String(user.tokensValidAfter.getTime()) };
   }
 
-  /** Claims the caller's device (lenient) and opens a session on it when it is usable. */
-  private async signIn(
+  /**
+   * Claims the caller's device (lenient) and opens a session on it when it is usable — every way in
+   * (a password, Google) ends here.
+   */
+  async signIn(
     tx: Prisma.TransactionClient,
     user: SessionAccount,
     client: SessionClient,

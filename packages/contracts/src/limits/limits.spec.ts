@@ -42,16 +42,18 @@ describe('rate limits', () => {
     expect(one('PII_REVEAL')).toEqual(['userId', 20, 3_600_000]);
     expect(one('PRONUNCIATION_PREVIEW')).toEqual(['userId', 10, 60_000]);
     expect(one('AUTHENTICATED')).toEqual(['userId', 600, 60_000]);
+    expect(one('AUTH_NONCE')).toEqual(['deviceId', 30, 900_000]);
     // A hotel's installs in an hour, up from 10.
     expect(one('DEVICE_REGISTRATION')).toEqual(['ip', 60, 3_600_000]);
   });
 
   it('count only failures for sign-in and short-code entry', () => {
-    expect(RATE_LIMITS.AUTH_LOGIN.countFailuresOnly).toBe(true);
-    expect(RATE_LIMITS.SHORT_CODE_PER_PERSON.countFailuresOnly).toBe(true);
+    expect(RATE_LIMITS.AUTH_LOGIN.countFailuresOnly).toEqual([
+      'INVALID_CREDENTIALS',
+      'INVALID_GOOGLE_TOKEN',
+    ]);
     expect(RATE_LIMITS.SHORT_CODE_PER_SELLER).toMatchObject({
       buckets: [{ key: 'billingAccountId', limit: 20 }],
-      countFailuresOnly: true,
     });
     expect('countFailuresOnly' in RATE_LIMITS.AUTH).toBe(false);
   });

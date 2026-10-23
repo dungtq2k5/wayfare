@@ -5,12 +5,12 @@
 // source: wayfare/narration/narration.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { AudioStatus } from "../catalog/place_types.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { AudioStatus } from '../catalog/place_types.pb';
 
-export const protobufPackage = "wayfare.narration";
+export const protobufPackage = 'wayfare.narration';
 
 /** What an on-demand request found. */
 export enum OnDemandStatus {
@@ -38,9 +38,7 @@ export interface RequestOnDemandRequest {
 export interface RequestOnDemandResponse {
   status: OnDemandStatus;
   /** READY only. */
-  audio:
-    | NarrationAudio
-    | undefined;
+  audio: NarrationAudio | undefined;
   /** PENDING only. */
   jobId?: string | undefined;
   retryAfterMs: number;
@@ -98,14 +96,20 @@ export interface GetStreamAudioResponse {
   contentType: string;
 }
 
-export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
+export const WAYFARE_NARRATION_PACKAGE_NAME = 'wayfare.narration';
 
 /** On-demand audio and its status. The device travels as metadata. */
 
 export interface NarrationServiceClient {
-  requestOnDemand(request: RequestOnDemandRequest, metadata?: Metadata): Observable<RequestOnDemandResponse>;
+  requestOnDemand(
+    request: RequestOnDemandRequest,
+    metadata?: Metadata,
+  ): Observable<RequestOnDemandResponse>;
 
-  getNarrationStatus(request: GetNarrationStatusRequest, metadata?: Metadata): Observable<GetNarrationStatusResponse>;
+  getNarrationStatus(
+    request: GetNarrationStatusRequest,
+    metadata?: Metadata,
+  ): Observable<GetNarrationStatusResponse>;
 }
 
 /** On-demand audio and its status. The device travels as metadata. */
@@ -114,32 +118,42 @@ export interface NarrationServiceController {
   requestOnDemand(
     request: RequestOnDemandRequest,
     metadata?: Metadata,
-  ): Promise<RequestOnDemandResponse> | Observable<RequestOnDemandResponse> | RequestOnDemandResponse;
+  ):
+    | Promise<RequestOnDemandResponse>
+    | Observable<RequestOnDemandResponse>
+    | RequestOnDemandResponse;
 
   getNarrationStatus(
     request: GetNarrationStatusRequest,
     metadata?: Metadata,
-  ): Promise<GetNarrationStatusResponse> | Observable<GetNarrationStatusResponse> | GetNarrationStatusResponse;
+  ):
+    | Promise<GetNarrationStatusResponse>
+    | Observable<GetNarrationStatusResponse>
+    | GetNarrationStatusResponse;
 }
 
 export function NarrationServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["requestOnDemand", "getNarrationStatus"];
+    const grpcMethods: string[] = ['requestOnDemand', 'getNarrationStatus'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("NarrationService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('NarrationService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("NarrationService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('NarrationService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const NARRATION_SERVICE_NAME = "NarrationService";
+export const NARRATION_SERVICE_NAME = 'NarrationService';
 
 /** Warming Places up: a language switch, and the walk ahead. The device travels as metadata. */
 
@@ -173,27 +187,30 @@ export interface HotsetServiceController {
 
 export function HotsetServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["hotset", "prefetch"];
+    const grpcMethods: string[] = ['hotset', 'prefetch'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("HotsetService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('HotsetService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("HotsetService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('HotsetService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const HOTSET_SERVICE_NAME = "HotsetService";
+export const HOTSET_SERVICE_NAME = 'HotsetService';
 
 /** Audio tier 2. Unary: the bytes are made whole, stored, then answered. */
 
 export interface TtsStreamServiceClient {
-  getStreamAudio(request: GetStreamAudioRequest, metadata?: Metadata): Observable<GetStreamAudioResponse>;
+  getStreamAudio(
+    request: GetStreamAudioRequest,
+    metadata?: Metadata,
+  ): Observable<GetStreamAudioResponse>;
 }
 
 /** Audio tier 2. Unary: the bytes are made whole, stored, then answered. */
@@ -207,19 +224,23 @@ export interface TtsStreamServiceController {
 
 export function TtsStreamServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getStreamAudio"];
+    const grpcMethods: string[] = ['getStreamAudio'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("TtsStreamService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('TtsStreamService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("TtsStreamService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('TtsStreamService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const TTS_STREAM_SERVICE_NAME = "TtsStreamService";
+export const TTS_STREAM_SERVICE_NAME = 'TtsStreamService';

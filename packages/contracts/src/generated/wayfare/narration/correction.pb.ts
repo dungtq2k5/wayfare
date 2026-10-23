@@ -5,13 +5,13 @@
 // source: wayfare/narration/correction.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "../../google/protobuf/timestamp.pb";
-import { LocalizationTargetType } from "../common/localization.pb";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import { LocalizationTargetType } from '../common/localization.pb';
 
-export const protobufPackage = "wayfare.narration";
+export const protobufPackage = 'wayfare.narration';
 
 /** Where a correction stands (rdm-spec N-7). */
 export enum OverrideStatus {
@@ -65,10 +65,9 @@ export interface RevertCorrectionRequest {
   lang: string;
 }
 
-export interface RevertCorrectionResponse {
-}
+export interface RevertCorrectionResponse {}
 
-export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
+export const WAYFARE_NARRATION_PACKAGE_NAME = 'wayfare.narration';
 
 /** The correction screen and its two writes. The gateway checks `localization.edit`. */
 
@@ -78,9 +77,15 @@ export interface CorrectionServiceClient {
     metadata?: Metadata,
   ): Observable<GetLocalizationOverviewResponse>;
 
-  putCorrection(request: PutCorrectionRequest, metadata?: Metadata): Observable<PutCorrectionResponse>;
+  putCorrection(
+    request: PutCorrectionRequest,
+    metadata?: Metadata,
+  ): Observable<PutCorrectionResponse>;
 
-  revertCorrection(request: RevertCorrectionRequest, metadata?: Metadata): Observable<RevertCorrectionResponse>;
+  revertCorrection(
+    request: RevertCorrectionRequest,
+    metadata?: Metadata,
+  ): Observable<RevertCorrectionResponse>;
 }
 
 /** The correction screen and its two writes. The gateway checks `localization.edit`. */
@@ -102,24 +107,31 @@ export interface CorrectionServiceController {
   revertCorrection(
     request: RevertCorrectionRequest,
     metadata?: Metadata,
-  ): Promise<RevertCorrectionResponse> | Observable<RevertCorrectionResponse> | RevertCorrectionResponse;
+  ):
+    | Promise<RevertCorrectionResponse>
+    | Observable<RevertCorrectionResponse>
+    | RevertCorrectionResponse;
 }
 
 export function CorrectionServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getLocalizationOverview", "putCorrection", "revertCorrection"];
+    const grpcMethods: string[] = ['getLocalizationOverview', 'putCorrection', 'revertCorrection'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("CorrectionService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('CorrectionService', method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("CorrectionService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('CorrectionService', method)(
+        constructor.prototype[method],
+        method,
+        descriptor,
+      );
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const CORRECTION_SERVICE_NAME = "CorrectionService";
+export const CORRECTION_SERVICE_NAME = 'CorrectionService';

@@ -7,7 +7,6 @@ import {
   AuditResourceType,
   EmailTemplate,
   maskEmail,
-  MAX_PASSWORD_LENGTH,
   MAX_REFRESH_TOKEN_LENGTH,
   SessionRevokedReason,
   zEmail,
@@ -28,6 +27,7 @@ import { auditRecord } from '../audit/domain/audit-record';
 import type { AuditFacts } from '../audit/domain/audit-record';
 import { EmailDispatcher } from '../email/email.module';
 import { EmailService } from '../email/email.service';
+import { proveItsYou } from '../google/domain/prove-its-you';
 import type { PendingEmail } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionsService } from '../sessions/sessions.service';
@@ -35,10 +35,7 @@ import { TokensService } from '../tokens/tokens.service';
 
 const zToken = z.string().min(1).max(MAX_REFRESH_TOKEN_LENGTH);
 const tokenField = z.object({ token: zToken });
-const changeFields = z.object({
-  newEmail: zEmail,
-  currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH),
-});
+const changeFields = z.object({ newEmail: zEmail });
 
 /**
  * Address verification and change, with the seven-day revert (api-endpoints-plan §1.2, rdm-spec
@@ -128,15 +125,19 @@ export class EmailChangeService {
     context: RequestContext,
   ): Promise<identityGrpc.RequestEmailChangeResponse> {
     const account = requireAccountContext(context);
-    const fields = parseRpcRequest(changeFields, request);
+    const fields = parseRpcRequest(changeFields, { newEmail: request.newEmail });
     const user = await this.prisma.user.findFirst({
       where: { id: account.userId, deletedAt: null },
       select: { id: true, email: true, passwordHash: true },
     });
     if (user === null) throw rpcError('UNAUTHENTICATED');
-    if (!(await this.tokens.verifyPassword(user.passwordHash, fields.currentPassword))) {
-      throw rpcError('CURRENT_PASSWORD_INCORRECT');
-    }
+    // The password, or for a Google-only account a confirmation (api §1.3).
+    await proveItsYou(
+      this.tokens,
+      request,
+      { userId: user.id, sessionId: account.sessionId, passwordHash: user.passwordHash },
+      new Date(),
+    );
     const now = new Date();
     const pending = await this.prisma.$transaction(async (tx) => {
       if (await this.links.liveRevertFor(tx, { userId: user.id })) {

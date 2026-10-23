@@ -23,6 +23,17 @@ service AuthService {
   rpc ClaimDevice(ClaimDeviceRequest) returns (ClaimDeviceResponse);
   // Internal, called by the gateway only (api-endpoints-plan §12.2).
   rpc GetTokenCutoff(GetTokenCutoffRequest) returns (GetTokenCutoffResponse);
+  // Continue with Google (ADRs 0062–0064): a nonce for the caller's device, then the token that
+  // carries it — signs in, creates, links, or asks for the password first.
+  rpc GoogleNonce(GoogleNonceRequest) returns (GoogleNonceResponse);
+  rpc GoogleSignIn(GoogleSignInRequest) returns (GoogleSignInResponse);
+  // A fresh token for the caller's linked Google account, in place of the current password.
+  rpc GoogleConfirm(GoogleConfirmRequest) returns (GoogleConfirmResponse);
+  // Links the ticket's Google account after the password sign-in it asked for (ADR 0064).
+  rpc GoogleLink(GoogleLinkRequest) returns (GoogleLinkResponse);
+  rpc UnlinkGoogle(UnlinkGoogleRequest) returns (UnlinkGoogleResponse);
+  // Development only — absent unless identity runs with GOOGLE_ISSUER=fake.
+  rpc MintFakeGoogleToken(MintFakeGoogleTokenRequest) returns (MintFakeGoogleTokenResponse);
 }
 
 message RegisterRequest {
@@ -104,4 +115,68 @@ message Session {
   // Secret: never logged.
   string refresh_token = 4;
   google.protobuf.Timestamp refresh_expires_at = 5;
+}
+
+// What a Google sign-in did (api-endpoints-plan §1.2).
+enum GoogleOutcome {
+  GOOGLE_OUTCOME_UNSPECIFIED = 0;
+  GOOGLE_OUTCOME_CREATED = 1;
+  GOOGLE_OUTCOME_SIGNED_IN = 2;
+  GOOGLE_OUTCOME_LINKED = 3;
+  GOOGLE_OUTCOME_LINKED_PASSWORD_REMOVED = 4;
+}
+
+message GoogleNonceRequest {}
+
+message GoogleNonceResponse {
+  string nonce = 1;
+}
+
+message GoogleSignInRequest {
+  // Secret: never logged.
+  string id_token = 1;
+  string preferred_locale = 2;
+  SessionClient client = 3;
+}
+
+message GoogleSignInResponse {
+  Session session = 1;
+  GoogleOutcome outcome = 2;
+}
+
+message GoogleConfirmRequest {
+  // Secret: never logged.
+  string id_token = 1;
+}
+
+message GoogleConfirmResponse {
+  string confirmation = 1;
+}
+
+message GoogleLinkRequest {
+  string link_ticket = 1;
+}
+
+message GoogleLinkResponse {}
+
+// Exactly one of the two: the current password, or a Google confirmation.
+message UnlinkGoogleRequest {
+  // Secret: never logged.
+  string current_password = 1;
+  string confirmation = 2;
+}
+
+message UnlinkGoogleResponse {}
+
+message MintFakeGoogleTokenRequest {
+  string email = 1;
+  optional string name = 2;
+  optional string sub = 3;
+  bool email_verified = 4;
+  optional string hd = 5;
+  string nonce = 6;
+}
+
+message MintFakeGoogleTokenResponse {
+  string id_token = 1;
 }

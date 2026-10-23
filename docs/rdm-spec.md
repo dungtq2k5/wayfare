@@ -317,7 +317,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 ```txt
 [ identity  ] users, devices, sessions, roles, permissions, user_roles, role_permissions,
               owner_registrations, action_tokens, notifications, audit_logs, legal_acceptances,
-              email_deliveries, account_recoveries
+              email_deliveries, account_recoveries, user_identities
 [ catalog   ] places, categories, areas, place_localizations, place_photos, menu_items,
               menu_item_localizations, tours, tour_localizations, tour_stops,
               place_submissions, pending_uploads, favorites, map_packs, place_qr_scans_daily,
@@ -344,7 +344,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | — |
 | **email** | VARCHAR(254) | NOT NULL, **UNIQUE** *(full, not partial — see notes)* | Normalized, `CHECK (email = lower(email))`. 254 is the RFC 5321 path limit. |
 | **is_email_verified** | BOOLEAN | NOT NULL, false | Set by consuming an `EMAIL_VERIFICATION` action token (I-9). Gates owner registration and purchases, not sign-in. |
-| **password_hash** | VARCHAR(255) | Nullable | argon2id. Nullable only so a future OAuth-only account is representable; every account created today has one, and the register route requires it. |
+| **password_hash** | VARCHAR(255) | Nullable | argon2id. **NULL for an account that signs in with Google only** ([ADR 0062](./decisions/0062-tourists-may-continue-with-google.md)) — created through Google, or whose unverified address lost its password when Google linked (ADR 0064). Login checks a dummy hash for it, so a password-less account answers exactly as a wrong password does. *Forgot password?* sets one. |
 | **full_name** | VARCHAR(120) | Nullable | Optional for tourists. Owners provide a contact name on I-8 instead, because an owner's legal contact and their display name are not the same fact. |
 | **preferred_locale** | VARCHAR(16) | NOT NULL, `'en'` | UI and email language. Independent of any device's content language — one person may read the console in Vietnamese and listen to narration in English. |
 | **owner_verified_at** | TIMESTAMPTZ(3) | Nullable | **NULL means not a verified owner.** Set, in the same transaction, when an owner registration (I-8) is approved; carried in the access token as `ownerVerified`. A timestamp rather than a boolean, because "since when" is the first question in a dispute. Never cleared by a later rejection — a verified owner who reapplies for a second venue does not lose verification. |
@@ -594,7 +594,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | Field | Type | Constraints / Default | Description & business logic |
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Also sent to the provider as the idempotency key and as a message tag, so a webhook maps back without storing the address. |
-| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| ACCOUNT_SETUP \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| ACCOUNT_RECOVERY_OUTCOME \| VOUCHER_MOVED \| VOUCHER_REFUNDED` |
+| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| ACCOUNT_SETUP \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| ACCOUNT_RECOVERY_OUTCOME \| VOUCHER_MOVED \| VOUCHER_REFUNDED \| GOOGLE_PASSWORD_REMOVED` |
 | **recipient_user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | NULL only for a staff invite to someone with no account. |
 | **event_id** | UUID | NOT NULL | The triggering outbox event — or, for an email carrying an action token, that token's id (I-9). |
 | **to_email_masked** | VARCHAR(254) | Nullable | `a***e@example.com`. Shows support *which* address it went to — which differs from `users.email` after a change. NULL after erasure. |
@@ -638,6 +638,25 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 - **A terminal transition clears `cancel_token_hash`**, so the cancel link dies with the case rather than sitting unique but dead; completion also invalidates every live I-9 token of the account.
 - **A recovery restores access, nothing more:** it changes the login address, the password, the sessions and `credentials_changed_at`. Places, submissions, subscriptions and payouts are untouched, and the payout cooldown ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)) guards the money afterwards.
 - Never deleted; every transition is also audited.
+
+#### Table I-15: user_identities
+
+*A sign-in provider's identity linked to an account — Google only today ([ADR 0062](./decisions/0062-tourists-may-continue-with-google.md), [0063](./decisions/0063-google-sign-in-reaches-the-web-and-owners-never-staff.md), [0064](./decisions/0064-google-links-by-itself-only-where-google-owns-the-mailbox.md)).*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **id** | UUID | PK | — |
+| **user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE | — |
+| **provider** | VARCHAR(16) | NOT NULL | `GOOGLE` |
+| **subject** | VARCHAR(255) | NOT NULL | The provider's stable id for the person (Google's `sub`). **Linking is by this, never by the address.** |
+| **email_at_link** | VARCHAR(254) | NOT NULL | The address the provider gave when the link was made — for support; the account's email is `users.email`, which a Google sign-in never changes. |
+| **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- **Unique:** `(provider, subject)` — one Wayfare account per Google account — and `(user_id, provider)` — one Google account per Wayfare account (`409 GOOGLE_ACCOUNT_ALREADY_LINKED` otherwise).
+- **Linking** (ADR 0062, narrowed by ADR 0064): a known `subject` signs its account in. An unknown one whose address Google is authoritative for (`@gmail.com`, `@googlemail.com`, or an `hd` claim) links to the account holding that address, and **if that account's address was never verified, its `password_hash` is set NULL, its sessions revoked and its reset, verification and email-change links invalidated**, with the `GOOGLE_PASSWORD_REMOVED` email. Any other address with an account needs that account's password first (a sign-in, then a link ticket). An address with no account creates one, verified and password-less.
+- **Never for staff** ([ADR 0063](./decisions/0063-google-sign-in-reaches-the-web-and-owners-never-staff.md)): an account holding any role but `USER` and `VENUE_OWNER` cannot sign in with Google or gain a link; a link it already has stays, unused, until the role is gone.
+- **Linking and unlinking stamp `users.credentials_changed_at`** (the owner payout cooldown, ADR 0052). Unlinking needs a password on the account, and revokes every other session.
+- Deleted with the account (CASCADE) and by erasure.
 
 ### 3.2 `catalog` — places, content, tours, sync (PostGIS)
 
@@ -1707,7 +1726,7 @@ Only real foreign keys (same database) appear here. Cross-service references hav
 
 **`CASCADE`** — the child is meaningless without the parent:
 
-- `sessions`, `action_tokens`, `notifications`, `user_roles` ➔ `users`
+- `sessions`, `action_tokens`, `notifications`, `user_roles`, `user_identities` ➔ `users`
 - `legal_acceptances` ➔ `users`, `devices`
 - `role_permissions` ➔ `roles`
 - `place_localizations`, `place_photos`, `menu_items`, `favorites`, `place_qr_scans_daily`, `place_opening_hours` ➔ `places`
