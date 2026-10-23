@@ -833,6 +833,17 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - **A shared component takes a slot, not a feature:** `ScreenHeader` takes `accessory` and `below` elements; `shell/tab-header.tsx` fills them with the walk chip and the language-switch pill.
 - **The guard** `packages/config/guards/mobile-layers.spec.ts` enforces both rules over every non-spec `.ts`/`.tsx` under `src/`, counting `import type` and JSON imports, and names the files of any breach.
 
+### 12.8 The web apps
+
+- **Breakpoints:** ≥ 1024 px the 256 px sidebar; below, *Menu* and a drawer (focus trapped, Escape and the scrim close it); **below 768 px a table becomes cards** — the name and status first, then the facts on one line, then the date and the row's actions — and never scrolls sideways; below 640 px the account shows its initial and the gutters are 16 px. A 1440 px window at 200 % zoom is 720 px and takes the drawer and the cards.
+- **Signed-out pages are centred vertically**, at any height.
+- **A button's loading state is a composition,** not a variant: disabled, the `loader-circle` spinner, and a present-tense label ("Saving…"); a second press does nothing.
+- **Shared patterns live in `packages/ui`** — the list page (search, filters, `aria-sort`, page and cursor paging, empty and no-results), the detail page, the form page (a sticky *Save* bar; unsaved changes warned once, *Stay* the default), the three dialogs, the toasts — shown on a development-only `/dev/patterns` route that answers `404` in production, its sample data dynamically imported.
+- **Undo** only for an action whose inverse is one ordinary call nobody else has seen; anything that emailed or notified someone gets a confirmation first.
+- **A form validates with the gateway's own zod schema**, which lives in `@wayfare/contracts` for that reason; a server `VALIDATION_FAILED` maps its `details.issues` by path.
+- **Lint:** Tailwind variants (`data-[state=open]:`) are allowed, arbitrary values (`w-[13px]`) are not; `process.env.NODE_ENV` may be read, which is what keeps development-only code out of a production build.
+- **Every Playwright page runs axe** (`@axe-core/playwright`), and the suite runs on every pull request against the Compose stack.
+
 ---
 
 ## 13. Configuration

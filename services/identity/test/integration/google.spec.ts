@@ -71,7 +71,7 @@ async function tokenFor(
   device: { context: ReturnType<typeof buildAnonymousContext> | object },
   pick: Pick,
 ) {
-  const { nonce } = await google.nonce(device.context as never);
+  const { nonce } = await google.nonce({}, device.context as never);
   return google.mintFake({
     email: pick.email,
     ...(pick.sub === undefined ? {} : { sub: pick.sub }),
@@ -309,6 +309,38 @@ describe('continuing with Google', () => {
     );
     expect(replay).toEqual({ code: 'INVALID_GOOGLE_TOKEN', details: { reason: 'NONCE' } });
   });
+
+  it("binds the console's nonce to its cookie's value: once, and never from another browser", async () => {
+    const mint = async (binding: string) => {
+      const { nonce } = await google.nonce({ binding }, anonymous);
+      return google.mintFake({ email: freshEmail(), emailVerified: true, nonce }).idToken;
+    };
+    const signIn = (idToken: string, binding?: string) =>
+      google.signIn(
+        {
+          idToken,
+          preferredLocale: 'vi',
+          client: CLIENT.console,
+          ...(binding === undefined ? {} : { binding }),
+        },
+        anonymous,
+      );
+    const nonceRefused = { code: 'INVALID_GOOGLE_TOKEN', details: { reason: 'NONCE' } };
+
+    const idToken = await mint('this-browser');
+    expect(await errorOf(signIn(idToken, 'another-browser'))).toEqual(nonceRefused);
+    // The refused attempt spent the nonce: a token is tried once, whoever presents it.
+    expect(await errorOf(signIn(idToken, 'this-browser'))).toEqual(nonceRefused);
+
+    const fresh = await mint('this-browser');
+    const answer = await signIn(fresh, 'this-browser');
+    expect(outcome(answer.outcome)).toBe('GOOGLE_OUTCOME_CREATED');
+    expect(await errorOf(signIn(fresh, 'this-browser'))).toEqual(nonceRefused);
+
+    // Neither a device nor a binding: nothing to issue a nonce to, or to check one against.
+    expect((await errorOf(google.nonce({}, anonymous))).code).toBe('UNAUTHENTICATED');
+    expect((await errorOf(signIn(await mint('x')))).code).toBe('UNAUTHENTICATED');
+  });
 });
 
 describe('a password-less account', () => {
@@ -384,7 +416,11 @@ describe('a password-less account', () => {
         )
       ).code,
     ).toBe('INVALID_CREDENTIALS');
-    expect((await users.getMe(context)).signIn).toEqual({ password: false, google: true });
+    expect((await users.getMe(context)).signIn).toEqual({
+      password: false,
+      google: true,
+      googleEmail: email,
+    });
   });
 });
 

@@ -65,10 +65,10 @@ export class AuthGrpcController implements identityGrpc.AuthServiceController {
   }
 
   googleNonce(
-    _request: identityGrpc.GoogleNonceRequest,
+    request: identityGrpc.GoogleNonceRequest,
     metadata?: Metadata,
   ): Promise<identityGrpc.GoogleNonceResponse> {
-    return this.google.nonce(unpackCallerContext(metadata));
+    return this.google.nonce(request, unpackCallerContext(metadata));
   }
 
   googleSignIn(

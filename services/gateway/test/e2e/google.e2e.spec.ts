@@ -2,7 +2,7 @@
 // the outcome in the session body, the password-or-confirmation bodies, and the dev route that only
 // the fake issuer mounts.
 import { status } from '@grpc/grpc-js';
-import { newId } from '@wayfare/contracts';
+import { compareStrings, newId } from '@wayfare/contracts';
 import { identityGrpc } from '@wayfare/contracts/grpc';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -97,12 +97,61 @@ describe('POST /auth/google', () => {
 });
 
 describe('the other Google routes', () => {
-  it('give a nonce to a device only', async () => {
+  it("give a phone's nonce to its device, with no cookie", async () => {
     gateway.identity.auth.handlers.googleNonce = () => Promise.resolve({ nonce: 'n-1' });
-    expect((await mobile('/api/v1/auth/google/nonce')).status).toBe(401);
     const res = await mobile('/api/v1/auth/google/nonce', deviceToken());
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({ nonce: 'n-1' });
+    expect(gateway.identity.auth.calls.at(-1)?.request).toEqual({});
+    expect(res.headers['set-cookie']).toBeUndefined();
+    // Without a device, identity has nothing to bind it to: its 401 is the answer.
+    gateway.identity.auth.handlers.googleNonce = () =>
+      Promise.reject(serviceError(status.UNAUTHENTICATED, { 'wf-error-code': 'UNAUTHENTICATED' }));
+    expect((await mobile('/api/v1/auth/google/nonce')).status).toBe(401);
+  });
+
+  it("bind the console's nonce to wf_gn, send it back with the token, and clear it", async () => {
+    gateway.identity.auth.handlers.googleNonce = () => Promise.resolve({ nonce: 'n-2' });
+    const issued = await request(server())
+      .post('/api/v1/auth/google/nonce')
+      .set('X-Wayfare-Client', 'console');
+    expect(issued.status).toBe(200);
+    const binding = (gateway.identity.auth.calls.at(-1)?.request as { binding: string }).binding;
+    expect(binding).toMatch(/^[\w-]{43}$/);
+    const [cookie] = issued.headers['set-cookie'] as unknown as string[];
+    expect(cookie).toContain(`wf_gn=${binding}`);
+    expect(cookie).toMatch(/Path=\/api\/v1\/auth\/google;.*HttpOnly; Secure; SameSite=Lax/);
+    expect(cookie).toContain('Max-Age=300');
+
+    gateway.identity.auth.handlers.googleSignIn = () =>
+      Promise.resolve({
+        session: stubSession(),
+        outcome: identityGrpc.GoogleOutcome.GOOGLE_OUTCOME_SIGNED_IN,
+      });
+    const signedIn = await request(server())
+      .post('/api/v1/auth/google')
+      .set('X-Wayfare-Client', 'console')
+      .set('Cookie', `wf_gn=${binding}`)
+      .send({ idToken: 'id.token.value', preferredLocale: 'vi' });
+    expect(signedIn.status).toBe(200);
+    expect(gateway.identity.auth.calls.at(-1)?.request).toMatchObject({ binding });
+    const cookies = signedIn.headers['set-cookie'] as unknown as string[];
+    expect(cookies.find((line) => line.startsWith('wf_gn='))).toMatch(
+      /^wf_gn=;.*Expires=Thu, 01 Jan 1970/,
+    );
+  });
+
+  it("count the console's nonces per network", async () => {
+    gateway.identity.auth.handlers.googleNonce = () => Promise.resolve({ nonce: 'n' });
+    await request(server()).post('/api/v1/auth/google/nonce').set('X-Wayfare-Client', 'console');
+    await mobile('/api/v1/auth/google/nonce', deviceToken());
+    const counted = [...gateway.redis.values.keys()].filter((key) =>
+      key.startsWith('rl:AUTH_NONCE:'),
+    );
+    expect(counted.map((key) => key.split(':')[2]!).sort(compareStrings)).toEqual([
+      'deviceId',
+      'ip',
+    ]);
   });
 
   it('confirm and link for a signed-in phone', async () => {

@@ -2,6 +2,12 @@ node_modules/
 dist/
 .turbo/
 coverage/
+# Next.js builds and Playwright's reports (apps/console).
+.next/
+# Written by `next dev` / `next build`, pointing into .next/.
+apps/console/next-env.d.ts
+playwright-report/
+test-results/
 *.tsbuildinfo
 .env
 .env.sonar

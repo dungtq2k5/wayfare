@@ -46,7 +46,7 @@ export class RecordingEmailProvider extends EmailProvider {
 
   /** The token in a mail's link fragment. */
   static tokenOf(message: OutgoingEmail): string {
-    const match = /#token=([^\s"<]+)/.exec(message.text);
+    const match = /#token=([^\s"<&]+)/.exec(message.text);
     if (match === null) throw new Error('The mail carries no token link');
     return decodeURIComponent(match[1]!);
   }

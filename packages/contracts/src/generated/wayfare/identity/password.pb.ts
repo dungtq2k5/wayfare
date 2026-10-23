@@ -47,6 +47,8 @@ export interface CompletePasswordResetRequest {
   token: string;
   /** Secret: never logged. */
   newPassword: string;
+  /** The language the page was read in; saved only by an ACCOUNT_SETUP link, the account's first step. */
+  preferredLocale?: string | undefined;
 }
 
 export interface CompletePasswordResetResponse {}

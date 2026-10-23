@@ -85,3 +85,16 @@ describe('readCookie', () => {
     expect(readCookie(request(), 'wf_rt')).toBeNull();
   });
 });
+
+describe("the console's Google nonce binding", () => {
+  it('lives on the Google routes only, as long as the nonce, and clears on the same path', () => {
+    const { response, calls } = fakeResponse();
+    responder.cookies.setGoogleNonce(response, 'binding', 300_000);
+    responder.cookies.clearGoogleNonce(response);
+    const options = { httpOnly: true, secure: true, sameSite: 'lax', path: '/api/v1/auth/google' };
+    expect(calls).toEqual([
+      { op: 'set', name: 'wf_gn', value: 'binding', options: { ...options, maxAge: 300_000 } },
+      { op: 'clear', name: 'wf_gn', options },
+    ]);
+  });
+});

@@ -77,7 +77,7 @@ export class AccountRecoveriesAdvanceJob implements ScheduledJob {
           now,
         });
         // The mail goes to the address being claimed, carrying the link that finishes the move.
-        // Its cancel link is the bare page: only the hash of the case's token is stored, and the
+        // Its cancel link names only the case: only the hash of the case's token is stored, and the
         // hold notice's link must keep working — it is the real owner's way to stop this.
         return this.email.prepare(tx, {
           template: EmailTemplate.ACCOUNT_RECOVERY_NOTICE,
@@ -86,7 +86,7 @@ export class AccountRecoveriesAdvanceJob implements ScheduledJob {
           data: { recoveryId: row.id, stage: 'LINK_SENT' },
           links: {
             action: { path: 'completeRecovery', token: link.token },
-            cancel: { path: 'cancelRecovery' },
+            cancel: { path: 'cancelRecovery', id: row.id },
           },
         });
       });

@@ -34,7 +34,11 @@ export class PasswordService {
   async reset(context: RequestContext, body: ResetPasswordDto, res: Response): Promise<void> {
     await this.identity.passwords.call(
       'completePasswordReset',
-      { token: body.token, newPassword: body.newPassword },
+      {
+        token: body.token,
+        newPassword: body.newPassword,
+        ...(body.preferredLocale === undefined ? {} : { preferredLocale: body.preferredLocale }),
+      },
       context,
     );
     this.responder.clear(res);

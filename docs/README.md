@@ -91,6 +91,7 @@ Every ADR carries the **cost** of its decision, not only the upside. An ADR with
 | [0062](./decisions/0062-tourists-may-continue-with-google.md) | Tourists may continue with Google, beside email and password — *partly superseded by 0063, 0064* |
 | [0063](./decisions/0063-google-sign-in-reaches-the-web-and-owners-never-staff.md) | Google sign-in reaches the web app and owners, never staff, and can be unlinked — partly supersedes 0062 |
 | [0064](./decisions/0064-google-links-by-itself-only-where-google-owns-the-mailbox.md) | A Google sign-in links to an existing account by itself only where Google owns the mailbox — partly supersedes 0062 |
+| [0065](./decisions/0065-the-pilots-staging-is-one-vm-with-docker-compose.md) | The pilot's staging is one VM running Docker Compose — partly supersedes 0036 |
 
 ### Payments and providers
 
@@ -106,7 +107,7 @@ Every ADR carries the **cost** of its decision, not only the upside. An ADR with
 | :---- | :---- |
 | [0034](./decisions/0034-vitest-is-the-only-test-runner.md) | Vitest is the only test runner, and integration tests use the paired test database |
 | [0035](./decisions/0035-maestro-for-mobile-e2e.md) | Mobile end-to-end tests run on Maestro |
-| [0036](./decisions/0036-cloud-run-cloud-sql-firebase-hosting.md) | Staging runs on Cloud Run, Cloud SQL and Firebase Hosting — *partly superseded by 0060* |
+| [0036](./decisions/0036-cloud-run-cloud-sql-firebase-hosting.md) | Staging runs on Cloud Run, Cloud SQL and Firebase Hosting — *partly superseded by 0060, 0065* |
 
 ### Data, events and security
 

@@ -10,6 +10,7 @@ import {
   MAX_REFRESH_TOKEN_LENGTH,
   SessionRevokedReason,
   zEmail,
+  zLanguage,
 } from '@wayfare/contracts';
 import { actionTokenPurposeProto } from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
@@ -36,7 +37,11 @@ const RESET_PURPOSES = [ActionTokenPurpose.PASSWORD_RESET, ActionTokenPurpose.AC
 
 const forgotFields = z.object({ email: zEmail });
 const tokenField = z.object({ token: zToken });
-const resetFields = z.object({ token: zToken, newPassword: zNewPassword });
+const resetFields = z.object({
+  token: zToken,
+  newPassword: zNewPassword,
+  preferredLocale: zLanguage.optional(),
+});
 const changeFields = z.object({
   // Only the upper bound: a short current password is simply wrong.
   currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH),
@@ -152,13 +157,18 @@ export class PasswordService {
         select: { passwordHash: true },
       });
       const hadPassword = user.passwordHash !== null;
-      const firstSetup = link.purpose === ActionTokenPurpose.ACCOUNT_SETUP && !hadPassword;
+      const setup = link.purpose === ActionTokenPurpose.ACCOUNT_SETUP;
+      const firstSetup = setup && !hadPassword;
+      // A staff account's language is set at its first step, from the page it was read on; a
+      // reset never changes it.
+      const locale = setup ? fields.preferredLocale : undefined;
       await tx.user.update({
         where: { id: link.userId },
         data: {
           passwordHash,
           isEmailVerified: true,
           ...(firstSetup ? {} : { credentialsChangedAt: now }),
+          ...(locale === undefined ? {} : { preferredLocale: locale }),
         },
         select: { id: true },
       });

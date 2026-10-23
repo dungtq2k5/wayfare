@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@wayfare/design-tokens/web.css';
+
+/* packages/ui ships source the console compiles: its classes are this app's too. */
+@source '../../../../packages/ui/src';
+
+/* Dark follows the class the server renders from the appearance cookie (no flash). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: var(--font-be-vietnam-pro), 'Be Vietnam Pro', sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  * {
+    @apply border-border;
+  }
+  :focus-visible {
+    @apply outline-none;
+  }
+}

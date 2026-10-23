@@ -57,8 +57,15 @@ export const RATE_LIMITS = {
     buckets: SIGN_IN_BUCKETS,
     countFailuresOnly: ['INVALID_CREDENTIALS', 'INVALID_GOOGLE_TOKEN'],
   },
-  // A Google sign-in's nonce, per install: each token needs one, so this bounds tries, not people.
-  AUTH_NONCE: one('deviceId', 30, 15 * MINUTE_MS),
+  // A Google sign-in's nonce: each token needs one, so this bounds tries, not people — per install,
+  // or per network for the console, which has no device.
+  AUTH_NONCE: {
+    windowMs: 15 * MINUTE_MS,
+    buckets: [
+      { key: 'deviceId', limit: 30, onlyWith: 'device' },
+      { key: 'ip', limit: 30, onlyWith: 'noDevice' },
+    ],
+  },
   NARRATION_ON_DEMAND: one('deviceId', 30, 10 * MINUTE_MS),
   ANALYTICS_INGEST: one('analyticsDeviceId', 60, HOUR_MS),
   // The burst limit only; the daily quota is the AI ledger's (rdm-spec X-2).

@@ -48,7 +48,7 @@ mail_token() {
     sleep 0.2
   done
   [[ -n $id ]] || fail "no mail to $address matching /$subject/"
-  curl -sS "$MAILPIT/api/v1/message/$id" | jq -r .Text | grep -o '#token=[^[:space:]]*' | head -1 | cut -d= -f2-
+  curl -sS "$MAILPIT/api/v1/message/$id" | jq -r .Text | grep -o '#token=[^[:space:]&]*' | head -1 | cut -d= -f2-
 }
 
 # mail_count ADDRESS SUBJECT_REGEX — how many matching mails ADDRESS has.

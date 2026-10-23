@@ -89,6 +89,36 @@ const I18N_PATHS = ['i18next', 'react-i18next'].map((name) => ({
   message: `Translate through useTourist() from src/i18n; only src/i18n imports ${name}.`,
 }));
 
+const WEB_PROCESS_ENV_SELECTOR = {
+  // NODE_ENV is the build's own constant, folded at compile time so development-only code is
+  // dropped from a production build; every other value is read in src/env.ts.
+  selector:
+    "MemberExpression[object.object.name='process'][object.property.name='env'][property.name!='NODE_ENV']",
+  message:
+    'Read NEXT_PUBLIC_ and server values through src/env.ts, the only file that touches process.env (conventions §12.4).',
+};
+
+/**
+ * The web's tokens-only rules (ADR 0061): no colour literal, no arbitrary Tailwind *value*
+ * (`w-[13px]`) — an arbitrary variant such as `data-[state=open]:` or `[&_svg]:` selects, it does not
+ * size or colour — and no colour or font in an inline style.
+ */
+const WEB_TOKENS_ONLY_SELECTORS = [
+  { selector: `Literal[value=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  { selector: `TemplateElement[value.raw=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  ...['Literal[value', 'TemplateElement[value.raw'].map((node) => ({
+    selector: `JSXAttribute[name.name='className'] ${node}=/-\\[[^\\]]*\\](?!:)/]`,
+    message:
+      'No arbitrary Tailwind value: use a token class (text-sm, p-4, h-9), not [13px] (ADR 0061).',
+  })),
+  {
+    selector:
+      "JSXAttribute[name.name='style'] Property[key.name=/^(color|backgroundColor|fontFamily|fontSize)$/]",
+    message:
+      'Colour, font family and size come from token classes, not an inline style (ADR 0061).',
+  },
+];
+
 const AUDIO_PATHS = ['expo-audio', 'expo-speech'].map((name) => ({
   name,
   message: `Only the player in src/player plays sound: use narrationPlayer, not ${name} (conventions §12.3).`,
@@ -145,6 +175,10 @@ export function wayfareConfig({ tsconfigRootDir }) {
         '**/*.d.ts',
         // Continuous Native Generation: written by `expo prebuild`, never by hand.
         'apps/mobile/android/**',
+        // Next.js builds and Playwright's reports.
+        '**/.next/**',
+        '**/playwright-report/**',
+        '**/test-results/**',
       ],
     },
     js.configs.recommended,
@@ -431,6 +465,34 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
+      // The web (ADR 0060, 0061): the browser's globals, React's hooks rules, process.env in the
+      // console's src/env.ts alone, and only design tokens on the screen.
+      files: ['apps/console/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+      plugins: { 'react-hooks': reactHooks },
+      languageOptions: { globals: { ...globals.browser } },
+      rules: {
+        'react-hooks/rules-of-hooks': 'error',
+        'react-hooks/exhaustive-deps': 'error',
+        'no-restricted-syntax': [
+          'error',
+          RPC_EXCEPTION_SELECTOR,
+          WEB_PROCESS_ENV_SELECTOR,
+          ...WEB_TOKENS_ONLY_SELECTORS,
+        ],
+      },
+    },
+    {
+      // Where the console reads its environment: src/env.ts, and Playwright's own setup.
+      files: [
+        'apps/console/src/env.ts',
+        'apps/console/playwright.config.ts',
+        'apps/console/e2e/**',
+      ],
+      rules: {
+        'no-restricted-syntax': ['error', RPC_EXCEPTION_SELECTOR, ...WEB_TOKENS_ONLY_SELECTORS],
+      },
+    },
+    {
       // Metro, Babel and Tailwind load these as CommonJS.
       files: ['apps/mobile/*.js'],
       rules: { '@typescript-eslint/no-require-imports': 'off' },
@@ -473,7 +535,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
       rules: { 'no-restricted-imports': 'off' },
     },
     {
-      files: ['**/*.spec.ts', '**/test/**'],
+      files: ['**/*.spec.ts', '**/test/**', 'apps/console/e2e/**'],
       rules: {
         '@typescript-eslint/unbound-method': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',

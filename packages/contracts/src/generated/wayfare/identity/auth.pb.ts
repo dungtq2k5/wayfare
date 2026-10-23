@@ -112,7 +112,13 @@ export interface Session {
   refreshExpiresAt: Timestamp | undefined;
 }
 
-export interface GoogleNonceRequest {}
+export interface GoogleNonceRequest {
+  /**
+   * The console's binding value, for a caller with no device (the gateway's `wf_gn` cookie).
+   * Secret: never logged.
+   */
+  binding?: string | undefined;
+}
 
 export interface GoogleNonceResponse {
   nonce: string;
@@ -123,6 +129,11 @@ export interface GoogleSignInRequest {
   idToken: string;
   preferredLocale: string;
   client: SessionClient;
+  /**
+   * The binding value the nonce was issued against, for a caller with no device.
+   * Secret: never logged.
+   */
+  binding?: string | undefined;
 }
 
 export interface GoogleSignInResponse {

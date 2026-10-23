@@ -46,6 +46,8 @@ export interface GetMeResponse {
 export interface SignInMethods {
   password: boolean;
   google: boolean;
+  /** The Google address when the link was made; unset exactly when `google` is false. */
+  googleEmail?: string | undefined;
 }
 
 /** The owner part of `GetMe` (api-endpoints-plan §1.3). */

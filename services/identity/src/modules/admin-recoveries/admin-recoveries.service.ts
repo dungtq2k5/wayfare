@@ -218,8 +218,8 @@ export class AdminRecoveriesService {
         recipient: { userId: row.userId },
         data: { recoveryId, stage: 'HOLD_STARTED', holdUntil: holdUntil.toISOString() },
         links: {
-          action: { path: 'cancelRecovery', token },
-          cancel: { path: 'cancelRecovery', token },
+          action: { path: 'cancelRecovery', token, id: recoveryId },
+          cancel: { path: 'cancelRecovery', token, id: recoveryId },
         },
       });
       return { row, delivered, mail };

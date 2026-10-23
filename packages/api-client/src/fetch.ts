@@ -46,6 +46,11 @@ export interface ApiClientConfig {
   /** Sent as `X-Wayfare-App-Version` when the client is `mobile`. */
   readonly appVersion?: string;
   readonly session?: ApiSession;
+  /**
+   * Whether cookies travel: `'include'` for the console's browser, which calls the gateway on
+   * another origin locally; `fetch`'s own default (`same-origin`) when absent.
+   */
+  readonly credentials?: RequestCredentials;
   /** The transport; the platform's `fetch` unless a test supplies one. */
   readonly fetch?: typeof fetch;
 }
@@ -89,7 +94,11 @@ async function send(
   if (typeof options.body === 'string' && !headers.has('content-type'))
     headers.set('content-type', 'application/json');
   try {
-    return await (settings.fetch ?? fetch)(`${settings.baseUrl}${url}`, { ...options, headers });
+    return await (settings.fetch ?? fetch)(`${settings.baseUrl}${url}`, {
+      ...(settings.credentials === undefined ? {} : { credentials: settings.credentials }),
+      ...options,
+      headers,
+    });
   } catch (cause) {
     if (options.signal?.aborted === true) throw cause;
     throw new ApiError(0, NETWORK_ERROR_CODE, cause instanceof Error ? cause.message : 'No answer');

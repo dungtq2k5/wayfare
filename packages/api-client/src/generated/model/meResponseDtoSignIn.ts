@@ -8,4 +8,6 @@
 export type MeResponseDtoSignIn = {
   password: boolean;
   google: boolean;
+  /** @nullable */
+  googleEmail: string | null;
 };

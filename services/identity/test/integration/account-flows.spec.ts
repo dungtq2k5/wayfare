@@ -190,10 +190,30 @@ describe('staff setup', () => {
     expect(await passwords.validateResetToken({ token }, anonymous)).toMatchObject({
       purpose: identityGrpc.ActionTokenPurpose.ACTION_TOKEN_PURPOSE_ACCOUNT_SETUP,
     });
-    await passwords.completePasswordReset({ token, newPassword: NEW_PASSWORD }, anonymous);
+    await passwords.completePasswordReset(
+      { token, newPassword: NEW_PASSWORD, preferredLocale: 'vi' },
+      anonymous,
+    );
     const row = await prisma.user.findUniqueOrThrow({ where: { id: user!.id } });
-    expect(row).toMatchObject({ isEmailVerified: true, credentialsChangedAt: null });
+    // The first step sets the account's language from the page it was read on.
+    expect(row).toMatchObject({
+      isEmailVerified: true,
+      credentialsChangedAt: null,
+      preferredLocale: 'vi',
+    });
     await login(email, NEW_PASSWORD);
+  });
+
+  it("a reset never changes the account's language", async () => {
+    const { email, userId } = await account();
+    await passwords.requestPasswordReset({ email }, anonymous);
+    const { token } = await lastMail(email, /Reset/);
+    await passwords.completePasswordReset(
+      { token, newPassword: NEW_PASSWORD, preferredLocale: 'vi' },
+      anonymous,
+    );
+    const row = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(row.preferredLocale).toBe('en');
   });
 
   it('a setup link on an account that already has a password acts as a reset', async () => {

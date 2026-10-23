@@ -1,6 +1,6 @@
 # 0036 — Staging runs on Cloud Run, Cloud SQL and Firebase Hosting
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0060](./0060-the-web-apps-are-nextjs.md) (in part)
+**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0060](./0060-the-web-apps-are-nextjs.md) (in part); [0065](./0065-the-pilots-staging-is-one-vm-with-docker-compose.md) (in part — the pilot's staging on one VM)
 
 ## Context
 

@@ -3933,47 +3933,6 @@
               }
             }
           },
-          "401": {
-            "description": "UNAUTHENTICATED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "requestId"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "UNAUTHENTICATED"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "type": "object",
-                          "additionalProperties": true
-                        },
-                        "requestId": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
           "426": {
             "description": "APP_VERSION_UNSUPPORTED",
             "content": {
@@ -4180,20 +4139,9 @@
             }
           }
         },
-        "summary": "A nonce for this device, which the next Google ID token must carry (5 minutes, once).",
+        "summary": "A nonce the next Google ID token must carry (5 minutes, once): for this device, or — for the console, which has none — for the `wf_gn` cookie this sets.",
         "tags": [
           "auth"
-        ],
-        "security": [
-          {
-            "deviceBearer": []
-          },
-          {
-            "accountBearer": []
-          },
-          {
-            "accessCookie": []
-          }
         ]
       }
     },
@@ -66694,11 +66642,18 @@
               },
               "google": {
                 "type": "boolean"
+              },
+              "googleEmail": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "password",
-              "google"
+              "google",
+              "googleEmail"
             ]
           },
           "owner": {
@@ -67968,6 +67923,10 @@
             "type": "string",
             "minLength": 10,
             "maxLength": 128
+          },
+          "preferredLocale": {
+            "type": "string",
+            "maxLength": 16
           }
         },
         "required": [

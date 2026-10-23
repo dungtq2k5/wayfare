@@ -42,7 +42,6 @@ describe('rate limits', () => {
     expect(one('PII_REVEAL')).toEqual(['userId', 20, 3_600_000]);
     expect(one('PRONUNCIATION_PREVIEW')).toEqual(['userId', 10, 60_000]);
     expect(one('AUTHENTICATED')).toEqual(['userId', 600, 60_000]);
-    expect(one('AUTH_NONCE')).toEqual(['deviceId', 30, 900_000]);
     // A hotel's installs in an hour, up from 10.
     expect(one('DEVICE_REGISTRATION')).toEqual(['ip', 60, 3_600_000]);
   });
@@ -71,6 +70,12 @@ describe('rate limits', () => {
       ['ip', 10],
     ]);
     expect(RATE_LIMITS.AUTH.buckets).toEqual(RATE_LIMITS.AUTH_LOGIN.buckets);
+    // A Google nonce: the install's, or the network's for the console, which has no device.
+    const nonce = (withDevice: boolean) =>
+      bucketsFor(RATE_LIMITS.AUTH_NONCE, withDevice).map((bucket) => [bucket.key, bucket.limit]);
+    expect(nonce(true)).toEqual([['deviceId', 30]]);
+    expect(nonce(false)).toEqual([['ip', 30]]);
+    expect(RATE_LIMITS.AUTH_NONCE.windowMs).toBe(15 * 60_000);
     expect(RATE_LIMITS.AUTH.windowMs).toBe(15 * 60_000);
   });
 });

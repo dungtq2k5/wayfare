@@ -340,6 +340,12 @@ It also holds identity's **revocation state** — each user's token cutoff and t
 ### 4.2 Web-specific (`apps/web`, `apps/console`)
 
 - **Router:** Next.js's **App Router**. Server components render what a link opens (a Place, a tour, an area) and the console's first paint, from the gateway's public API through the Orval client; MapLibre, the service worker, IndexedDB, the packs and audio are client components.
+- **The console** (`apps/console`, port 5173 locally; `packages/ui`'s shadcn/ui components on the shared tokens' `web.css`, ADR 0061):
+  - **One site with the gateway:** deployed, the console's own host serves the gateway at `/api/*` and `/ws`, routed at the edge, so the session cookies are first-party, the socket's `Origin` is the console's and the server receives the cookies. Locally the browser calls `http://localhost:13000` directly with `credentials: 'include'` (an `ApiClientConfig` option), which CORS allows.
+  - **Server rendering with the caller's session:** the server configures the api-client once (`GATEWAY_INTERNAL_URL`, no session) and passes each request's `cookie` and its `x-forwarded-for`, unchanged, through one server-only helper — never one visitor's cookie on another's call. A server-side `401` redirects to `/session?next=<same-site path>`, a client page that refreshes once and returns.
+  - **Refreshing:** single-flight within a tab; a `409 INVALID_STATE` with `status: ROTATED` (another tab won the race) counts as success and the call is retried.
+  - **Navigation by permission**, each item behind its read permission and every route checking its own; *Your business* shows from `/users/me`'s `owner`, not from `owner.access`, which admins also hold.
+  - **Google** through Google Identity Services' own button, its nonce bound to a `wf_gn` cookie since the console has no device. A development build uses the stack's fake issuer whenever the stack runs it, through a test hook that is absent from a production build.
 - **Maps:** **MapLibre GL JS** 📌 [ADR 0024](./decisions/0024-maplibre-on-both-platforms.md) — hardware-accelerated vector maps, no vendor lock-in, free.
 - **Legal pages:** the privacy policy is a page of the tourist web app, **`https://wayfare.app/privacy`**, showing the version in `LEGAL_DOCUMENT_VERSIONS`; the mobile app's first run links to it (`EXPO_PUBLIC_PRIVACY_POLICY_URL`).
 - **Offline:** **Workbox** through **Serwist** (`@serwist/next`, the maintained successor of `next-pwa`): we hand-write the service worker, Serwist injects the precache manifest. The offline entry point is a precached client-rendered shell; a server-rendered page is available offline only once cached.
@@ -718,6 +724,9 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `STRIPE_VOUCHER_PMC_ID` | billing | payment method configuration allowing instant methods only, for voucher checkout |
 | `VOUCHER_CODE_HASH_KEY` | billing | HMAC key for voucher short codes |
 | `RESEND_API_KEY` | identity | transactional email — a **sending-only** key; **unset locally**, where Nodemailer → Mailpit is used |
+| `NEXT_PUBLIC_API_ORIGIN` | console | the gateway's origin for the browser — **empty when deployed** (same origin, the edge routes `/api` and `/ws`); `http://localhost:13000` locally. The api-client's `baseUrl` is it plus `/api/v1` |
+| `GATEWAY_INTERNAL_URL` | console (server only) | the gateway as the Next.js server reaches it |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | console | the Google OAuth Web client's id, for Google Identity Services; the console's origin is one of the client's authorised JavaScript origins |
 | `GOOGLE_ISSUER` | identity, gateway | `google` or `fake` — **`fake` locally and in CI**, where identity trusts tokens it signs itself and `POST /dev/google-token` mints them; **both services refuse `fake` at start-up in production** |
 | `GOOGLE_SERVER_CLIENT_ID` | identity | the Google Cloud OAuth **Web** client's id — the `aud` every Google ID token must carry; required when `GOOGLE_ISSUER=google` |
 | `GOOGLE_FAKE_SIGNING_KEY` | identity | the fake issuer's private key, `fake` only — **identity only**: the gateway's dev route asks identity's `MintFakeGoogleToken` |

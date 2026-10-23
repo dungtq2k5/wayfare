@@ -47,6 +47,8 @@ message GetMeResponse {
 message SignInMethods {
   bool password = 1;
   bool google = 2;
+  // The Google address when the link was made; unset exactly when `google` is false.
+  optional string google_email = 3;
 }
 
 // The owner part of `GetMe` (api-endpoints-plan §1.3).

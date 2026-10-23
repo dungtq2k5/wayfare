@@ -112,6 +112,25 @@ describe('link routes', () => {
     expect(gateway.identity.passwords.calls[0]?.request).toEqual({ email: 'ann@example.com' });
   });
 
+  it("reset passes the page's language on, for a setup link to save", async () => {
+    await consoleRequest('post', '/auth/password/reset').send({
+      token: TOKEN,
+      newPassword: 'a new password',
+      preferredLocale: 'vi',
+    });
+    expect(gateway.identity.passwords.calls.at(-1)?.request).toEqual({
+      token: TOKEN,
+      newPassword: 'a new password',
+      preferredLocale: 'vi',
+    });
+    const unknown = await consoleRequest('post', '/auth/password/reset').send({
+      token: TOKEN,
+      newPassword: 'a new password',
+      preferredLocale: 'tlh',
+    });
+    expect(unknown.status).toBe(400);
+  });
+
   it('validate answers the purpose and the masked address only', async () => {
     const res = await consoleRequest('post', '/auth/password/reset/validate').send({
       token: TOKEN,

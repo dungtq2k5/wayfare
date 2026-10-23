@@ -76,7 +76,7 @@ async function lastMail(address: string) {
   await services.dispatcher.idle();
   const mail = mailbox.to(address).at(-1);
   if (mail === undefined) throw new Error(`No mail to ${address}`);
-  const token = /#token=([^\s"<]+)/.exec(mail.text);
+  const token = /#token=([^\s"<&]+)/.exec(mail.text);
   return { mail, token: token === null ? '' : decodeURIComponent(token[1]!) };
 }
 
@@ -178,6 +178,8 @@ describe('approval and the hold', () => {
     const { mail } = await lastMail(owner.email);
     expect(mail.subject).toContain('recovering access');
     expect(mail.text).toContain('/recovery/cancel#token=');
+    // The cancel route names its case, so the link carries it beside the token.
+    expect(mail.text).toContain(`&id=${row.id}`);
     // The bell, too.
     const notification = await prisma.notification.findFirstOrThrow();
     expect(notification).toMatchObject({

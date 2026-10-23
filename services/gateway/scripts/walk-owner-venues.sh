@@ -138,7 +138,7 @@ call owner-register 201 -X POST "$BASE/auth/register" "${console[@]}" \
 cookie_value owner-register wf_at >"$work/owner.at"
 cookie_value owner-register wf_rt >"$work/owner.rt"
 json owner-register .data.user.id >"$work/owner.id"
-call owner-verify 204 -X POST "$BASE/auth/email/verify" "${console[@]}" \
+call owner-verify 200 -X POST "$BASE/auth/email/verify" "${console[@]}" \
   -d "$(body --arg t "$(mail_token "$(email_of owner)" 'Confirm your email')" '{token: $t}')"
 refresh owner
 call owner-apply 201 -X POST "$BASE/owner/registration" "${console[@]}" -b "$(as owner)" \

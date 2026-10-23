@@ -46,6 +46,22 @@ describe('apiFetch', () => {
     expect(headers.has('authorization')).toBe(false);
   });
 
+  it('sends the configured credentials with every request', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(json(200, { data: null })));
+    configureApiClient({
+      baseUrl: 'http://api.test',
+      client: 'console',
+      credentials: 'include',
+      fetch: fetchMock,
+    });
+    await apiFetch('/x');
+    await apiFetch('/y', { method: 'POST', body: '{}' });
+    expect(fetchMock.mock.calls.map((call) => call[1]!.credentials)).toEqual([
+      'include',
+      'include',
+    ]);
+  });
+
   it('leaves the app version off a web client', async () => {
     const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(json(200, { data: null })));
     configureApiClient({

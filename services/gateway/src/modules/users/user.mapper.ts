@@ -31,6 +31,7 @@ export function toMeResponseDto(response: identityGrpc.GetMeResponse): MeRespons
     signIn: {
       password: response.signIn?.password ?? false,
       google: response.signIn?.google ?? false,
+      googleEmail: response.signIn?.googleEmail ?? null,
     },
     owner:
       owner === null

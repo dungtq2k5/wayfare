@@ -1,0 +1,35 @@
+{
+  "name": "@wayfare/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The web's components: shadcn/ui on Radix, themed by the design tokens, and the console's page patterns (ADR 0061). Shipped as source; the web apps compile it.",
+  "exports": {
+    "./*": "./src/*.tsx",
+    "./paging": "./src/paging.ts",
+    "./cn": "./src/cn.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "1.61.0",
+    "radix-ui": "1.8.1",
+    "sonner": "2.0.8",
+    "tailwind-merge": "3.7.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
+    "@wayfare/config": "workspace:*",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "typescript": "5.9.3"
+  }
+}

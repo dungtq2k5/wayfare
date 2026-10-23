@@ -126,7 +126,11 @@ enum GoogleOutcome {
   GOOGLE_OUTCOME_LINKED_PASSWORD_REMOVED = 4;
 }
 
-message GoogleNonceRequest {}
+message GoogleNonceRequest {
+  // The console's binding value, for a caller with no device (the gateway's `wf_gn` cookie).
+  // Secret: never logged.
+  optional string binding = 1;
+}
 
 message GoogleNonceResponse {
   string nonce = 1;
@@ -137,6 +141,9 @@ message GoogleSignInRequest {
   string id_token = 1;
   string preferred_locale = 2;
   SessionClient client = 3;
+  // The binding value the nonce was issued against, for a caller with no device.
+  // Secret: never logged.
+  optional string binding = 4;
 }
 
 message GoogleSignInResponse {

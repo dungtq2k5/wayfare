@@ -87,12 +87,20 @@ export class UsersService {
         where: { id: user.id },
         select: {
           passwordHash: true,
-          identities: { where: { provider: IdentityProvider.GOOGLE }, select: { id: true } },
+          identities: {
+            where: { provider: IdentityProvider.GOOGLE },
+            select: { emailAtLink: true },
+          },
         },
       });
+      const google = identities[0];
       return {
         // How the account signs in (frames A1g, A1g2): a password, Google, or both.
-        signIn: { password: passwordHash !== null, google: identities.length > 0 },
+        signIn: {
+          password: passwordHash !== null,
+          google: google !== undefined,
+          ...(google === undefined ? {} : { googleEmail: google.emailAtLink }),
+        },
         user: toSessionUser(user),
         roles,
         permissions,

@@ -19,6 +19,7 @@ import {
   LegalParty,
   MAX_FULL_NAME_LENGTH,
   MAX_GOOGLE_TOKEN_LENGTH,
+  MAX_REFRESH_TOKEN_LENGTH,
   newId,
   normalizeEmail,
   normalizeText,
@@ -78,7 +79,13 @@ export const GOOGLE_KEYS = Symbol('GOOGLE_KEYS');
 const FAKE_AUDIENCE = 'wayfare-fake-server-client';
 
 const zGoogleToken = z.string().min(1).max(MAX_GOOGLE_TOKEN_LENGTH);
-const signInFields = z.object({ idToken: zGoogleToken, preferredLocale: zLanguage });
+const zBinding = z.string().min(1).max(MAX_REFRESH_TOKEN_LENGTH);
+const nonceFields = z.object({ binding: zBinding.optional() });
+const signInFields = z.object({
+  idToken: zGoogleToken,
+  preferredLocale: zLanguage,
+  binding: zBinding.optional(),
+});
 const mintFields = z.object({
   email: zEmail,
   name: z.string().max(MAX_FULL_NAME_LENGTH).optional(),
@@ -100,6 +107,18 @@ const ACCOUNT_SELECT = {
 const GOOGLE_ROLES: ReadonlySet<string> = new Set([SystemRole.USER, SystemRole.VENUE_OWNER]);
 
 const nonceKey = (nonce: string) => `identity:google-nonce:${hashToken(nonce)}`;
+
+/**
+ * Who a nonce is issued to, and must come back from: the caller's device, or — for the console,
+ * which has none — the hash of the binding value its `wf_gn` cookie carries. `null`: neither.
+ */
+const deviceOwner = (deviceId: string) => `device:${deviceId}`;
+
+function nonceOwner(context: RequestContext, binding: string | undefined): string | null {
+  const deviceId = deviceIdOf(context);
+  if (deviceId !== null) return deviceOwner(deviceId);
+  return binding === undefined ? null : `binding:${hashToken(binding)}`;
+}
 
 /**
  * Continue with Google (ADRs 0062–0064, api-endpoints-plan §1.2): one verified ID token, carrying a
@@ -132,12 +151,16 @@ export class GoogleService {
       config.get('GOOGLE_SERVER_CLIENT_ID', { infer: true }) ?? (fake ? FAKE_AUDIENCE : '');
   }
 
-  /** A nonce for the caller's device, for the next ID token it asks Google for. */
-  async nonce(context: RequestContext): Promise<identityGrpc.GoogleNonceResponse> {
-    const deviceId = deviceIdOf(context);
-    if (deviceId === null) throw rpcError('UNAUTHENTICATED');
+  /** A nonce for the caller's device or binding, for the next ID token it asks Google for. */
+  async nonce(
+    request: identityGrpc.GoogleNonceRequest,
+    context: RequestContext,
+  ): Promise<identityGrpc.GoogleNonceResponse> {
+    const fields = parseRpcRequest(nonceFields, request);
+    const owner = nonceOwner(context, fields.binding);
+    if (owner === null) throw rpcError('UNAUTHENTICATED');
     const nonce = generateToken();
-    await this.redis.set(nonceKey(nonce), deviceId, 'PX', GOOGLE_NONCE_TTL_MS);
+    await this.redis.set(nonceKey(nonce), owner, 'PX', GOOGLE_NONCE_TTL_MS);
     return { nonce };
   }
 
@@ -148,9 +171,9 @@ export class GoogleService {
   ): Promise<identityGrpc.GoogleSignInResponse> {
     const fields = parseRpcRequest(signInFields, request);
     const client = requireProtoEnum(sessionClientProto, request.client, '/client');
-    const deviceId = deviceIdOf(context);
-    if (deviceId === null) throw rpcError('UNAUTHENTICATED');
-    const claims = await this.verify(fields.idToken, deviceId);
+    const owner = nonceOwner(context, fields.binding);
+    if (owner === null) throw rpcError('UNAUTHENTICATED');
+    const claims = await this.verify(fields.idToken, owner);
     const email = normalizeEmail(claims.email);
     const now = new Date();
 
@@ -190,9 +213,11 @@ export class GoogleService {
     if (other !== null) throw rpcError('GOOGLE_ACCOUNT_ALREADY_LINKED');
     // ADR 0064: only where Google owns the mailbox does the link make itself.
     if (!isGoogleAuthoritative(email, claims.hd)) {
+      // The link is made on the device that asked; the console has none, so its ticket matches no
+      // device and the console's page asks for the password sign-in instead.
       const ticket = this.tokens.signProof(
         PROOF_TOKEN_TYPES.googleLinkTicket,
-        { sub: claims.sub, email, did: deviceId },
+        { sub: claims.sub, email, did: deviceIdOf(context) ?? '' },
         GOOGLE_LINK_TICKET_TTL_MS,
         now,
       );
@@ -281,7 +306,7 @@ export class GoogleService {
     const account = requireAccountContext(context);
     const idToken = parseRpcRequest(zGoogleToken, request.idToken);
     if (account.deviceId === null) throw rpcError('UNAUTHENTICATED');
-    const claims = await this.verify(idToken, account.deviceId);
+    const claims = await this.verify(idToken, deviceOwner(account.deviceId));
     const link = await this.prisma.userIdentity.findUnique({
       where: { provider_subject: { provider: IdentityProvider.GOOGLE, subject: claims.sub } },
       select: { userId: true },
@@ -426,18 +451,18 @@ export class GoogleService {
   }
 
   /**
-   * Verifies an ID token (K2) and spends its nonce, which must be one this service gave the
-   * caller's device: a captured token is good neither on another device nor twice.
+   * Verifies an ID token (K2) and spends its nonce, which must be one this service gave the same
+   * owner (`nonceOwner`): a captured token is good neither on another device or browser nor twice.
    */
-  private async verify(idToken: string, deviceId: string): Promise<GoogleClaims> {
+  private async verify(idToken: string, owner: string): Promise<GoogleClaims> {
     const keyId = idTokenKeyId(idToken);
     const key = keyId === null ? undefined : await this.keys.key(keyId);
     if (key === 'unavailable') throw rpcError('GOOGLE_UNAVAILABLE');
     const check = checkIdToken(idToken, key, { audience: this.audience, now: new Date() });
     if (!check.ok) throw rpcError('INVALID_GOOGLE_TOKEN', { reason: check.reason });
     const { nonce } = check.claims;
-    const owner = nonce === null ? null : await this.redis.getdel(nonceKey(nonce));
-    if (owner !== deviceId) throw rpcError('INVALID_GOOGLE_TOKEN', { reason: 'NONCE' });
+    const issuedTo = nonce === null ? null : await this.redis.getdel(nonceKey(nonce));
+    if (issuedTo !== owner) throw rpcError('INVALID_GOOGLE_TOKEN', { reason: 'NONCE' });
     return check.claims;
   }
 

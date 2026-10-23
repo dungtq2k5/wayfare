@@ -37,7 +37,7 @@ mail_link() {
     '[.messages[] | select(any(.To[]; .Address == $to))][0].ID // empty')
   [[ -n $id ]] || fail "no mail to $address"
   curl -sS "$MAILPIT/api/v1/message/$id" | jq -r .Text |
-    grep -o "${page}#token=[^[:space:]]*" | head -1 | cut -d= -f2-
+    grep -o "${page}#token=[^[:space:]&]*" | head -1 | cut -d= -f2-
 }
 
 mail_subject() {
@@ -79,7 +79,7 @@ refresh_owner() {
 verify_owner() {
   local who=$1 email=$2 national_id=$3 token
   token=$(mail_token "$email" 'Confirm your email')
-  call "$who-verify" 204 -X POST "$BASE/auth/email/verify" "${console[@]}" \
+  call "$who-verify" 200 -X POST "$BASE/auth/email/verify" "${console[@]}" \
     -d "$(body --arg t "$token" '{token: $t}')"
   refresh_owner "$who"
   call "$who-apply" 201 -X POST "$BASE/owner/registration" "${console[@]}" -b "$(as "$who")" \

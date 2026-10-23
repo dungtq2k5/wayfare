@@ -39,7 +39,7 @@ person() {
   json "$1-register" .data.user.id >"$work/$1.id"
   local token
   token=$(mail_token "$(email_of "$1")" 'Confirm your email')
-  call "$1-verify" 204 -X POST "$BASE/auth/email/verify" "${console[@]}" -d "$(body --arg t "$token" '{token: $t}')"
+  call "$1-verify" 200 -X POST "$BASE/auth/email/verify" "${console[@]}" -d "$(body --arg t "$token" '{token: $t}')"
   refresh "$1"
 }
 

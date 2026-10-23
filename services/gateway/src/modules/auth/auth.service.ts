@@ -1,8 +1,11 @@
+import { randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { GOOGLE_NONCE_TTL_MS } from '@wayfare/contracts';
 import type { GoogleOutcome, WayfareClient } from '@wayfare/contracts';
 import { googleOutcomeProto } from '@wayfare/contracts/grpc';
 import {
   AppHttpException,
+  deviceIdOf,
   httpStatusOf,
   SessionResponder,
   usesSessionCookies,
@@ -141,9 +144,22 @@ export class AuthService {
     await this.identity.auth.call('claimDevice', {}, context);
   }
 
-  /** A nonce for this device's next Google ID token (ADR 0062). */
-  async googleNonce(context: RequestContext): Promise<{ nonce: string }> {
-    return this.identity.auth.call('googleNonce', {}, context);
+  /**
+   * A nonce for the next Google ID token (ADR 0062): the device's, or — for the console, which has
+   * none (ADR 0063) — one bound to a random value this sets in `wf_gn`.
+   */
+  async googleNonce(
+    context: RequestContext,
+    client: WayfareClient,
+    res: Response,
+  ): Promise<{ nonce: string }> {
+    // Without a device or the console's binding, identity answers `401`, as the route always has.
+    if (deviceIdOf(context) !== null || client !== 'console')
+      return this.identity.auth.call('googleNonce', {}, context);
+    const binding = randomBytes(32).toString('base64url');
+    const answer = await this.identity.auth.call('googleNonce', { binding }, context);
+    this.responder.cookies.setGoogleNonce(res, binding, GOOGLE_NONCE_TTL_MS);
+    return answer;
   }
 
   /** Continue with Google: a session and its outcome, or K6's refusals (api-endpoints-plan §1.2). */
@@ -151,14 +167,18 @@ export class AuthService {
     context: RequestContext,
     client: WayfareClient,
     body: GoogleSignInDto,
+    binding: string | null,
     res: Response,
   ): Promise<SessionBody & { outcome: GoogleOutcome }> {
+    // The nonce is spent whatever the answer, so its binding goes too.
+    if (binding !== null) this.responder.cookies.clearGoogleNonce(res);
     const response = await this.identity.auth.call(
       'googleSignIn',
       {
         idToken: body.idToken,
         preferredLocale: body.preferredLocale,
         client: toSessionClient(client),
+        ...(binding === null || client !== 'console' ? {} : { binding }),
       },
       context,
     );

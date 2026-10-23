@@ -24,7 +24,12 @@ export const meResponseSchema = z.object({
   permissions: z.array(z.string()),
   ownerVerified: z.boolean(),
   /** How the account signs in (frames A1g, A1g2): a password, Google, or both. */
-  signIn: z.object({ password: z.boolean(), google: z.boolean() }),
+  signIn: z.object({
+    password: z.boolean(),
+    google: z.boolean(),
+    /** The Google address when the link was made (frame C11d); `null` exactly when `google` is false. */
+    googleEmail: z.string().nullable(),
+  }),
   /**
    * For a verified owner or an applicant; `null` for everyone else. `billingSummary` is billing's,
    * composed by the gateway — `null` for an applicant, and when billing cannot answer

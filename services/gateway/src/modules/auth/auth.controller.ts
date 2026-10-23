@@ -7,6 +7,7 @@ import {
   Auth,
   ClientKind,
   Ctx,
+  GoogleNonceCookie,
   NoStore,
   RateLimit,
   RefreshCookie,
@@ -140,17 +141,21 @@ export class AuthController {
 
   @Post('google/nonce')
   @HttpCode(HttpStatus.OK)
-  @Auth('DEVICE')
+  @Auth('PUBLIC')
   @RateLimit('AUTH_NONCE')
   @NoStore()
   @ApiOperation({
     summary:
-      'A nonce for this device, which the next Google ID token must carry (5 minutes, once).',
+      'A nonce the next Google ID token must carry (5 minutes, once): for this device, or — for the console, which has none — for the `wf_gn` cookie this sets.',
   })
   @ApiEnvelope(GoogleNonceResponseDto)
   @ZodSerializerDto(GoogleNonceResponseDto)
-  googleNonce(@Ctx() context: RequestContext): Promise<{ nonce: string }> {
-    return this.auth.googleNonce(context);
+  googleNonce(
+    @Ctx() context: RequestContext,
+    @ClientKind() client: WayfareClient,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ nonce: string }> {
+    return this.auth.googleNonce(context, client, res);
   }
 
   @Post('google')
@@ -178,9 +183,10 @@ export class AuthController {
     @Ctx() context: RequestContext,
     @ClientKind() client: WayfareClient,
     @Body() body: GoogleSignInDto,
+    @GoogleNonceCookie() binding: string | null,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SessionBody & { outcome: GoogleOutcome }> {
-    return this.auth.googleSignIn(context, client, body, res);
+    return this.auth.googleSignIn(context, client, body, binding, res);
   }
 
   @Post('google/confirm')

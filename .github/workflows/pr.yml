@@ -38,7 +38,10 @@ jobs:
 
       # The .env.example files are complete and hold no secrets.
       - name: Use the example environment
-        run: for s in services/*; do cp "$s/.env.example" "$s/.env"; done
+        run: |
+          for s in services/*; do cp "$s/.env.example" "$s/.env"; done
+          # The console's flows sign in as the dev seed's admin, so the seed needs a password.
+          sed -i 's/^SEED_ACCOUNT_PASSWORD=$/SEED_ACCOUNT_PASSWORD=ci seed password/' services/identity/.env
 
       # The examples leave every *KEY* empty; a throwaway signing pair fills them.
       - name: Generate development signing keys
@@ -103,6 +106,25 @@ jobs:
           curl -fsS -X POST localhost:13000/api/v1/devices \
             -H 'content-type: application/json' -H 'x-wayfare-client: mobile' \
             -d '{"platform":"ANDROID","appVersion":"0.1.0","contentLocale":"en","privacyPolicyVersion":"2026-09-01"}'
+
+      # The console's flows (architecture §12) against the booted images: Chromium only, cached.
+      - name: Cache Playwright's Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/console/package.json') }}
+
+      - run: pnpm --filter @wayfare/console exec playwright install --with-deps chromium
+
+      - name: The console's Playwright flows
+        run: pnpm --filter @wayfare/console e2e
+
+      - name: Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/console/playwright-report
 
       - name: Stack logs on failure
         if: failure()

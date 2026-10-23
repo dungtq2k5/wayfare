@@ -12,6 +12,12 @@ export const ACCESS_COOKIE = 'wf_at';
 /** The refresh-token cookie (api-endpoints-plan §0.3). */
 export const REFRESH_COOKIE = 'wf_rt';
 
+/**
+ * The console's Google nonce binding (api-endpoints-plan §1.2): the console has no device to issue
+ * a nonce to, so the nonce is issued against this cookie's random value and checked against it.
+ */
+export const GOOGLE_NONCE_COOKIE = 'wf_gn';
+
 /** Reads one cookie from the raw header — the gateway needs two, not a parser middleware. */
 export function readCookie(request: Request, name: string): string | null {
   return cookieFromHeader(request.header('cookie'), name);
@@ -49,9 +55,12 @@ export interface SessionTokens {
  */
 export class SessionCookieService {
   private readonly refreshPath: string;
+  /** Covers `…/auth/google/nonce`, which sets it, and `…/auth/google`, which spends it. */
+  private readonly googleNoncePath: string;
 
   constructor(globalPrefix: string) {
     this.refreshPath = `/${globalPrefix}`;
+    this.googleNoncePath = `/${globalPrefix}/v1/auth/google`;
   }
 
   /** Sets both cookies, each living as long as its token. */
@@ -70,6 +79,19 @@ export class SessionCookieService {
   clear(response: Response): void {
     response.clearCookie(ACCESS_COOKIE, this.base('/'));
     response.clearCookie(REFRESH_COOKIE, this.base(this.refreshPath));
+  }
+
+  /** Sets the console's Google nonce binding, living as long as the nonce. */
+  setGoogleNonce(response: Response, binding: string, maxAgeMs: number): void {
+    response.cookie(GOOGLE_NONCE_COOKIE, binding, {
+      ...this.base(this.googleNoncePath),
+      maxAge: maxAgeMs,
+    });
+  }
+
+  /** Clears the binding once its nonce is spent. */
+  clearGoogleNonce(response: Response): void {
+    response.clearCookie(GOOGLE_NONCE_COOKIE, this.base(this.googleNoncePath));
   }
 
   /** The refresh token a cookie client presented. */
@@ -107,7 +129,7 @@ export function usesSessionCookies(client: WayfareClient): boolean {
  * never contains a token.
  */
 export class SessionResponder {
-  constructor(private readonly cookies: SessionCookieService) {}
+  constructor(readonly cookies: SessionCookieService) {}
 
   respond<User>(
     client: WayfareClient,
@@ -146,6 +168,12 @@ export class SessionResponder {
 export const RefreshCookie = createParamDecorator(
   (_data: unknown, host: ExecutionContext): string | null =>
     readCookie(requestOf(host), REFRESH_COOKIE),
+);
+
+/** Injects the console's Google nonce binding, or `null`. */
+export const GoogleNonceCookie = createParamDecorator(
+  (_data: unknown, host: ExecutionContext): string | null =>
+    readCookie(requestOf(host), GOOGLE_NONCE_COOKIE),
 );
 
 /** The HTTP status an error will be answered with, for the refresh cookie rule above. */

@@ -31,7 +31,7 @@ verify_token=$(mail_token "$email" 'Confirm your email')
 echo "✓ verification link read"
 
 step '2. verify, refresh, GET /users/me'
-call verify 204 -X POST "$BASE/auth/email/verify" "${console[@]}" -d "$(body --arg t "$verify_token" '{token: $t}')"
+call verify 200 -X POST "$BASE/auth/email/verify" "${console[@]}" -d "$(body --arg t "$verify_token" '{token: $t}')"
 call refresh 200 -X POST "$BASE/auth/refresh" "${console[@]}" -b "wf_rt=$refresh_token"
 access=$(cookie_value refresh wf_at)
 call me 200 "$BASE/users/me" "${console[@]}" -b "wf_at=$access"

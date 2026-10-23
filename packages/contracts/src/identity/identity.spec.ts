@@ -88,5 +88,11 @@ describe('accountLink', () => {
     expect(accountLink('https://app.example.com', 'verifyEmail')).toBe(
       'https://app.example.com/verify-email',
     );
+    expect(accountLink('https://c.example.com', 'cancelRecovery', 'tok', 'case-1')).toBe(
+      'https://c.example.com/recovery/cancel#token=tok&id=case-1',
+    );
+    expect(accountLink('https://c.example.com', 'cancelRecovery', undefined, 'case-1')).toBe(
+      'https://c.example.com/recovery/cancel#id=case-1',
+    );
   });
 });

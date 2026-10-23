@@ -102,7 +102,7 @@ cookie_value owner-register wf_at >"$work/owner.at"
 cookie_value owner-register wf_rt >"$work/owner.rt"
 owner_id=$(json owner-register .data.user.id)
 verify_token=$(mail_token "$(email_of owner)" 'Confirm your email')
-call owner-verify 204 -X POST "$BASE/auth/email/verify" "${console[@]}" -d "$(body --arg t "$verify_token" '{token: $t}')"
+call owner-verify 200 -X POST "$BASE/auth/email/verify" "${console[@]}" -d "$(body --arg t "$verify_token" '{token: $t}')"
 refresh owner
 call owner-apply 201 -X POST "$BASE/owner/registration" "${console[@]}" -b "$(as owner)" \
   -d '{"businessName":"Quán thử billing","businessAddress":"12 Lê Lợi, Quận 1","contactName":"An","contactPhone":"+84901234567","nationalId":"079201001234","ownerAgreementVersion":"2026-09-01"}'

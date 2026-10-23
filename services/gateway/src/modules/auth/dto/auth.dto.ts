@@ -6,6 +6,7 @@ import {
   MAX_REFRESH_TOKEN_LENGTH,
   MIN_PASSWORD_LENGTH,
   zEmail,
+  loginBodySchema,
   zLanguage,
 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -24,14 +25,6 @@ export const registerBodySchema = z
 
 /** Validated `POST /auth/register` body. */
 export class RegisterDto extends createZodDto(registerBodySchema) {}
-
-/** `POST /auth/login` body. A short password is simply wrong — only the upper bound is checked. */
-export const loginBodySchema = z
-  .object({
-    email: zEmail,
-    password: z.string().min(1).max(MAX_PASSWORD_LENGTH),
-  })
-  .strict();
 
 /** Validated `POST /auth/login` body. */
 export class LoginDto extends createZodDto(loginBodySchema) {}

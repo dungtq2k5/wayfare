@@ -9,3 +9,4 @@ export * from './owner-registration';
 export * from './revocation';
 export * from './role-code';
 export * from './its-you';
+export * from './forms';

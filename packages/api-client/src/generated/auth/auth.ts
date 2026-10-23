@@ -552,7 +552,7 @@ export const useAuthClaimDevice = <TError = unknown,
 }
 
 /**
- * @summary A nonce for this device, which the next Google ID token must carry (5 minutes, once).
+ * @summary A nonce the next Google ID token must carry (5 minutes, once): for this device, or — for the console, which has none — for the `wf_gn` cookie this sets.
  */
 export const authGoogleNonce = async ( options?: Parameters<typeof apiFetch>[1]): Promise<AuthGoogleNonce200> => {
 
@@ -604,7 +604,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
     /**
- * @summary A nonce for this device, which the next Google ID token must carry (5 minutes, once).
+ * @summary A nonce the next Google ID token must carry (5 minutes, once): for this device, or — for the console, which has none — for the `wf_gn` cookie this sets.
  */
 export const useAuthGoogleNonce = <TError = unknown,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleNonce>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}

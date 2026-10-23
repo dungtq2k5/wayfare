@@ -29,6 +29,8 @@ import type { DeliveryPolicy } from './domain/recipient-policy';
 export interface EmailLink {
   readonly path: AccountLinkPath;
   readonly token?: string;
+  /** The case the page acts on, where its route needs one. */
+  readonly id?: string;
 }
 
 /** Who a mail is for. A user recipient may override the address; the locale stays theirs. */
@@ -173,7 +175,7 @@ export class EmailService {
       const to = deliveryAddress(this.policy, pending.address);
       const links: Partial<Record<EmailLinkSlot, string>> = {};
       for (const [slot, link] of Object.entries(pending.links) as [EmailLinkSlot, EmailLink][]) {
-        links[slot] = accountLink(pending.linkBase, link.path, link.token);
+        links[slot] = accountLink(pending.linkBase, link.path, link.token, link.id);
       }
       const rendered = renderEmail(pending.template, pending.locale, pending.data as never, links);
       // A redirected copy says who it was meant for — masked, and only ever to the team.
