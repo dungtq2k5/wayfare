@@ -8,10 +8,13 @@ import type { AdminSubmissionResponseDtoConflict } from './adminSubmissionRespon
 import type { AdminSubmissionResponseDtoDiffItem } from './adminSubmissionResponseDtoDiffItem.js';
 import type { AdminSubmissionResponseDtoEntitlements } from './adminSubmissionResponseDtoEntitlements.js';
 import type { AdminSubmissionResponseDtoLivePlace } from './adminSubmissionResponseDtoLivePlace.js';
+import type { AdminSubmissionResponseDtoOwner } from './adminSubmissionResponseDtoOwner.js';
 import type { AdminSubmissionResponseDtoSubmission } from './adminSubmissionResponseDtoSubmission.js';
+import type { AdminSubmissionResponseDtoUploadPreviews } from './adminSubmissionResponseDtoUploadPreviews.js';
 
 export interface AdminSubmissionResponseDto {
   submission: AdminSubmissionResponseDtoSubmission;
+  owner: AdminSubmissionResponseDtoOwner;
   /** @nullable */
   internalNote: string | null;
   /** @nullable */
@@ -20,4 +23,5 @@ export interface AdminSubmissionResponseDto {
   diff: AdminSubmissionResponseDtoDiffItem[];
   entitlements: AdminSubmissionResponseDtoEntitlements;
   conflict: AdminSubmissionResponseDtoConflict;
+  uploadPreviews: AdminSubmissionResponseDtoUploadPreviews;
 }

@@ -10,6 +10,7 @@ import {
   zPhotoView,
   zUuidV7,
 } from '@wayfare/contracts';
+import { ownerContactSchema } from '../../identity/dto/owner-contact.dto';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -107,13 +108,24 @@ export const adminPlaceResponseSchema = z.object({
   ),
   openingHours: z.array(zOpeningHoursRow),
   activationMissing: z.array(zGateMissing),
-  /** Synthesis jobs and submission history join when narration and owner submissions exist. */
-  synthesisJobs: z.array(z.never()),
+  /** Submission history joins when the Place page shows it. */
   submissions: z.array(z.never()),
 });
 
 /** A Place in full. */
 export class AdminPlaceResponseDto extends createZodDto(adminPlaceResponseSchema) {}
+
+/**
+ * `GET /admin/places/:id`: the Place, and for a Venue its owner — named here because a content
+ * moderator holds no `user.read` (api-endpoints-plan §3.5). `null` for an Editorial Place, and for
+ * an owner identity cannot name (erased, or identity unreachable).
+ */
+export const adminPlaceDetailResponseSchema = adminPlaceResponseSchema.extend({
+  owner: ownerContactSchema,
+});
+
+/** One Place, as a staff member's page reads it. */
+export class AdminPlaceDetailResponseDto extends createZodDto(adminPlaceDetailResponseSchema) {}
 
 /** `{ place }` — what the Place writes return. */
 export const adminPlaceResultResponseSchema = z.object({ place: adminPlaceResponseSchema });

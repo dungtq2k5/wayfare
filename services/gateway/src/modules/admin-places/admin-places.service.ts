@@ -4,6 +4,7 @@ import { Paged } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import type { Env } from '../../config/env.schema';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
+import { IdentityService } from '../identity/identity.service';
 import {
   toActivationResultResponseDto,
   toAdminPlaceListItemResponseDto,
@@ -17,8 +18,8 @@ import {
 } from './admin-place.mapper';
 import type {
   ActivationResultResponseDto,
+  AdminPlaceDetailResponseDto,
   AdminPlaceListItemResponseDto,
-  AdminPlaceResponseDto,
   AdminPlaceResultResponseDto,
 } from './dto/admin-place-response.dto';
 import type {
@@ -43,6 +44,7 @@ export class AdminPlacesService {
 
   constructor(
     private readonly catalog: CatalogServiceGrpcClient,
+    private readonly identity: IdentityService,
     config: ConfigService<Env, true>,
   ) {
     this.qrBaseUrl = config.get('PUBLIC_QR_BASE_URL', { infer: true });
@@ -66,9 +68,10 @@ export class AdminPlacesService {
     );
   }
 
-  async get(context: AccountContext, placeId: string): Promise<AdminPlaceResponseDto> {
+  async get(context: AccountContext, placeId: string): Promise<AdminPlaceDetailResponseDto> {
     const response = await this.catalog.placeAdmin.call('getPlaceAdmin', { placeId }, context);
-    return toAdminPlaceResponseDto(response.place);
+    const place = toAdminPlaceResponseDto(response.place);
+    return { ...place, owner: await this.identity.ownerContact(context, place.ownerUserId) };
   }
 
   async create(context: AccountContext, body: CreatePlaceDto): Result {

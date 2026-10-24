@@ -74,6 +74,7 @@ export function synthesisTaskFixture(overrides: Partial<SynthesisTask> = {}): Sy
     failureReason: undefined,
     providerWaits: 0,
     nextAttemptAt: undefined,
+    providerDownSince: undefined,
     ...overrides,
   };
 }

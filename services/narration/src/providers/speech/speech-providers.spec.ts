@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NARRATION_VOICES, voiceFor } from '../../config/voices';
 import { withVoice } from './edge.speech-provider';
+import { isUnreachable } from '../provider-chain';
 import { FakeSpeechProvider, silentMp3 } from './fake.speech-provider';
 import { GoogleSpeechProvider } from './google.speech-provider';
 import type { GoogleSpeechClient } from './google.speech-provider';
@@ -34,6 +35,17 @@ describe('FakeSpeechProvider', () => {
         voice: { id: 'v', languageCode: 'en' },
       }),
     ).rejects.toThrow();
+  });
+
+  it('out of reach, fails with a network code the chain reads as an outage', async () => {
+    const failure = await new FakeSpeechProvider('unreachable')
+      .synthesize({ ssml: 'x', voice: { id: 'v', languageCode: 'en' } })
+      .catch((error: unknown) => error);
+    expect(isUnreachable(failure)).toBe(true);
+    const refused = await new FakeSpeechProvider(true)
+      .synthesize({ ssml: 'x', voice: { id: 'v', languageCode: 'en' } })
+      .catch((error: unknown) => error);
+    expect(isUnreachable(refused)).toBe(false);
   });
 });
 

@@ -313,6 +313,28 @@ describe('GET /categories and /areas', () => {
       mapPack: null,
       datasetVersion: 42,
     });
+    // A published pack names its styles, for a web map.
+    gateway.catalog.placeQueries.handlers.listAreas = () =>
+      Promise.resolve({
+        areas: [
+          {
+            ...areaFixture(),
+            mapPack: {
+              version: 3,
+              bytes: '1024',
+              styleUrl: 'http://localhost:4443/media/maps/hcmc-d1-core/abc/style.json',
+              styleDarkUrl: 'http://localhost:4443/media/maps/hcmc-d1-core/abc/style-dark.json',
+            },
+          },
+        ],
+      });
+    const withPack = await request(server()).get('/api/v1/areas').set('X-Wayfare-Client', 'web');
+    expect(withPack.body.data[0].mapPack).toEqual({
+      version: 3,
+      bytes: 1024,
+      style: 'http://localhost:4443/media/maps/hcmc-d1-core/abc/style.json',
+      styleDark: 'http://localhost:4443/media/maps/hcmc-d1-core/abc/style-dark.json',
+    });
   });
 });
 
@@ -415,9 +437,29 @@ describe('/admin/places', () => {
       ownerUserId: null,
       publishedAt: null,
       activationMissing: ['en.text', 'en.audio'],
-      synthesisJobs: [],
       submissions: [],
+      // An Editorial Place has no owner to name.
+      owner: null,
     });
+    expect(detail.body.data).not.toHaveProperty('synthesisJobs');
+  });
+
+  it("names a Venue's owner, composed from identity, for any reader of the Place", async () => {
+    const ownerUserId = newId();
+    gateway.catalog.placeAdmin.handlers.getPlaceAdmin = () =>
+      Promise.resolve({ place: adminPlaceFixture({ ownerUserId }) });
+    gateway.identity.owner.handlers.getOwnerContact = () =>
+      Promise.resolve({ fullName: 'Minh Tran', email: 'minh@example.com' });
+    const detail = await console_('get', `/admin/places/${placeId}`, ['place.read']);
+    expect(detail.status).toBe(200);
+    expect(detail.body.data.owner).toEqual({ name: 'Minh Tran', email: 'minh@example.com' });
+    expect(gateway.identity.owner.calls.at(-1)?.request).toEqual({ userId: ownerUserId });
+    // Identity not answering leaves the name out, never the Place.
+    gateway.identity.owner.handlers.getOwnerContact = () =>
+      Promise.reject(serviceError(status.UNAVAILABLE, {}));
+    const degraded = await console_('get', `/admin/places/${placeId}`, ['place.read']);
+    expect(degraded.status).toBe(200);
+    expect(degraded.body.data.owner).toBeNull();
   });
 
   it('creates with the editorial values and refuses them on a content edit', async () => {

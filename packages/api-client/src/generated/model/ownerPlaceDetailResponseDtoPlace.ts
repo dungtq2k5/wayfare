@@ -72,6 +72,5 @@ export type OwnerPlaceDetailResponseDtoPlace = {
   menuItems: OwnerPlaceDetailResponseDtoPlaceMenuItemsItem[];
   openingHours: OwnerPlaceDetailResponseDtoPlaceOpeningHoursItem[];
   activationMissing: OwnerPlaceDetailResponseDtoPlaceActivationMissingItem[];
-  synthesisJobs: unknown[];
   submissions: unknown[];
 };

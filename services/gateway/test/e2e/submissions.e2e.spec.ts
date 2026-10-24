@@ -133,6 +133,7 @@ describe('/owner/submissions', () => {
 
 describe('/admin/submissions', () => {
   it('shows the reviewer the live Venue, the diff, the plan and the conflict', async () => {
+    const uploadId = newId();
     const view: catalogGrpc.SubmissionAdmin = {
       submission: submission({ kind: submissionKindProto.toProto(SubmissionKind.UPDATE) }),
       internalNote: 'checked',
@@ -140,17 +141,43 @@ describe('/admin/submissions', () => {
       diffJson: JSON.stringify([{ field: 'phone', before: null, after: '+84901234567' }]),
       entitlementsJson: JSON.stringify(FREE_PLAN_GRANTS),
       conflictChangedFields: ['phone'],
+      conflictBaseValuesJson: JSON.stringify({ phone: '+84283829000' }),
+      uploadPreviewsJson: JSON.stringify({ [uploadId]: 'https://media.example/thumb.webp' }),
     };
     gateway.catalog.submissionReview.handlers.getSubmission = () =>
       Promise.resolve({ submission: view });
+    gateway.identity.owner.handlers.getOwnerContact = () =>
+      Promise.resolve({ fullName: 'Minh Tran', email: 'minh@example.com' });
     const res = await call('get', `/admin/submissions/${newId()}`, staff(['submission.read']));
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({
       internalNote: 'checked',
       diff: [{ field: 'phone', before: null, after: '+84901234567' }],
       entitlements: { maxPlaces: 1 },
-      conflict: { changedFields: ['phone'] },
+      // The *When sent* value of each field someone else changed since.
+      conflict: { changedFields: ['phone'], baseValues: { phone: '+84283829000' } },
       livePlace: { id: view.livePlace!.id },
+      uploadPreviews: { [uploadId]: 'https://media.example/thumb.webp' },
+      // Named for a reviewer who holds no `user.read`.
+      owner: { name: 'Minh Tran', email: 'minh@example.com' },
+    });
+    gateway.catalog.submissionReview.handlers.listSubmissions = () =>
+      Promise.resolve({
+        submissions: [
+          {
+            submission: view.submission!,
+            changedFields: ['phone'],
+            conflictChangedFields: ['phone'],
+          },
+        ],
+        page: { page: 1, pageSize: 20, total: 1 },
+      });
+    const queue = await call('get', '/admin/submissions', staff(['submission.read']));
+    // The queue names the owner, what changes, and *Changed since sent*.
+    expect(queue.body.data[0]).toMatchObject({
+      owner: { name: 'Minh Tran', email: 'minh@example.com' },
+      changedFields: ['phone'],
+      conflictChangedFields: ['phone'],
     });
     expect((await call('get', `/admin/submissions/${newId()}`, owner())).status).toBe(403);
   });

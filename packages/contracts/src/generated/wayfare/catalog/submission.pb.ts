@@ -62,6 +62,13 @@ export interface SubmissionAdmin {
   entitlementsJson?: string | undefined;
   /** The owner-editable fields someone else changed since the submission. */
   conflictChangedFields: string[];
+  /** Each of those fields' value when the submission was sent (its base), as a JSON object. */
+  conflictBaseValuesJson: string;
+  /**
+   * Each photo the owner uploaded for this submission, its thumbnail's public URL by upload id, as
+   * a JSON object: what the reviewer looks at before approving.
+   */
+  uploadPreviewsJson: string;
 }
 
 export interface CreateSubmissionRequest {
@@ -109,9 +116,19 @@ export interface ListSubmissionsRequest {
   areaId?: string | undefined;
 }
 
+/**
+ * A row of the review queue: the submission, the fields it changes, and those someone else changed
+ * since it was sent.
+ */
+export interface QueuedSubmission {
+  submission: Submission | undefined;
+  changedFields: string[];
+  conflictChangedFields: string[];
+}
+
 export interface ListSubmissionsResponse {
-  submissions: Submission[];
   page: PageNumberMeta | undefined;
+  submissions: QueuedSubmission[];
 }
 
 export interface GetSubmissionRequest {

@@ -16,4 +16,6 @@ export type AreaResponseDtoMapPack = {
      * @maximum 9007199254740991
      */
   bytes: number;
+  style: string;
+  styleDark: string | null;
 } | null;

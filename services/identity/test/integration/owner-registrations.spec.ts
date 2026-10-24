@@ -301,18 +301,34 @@ describe('the review queue', () => {
   it('reveals the number with an audit row that does not hold it', async () => {
     const id = await apply();
     const admin = (await staffAccount(prisma, [SystemRole.ADMIN])).context;
-    expect(await services.ownerReview.revealNationalId({ registrationId: id }, admin)).toEqual({
-      nationalId: NATIONAL_ID,
-    });
-    await services.ownerReview.revealNationalId({ registrationId: id }, admin);
+    const reason = 'Matching the ID card the owner sent by mail.';
+    expect(
+      await services.ownerReview.revealNationalId({ registrationId: id, reason }, admin),
+    ).toEqual({ nationalId: NATIONAL_ID });
+    await services.ownerReview.revealNationalId(
+      { registrationId: id, reason: 'A second look at the last digits.' },
+      admin,
+    );
     const revealed = await audits(AuditAction.OWNER_NATIONAL_ID_REVEALED);
     expect(revealed).toHaveLength(2);
+    // Each reveal keeps its own reason; neither row holds the number.
     expect(revealed[0]).toMatchObject({
       actor: { type: 'USER', userId: admin.userId },
       resource: { type: 'OWNER_REGISTRATION', id },
-      metadata: {},
+      metadata: { reason },
     });
     expect(JSON.stringify(revealed)).not.toContain(NATIONAL_ID);
+    // No reason, or one too short to say anything, reveals nothing.
+    for (const bad of ['', 'because']) {
+      expect(
+        (
+          await errorOf(
+            services.ownerReview.revealNationalId({ registrationId: id, reason: bad }, admin),
+          )
+        ).code,
+      ).toBe('VALIDATION_FAILED');
+    }
+    expect(await audits(AuditAction.OWNER_NATIONAL_ID_REVEALED)).toHaveLength(2);
   });
 });
 
@@ -502,8 +518,14 @@ describe('owner-pii-redact', () => {
     expect(await job.run(now)).toEqual({ redacted: 0 });
     const admin = (await staffAccount(prisma, [SystemRole.ADMIN])).context;
     expect(
-      (await errorOf(services.ownerReview.revealNationalId({ registrationId: due[0]! }, admin)))
-        .code,
+      (
+        await errorOf(
+          services.ownerReview.revealNationalId(
+            { registrationId: due[0]!, reason: 'Checking a redacted application.' },
+            admin,
+          ),
+        )
+      ).code,
     ).toBe('NATIONAL_ID_REDACTED');
     const { registration } = await services.ownerReview.getRegistration(
       { registrationId: due[0]! },
@@ -580,5 +602,25 @@ describe('listVerifiedOwnerIds', () => {
     });
     expect(second.ownerUserIds).toEqual(sorted.slice(2));
     expect(second.page).toEqual({});
+  });
+});
+
+describe('getOwnerContact', () => {
+  it("names a Venue's owner for a staff page, and nobody for an erased or unknown account", async () => {
+    const owner = await person({ ownerVerifiedAt: new Date() });
+    await prisma.user.update({ where: { id: owner.userId }, data: { fullName: 'Minh Tran' } });
+    const { email } = await prisma.user.findUniqueOrThrow({ where: { id: owner.userId } });
+    expect(await services.registrations.getOwnerContact({ userId: owner.userId })).toEqual({
+      fullName: 'Minh Tran',
+      email,
+    });
+    const now = new Date();
+    const erased = await person({ ownerVerifiedAt: now, deletedAt: now, erasedAt: now });
+    expect(await services.registrations.getOwnerContact({ userId: erased.userId })).toEqual({});
+    expect(
+      await services.registrations.getOwnerContact({
+        userId: '0190a0b0-0000-7000-8000-000000000000',
+      }),
+    ).toEqual({});
   });
 });

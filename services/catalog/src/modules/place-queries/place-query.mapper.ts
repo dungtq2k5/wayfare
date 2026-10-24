@@ -309,7 +309,12 @@ export function toCategory(row: CategoryRow): catalogGrpc.Category {
 export function toArea(
   row: AreaRow,
   datasetVersion: bigint,
-  mapPack: { readonly version: number; readonly bytes: number } | null,
+  mapPack: {
+    readonly version: number;
+    readonly bytes: number;
+    readonly styleUrl: string;
+    readonly styleDarkUrl: string | null;
+  } | null,
 ): catalogGrpc.Area {
   return {
     id: row.id,
@@ -321,6 +326,13 @@ export function toArea(
     sortOrder: row.sortOrder,
     datasetVersion: datasetVersion.toString(),
     mapPack:
-      mapPack === null ? undefined : { version: mapPack.version, bytes: String(mapPack.bytes) },
+      mapPack === null
+        ? undefined
+        : {
+            version: mapPack.version,
+            bytes: String(mapPack.bytes),
+            styleUrl: mapPack.styleUrl,
+            ...(mapPack.styleDarkUrl === null ? {} : { styleDarkUrl: mapPack.styleDarkUrl }),
+          },
   };
 }

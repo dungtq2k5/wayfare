@@ -199,4 +199,8 @@ message Area {
 message AreaMapPack {
   int32 version = 1;
   int64 bytes = 2;
+  // The pack's styles, as public URLs: a web map draws them with the pmtiles protocol.
+  string style_url = 3;
+  // Absent for a pack built before the dark flavour.
+  optional string style_dark_url = 4;
 }

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { isGrpcServiceError, readGrpcErrorInfo, SYSTEM_ORIGIN } from '@wayfare/nest-common';
-import type { TokenCutoffSource } from '@wayfare/nest-common';
+import type { AccountContext, TokenCutoffSource } from '@wayfare/nest-common';
+import type { z } from 'zod';
+import type { ownerContactSchema } from './dto/owner-contact.dto';
 import { IdentityServiceGrpcClient } from './identity-service-grpc.client';
 
 /** How long the revocation check waits for identity on a cache miss (api-endpoints-plan §12.2). */
@@ -28,6 +30,22 @@ export class IdentityService implements TokenCutoffSource {
       if (isGrpcServiceError(error) && readGrpcErrorInfo(error)?.code === 'RESOURCE_NOT_FOUND')
         return 'not-found';
       throw error;
+    }
+  }
+
+  /** A Venue owner's contact; identity not answering leaves a page without the name, never failing it. */
+  async ownerContact(
+    context: AccountContext,
+    userId: string | null,
+  ): Promise<z.infer<typeof ownerContactSchema>> {
+    if (userId === null) return null;
+    try {
+      const contact = await this.identity.owner.call('getOwnerContact', { userId }, context);
+      return contact.email == null
+        ? null
+        : { name: contact.fullName ?? null, email: contact.email };
+    } catch {
+      return null;
     }
   }
 }

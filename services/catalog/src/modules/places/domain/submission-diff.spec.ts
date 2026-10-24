@@ -1,7 +1,7 @@
 import { MenuCurrency } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import { editableHash } from './editable-hash';
-import { changedFields, submissionDiff } from './submission-diff';
+import { baseValuesOf, changedFields, submissionDiff } from './submission-diff';
 import type { EditableSnapshot } from './submission-diff';
 
 const base: EditableSnapshot = {
@@ -28,6 +28,17 @@ describe('submission diff', () => {
       { field: 'descriptionVi', before: 'Mô tả.', after: 'Mới.' },
       { field: 'phone', before: '+84901234567', after: '+84999999999' },
     ]);
+  });
+
+  it("gives a conflict's values when the submission was sent", () => {
+    // An admin edited the address and the hours after the owner sent their change.
+    const live = { ...base, addressVi: '12 Lê Lợi', openingHours: [] };
+    const conflict = changedFields(base, live);
+    expect(baseValuesOf(base, conflict)).toEqual({
+      addressVi: null,
+      openingHours: base.openingHours,
+    });
+    expect(baseValuesOf(base, [])).toEqual({});
   });
 
   it('shows every field of a creation, from nothing', () => {

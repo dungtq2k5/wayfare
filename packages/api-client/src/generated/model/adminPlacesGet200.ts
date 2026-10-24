@@ -4,8 +4,8 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
-import type { AdminPlaceResponseDto } from './adminPlaceResponseDto.js';
+import type { AdminPlaceDetailResponseDto } from './adminPlaceDetailResponseDto.js';
 
 export type AdminPlacesGet200 = {
-  data: AdminPlaceResponseDto;
+  data: AdminPlaceDetailResponseDto;
 };

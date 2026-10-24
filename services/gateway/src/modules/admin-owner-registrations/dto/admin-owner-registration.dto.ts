@@ -2,6 +2,7 @@ import {
   zApproveRegistrationInput,
   zOwnerRegistrationQueueQuery,
   zRejectRegistrationInput,
+  zRevealNationalIdInput,
   zUuidV7,
 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -21,3 +22,6 @@ export class ApproveRegistrationDto extends createZodDto(zApproveRegistrationInp
 
 /** Validated `POST …/reject` body: `decisionNote` is required. */
 export class RejectRegistrationDto extends createZodDto(zRejectRegistrationInput) {}
+
+/** Validated `POST …/national-id/reveal` body: why the number is needed. */
+export class RevealNationalIdDto extends createZodDto(zRevealNationalIdInput) {}

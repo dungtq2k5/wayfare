@@ -4,10 +4,10 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { AdminSubmissionListItemResponseDto } from './adminSubmissionListItemResponseDto.js';
 import type { PageMeta } from './pageMeta.js';
-import type { SubmissionResponseDto } from './submissionResponseDto.js';
 
 export type AdminSubmissionsList200 = {
-  data: SubmissionResponseDto[];
+  data: AdminSubmissionListItemResponseDto[];
   meta: PageMeta;
 };

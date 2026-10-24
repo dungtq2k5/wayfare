@@ -12,6 +12,8 @@ import {
   MAX_CONTACT_NAME_LENGTH,
   MAX_POLICY_VERSION_LENGTH,
   MAX_REGISTRATION_NOTE_LENGTH,
+  MAX_REVEAL_REASON_LENGTH,
+  MIN_REVEAL_REASON_LENGTH,
 } from './limits';
 
 const zInstant = z.iso.datetime({ offset: true });
@@ -164,6 +166,19 @@ export const zRejectRegistrationInput = z
   .object({
     decisionNote: zDecisionNoteInput,
     internalNote: zInternalNoteInput.optional(),
+  })
+  .strict();
+
+/**
+ * `POST …/national-id/reveal` body: why the number is needed, kept in the reveal's audit row. Free
+ * text that must never hold the number itself (the audit log stays PII-free).
+ */
+export const zRevealNationalIdInput = z
+  .object({
+    reason: z
+      .string()
+      .transform(normalizeText)
+      .pipe(z.string().min(MIN_REVEAL_REASON_LENGTH).max(MAX_REVEAL_REASON_LENGTH)),
   })
   .strict();
 

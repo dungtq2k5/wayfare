@@ -134,8 +134,9 @@ grep -q 079201001234 "$work/detail.json" && fail 'the detail shows the full nati
 echo "✓ •••• $(json detail .data.nationalIdLast4), applicant $(json detail .data.applicant.email)"
 
 step '5. only an admin reveals the number, never cached, audited every time'
-call reveal-moderator 403 -X POST "$BASE/admin/owner-registrations/$reg_a/national-id/reveal" "${console[@]}" -b "$(as moderator)"
-call reveal 200 -X POST "$BASE/admin/owner-registrations/$reg_a/national-id/reveal" "${console[@]}" -b "$(as admin)"
+reveal_reason='{"reason":"Matching the ID card the owner sent by mail."}'
+call reveal-moderator 403 -X POST "$BASE/admin/owner-registrations/$reg_a/national-id/reveal" "${console[@]}" -b "$(as moderator)" -d "$reveal_reason"
+call reveal 200 -X POST "$BASE/admin/owner-registrations/$reg_a/national-id/reveal" "${console[@]}" -b "$(as admin)" -d "$reveal_reason"
 [[ $(json reveal .data.nationalId) == 079201001234 ]] || fail 'the revealed number is wrong'
 grep -qi '^cache-control: private, no-store' "$work/reveal.h" || fail 'reveal is cacheable'
 wait_for 'one OWNER_NATIONAL_ID_REVEALED audit row' 5 audited_at_least OWNER_NATIONAL_ID_REVEALED "$reg_a" 1

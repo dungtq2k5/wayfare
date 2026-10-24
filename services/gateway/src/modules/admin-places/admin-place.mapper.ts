@@ -121,7 +121,6 @@ export function toAdminPlaceResponseDto(
     })),
     openingHours: place.openingHours.map(toOpeningHoursRow),
     activationMissing: gateMissing(place.activationMissing),
-    synthesisJobs: [],
     submissions: [],
   };
 }

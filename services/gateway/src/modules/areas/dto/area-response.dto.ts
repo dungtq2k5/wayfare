@@ -15,8 +15,19 @@ export const areaResponseSchema = z.object({
   center: zGeoPoint,
   defaultZoom: z.number().int(),
   boundary: zGeoJsonPolygon,
-  /** The published map pack — `null` until map packs exist. */
-  mapPack: z.object({ version: z.number().int(), bytes: z.number().int() }).nullable(),
+  /**
+   * The published map pack — `null` without one. `style` and `styleDark` are its public style URLs,
+   * which a web map draws with the pmtiles protocol; `styleDark` is `null` for a pack built before
+   * the dark flavour.
+   */
+  mapPack: z
+    .object({
+      version: z.number().int(),
+      bytes: z.number().int(),
+      style: z.url(),
+      styleDark: z.url().nullable(),
+    })
+    .nullable(),
   /** The content version a first sync reaches. */
   datasetVersion: zDatasetVersion,
 });

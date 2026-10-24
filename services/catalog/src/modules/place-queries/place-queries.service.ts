@@ -21,7 +21,8 @@ import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env.schema';
-import { objectsOf, packBytes } from '../map-packs/domain/map-pack-objects';
+import { objectsOf, packBytes, partsOf } from '../map-packs/domain/map-pack-objects';
+import { mediaUrl } from '../places/domain/media-url';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
 import {
@@ -276,10 +277,18 @@ export class PlaceQueriesService {
       where: { areaId: { in: rows.map((row) => row.id) }, status: MapPackStatus.PUBLISHED },
     });
     const published = new Map(
-      packs.map((pack) => [
-        pack.areaId,
-        { version: pack.version, bytes: packBytes(objectsOf(pack)) },
-      ]),
+      packs.map((pack) => {
+        const { style, styleDark } = partsOf(pack);
+        return [
+          pack.areaId,
+          {
+            version: pack.version,
+            bytes: packBytes(objectsOf(pack)),
+            styleUrl: mediaUrl(this.mediaBase, style.path),
+            styleDarkUrl: styleDark === null ? null : mediaUrl(this.mediaBase, styleDark.path),
+          },
+        ];
+      }),
     );
     return { areas: rows.map((row) => toArea(row, cap, published.get(row.id) ?? null)) };
   }

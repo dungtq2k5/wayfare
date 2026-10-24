@@ -72,7 +72,12 @@ export const envSchema = z
             .map((kind) => kind.trim())
             .filter((kind) => kind !== ''),
         )
-        .pipe(z.array(z.enum(['translation', 'speech']))),
+        // `…-unreachable` answers with a network error: the chain's outage path (rdm-spec N-2).
+        .pipe(
+          z.array(
+            z.enum(['translation', 'speech', 'translation-unreachable', 'speech-unreachable']),
+          ),
+        ),
     ),
   })
   .superRefine((env, ctx) => {

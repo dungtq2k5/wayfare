@@ -116,6 +116,8 @@ export interface SynthesisTask {
   providerWaits: number;
   /** When a waiting task is tried next. */
   nextAttemptAt: Timestamp | undefined;
+  /** Since when no speech provider could be reached, while the task waits. */
+  providerDownSince: Timestamp | undefined;
 }
 
 export interface ListJobsRequest {

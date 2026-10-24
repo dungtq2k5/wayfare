@@ -1,5 +1,7 @@
 import type { Language } from '@wayfare/contracts';
 import { TranslationProvider } from './translation-provider';
+import { fakeFailureError } from '../fake-failure';
+import type { FakeFailure } from '../fake-failure';
 
 /**
  * The local and test default: `[<lang>] text`, and `vi` → `vi` unchanged. Deterministic and
@@ -8,7 +10,7 @@ import { TranslationProvider } from './translation-provider';
 export class FakeTranslationProvider extends TranslationProvider {
   readonly name = 'fake' as const;
 
-  constructor(private readonly failing = false) {
+  constructor(private readonly failing: FakeFailure = false) {
     super();
   }
 
@@ -17,7 +19,8 @@ export class FakeTranslationProvider extends TranslationProvider {
   }
 
   translate(input: { text: string; from: 'vi'; to: Language }): Promise<string> {
-    if (this.failing) return Promise.reject(new Error('fake translation failure'));
+    const failure = fakeFailureError('translation', this.failing);
+    if (failure !== null) return Promise.reject(failure);
     return Promise.resolve(input.to === 'vi' ? input.text : `[${input.to}] ${input.text}`);
   }
 }

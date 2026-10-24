@@ -13,6 +13,7 @@ import {
   zApproveRegistrationInput,
   zOwnerRegistrationQueueQuery,
   zRejectRegistrationInput,
+  zRevealNationalIdInput,
   zUuidV7,
 } from '@wayfare/contracts';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
@@ -52,6 +53,7 @@ const PENDING: string = OwnerRegistrationStatus.PENDING;
 const VENUE_OWNER: string = SystemRole.VENUE_OWNER;
 
 const registrationIdField = z.object({ registrationId: zUuidV7 });
+const revealFields = registrationIdField.extend(zRevealNationalIdInput.shape);
 
 /** Proto3 `optional` strings may arrive as `null`; the schema reads absent as `undefined`. */
 function present<T>(value: T | null | undefined): T | undefined {
@@ -176,7 +178,7 @@ export class OwnerReviewService {
     context: RequestContext,
   ): Promise<identityGrpc.RevealNationalIdResponse> {
     const actor = requireAccountContext(context);
-    const { registrationId } = parseRpcRequest(registrationIdField, request);
+    const { registrationId, reason } = parseRpcRequest(revealFields, request);
     const now = new Date();
     const stored = await this.prisma.$transaction(async (tx) => {
       const row = await tx.ownerRegistration.findUnique({
@@ -185,7 +187,9 @@ export class OwnerReviewService {
       });
       if (row === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'OWNER_REGISTRATION' });
       if (row.nationalIdCiphertext === null) throw rpcError('NATIONAL_ID_REDACTED');
-      await this.audit(tx, actor, AuditAction.OWNER_NATIONAL_ID_REVEALED, registrationId, now);
+      await this.audit(tx, actor, AuditAction.OWNER_NATIONAL_ID_REVEALED, registrationId, now, {
+        reason,
+      });
       return row.nationalIdCiphertext;
     });
     try {

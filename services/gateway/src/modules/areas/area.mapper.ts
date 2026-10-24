@@ -15,7 +15,12 @@ export function toAreaResponseDto(area: catalogGrpc.Area): AreaResponseDto {
     mapPack:
       area.mapPack === undefined || area.mapPack === null
         ? null
-        : { version: area.mapPack.version, bytes: Number(area.mapPack.bytes) },
+        : {
+            version: area.mapPack.version,
+            bytes: Number(area.mapPack.bytes),
+            style: area.mapPack.styleUrl,
+            styleDark: area.mapPack.styleDarkUrl ?? null,
+          },
     datasetVersion: datasetVersionFromWire(area.datasetVersion),
   };
 }

@@ -8,4 +8,5 @@ import type { AdminSubmissionResponseDtoConflictChangedFieldsItem } from './admi
 
 export type AdminSubmissionResponseDtoConflict = {
   changedFields: AdminSubmissionResponseDtoConflictChangedFieldsItem[];
+  baseValues: Partial<Record<'nameVi' | 'descriptionVi' | 'categoryCode' | 'location' | 'addressVi' | 'priceBand' | 'phone' | 'websiteUrl' | 'openingHours' | 'photos' | 'menu', unknown>>;
 };

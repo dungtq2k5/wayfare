@@ -136,6 +136,14 @@ describe('creating a submission', () => {
     expect(
       (await prisma.pendingUpload.findUniqueOrThrow({ where: { id: upload.id } })).consumedAt,
     ).toBeNull();
+    // The reviewer sees the new photo before approving.
+    const detail = await services.review.getSubmission(
+      { submissionId: submission!.id },
+      moderator(),
+    );
+    expect(JSON.parse(detail.submission!.uploadPreviewsJson)).toEqual({
+      [upload.id]: expect.stringMatching(new RegExp(`/photos/${upload.id}/thumb\\.webp$`)),
+    });
     const audits = await outboxPayloads(prisma, AUDIT_RECORD.subject);
     expect(audits).toEqual([
       expect.objectContaining({
@@ -431,6 +439,16 @@ describe('an UPDATE', () => {
       moderator(),
     );
     expect(detail.submission!.conflictChangedFields).toEqual(['phone']);
+    // The phone as the owner saw it when sending: the reviewer's *When sent* column.
+    expect(JSON.parse(detail.submission!.conflictBaseValuesJson)).toEqual({
+      phone: '+84901234567',
+    });
+    // The queue's row says what it changes and what changed since.
+    const queue = await services.review.listSubmissions({ page: undefined }, moderator());
+    expect(queue.submissions.find((row) => row.submission!.id === submission!.id)).toMatchObject({
+      changedFields: ['descriptionVi'],
+      conflictChangedFields: ['phone'],
+    });
     await approve(submission!.id, { acknowledgeConflict: true });
     const place = await prisma.place.findUniqueOrThrow({ where: { id: placeId } });
     expect(place).toMatchObject({ descriptionVi: 'Mới.', phone: '+84901234567' });

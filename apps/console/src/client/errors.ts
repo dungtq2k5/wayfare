@@ -9,17 +9,19 @@ export const codeOf = (error: unknown): string =>
 export const requestIdOf = (error: unknown): string | undefined =>
   error instanceof ApiError ? error.requestId : undefined;
 
+/** How many minutes a `429` says to wait, rounded up; 15 when it does not say. */
+export function retryMinutes(error: ApiError): number {
+  const seconds = Number(
+    (error.details as { retryAfterSeconds?: unknown } | undefined)?.retryAfterSeconds,
+  );
+  return Number.isFinite(seconds) ? Math.max(1, Math.ceil(seconds / 60)) : 15;
+}
+
 /** The sentence for a failure's code (handoff §5), the generic one for a code without its own. */
 export function errorText(error: unknown, { t, tDynamic }: Translator): string {
   if (!(error instanceof ApiError)) return t('error.generic');
-  if (error.code === 'RATE_LIMITED') {
-    const seconds = Number(
-      (error.details as { retryAfterSeconds?: unknown } | undefined)?.retryAfterSeconds,
-    );
-    return t('error.RATE_LIMITED', {
-      minutes: Number.isFinite(seconds) ? Math.max(1, Math.ceil(seconds / 60)) : 15,
-    });
-  }
+  if (error.code === 'RATE_LIMITED')
+    return t('error.RATE_LIMITED', { minutes: retryMinutes(error) });
   if (error.code === NETWORK_ERROR_CODE) return t('error.NETWORK_ERROR');
   return tDynamic(`error.${error.code}`);
 }

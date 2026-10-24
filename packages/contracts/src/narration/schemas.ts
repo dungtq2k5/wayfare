@@ -110,6 +110,8 @@ export const zSynthesisTaskView = z
     providerWaits: z.number().int().min(0),
     /** When a waiting task is tried next. */
     nextAttemptAt: zInstant.nullable(),
+    /** Since when no speech provider could be reached, while the task waits; `null` otherwise. */
+    providerDownSince: zInstant.nullable(),
     startedAt: zInstant.nullable(),
     finishedAt: zInstant.nullable(),
   })

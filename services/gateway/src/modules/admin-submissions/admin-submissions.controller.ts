@@ -10,13 +10,13 @@ import {
 } from '@wayfare/nest-common';
 import type { AccountContext, Paged } from '@wayfare/nest-common';
 import { ZodSerializerDto } from 'nestjs-zod';
-import {
-  SubmissionResponseDto,
-  SubmissionResultResponseDto,
-} from '../owner-submissions/dto/owner-submission-response.dto';
+import { SubmissionResultResponseDto } from '../owner-submissions/dto/owner-submission-response.dto';
 import { SubmissionIdParamDto } from '../owner-submissions/dto/owner-submission.dto';
 import { AdminSubmissionsService } from './admin-submissions.service';
-import { AdminSubmissionResponseDto } from './dto/admin-submission-response.dto';
+import {
+  AdminSubmissionListItemResponseDto,
+  AdminSubmissionResponseDto,
+} from './dto/admin-submission-response.dto';
 import {
   ApproveSubmissionDto,
   RejectSubmissionDto,
@@ -37,12 +37,12 @@ export class AdminSubmissionsController {
   @RequirePermission('submission.read')
   @NoStore()
   @ApiOperation({ summary: 'The review queue, oldest first.' })
-  @ApiEnvelope(SubmissionResponseDto, { list: 'page' })
-  @ZodSerializerDto(SubmissionResponseDto)
+  @ApiEnvelope(AdminSubmissionListItemResponseDto, { list: 'page' })
+  @ZodSerializerDto(AdminSubmissionListItemResponseDto)
   list(
     @Ctx() context: AccountContext,
     @Query() query: SubmissionQueueQueryDto,
-  ): Promise<Paged<SubmissionResponseDto>> {
+  ): Promise<Paged<AdminSubmissionListItemResponseDto>> {
     return this.submissions.list(context, query);
   }
 

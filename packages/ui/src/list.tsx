@@ -44,6 +44,7 @@ export function DataList<T>({
   sort,
   onSort,
   skeletonRows = 6,
+  rowClassName,
 }: {
   caption: string;
   columns: readonly Column[];
@@ -54,6 +55,8 @@ export function DataList<T>({
   sort?: Sort | undefined;
   onSort?: (sort: Sort) => void;
   skeletonRows?: number;
+  /** A row's own class: a row that just changed takes the accent fill, which fades (round 33). */
+  rowClassName?: (row: T) => string | undefined;
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -78,7 +81,7 @@ export function DataList<T>({
                 </tr>
               ))
             : rows.map((row) => (
-                <tr key={rowKey(row)} className="border-t border-border">
+                <tr key={rowKey(row)} className={cn('border-t border-border', rowClassName?.(row))}>
                   {columns.map((column) => (
                     <td key={column.key} className={cn('px-4 py-3 align-middle', column.className)}>
                       {cell(row, column.key)}
@@ -97,7 +100,7 @@ export function DataList<T>({
               </li>
             ))
           : rows.map((row) => (
-              <li key={rowKey(row)} className="p-4">
+              <li key={rowKey(row)} className={cn('p-4', rowClassName?.(row))}>
                 {card(row)}
               </li>
             ))}
@@ -119,8 +122,13 @@ function HeaderCell({
   const label =
     column.hiddenLabel === true ? <span className="sr-only">{column.label}</span> : column.label;
   if (column.sortable !== true || onSort === undefined) {
+    // A fixed order (a queue's oldest first) is still announced on its column.
     return (
-      <th scope="col" className="px-4 py-3 font-medium text-muted-foreground">
+      <th
+        scope="col"
+        aria-sort={active ? sort.direction : undefined}
+        className="px-4 py-3 font-medium text-muted-foreground"
+      >
         {label}
       </th>
     );
@@ -288,17 +296,23 @@ export function PageHeader({
   description,
   action,
   breadcrumb,
+  badges,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
   breadcrumb?: ReactNode;
+  /** Chips beside the title: a kind, a status. */
+  badges?: ReactNode;
 }) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1">
         {breadcrumb}
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+          {badges}
+        </div>
         {description === undefined ? null : (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}

@@ -230,6 +230,22 @@ export class OwnerRegistrationsService {
   }
 
   /**
+   * Who owns a Venue (api-endpoints-plan §3.5), for a staff member's Place page: the name and the
+   * address. Internal, answered for any caller context; an unknown or erased account names nobody.
+   */
+  async getOwnerContact(
+    request: identityGrpc.GetOwnerContactRequest,
+  ): Promise<identityGrpc.GetOwnerContactResponse> {
+    const { userId } = parseRpcRequest(ownerVerificationFields, request);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullName: true, email: true, erasedAt: true },
+    });
+    if (user === null || user.erasedAt !== null) return {};
+    return { email: user.email, ...(user.fullName === null ? {} : { fullName: user.fullName }) };
+  }
+
+  /**
    * Live, verified owner ids, keyset-paged on the id (api-endpoints-plan §12.2): billing's daily
    * reconcile pages every one, opening a `FREE` account for any id with none — the guarantee
    * behind `identity.owner.verified`, whose stream a retention window can outlive. Internal,

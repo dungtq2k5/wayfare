@@ -9,6 +9,7 @@ import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { z } from 'zod';
 import { toAdminPlaceResponseDto } from '../admin-places/admin-place.mapper';
 import { toSubmissionResponseDto } from '../owner-submissions/owner-submission.mapper';
+import { conflictBaseValuesSchema } from './dto/admin-submission-response.dto';
 import type { AdminSubmissionResponseDto } from './dto/admin-submission-response.dto';
 import type {
   ApproveSubmissionDto,
@@ -28,11 +29,19 @@ export function toAdminSubmissionResponseDto(
     submission: toSubmissionResponseDto(view.submission),
     internalNote: view.internalNote ?? null,
     reviewedById: view.reviewedById ?? null,
+    // Named by the service, from identity.
+    owner: null,
     livePlace: view.livePlace == null ? null : toAdminPlaceResponseDto(view.livePlace),
     diff: z.array(zSubmissionDiffEntry).parse(JSON.parse(view.diffJson)),
     entitlements:
       view.entitlementsJson == null ? null : zEntitlements.parse(JSON.parse(view.entitlementsJson)),
-    conflict: { changedFields: view.conflictChangedFields.filter(isEditableField) },
+    conflict: {
+      changedFields: view.conflictChangedFields.filter(isEditableField),
+      baseValues: conflictBaseValuesSchema.parse(JSON.parse(view.conflictBaseValuesJson || '{}')),
+    },
+    uploadPreviews: z
+      .record(z.string(), z.string())
+      .parse(JSON.parse(view.uploadPreviewsJson || '{}')),
   };
 }
 

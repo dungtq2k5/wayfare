@@ -202,6 +202,10 @@ export interface Area {
 export interface AreaMapPack {
   version: number;
   bytes: string;
+  /** The pack's styles, as public URLs: a web map draws them with the pmtiles protocol. */
+  styleUrl: string;
+  /** Absent for a pack built before the dark flavour. */
+  styleDarkUrl?: string | undefined;
 }
 
 export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';

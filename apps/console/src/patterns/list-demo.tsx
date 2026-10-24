@@ -1,21 +1,12 @@
 'use client';
 
 import { Button } from '@wayfare/ui/button';
-import {
-  DataList,
-  FilterButton,
-  LoadMore,
-  PageHeader,
-  Pagination,
-  SearchField,
-} from '@wayfare/ui/list';
+import { DataList, LoadMore, PageHeader, Pagination, SearchField } from '@wayfare/ui/list';
 import type { Sort } from '@wayfare/ui/list';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@wayfare/ui/menu';
 import { EmptyState } from '@wayfare/ui/states';
@@ -23,6 +14,7 @@ import { StatusBadge } from '@wayfare/ui/surfaces';
 import type { StatusTone } from '@wayfare/ui/surfaces';
 import { Ellipsis, MapPin, Plus, SearchX } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Filter } from '../components/filter';
 import { useConsole } from '../i18n/provider';
 import { relativeTime } from '../notifications/text';
 import { ErrorView } from '../states/states';
@@ -39,45 +31,6 @@ const STATUS_TONES: readonly StatusTone[] = [
   'approved',
   'rejected',
 ];
-
-/** A filter: its name, its value ("All" when unset), a menu of values. */
-function Filter({
-  name,
-  value,
-  options,
-  onChange,
-}: {
-  name: string;
-  value: string | null;
-  options: readonly { value: string; label: string }[];
-  onChange: (value: string | null) => void;
-}) {
-  const { t } = useConsole();
-  const all = '__all__';
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <FilterButton
-          name={name}
-          value={options.find((option) => option.value === value)?.label ?? t('places.all')}
-        />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuRadioGroup
-          value={value ?? all}
-          onValueChange={(next) => onChange(next === all ? null : next)}
-        >
-          <DropdownMenuRadioItem value={all}>{t('places.all')}</DropdownMenuRadioItem>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 /**
  * P1–P1c: the list page — title, its action, search and filters, the table with one sorted column,
@@ -189,6 +142,7 @@ export function ListDemo({ statusOf }: { statusOf: (place: SamplePlace) => Statu
           }}
         />
         <Filter
+          allLabel={t('places.all')}
           name={t('places.status')}
           value={status}
           options={STATUS_TONES.map((tone) => ({ value: tone, label: t(`status.${tone}`) }))}
@@ -198,6 +152,7 @@ export function ListDemo({ statusOf }: { statusOf: (place: SamplePlace) => Statu
           }}
         />
         <Filter
+          allLabel={t('places.all')}
           name={t('places.area')}
           value={area}
           options={SAMPLE_AREAS.map((value) => ({ value, label: value }))}
@@ -207,6 +162,7 @@ export function ListDemo({ statusOf }: { statusOf: (place: SamplePlace) => Statu
           }}
         />
         <Filter
+          allLabel={t('places.all')}
           name={t('places.category')}
           value={category}
           options={SAMPLE_CATEGORIES.map((value) => ({ value, label: value }))}

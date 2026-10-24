@@ -22,6 +22,8 @@ export function toSubmissionAdmin(
     readonly diff: readonly SubmissionDiffEntry[];
     readonly entitlements: Entitlements | null;
     readonly conflict: readonly string[];
+    readonly baseValues: Readonly<Record<string, unknown>>;
+    readonly uploadPreviews: Readonly<Record<string, string>>;
   },
 ): catalogGrpc.SubmissionAdmin {
   return {
@@ -33,5 +35,7 @@ export function toSubmissionAdmin(
     entitlementsJson:
       extras.entitlements === null ? undefined : JSON.stringify(extras.entitlements),
     conflictChangedFields: [...extras.conflict],
+    conflictBaseValuesJson: JSON.stringify(extras.baseValues),
+    uploadPreviewsJson: JSON.stringify(extras.uploadPreviews),
   };
 }

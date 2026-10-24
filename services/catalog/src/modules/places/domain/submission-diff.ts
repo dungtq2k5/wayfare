@@ -138,6 +138,17 @@ export function changedFields(
 }
 
 /**
+ * A conflict's values when the submission was sent (api-endpoints-plan §3.4): for each field
+ * someone else changed since, its base — the reviewer's *When sent* column.
+ */
+export function baseValuesOf(
+  base: EditableSnapshot,
+  fields: readonly SubmissionEditableField[],
+): Partial<Record<SubmissionEditableField, unknown>> {
+  return Object.fromEntries(fields.map((field) => [field, base[field]]));
+}
+
+/**
  * The reviewer's field-by-field diff (api-endpoints-plan §3.4): each field the submission changes,
  * from its base (nothing, for a creation) to what it asks for.
  */

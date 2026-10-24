@@ -4,6 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { owner, PASSWORD, verifiedUser } from './support/people';
 import {
   Actor,
   clearMail,
@@ -16,59 +17,11 @@ import {
 import type { Accounts } from './support/accounts';
 import { ACCOUNTS_FILE } from './support/accounts';
 
-const PASSWORD = 'console e2e password';
 /** The walks' local super admin (services/gateway/scripts), which may sign roles and staff in. */
 const SUPER_ADMIN = {
   email: process.env.BOOTSTRAP_SUPER_ADMIN_EMAIL ?? 'superadmin@wayfare.local',
   password: process.env.BOOTSTRAP_SUPER_ADMIN_PASSWORD ?? 'super admin pass 1',
 };
-const OWNER_AGREEMENT = '2026-09-01';
-
-async function verifiedUser(email: string): Promise<Actor> {
-  const actor = new Actor();
-  await actor.call('POST', '/auth/register', {
-    email,
-    password: PASSWORD,
-    preferredLocale: 'en',
-    termsVersion: '2026-09-01',
-  });
-  const { token } = await mailTo(email, /Confirm your email/);
-  await actor.call('POST', '/auth/email/verify', { token });
-  await actor.call('POST', '/auth/refresh', {});
-  return actor;
-}
-
-async function apply(actor: Actor, name: string): Promise<string> {
-  const { data } = await actor.call<{ data: { registration: { id: string } } }>(
-    'POST',
-    '/owner/registration',
-    {
-      businessName: name,
-      businessAddress: '12 Lê Lợi, Quận 1',
-      contactName: 'Nguyễn Văn An',
-      contactPhone: '+84901234567',
-      nationalId: '079 201 001 234',
-      ownerAgreementVersion: OWNER_AGREEMENT,
-    },
-  );
-  return data.registration.id;
-}
-
-/** A verified owner: registered, applied, approved (and, with `rejectFirst`, rejected once before). */
-async function owner(reviewer: Actor, email: string, rejectFirst: boolean): Promise<Actor> {
-  const actor = await verifiedUser(email);
-  if (rejectFirst) {
-    const first = await apply(actor, `Quán thử ${email}`);
-    await reviewer.call('POST', `/admin/owner-registrations/${first}/reject`, {
-      decisionNote: 'Please add the stall’s address.',
-    });
-  }
-  const id = await apply(actor, `Quán ${email}`);
-  await reviewer.call('POST', `/admin/owner-registrations/${id}/approve`, {
-    decisionNote: 'Welcome aboard.',
-  });
-  return actor;
-}
 
 const roleId = async (superAdmin: Actor, code: string) => {
   const { data } = await superAdmin.call<{
@@ -106,7 +59,7 @@ export default async function globalSetup(): Promise<void> {
 
   // C8a: an owner who is also a content moderator.
   const ownerStaffEmail = `owner-staff-${stamp}@example.com`;
-  await owner(admin, ownerStaffEmail, false);
+  await owner(admin, ownerStaffEmail);
   const { data: found } = await superAdmin.call<{
     data: { id: string; roles: { id: string }[] }[];
   }>('GET', `/admin/users?q=${encodeURIComponent(ownerStaffEmail)}`);
@@ -139,6 +92,24 @@ export default async function globalSetup(): Promise<void> {
     newPassword: PASSWORD,
   });
 
+  // L2m: a custom role that may read and edit Places, nothing more.
+  const { data: editorRole } = await superAdmin.call<{ data: { role: { id: string } } }>(
+    'POST',
+    '/admin/roles',
+    { name: `Place editor ${stamp}`, permissionCodes: ['place.read', 'place.update'] },
+  );
+  const editorEmail = `editor-${stamp}@example.com`;
+  await superAdmin.call('POST', '/admin/users', {
+    email: editorEmail,
+    fullName: 'Minh Tran',
+    roleIds: [editorRole.role.id],
+  });
+  const editorSetup = await mailTo(editorEmail, /console account is ready/);
+  await new Actor().call('POST', '/auth/password/reset', {
+    token: editorSetup.token,
+    newPassword: PASSWORD,
+  });
+
   // C17: an account whose mail bounced.
   const bouncedEmail = `bounced-${stamp}@example.com`;
   await verifiedUser(bouncedEmail);
@@ -150,6 +121,7 @@ export default async function globalSetup(): Promise<void> {
     owner: ownerEmail,
     ownerStaff: ownerStaffEmail,
     narrow: narrowEmail,
+    editor: editorEmail,
     bounced: bouncedEmail,
   };
   mkdirSync(resolve(ACCOUNTS_FILE, '..'), { recursive: true });

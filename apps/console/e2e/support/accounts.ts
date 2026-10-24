@@ -11,6 +11,8 @@ export interface Accounts {
   readonly owner: string;
   readonly ownerStaff: string;
   readonly narrow: string;
+  /** A custom role: `place.read` and `place.update` only (L2m). */
+  readonly editor: string;
   readonly bounced: string;
 }
 

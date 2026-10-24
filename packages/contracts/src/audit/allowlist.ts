@@ -39,7 +39,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<AuditAction, AuditMetadat
   [AuditAction.OWNER_REGISTRATION_REJECTED]: {
     after: ['status', 'hasDecisionNote', 'hasInternalNote'],
   },
-  [AuditAction.OWNER_NATIONAL_ID_REVEALED]: {},
+  // Why the number was needed; the reason never holds the number (api-endpoints-plan §1.5).
+  [AuditAction.OWNER_NATIONAL_ID_REVEALED]: { reason: true },
   [AuditAction.OWNER_PII_REDACTED]: {},
   [AuditAction.STAFF_USER_CREATED]: { after: ['roleCodes'] },
   [AuditAction.EMAIL_ADDRESS_CHECKED]: { after: ['matches'] },

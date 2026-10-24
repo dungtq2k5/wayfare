@@ -69,6 +69,11 @@ message SubmissionAdmin {
   optional string entitlements_json = 6;
   // The owner-editable fields someone else changed since the submission.
   repeated string conflict_changed_fields = 7;
+  // Each of those fields' value when the submission was sent (its base), as a JSON object.
+  string conflict_base_values_json = 8;
+  // Each photo the owner uploaded for this submission, its thumbnail's public URL by upload id, as
+  // a JSON object: what the reviewer looks at before approving.
+  string upload_previews_json = 9;
 }
 
 message CreateSubmissionRequest {
@@ -116,9 +121,18 @@ message ListSubmissionsRequest {
   optional string area_id = 4;
 }
 
+// A row of the review queue: the submission, the fields it changes, and those someone else changed
+// since it was sent.
+message QueuedSubmission {
+  Submission submission = 1;
+  repeated string changed_fields = 2;
+  repeated string conflict_changed_fields = 3;
+}
+
 message ListSubmissionsResponse {
-  repeated Submission submissions = 1;
+  reserved 1;
   wayfare.common.PageNumberMeta page = 2;
+  repeated QueuedSubmission submissions = 3;
 }
 
 message GetSubmissionRequest {

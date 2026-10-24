@@ -46,10 +46,14 @@ export class AdminOwnerRegistrationsService {
     return toOwnerRegistrationAdmin(response.registration);
   }
 
-  async reveal(context: AccountContext, registrationId: string): Promise<{ nationalId: string }> {
+  async reveal(
+    context: AccountContext,
+    registrationId: string,
+    reason: string,
+  ): Promise<{ nationalId: string }> {
     const response = await this.identity.ownerReview.call(
       'revealNationalId',
-      { registrationId },
+      { registrationId, reason },
       context,
     );
     return { nationalId: response.nationalId };

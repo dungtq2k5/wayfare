@@ -31,7 +31,8 @@ import type {
   AdminOwnerRegistrationsReject200,
   AdminOwnerRegistrationsReveal200,
   ApproveRegistrationDto,
-  RejectRegistrationDto
+  RejectRegistrationDto,
+  RevealNationalIdDto
 } from '../model';
 
 import { apiFetch } from '../../fetch.js';
@@ -276,16 +277,31 @@ export const getAdminOwnerRegistrationsRevealUrl = (id: string,) => {
 }
 
 /**
- * @summary Decrypt the national ID once. Every call writes an audit row; never cached.
+ * @summary Decrypt the national ID once, saying why. Every call writes an audit row with the reason; never cached.
  */
-export const adminOwnerRegistrationsReveal = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<AdminOwnerRegistrationsReveal200> => {
+export const adminOwnerRegistrationsReveal = async (id: string,
+    revealNationalIdDto: RevealNationalIdDto, options?: Parameters<typeof apiFetch>[1]): Promise<AdminOwnerRegistrationsReveal200> => {
 
-  return apiFetch<AdminOwnerRegistrationsReveal200>(getAdminOwnerRegistrationsRevealUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<AdminOwnerRegistrationsReveal200>(getAdminOwnerRegistrationsRevealUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(revealNationalIdDto)
   }
 );}
 
@@ -310,9 +326,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof adminOwnerRegistrationsReveal>>, AdminOwnerRegistrationsRevealMutationVariables> = (props) => {
-          const {id} = props ?? {};
+          const {id,data} = props ?? {};
 
-          return  adminOwnerRegistrationsReveal(id,requestOptions)
+          return  adminOwnerRegistrationsReveal(id,data,requestOptions)
         }
 
 
@@ -323,12 +339,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type AdminOwnerRegistrationsRevealMutationResult = NonNullable<Awaited<ReturnType<typeof adminOwnerRegistrationsReveal>>>
-
+    export type AdminOwnerRegistrationsRevealMutationBody = RevealNationalIdDto
     export type AdminOwnerRegistrationsRevealMutationError = unknown
-    export type AdminOwnerRegistrationsRevealMutationVariables = {id: string}
+    export type AdminOwnerRegistrationsRevealMutationVariables = {id: string;data: RevealNationalIdDto}
 
     /**
- * @summary Decrypt the national ID once. Every call writes an audit row; never cached.
+ * @summary Decrypt the national ID once, saying why. Every call writes an audit row with the reason; never cached.
  */
 export const useAdminOwnerRegistrationsReveal = <TError = unknown,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminOwnerRegistrationsReveal>>, TError,AdminOwnerRegistrationsRevealMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}

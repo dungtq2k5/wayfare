@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from './dialog';
-import { Field, Input, Textarea } from './field';
+import { Field, FormAlert, Input, Textarea } from './field';
 
 interface DialogLabels {
   cancel: string;
@@ -12,6 +12,8 @@ interface DialogLabels {
 }
 
 interface BaseProps {
+  /** A refusal said inside the dialog, which stays open (K8, K11). */
+  alert?: ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -30,12 +32,14 @@ export function ConfirmDialog({
   confirm,
   busy,
   labels,
+  alert,
   onConfirm,
 }: BaseProps & { onConfirm: () => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent closeLabel={labels.close}>
         <DialogHeader title={title} description={description} />
+        {alert === undefined || alert === null ? null : <FormAlert>{alert}</FormAlert>}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {labels.cancel}
@@ -58,6 +62,7 @@ export function DestructiveDialog({
   confirm,
   busy,
   labels,
+  alert,
   name,
   typeLabel,
   onConfirm,
@@ -83,6 +88,7 @@ export function DestructiveDialog({
             />
           )}
         </Field>
+        {alert === undefined || alert === null ? null : <FormAlert>{alert}</FormAlert>}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {labels.cancel}
@@ -105,6 +111,7 @@ export function ReasonDialog({
   confirm,
   busy,
   labels,
+  alert,
   noteLabel,
   noteHelp,
   minLength,
@@ -149,6 +156,7 @@ export function ReasonDialog({
             </>
           )}
         </Field>
+        {alert === undefined || alert === null ? null : <FormAlert>{alert}</FormAlert>}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {labels.cancel}

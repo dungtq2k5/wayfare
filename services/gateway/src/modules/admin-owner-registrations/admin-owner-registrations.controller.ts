@@ -22,6 +22,7 @@ import {
 import {
   ApproveRegistrationDto,
   OwnerRegistrationIdParamDto,
+  RevealNationalIdDto,
   OwnerRegistrationQueueQueryDto,
   RejectRegistrationDto,
 } from './dto/admin-owner-registration.dto';
@@ -71,7 +72,8 @@ export class AdminOwnerRegistrationsController {
   @RateLimit('PII_REVEAL')
   @NoStore()
   @ApiOperation({
-    summary: 'Decrypt the national ID once. Every call writes an audit row; never cached.',
+    summary:
+      'Decrypt the national ID once, saying why. Every call writes an audit row with the reason; never cached.',
   })
   @ApiEnvelope(RevealedNationalIdResponseDto)
   @ApiErrors('RESOURCE_NOT_FOUND', 'NATIONAL_ID_REDACTED')
@@ -79,8 +81,9 @@ export class AdminOwnerRegistrationsController {
   reveal(
     @Ctx() context: AccountContext,
     @Param() params: OwnerRegistrationIdParamDto,
+    @Body() body: RevealNationalIdDto,
   ): Promise<{ nationalId: string }> {
-    return this.registrations.reveal(context, params.id);
+    return this.registrations.reveal(context, params.id, body.reason);
   }
 
   @Post(':id/approve')

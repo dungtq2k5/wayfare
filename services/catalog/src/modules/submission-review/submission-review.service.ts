@@ -12,7 +12,7 @@ import {
   zSubmissionQueueQuery,
   zUuidV7,
 } from '@wayfare/contracts';
-import type { Entitlements } from '@wayfare/contracts';
+import type { Entitlements, SubmissionEditableField } from '@wayfare/contracts';
 import { submissionKindProto, submissionStatusProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import {
@@ -28,6 +28,7 @@ import { BillingPortService } from '../billing-port/billing-port.service';
 import { IdentityPortService } from '../identity-port/identity-port.service';
 import { submissionAuditRecord } from '../places/domain/place-audit';
 import {
+  baseValuesOf,
   changedFields,
   snapshotOfPayload,
   snapshotOfPlace,
@@ -48,6 +49,16 @@ const submissionIdField = z.object({ submissionId: zUuidV7 });
 /** A stored base, as `EditableSnapshot` wrote it. */
 const baseOf = (value: unknown): EditableSnapshot | null =>
   value === null || value === undefined ? null : (value as EditableSnapshot);
+
+/** The owner-editable fields someone else changed since a pending submission was sent. */
+const conflictOf = (
+  status: string,
+  base: EditableSnapshot | null,
+  live: Parameters<typeof snapshotOfPlace>[0] | null,
+): SubmissionEditableField[] =>
+  status === String(SubmissionStatus.PENDING) && base !== null && live !== null
+    ? changedFields(base, snapshotOfPlace(live))
+    : [];
 
 /**
  * The submission review queue (api-endpoints-plan §3.4, rdm-spec C-11). An approval reads billing
@@ -110,16 +121,37 @@ export class SubmissionReviewService {
     ]);
     const rows = await this.prisma.placeSubmission.findMany({
       where: { id: { in: ids.map((row) => row.id) } },
-      select: SUBMISSION_SELECT,
+      select: { ...SUBMISSION_SELECT, baseSnapshot: true },
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
-    return {
-      submissions: ids.flatMap(({ id }) => {
+    // ponytail: one Place read per pending update on the page (≤ 50); one batched read if it shows.
+    const queued = await Promise.all(
+      ids.flatMap(({ id }) => {
         const row = byId.get(id);
-        return row === undefined ? [] : [toSubmission(row)];
+        if (row === undefined) return [];
+        const base = baseOf(row.baseSnapshot);
+        return [
+          this.liveOf(row).then((live) => ({
+            submission: toSubmission(row),
+            changedFields: submissionDiff(base, snapshotOfPayload(readPayload(row))).map(
+              (entry) => entry.field,
+            ),
+            conflictChangedFields: conflictOf(row.status, base, live),
+          })),
+        ];
       }),
+    );
+    return {
+      submissions: queued,
       page: { page: query.page, pageSize: query.pageSize, total: counted[0]?.total ?? 0 },
     };
+  }
+
+  /** The Place an update changes, as it is now; `null` for a creation. */
+  private liveOf(row: { readonly placeId: string | null }) {
+    return row.placeId === null
+      ? Promise.resolve(null)
+      : this.places.placeView(this.prisma, row.placeId);
   }
 
   /**
@@ -140,24 +172,24 @@ export class SubmissionReviewService {
     if (row === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'SUBMISSION' });
     const payload = readPayload(row);
     const base = baseOf(row.baseSnapshot);
-    const live =
-      row.placeId === null ? null : await this.places.placeView(this.prisma, row.placeId);
+    const live = await this.liveOf(row);
     let grants: Entitlements | null = null;
     try {
       grants = await this.billing.getEntitlements(row.ownerUserId);
     } catch {
       this.logger.warn({ submissionId }, 'entitlements unavailable; the review page shows none');
     }
-    const conflict =
-      row.status === String(SubmissionStatus.PENDING) && base !== null && live !== null
-        ? changedFields(base, snapshotOfPlace(live))
-        : [];
+    const conflict = conflictOf(row.status, base, live);
     return {
       submission: toSubmissionAdmin(row, {
         livePlace: live,
         diff: submissionDiff(base, snapshotOfPayload(payload)),
         entitlements: grants,
         conflict,
+        baseValues: base === null ? {} : baseValuesOf(base, conflict),
+        uploadPreviews: await this.places.uploadPreviews(
+          payload.photos.flatMap((photo) => (photo.uploadId === undefined ? [] : [photo.uploadId])),
+        ),
       }),
     };
   }

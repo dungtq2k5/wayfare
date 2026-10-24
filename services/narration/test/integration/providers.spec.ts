@@ -131,6 +131,31 @@ class OfflineSpeech extends FakeSpeechProvider {
   }
 }
 
+describe('the unreachable fakes (FAKE_PROVIDER_FAILURES)', () => {
+  it('speech-unreachable makes a task wait without spending an attempt, and says since when', async () => {
+    const services = narrationServices(prisma, {
+      chains: configuredChains({
+        TRANSLATION_PROVIDER_ORDER: ['fake'],
+        TTS_PROVIDER_ORDER: ['fake'],
+        FAKE_PROVIDER_FAILURES: ['speech-unreachable'],
+      }),
+    });
+    const place = services.catalog.place();
+    const { job } = await services.jobs.createManualJob(manualRequest(place.id, ['en']), staff());
+    await services.tasks.run(services.queue.take()!.taskId);
+    const task = await prisma.synthesisTask.findFirstOrThrow();
+    expect(task).toMatchObject({
+      status: SynthesisTaskStatus.QUEUED,
+      providerWaits: 1,
+      failureReason: SynthesisFailureReason.PROVIDER_UNAVAILABLE,
+    });
+    expect(task.providerDownSince).not.toBeNull();
+    // The job's view carries it beside the reason, for "none could be reached since 14:05".
+    const view = await services.jobs.getJob({ jobId: job!.id }, staff());
+    expect(view.tasks[0]!.providerDownSince).toBeDefined();
+  });
+});
+
 describe('a speech provider that cannot be reached (rdm-spec N-2)', () => {
   const outage = () =>
     narrationServices(prisma, {

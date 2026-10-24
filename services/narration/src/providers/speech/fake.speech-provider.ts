@@ -1,5 +1,7 @@
 import { SpeechProvider } from './speech-provider';
 import type { VoiceSpec } from './speech-provider';
+import { fakeFailureError } from '../fake-failure';
+import type { FakeFailure } from '../fake-failure';
 
 /** MPEG-2 Layer III, 32 kbps, 24 kHz, mono, no CRC: one 96-byte frame is 24 ms. */
 const SILENT_FRAME = Buffer.concat([Buffer.from([0xff, 0xf3, 0x44, 0xc0]), Buffer.alloc(92)]);
@@ -15,7 +17,8 @@ export function silentMp3(ms: number): Buffer {
 
 /**
  * The local and test default: a real MP3 stream of silent frames whose length follows the SSML, so
- * chunking, joining, duration, size and hashing run for real. Fails every call when told to.
+ * chunking, joining, duration, size and hashing run for real. Fails every call when told to, or is
+ * out of reach.
  */
 export class FakeSpeechProvider extends SpeechProvider {
   readonly name = 'fake' as const;
@@ -23,7 +26,7 @@ export class FakeSpeechProvider extends SpeechProvider {
   readonly maxInputBytes: number;
 
   constructor(
-    private readonly failing = false,
+    private readonly failing: FakeFailure = false,
     options: { maxInputBytes?: number } = {},
   ) {
     super();
@@ -35,7 +38,8 @@ export class FakeSpeechProvider extends SpeechProvider {
   }
 
   synthesize(input: { ssml: string; voice: VoiceSpec }): Promise<Buffer> {
-    if (this.failing) return Promise.reject(new Error('fake speech failure'));
+    const failure = fakeFailureError('speech', this.failing);
+    if (failure !== null) return Promise.reject(failure);
     if (Buffer.byteLength(input.ssml, 'utf8') > this.maxInputBytes) {
       return Promise.reject(new Error('input over the fake limit'));
     }

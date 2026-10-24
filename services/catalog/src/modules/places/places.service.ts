@@ -18,6 +18,7 @@ import {
   NARRATION_PRIORITY_MAX,
   NARRATION_PRIORITY_MIN,
   newId,
+  zPhotoVariants,
   normalizeText,
   NOTIFICATION_CREATE,
   formatPublicCode,
@@ -69,6 +70,7 @@ import type { AccountContext, RequestContext, SocketEmitter } from '@wayfare/nes
 import QRCode from 'qrcode';
 import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client';
+import { mediaUrl } from './domain/media-url';
 import type { Env } from '../../config/env.schema';
 import { BillingPortService } from '../billing-port/billing-port.service';
 import { SOCKET_EMITTER } from '../frames/frames.module';
@@ -340,6 +342,21 @@ export class PlacesService {
     @Inject(SOCKET_EMITTER) private readonly frames: Pick<SocketEmitter, 'toRoom'>,
   ) {
     this.mediaBase = config.get('GCS_PUBLIC_BASE_URL', { infer: true });
+  }
+
+  /** Confirmed uploads' thumbnails by upload id, for a reviewer to see a submission's new photos. */
+  async uploadPreviews(uploadIds: readonly string[]): Promise<Record<string, string>> {
+    if (uploadIds.length === 0) return {};
+    const rows = await this.prisma.pendingUpload.findMany({
+      where: { id: { in: [...uploadIds] }, variants: { not: Prisma.DbNull } },
+      select: { id: true, variants: true },
+    });
+    return Object.fromEntries(
+      rows.map((row) => [
+        row.id,
+        mediaUrl(this.mediaBase, zPhotoVariants.parse(row.variants).thumb.objectPath),
+      ]),
+    );
   }
 
   /** The console's Place table (api-endpoints-plan §3.5). */

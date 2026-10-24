@@ -18,6 +18,7 @@ import { NotificationBell } from './bell';
 import { NAV_ICONS } from './icons';
 import { useMe } from './me';
 import { useQueueCounts } from './queue-counts';
+import { SocketProvider } from './socket';
 
 /**
  * The shell (C6–C9): a skip link first; the 256 px sidebar at 1024 px and wider, a drawer from the
@@ -32,60 +33,62 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => setDrawer(false), [pathname]);
 
   return (
-    <div className="min-h-dvh lg:pl-64">
-      <a
-        href="#content"
-        className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
-      >
-        {t('bar.skip')}
-      </a>
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col overflow-y-auto border-r border-border bg-card lg:flex">
-        <div className="px-6 pt-6 pb-4">
-          <Wordmark height={32} />
-        </div>
-        <Navigation />
-      </aside>
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background px-4 sm:px-6">
-        <Dialog open={drawer} onOpenChange={setDrawer}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" className="lg:hidden">
-              <Menu aria-hidden />
-              {t('bar.menu')}
-            </Button>
-          </DialogTrigger>
-          <DrawerContent aria-describedby={undefined}>
-            <DrawerTitle className="sr-only">{t('nav.label')}</DrawerTitle>
-            <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <Wordmark height={28} />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('bar.closeMenu')}
-                onClick={() => setDrawer(false)}
-              >
-                <X aria-hidden />
+    <SocketProvider>
+      <div className="min-h-dvh lg:pl-64">
+        <a
+          href="#content"
+          className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        >
+          {t('bar.skip')}
+        </a>
+        <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col overflow-y-auto border-r border-border bg-card lg:flex">
+          <div className="px-6 pt-6 pb-4">
+            <Wordmark height={32} />
+          </div>
+          <Navigation />
+        </aside>
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background px-4 sm:px-6">
+          <Dialog open={drawer} onOpenChange={setDrawer}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" className="lg:hidden">
+                <Menu aria-hidden />
+                {t('bar.menu')}
               </Button>
-            </div>
-            <Navigation />
-          </DrawerContent>
-        </Dialog>
-        <span className="lg:hidden">
-          <Wordmark height={24} />
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <NotificationBell />
-          <AccountMenu />
-        </div>
-      </header>
-      <Banners />
-      <main
-        id="content"
-        tabIndex={-1}
-        className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 outline-none sm:px-6 lg:px-8"
-      >
-        {children}
-      </main>
-    </div>
+            </DialogTrigger>
+            <DrawerContent aria-describedby={undefined}>
+              <DrawerTitle className="sr-only">{t('nav.label')}</DrawerTitle>
+              <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                <Wordmark height={28} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t('bar.closeMenu')}
+                  onClick={() => setDrawer(false)}
+                >
+                  <X aria-hidden />
+                </Button>
+              </div>
+              <Navigation />
+            </DrawerContent>
+          </Dialog>
+          <span className="lg:hidden">
+            <Wordmark height={24} />
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <NotificationBell />
+            <AccountMenu />
+          </div>
+        </header>
+        <Banners />
+        <main
+          id="content"
+          tabIndex={-1}
+          className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 outline-none sm:px-6 lg:px-8"
+        >
+          {children}
+        </main>
+      </div>
+    </SocketProvider>
   );
 }
 

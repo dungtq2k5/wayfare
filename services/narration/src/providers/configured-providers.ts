@@ -1,5 +1,6 @@
 import type { Env } from '../config/env.schema';
 import { ProviderChain } from './provider-chain';
+import type { FakeFailure } from './fake-failure';
 import { EdgeSpeechProvider } from './speech/edge.speech-provider';
 import { FakeSpeechProvider } from './speech/fake.speech-provider';
 import { GoogleSpeechProvider } from './speech/google.speech-provider';
@@ -32,11 +33,13 @@ export function configuredChains(
   >,
 ): ProviderChains {
   const failing = new Set(env.FAKE_PROVIDER_FAILURES ?? []);
+  const failureOf = (role: 'translation' | 'speech'): FakeFailure =>
+    failing.has(`${role}-unreachable`) ? 'unreachable' : failing.has(role);
   const project = () => env.GOOGLE_CLOUD_PROJECT!;
   const translation = env.TRANSLATION_PROVIDER_ORDER.map((name): TranslationProvider => {
     switch (name) {
       case 'fake':
-        return new FakeTranslationProvider(failing.has('translation'));
+        return new FakeTranslationProvider(failureOf('translation'));
       case 'google':
         return new GoogleTranslationProvider(project());
       case 'free':
@@ -46,7 +49,7 @@ export function configuredChains(
   const speech = env.TTS_PROVIDER_ORDER.map((name): SpeechProvider => {
     switch (name) {
       case 'fake':
-        return new FakeSpeechProvider(failing.has('speech'));
+        return new FakeSpeechProvider(failureOf('speech'));
       case 'google':
         return new GoogleSpeechProvider(project());
       case 'edge':

@@ -27,8 +27,8 @@ import { ZodSerializerDto } from 'nestjs-zod';
 import { AdminPlacesService } from './admin-places.service';
 import {
   ActivationResultResponseDto,
+  AdminPlaceDetailResponseDto,
   AdminPlaceListItemResponseDto,
-  AdminPlaceResponseDto,
   AdminPlaceResultResponseDto,
 } from './dto/admin-place-response.dto';
 import {
@@ -72,13 +72,13 @@ export class AdminPlacesController {
   @RequirePermission('place.read')
   @NoStore()
   @ApiOperation({ summary: 'One Place in full, with readiness per language.' })
-  @ApiEnvelope(AdminPlaceResponseDto)
+  @ApiEnvelope(AdminPlaceDetailResponseDto)
   @ApiErrors('RESOURCE_NOT_FOUND')
-  @ZodSerializerDto(AdminPlaceResponseDto)
+  @ZodSerializerDto(AdminPlaceDetailResponseDto)
   get(
     @Ctx() context: AccountContext,
     @Param() params: AdminPlaceIdParamDto,
-  ): Promise<AdminPlaceResponseDto> {
+  ): Promise<AdminPlaceDetailResponseDto> {
     return this.places.get(context, params.id);
   }
 

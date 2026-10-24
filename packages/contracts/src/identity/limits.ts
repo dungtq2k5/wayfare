@@ -130,6 +130,10 @@ export const MAX_CONTACT_NAME_LENGTH = 120;
 /** Upper bound of an applicant's or a reviewer's staff-only note on an owner registration. */
 export const MAX_REGISTRATION_NOTE_LENGTH = 2000;
 
+/** Why a national ID is revealed (api-endpoints-plan §1.5): kept in the reveal's audit row. */
+export const MIN_REVEAL_REASON_LENGTH = 10;
+export const MAX_REVEAL_REASON_LENGTH = 500;
+
 /**
  * Identity's own short-lived proofs, signed like access tokens but never accepted as a bearer: a
  * Google confirmation in place of a current password, and the ticket that links Google after a

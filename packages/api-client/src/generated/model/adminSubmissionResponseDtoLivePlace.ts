@@ -72,6 +72,5 @@ export type AdminSubmissionResponseDtoLivePlace = {
   menuItems: AdminSubmissionResponseDtoLivePlaceMenuItemsItem[];
   openingHours: AdminSubmissionResponseDtoLivePlaceOpeningHoursItem[];
   activationMissing: AdminSubmissionResponseDtoLivePlaceActivationMissingItem[];
-  synthesisJobs: unknown[];
   submissions: unknown[];
 } | null;

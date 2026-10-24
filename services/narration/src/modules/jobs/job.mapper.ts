@@ -59,6 +59,7 @@ export const TASK_SELECT = {
   failureReason: true,
   providerWaits: true,
   nextAttemptAt: true,
+  providerDownSince: true,
   startedAt: true,
   finishedAt: true,
 } as const satisfies Prisma.SynthesisTaskSelect;
@@ -113,6 +114,7 @@ export function toSynthesisTask(row: TaskRow): narrationGrpc.SynthesisTask {
         : synthesisFailureReasonProto.toProto(row.failureReason as SynthesisFailureReason),
     providerWaits: row.providerWaits,
     nextAttemptAt: instant(row.nextAttemptAt),
+    providerDownSince: instant(row.providerDownSince),
     startedAt: instant(row.startedAt),
     finishedAt: instant(row.finishedAt),
   };

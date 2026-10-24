@@ -117,6 +117,8 @@ message SynthesisTask {
   int32 provider_waits = 15;
   // When a waiting task is tried next.
   google.protobuf.Timestamp next_attempt_at = 16;
+  // Since when no speech provider could be reached, while the task waits.
+  google.protobuf.Timestamp provider_down_since = 17;
 }
 
 message ListJobsRequest {

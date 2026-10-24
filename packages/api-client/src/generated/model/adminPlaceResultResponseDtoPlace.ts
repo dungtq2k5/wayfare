@@ -72,6 +72,5 @@ export type AdminPlaceResultResponseDtoPlace = {
   menuItems: AdminPlaceResultResponseDtoPlaceMenuItemsItem[];
   openingHours: AdminPlaceResultResponseDtoPlaceOpeningHoursItem[];
   activationMissing: AdminPlaceResultResponseDtoPlaceActivationMissingItem[];
-  synthesisJobs: unknown[];
   submissions: unknown[];
 };

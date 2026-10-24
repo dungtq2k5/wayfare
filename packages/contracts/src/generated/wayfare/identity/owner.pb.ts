@@ -137,6 +137,8 @@ export interface GetRegistrationResponse {
 
 export interface RevealNationalIdRequest {
   registrationId: string;
+  /** Why the number is needed: kept in the reveal's audit row, and never the number itself. */
+  reason: string;
 }
 
 export interface RevealNationalIdResponse {
@@ -171,6 +173,16 @@ export interface GetOwnerVerificationResponse {
   verified: boolean;
   /** Neither deactivated nor erased. */
   live: boolean;
+}
+
+export interface GetOwnerContactRequest {
+  userId: string;
+}
+
+/** Absent fields: an unknown or erased account names nobody. */
+export interface GetOwnerContactResponse {
+  fullName?: string | undefined;
+  email?: string | undefined;
 }
 
 export interface ListVerifiedOwnerIdsRequest {
@@ -221,6 +233,16 @@ export interface OwnerServiceClient {
     request: ListVerifiedOwnerIdsRequest,
     metadata?: Metadata,
   ): Observable<ListVerifiedOwnerIdsResponse>;
+
+  /**
+   * Internal (api-endpoints-plan §3.5): who owns a Venue, for a staff member's Place page — the
+   * gateway composes it, since a content moderator holds no `user.read`.
+   */
+
+  getOwnerContact(
+    request: GetOwnerContactRequest,
+    metadata?: Metadata,
+  ): Observable<GetOwnerContactResponse>;
 }
 
 /** The caller's own applications. The caller travels as metadata. */
@@ -275,6 +297,19 @@ export interface OwnerServiceController {
     | Promise<ListVerifiedOwnerIdsResponse>
     | Observable<ListVerifiedOwnerIdsResponse>
     | ListVerifiedOwnerIdsResponse;
+
+  /**
+   * Internal (api-endpoints-plan §3.5): who owns a Venue, for a staff member's Place page — the
+   * gateway composes it, since a content moderator holds no `user.read`.
+   */
+
+  getOwnerContact(
+    request: GetOwnerContactRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetOwnerContactResponse>
+    | Observable<GetOwnerContactResponse>
+    | GetOwnerContactResponse;
 }
 
 export function OwnerServiceControllerMethods() {
@@ -285,6 +320,7 @@ export function OwnerServiceControllerMethods() {
       'withdrawRegistration',
       'getOwnerVerification',
       'listVerifiedOwnerIds',
+      'getOwnerContact',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

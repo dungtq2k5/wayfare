@@ -37,6 +37,7 @@ export type SynthesisJobDetailResponseDtoTasksItem = {
      */
   providerWaits: number;
   nextAttemptAt: string | null;
+  providerDownSince: string | null;
   startedAt: string | null;
   finishedAt: string | null;
 };

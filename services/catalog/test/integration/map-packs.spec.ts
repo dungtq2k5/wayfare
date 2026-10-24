@@ -7,7 +7,7 @@ import { mapPackStatusProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { buildAccountContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { testPrisma, truncateAll } from '../setup/database';
+import { testConfig, testPrisma, truncateAll } from '../setup/database';
 import { device, errorOf, outboxPayloads, taxonomy } from '../setup/fixtures';
 import { catalogServices } from '../setup/services';
 
@@ -178,7 +178,14 @@ describe('publishing a map pack', () => {
     const area = (await services.queries.listAreas({}, device())).areas.find(
       (a) => a.id === tax.area.id,
     )!;
-    expect(area.mapPack).toEqual({ version: 2, bytes: second.totalBytes });
+    // The published pack's styles as public URLs, for a web map (the console's picker).
+    const base = testConfig().get('GCS_PUBLIC_BASE_URL', { infer: true });
+    expect(area.mapPack).toEqual({
+      version: 2,
+      bytes: second.totalBytes,
+      styleUrl: `${base}/${second.style!.path}`,
+      ...(second.styleDark == null ? {} : { styleDarkUrl: `${base}/${second.styleDark.path}` }),
+    });
     const audits = (await outboxPayloads(prisma, AUDIT_RECORD.subject)).filter(
       (row) => row.action === AuditAction.MAP_PACK_PUBLISHED,
     );

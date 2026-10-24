@@ -190,14 +190,26 @@ describe('/admin/owner-registrations', () => {
     gateway.identity.ownerReview.handlers.revealNationalId = () =>
       Promise.resolve({ nationalId: NATIONAL_ID });
     const path = `/admin/owner-registrations/${registrationId}/national-id/reveal`;
+    const reason = { reason: 'Matching the ID card the owner sent by mail.' };
     const moderator = await call(
       'post',
       path,
       staff(['owner_registration.read', 'owner_registration.review']),
-    );
+    ).send(reason);
     expect(moderator.status).toBe(403);
-    const res = await call('post', path, staff(['owner_registration.pii.read']));
+    // Why it is needed: required, and at least ten characters.
+    const bare = await call('post', path, staff(['owner_registration.pii.read'])).send({});
+    expect(bare.status).toBe(400);
+    const short = await call('post', path, staff(['owner_registration.pii.read'])).send({
+      reason: 'because',
+    });
+    expect(short.status).toBe(400);
+    const res = await call('post', path, staff(['owner_registration.pii.read'])).send(reason);
     expect(res.status).toBe(200);
+    expect(gateway.identity.ownerReview.calls.at(-1)?.request).toEqual({
+      registrationId,
+      reason: reason.reason,
+    });
     expect(res.headers['cache-control']).toBe('private, no-store');
     expect(res.body).toEqual({ data: { nationalId: NATIONAL_ID } });
     expect(rateKeys('PII_REVEAL')).toEqual([`rl:PII_REVEAL:userId:${userId}`]);
@@ -206,7 +218,7 @@ describe('/admin/owner-registrations', () => {
       Promise.reject(
         serviceError(status.FAILED_PRECONDITION, { 'wf-error-code': 'NATIONAL_ID_REDACTED' }),
       );
-    const gone = await call('post', path, staff(['owner_registration.pii.read']));
+    const gone = await call('post', path, staff(['owner_registration.pii.read'])).send(reason);
     expect(gone.status).toBe(410);
     expect(gone.body.error.code).toBe('NATIONAL_ID_REDACTED');
   });
