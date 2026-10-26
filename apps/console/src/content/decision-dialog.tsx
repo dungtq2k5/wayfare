@@ -62,16 +62,23 @@ export function DecisionDialog({
     >
       <DialogContent closeLabel={t('action.close')}>
         <DialogHeader title={title} />
-        <div className="flex flex-col gap-2 text-sm text-muted-foreground">{children}</div>
+        <div className="flex flex-col gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+          {children}
+        </div>
         <Field label={note.label} required={reject} help={note.help}>
           {(control) => (
-            <Textarea
-              {...control}
-              rows={3}
-              maxLength={MAX_DECISION_NOTE_LENGTH}
-              value={decisionNote}
-              onChange={(event) => setDecisionNote(event.target.value)}
-            />
+            <>
+              <Textarea
+                {...control}
+                rows={3}
+                maxLength={MAX_DECISION_NOTE_LENGTH}
+                value={decisionNote}
+                onChange={(event) => setDecisionNote(event.target.value)}
+              />
+              <p aria-live="polite" className="text-right text-xs text-muted-foreground">
+                {decisionNote.trim().length} / {MAX_DECISION_NOTE_LENGTH}
+              </p>
+            </>
           )}
         </Field>
         <Field label={t('approve.noteInternal')} help={t('approve.noteInternalHelp')}>

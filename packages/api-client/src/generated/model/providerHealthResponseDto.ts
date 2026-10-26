@@ -32,5 +32,6 @@ export interface ProviderHealthResponseDto {
      */
   recentCalls: number;
   coolingUntil: string | null;
+  downSince: string | null;
   scope: 'process';
 }

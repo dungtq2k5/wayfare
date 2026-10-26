@@ -5,13 +5,13 @@
 // source: wayfare/catalog/map_pack_admin.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from '../../google/protobuf/timestamp.pb';
-import { MapPackStatus } from './place_types.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import { MapPackStatus } from "./place_types.pb";
 
-export const protobufPackage = 'wayfare.catalog';
+export const protobufPackage = "wayfare.catalog";
 
 /** One uploaded object: its path in the media bucket, its SHA-256 and its size. */
 export interface MapPackObject {
@@ -37,7 +37,9 @@ export interface MapPack {
   buildTool: string;
   publishedAt: Timestamp | undefined;
   retiredAt: Timestamp | undefined;
-  createdAt: Timestamp | undefined;
+  createdAt:
+    | Timestamp
+    | undefined;
   /** The dark flavour's style; absent for a pack with light only. */
   styleDark?: MapPackObject | undefined;
 }
@@ -76,22 +78,16 @@ export interface PublishMapPackResponse {
   mapPack: MapPack | undefined;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
+export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
 
 /** The gateway checks `map_pack.manage`; catalog re-hashes every object before accepting a pack. */
 
 export interface MapPackAdminServiceClient {
   listMapPacks(request: ListMapPacksRequest, metadata?: Metadata): Observable<ListMapPacksResponse>;
 
-  registerMapPack(
-    request: RegisterMapPackRequest,
-    metadata?: Metadata,
-  ): Observable<RegisterMapPackResponse>;
+  registerMapPack(request: RegisterMapPackRequest, metadata?: Metadata): Observable<RegisterMapPackResponse>;
 
-  publishMapPack(
-    request: PublishMapPackRequest,
-    metadata?: Metadata,
-  ): Observable<PublishMapPackResponse>;
+  publishMapPack(request: PublishMapPackRequest, metadata?: Metadata): Observable<PublishMapPackResponse>;
 }
 
 /** The gateway checks `map_pack.manage`; catalog re-hashes every object before accepting a pack. */
@@ -105,10 +101,7 @@ export interface MapPackAdminServiceController {
   registerMapPack(
     request: RegisterMapPackRequest,
     metadata?: Metadata,
-  ):
-    | Promise<RegisterMapPackResponse>
-    | Observable<RegisterMapPackResponse>
-    | RegisterMapPackResponse;
+  ): Promise<RegisterMapPackResponse> | Observable<RegisterMapPackResponse> | RegisterMapPackResponse;
 
   publishMapPack(
     request: PublishMapPackRequest,
@@ -118,23 +111,19 @@ export interface MapPackAdminServiceController {
 
 export function MapPackAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ['listMapPacks', 'registerMapPack', 'publishMapPack'];
+    const grpcMethods: string[] = ["listMapPacks", "registerMapPack", "publishMapPack"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('MapPackAdminService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("MapPackAdminService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('MapPackAdminService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("MapPackAdminService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const MAP_PACK_ADMIN_SERVICE_NAME = 'MapPackAdminService';
+export const MAP_PACK_ADMIN_SERVICE_NAME = "MapPackAdminService";

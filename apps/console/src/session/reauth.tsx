@@ -127,6 +127,7 @@ function ReauthDialog({
                 type="email"
                 value={initialEmail}
                 readOnly
+                className="bg-muted text-muted-foreground"
                 autoComplete="username"
               />
             )}

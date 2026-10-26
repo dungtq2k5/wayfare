@@ -73,6 +73,24 @@ describe('ProviderChain', () => {
     expect(providers.states()[0]!.breaker).toBe('open');
   });
 
+  it('says since when a provider is down, through reopenings, until it answers', async () => {
+    const clock = { now: 1_000 };
+    const providers = chain(['a', 'b'], clock);
+    let up = false;
+    const call = (p: Named) =>
+      p.name === 'a' && !up ? Promise.reject(new Error('down')) : Promise.resolve('ok');
+    for (let i = 0; i < 3; i++) await providers.run(all, call);
+    expect(providers.states()[0]!.downSince).toEqual(new Date(1_000));
+    expect(providers.states()[1]!.downSince).toBeNull();
+    clock.now += 60_000;
+    await providers.run(all, call);
+    expect(providers.states()[0]!.downSince).toEqual(new Date(1_000));
+    clock.now += 60_000;
+    up = true;
+    await providers.run(all, call);
+    expect(providers.states()[0]).toMatchObject({ breaker: 'closed', downSince: null });
+  });
+
   it('counts an empty result and a timeout as failures', async () => {
     const providers = chain(['a', 'b'], { now: 0 });
     await expect(

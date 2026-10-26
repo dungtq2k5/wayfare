@@ -15,7 +15,7 @@ import { PageHeader } from '@wayfare/ui/list';
 import { Card, StatusBadge } from '@wayfare/ui/surfaces';
 import type { StatusTone } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
-import { Eye, EyeOff, Info } from 'lucide-react';
+import { CircleCheck, Eye, EyeOff, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -28,6 +28,7 @@ import { useMe } from '../shell/me';
 import { DecisionDialog } from './decision-dialog';
 import type { DecisionNotes } from './decision-dialog';
 import { Facts } from './place-sections';
+import { formatDate, formatPhone } from '../i18n/format';
 
 type Detail = Awaited<ReturnType<typeof adminOwnerRegistrationsGet>>['data'];
 
@@ -79,8 +80,7 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
   const [own, setOwn] = useState(data.applicant.id === me.user.id);
   const [decided, setDecided] = useState(false);
   const now = new Date();
-  const date = (iso: string) =>
-    new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = (iso: string) => formatDate(iso, locale);
   const applicant = data.applicant.fullName ?? data.contactName;
   const pending = data.status === 'PENDING';
 
@@ -139,7 +139,11 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
 
   const nationalId = redacted ? (
     <span className="flex flex-col gap-1">
-      <span className="text-foreground">{t('reveal.redacted')}</span>
+      <span className="text-foreground">
+        {data.piiRedactedAt === null
+          ? t('reveal.redacted')
+          : t('reveal.redactedOn', { date: date(data.piiRedactedAt) })}
+      </span>
       <span className="text-xs text-muted-foreground">{t('reveal.redactedBody')}</span>
     </span>
   ) : number !== null ? (
@@ -147,7 +151,8 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
       <span className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-2 rounded-md bg-warning px-3 py-1 font-medium text-warning-foreground">
           <Eye aria-hidden className="size-4" />
-          {number}
+          {/* Read in groups of three, as it is printed on the card. */}
+          {number.replace(/(\d{3})(?=\d)/g, '$1 ')}
         </span>
         <Button variant="outline" size="sm" onClick={() => setNumber(null)}>
           <EyeOff aria-hidden />
@@ -162,6 +167,7 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
         <span>•••• {data.nationalIdLast4 ?? '····'}</span>
         {can('owner_registration.pii.read') ? (
           <Button variant="outline" size="sm" onClick={() => setRevealing(true)}>
+            <Eye aria-hidden />
             {t('registration.reveal')}
           </Button>
         ) : null}
@@ -186,10 +192,17 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
             {pending ? t('status.pending') : tDynamic(`regStatus.${data.status}`)}
           </StatusBadge>
         }
-        description={t('registration.submittedBy', {
-          when: relativeTime(data.submittedAt, now, translator),
-          email: data.applicant.email,
-        })}
+        description={
+          pending || data.reviewedAt === null
+            ? t('registration.submittedBy', {
+                when: relativeTime(data.submittedAt, now, translator),
+                email: data.applicant.email,
+              })
+            : t('registration.submittedDecided', {
+                submitted: date(data.submittedAt),
+                decided: date(data.reviewedAt),
+              })
+        }
       />
 
       {own ? (
@@ -234,12 +247,19 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
             <Facts
               rows={[
                 [t('field.name'), <span lang="vi">{data.contactName}</span>],
-                [t('registration.phone'), redacted ? t('place.none') : data.contactPhone],
+                [
+                  t('registration.phone'),
+                  redacted ? t('registration.redacted') : formatPhone(data.contactPhone),
+                ],
                 [t('registration.nationalId'), nationalId],
               ]}
             />
           </Panel>
-          {data.applicantNote === null || redacted ? null : (
+          {redacted ? (
+            <Panel id="their-note" title={t('registration.theirNote')}>
+              <p className="text-sm text-muted-foreground">{t('registration.redacted')}</p>
+            </Panel>
+          ) : data.applicantNote === null ? null : (
             <Panel id="their-note" title={t('registration.theirNote')}>
               <p lang="vi" className="text-sm text-foreground">
                 {data.applicantNote}
@@ -251,8 +271,24 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
         <div className="flex flex-col gap-4">
           <Panel id="applicant" title={t('registration.applicant')}>
             <Facts
+              fit
               rows={[
-                [t('field.email'), data.applicant.email],
+                [
+                  t('field.email'),
+                  <span key="email" className="flex flex-wrap items-center gap-2">
+                    {/* Broken only after the "@", never mid-word. */}
+                    <span>
+                      {data.applicant.email.split('@')[0]}@<wbr />
+                      {data.applicant.email.split('@').slice(1).join('@')}
+                    </span>
+                    {data.applicant.emailVerified ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-xs font-medium text-success-foreground">
+                        <CircleCheck aria-hidden className="size-3" />
+                        {t('registration.emailVerified')}
+                      </span>
+                    ) : null}
+                  </span>,
+                ],
                 [t('registration.accountSince'), date(data.applicant.createdAt)],
                 [
                   t('registration.owner'),
@@ -304,9 +340,20 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
                 {t('registration.emailed', { name: applicant })}
               </p>
             </Panel>
-          ) : !pending && data.decisionNote !== null ? (
+          ) : !pending ? (
+            // The outcome and its date, as *Earlier applications* shows one, then the note.
             <Panel id="decision" title={t('submission.decision')}>
-              <p className="text-sm text-foreground">“{data.decisionNote}”</p>
+              <span className="flex flex-wrap items-center gap-2 text-sm">
+                <StatusBadge tone={REGISTRATION_TONES[data.status]}>
+                  {tDynamic(`regStatus.${data.status}`)}
+                </StatusBadge>
+                {data.reviewedAt === null ? null : (
+                  <span className="text-muted-foreground">{date(data.reviewedAt)}</span>
+                )}
+              </span>
+              {data.decisionNote === null ? null : (
+                <p className="text-sm text-foreground">“{data.decisionNote}”</p>
+              )}
             </Panel>
           ) : null}
         </div>
@@ -326,6 +373,7 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
         alert={revealAlert}
         noteLabel={t('reveal.why')}
         noteHelp={t('reveal.whyHelp')}
+        tone="primary"
         minLength={MIN_REVEAL_REASON_LENGTH}
         maxLength={MAX_REVEAL_REASON_LENGTH}
         onConfirm={(reason) => void reveal(reason)}

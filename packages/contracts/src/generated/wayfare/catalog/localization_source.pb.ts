@@ -5,14 +5,14 @@
 // source: wayfare/catalog/localization_source.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { LocalizationTargetType } from '../common/localization.pb';
-import { CursorPage, PageRequest } from '../common/page.pb';
-import { AudioStatus, PlaceKind, PlaceStatus, TranslationSource } from './place_types.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { LocalizationTargetType } from "../common/localization.pb";
+import { CursorPage, PageRequest } from "../common/page.pb";
+import { AudioStatus, PlaceKind, PlaceStatus, TranslationSource } from "./place_types.pb";
 
-export const protobufPackage = 'wayfare.catalog';
+export const protobufPackage = "wayfare.catalog";
 
 /** Distance only, nearest first: boost never reaches narration (ADR 0007). */
 export interface ListNarrationCandidatesRequest {
@@ -75,7 +75,9 @@ export interface GetLocalizationSourceRequest {
 /** Exactly one of the three. */
 export interface GetLocalizationSourceResponse {
   place?: LocalizationSourcePlace | undefined;
-  menuItem?: LocalizationSourceMenuItem | undefined;
+  menuItem?:
+    | LocalizationSourceMenuItem
+    | undefined;
   /** The target never existed, or a menu item was deleted. A deleted Place is a `place`. */
   notFound?: LocalizationSourceNotFound | undefined;
 }
@@ -101,7 +103,9 @@ export interface LocalizationState {
   audioObjectPath?: string | undefined;
   audioSha256?: string | undefined;
   audioBytes?: number | undefined;
-  audioDurationMs?: number | undefined;
+  audioDurationMs?:
+    | number
+    | undefined;
   /** The text served now, which the correction screen shows beside its correction (§4.5). */
   name: string;
   description: string;
@@ -114,9 +118,10 @@ export interface LocalizationSourceMenuItem {
   descriptionVi?: string | undefined;
 }
 
-export interface LocalizationSourceNotFound {}
+export interface LocalizationSourceNotFound {
+}
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
+export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
 
 /** catalog's service-to-service reads. A tourist route never reaches it. */
 
@@ -130,10 +135,7 @@ export interface PlaceServiceClient {
 
   /** An owner's Venues that count against their place limit (rdm-spec C-1) — billing's projections. */
 
-  countOwnerPlaces(
-    request: CountOwnerPlacesRequest,
-    metadata?: Metadata,
-  ): Observable<CountOwnerPlacesResponse>;
+  countOwnerPlaces(request: CountOwnerPlacesRequest, metadata?: Metadata): Observable<CountOwnerPlacesResponse>;
 
   /** Live localizations whose text holds a term, whole-word — what a dictionary edit re-voices. */
 
@@ -158,30 +160,21 @@ export interface PlaceServiceController {
   getLocalizationSource(
     request: GetLocalizationSourceRequest,
     metadata?: Metadata,
-  ):
-    | Promise<GetLocalizationSourceResponse>
-    | Observable<GetLocalizationSourceResponse>
-    | GetLocalizationSourceResponse;
+  ): Promise<GetLocalizationSourceResponse> | Observable<GetLocalizationSourceResponse> | GetLocalizationSourceResponse;
 
   /** An owner's Venues that count against their place limit (rdm-spec C-1) — billing's projections. */
 
   countOwnerPlaces(
     request: CountOwnerPlacesRequest,
     metadata?: Metadata,
-  ):
-    | Promise<CountOwnerPlacesResponse>
-    | Observable<CountOwnerPlacesResponse>
-    | CountOwnerPlacesResponse;
+  ): Promise<CountOwnerPlacesResponse> | Observable<CountOwnerPlacesResponse> | CountOwnerPlacesResponse;
 
   /** Live localizations whose text holds a term, whole-word — what a dictionary edit re-voices. */
 
   searchLocalizedText(
     request: SearchLocalizedTextRequest,
     metadata?: Metadata,
-  ):
-    | Promise<SearchLocalizedTextResponse>
-    | Observable<SearchLocalizedTextResponse>
-    | SearchLocalizedTextResponse;
+  ): Promise<SearchLocalizedTextResponse> | Observable<SearchLocalizedTextResponse> | SearchLocalizedTextResponse;
 
   /** The nearest ACTIVE Places and their readiness — what a language switch warms up. */
 
@@ -197,23 +190,23 @@ export interface PlaceServiceController {
 export function PlaceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'getLocalizationSource',
-      'countOwnerPlaces',
-      'searchLocalizedText',
-      'listNarrationCandidates',
+      "getLocalizationSource",
+      "countOwnerPlaces",
+      "searchLocalizedText",
+      "listNarrationCandidates",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('PlaceService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("PlaceService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('PlaceService', method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod("PlaceService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const PLACE_SERVICE_NAME = 'PlaceService';
+export const PLACE_SERVICE_NAME = "PlaceService";

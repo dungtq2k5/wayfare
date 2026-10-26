@@ -22,6 +22,12 @@ export async function signIn(
 
 /** No axe violation on the page as it stands (K20). */
 export async function expectAccessible(page: Page): Promise<void> {
+  // A toast fading in or out would be measured half-transparent.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('[data-sonner-toast]')].every(
+      (toast) => getComputedStyle(toast).opacity === '1',
+    ),
+  );
   const { violations } = await new AxeBuilder({ page }).analyze();
   expect(
     violations.map(

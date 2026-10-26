@@ -54,6 +54,8 @@ export function toOwnerRegistrationAdmin(
     internalNote: detail.internalNote ?? null,
     reviewedById: detail.reviewedById ?? null,
     piiRedacted: detail.piiRedacted,
+    piiRedactedAt:
+      fromOptionalProtoTimestamp(detail.piiRedactedAt, 'piiRedactedAt')?.toISOString() ?? null,
     applicant: {
       id: applicant.id,
       email: applicant.email,

@@ -10,7 +10,6 @@ import {
   Pause,
   Pencil,
   Plus,
-  Replace,
   Store,
   TriangleAlert,
 } from 'lucide-react';
@@ -33,6 +32,27 @@ export function KindChip({ kind, children }: { kind: 'EDITORIAL' | 'VENUE'; chil
       )}
     >
       {kind === 'EDITORIAL' ? <Landmark aria-hidden /> : <Store aria-hidden />}
+      {children}
+    </span>
+  );
+}
+
+/** A submission's kind (S1, S2): `pencil` *Update*, `plus` *New venue* in the success tone. */
+export function SubmissionKindChip({
+  kind,
+  children,
+}: {
+  kind: 'UPDATE' | 'CREATE';
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        chip,
+        kind === 'CREATE' ? 'bg-success text-success-foreground' : 'bg-muted text-muted-foreground',
+      )}
+    >
+      {kind === 'CREATE' ? <Plus aria-hidden /> : <Pencil aria-hidden />}
       {children}
     </span>
   );
@@ -109,7 +129,10 @@ export function ChangeChip({
     added: { className: 'bg-success text-success-foreground', icon: <Plus aria-hidden /> },
     removed: { className: 'bg-muted text-muted-foreground', icon: <Minus aria-hidden /> },
     changed: { className: 'bg-info text-info-foreground', icon: <Pencil aria-hidden /> },
-    conflict: { className: 'bg-warning text-warning-foreground', icon: <Replace aria-hidden /> },
+    conflict: {
+      className: 'bg-warning text-warning-foreground',
+      icon: <TriangleAlert aria-hidden />,
+    },
   } as const;
   return (
     <span className={cn(chip, tones[change].className)}>

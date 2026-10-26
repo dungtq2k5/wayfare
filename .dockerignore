@@ -27,3 +27,9 @@ cspell.json
 # Not use in Docker build so can ignore
 .prettierrc
 .prettierignore
+# Build and test output the service images never read: Next.js builds, Playwright results, the map packs' cache.
+**/.next
+**/.next-*
+**/test-results
+**/playwright-report
+infra/tiles/.cache/

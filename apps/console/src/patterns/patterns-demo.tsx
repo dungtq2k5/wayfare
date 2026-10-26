@@ -2,6 +2,7 @@
 
 import { PageHeader } from '@wayfare/ui/list';
 import type { StatusTone } from '@wayfare/ui/surfaces';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import { useConsole } from '../i18n/provider';
 import { DetailDemo } from './detail-demo';
@@ -10,15 +11,20 @@ import { CursorDemo, ListDemo } from './list-demo';
 import { SAMPLE_PLACES } from './sample';
 import type { SamplePlace } from './sample';
 
-/** `/dev/patterns` (K16): every page pattern with sample Places, for Playwright and the designer. */
+/**
+ * `/dev/patterns` (K16): every page pattern with sample Places, for Playwright and the designer.
+ * `?only=form` shows the form page alone, as a real page is drawn: from the top, at every width.
+ */
 export default function PatternsDemo() {
   const { t } = useConsole();
+  const only = useSearchParams().get('only');
   // The first Place's status is shared by P1's row and P2's actions, so P5's *Undo* shows in both.
   const [firstStatus, setFirstStatus] = useState<StatusTone>(SAMPLE_PLACES[0]!.status);
   const statusOf = useCallback(
     (place: SamplePlace) => (place.id === SAMPLE_PLACES[0]!.id ? firstStatus : place.status),
     [firstStatus],
   );
+  if (only === 'form') return <FormDemo />;
   return (
     <div className="flex flex-col gap-16">
       <PageHeader title={t('patterns.title')} description={t('patterns.lead')} />

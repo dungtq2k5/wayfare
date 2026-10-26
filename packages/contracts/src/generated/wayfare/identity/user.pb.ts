@@ -5,13 +5,13 @@
 // source: wayfare/identity/user.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from '../../google/protobuf/timestamp.pb';
-import { SessionUser } from './auth.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import { SessionUser } from "./auth.pb";
 
-export const protobufPackage = 'wayfare.identity';
+export const protobufPackage = "wayfare.identity";
 
 /** A legal document a party accepts (rdm-spec I-12). */
 export enum LegalDocument {
@@ -30,7 +30,8 @@ export enum LegalParty {
   UNRECOGNIZED = -1,
 }
 
-export interface GetMeRequest {}
+export interface GetMeRequest {
+}
 
 export interface GetMeResponse {
   user: SessionUser | undefined;
@@ -38,7 +39,9 @@ export interface GetMeResponse {
   permissions: string[];
   ownerVerified: boolean;
   /** Present for a verified owner or an applicant; billing's summary joins it later. */
-  owner: OwnerSummary | undefined;
+  owner:
+    | OwnerSummary
+    | undefined;
   /** How the account signs in: a password, Google, or both. */
   signIn: SignInMethods | undefined;
 }
@@ -77,9 +80,11 @@ export interface EraseMeRequest {
   confirmation: string;
 }
 
-export interface EraseMeResponse {}
+export interface EraseMeResponse {
+}
 
-export interface ListLegalAcceptancesRequest {}
+export interface ListLegalAcceptancesRequest {
+}
 
 export interface ListLegalAcceptancesResponse {
   acceptances: LegalAcceptance[];
@@ -103,7 +108,7 @@ export interface LegalAcceptance {
   current: boolean;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
+export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /** Reads and edits the calling account. The caller travels as metadata. */
 
@@ -130,10 +135,7 @@ export interface UserServiceClient {
 /** Reads and edits the calling account. The caller travels as metadata. */
 
 export interface UserServiceController {
-  getMe(
-    request: GetMeRequest,
-    metadata?: Metadata,
-  ): Promise<GetMeResponse> | Observable<GetMeResponse> | GetMeResponse;
+  getMe(request: GetMeRequest, metadata?: Metadata): Promise<GetMeResponse> | Observable<GetMeResponse> | GetMeResponse;
 
   updateMe(
     request: UpdateMeRequest,
@@ -143,18 +145,12 @@ export interface UserServiceController {
   listLegalAcceptances(
     request: ListLegalAcceptancesRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ListLegalAcceptancesResponse>
-    | Observable<ListLegalAcceptancesResponse>
-    | ListLegalAcceptancesResponse;
+  ): Promise<ListLegalAcceptancesResponse> | Observable<ListLegalAcceptancesResponse> | ListLegalAcceptancesResponse;
 
   recordLegalAcceptance(
     request: RecordLegalAcceptanceRequest,
     metadata?: Metadata,
-  ):
-    | Promise<RecordLegalAcceptanceResponse>
-    | Observable<RecordLegalAcceptanceResponse>
-    | RecordLegalAcceptanceResponse;
+  ): Promise<RecordLegalAcceptanceResponse> | Observable<RecordLegalAcceptanceResponse> | RecordLegalAcceptanceResponse;
 
   /** Erasure (rdm-spec I-1): irreversible; the account stops being a person. */
 
@@ -166,25 +162,19 @@ export interface UserServiceController {
 
 export function UserServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = [
-      'getMe',
-      'updateMe',
-      'listLegalAcceptances',
-      'recordLegalAcceptance',
-      'eraseMe',
-    ];
+    const grpcMethods: string[] = ["getMe", "updateMe", "listLegalAcceptances", "recordLegalAcceptance", "eraseMe"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('UserService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("UserService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('UserService', method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod("UserService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const USER_SERVICE_NAME = 'UserService';
+export const USER_SERVICE_NAME = "UserService";

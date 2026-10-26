@@ -5,13 +5,13 @@
 // source: wayfare/identity/admin_user.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from '../../google/protobuf/timestamp.pb';
-import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from '../common/page.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from "../common/page.pb";
 
-export const protobufPackage = 'wayfare.identity';
+export const protobufPackage = "wayfare.identity";
 
 /** A transactional email template (rdm-spec I-13). */
 export enum EmailTemplate {
@@ -56,7 +56,9 @@ export enum EmailBounceType {
 
 export interface ListUsersRequest {
   page: PageNumberRequest | undefined;
-  roleId?: string | undefined;
+  roleId?:
+    | string
+    | undefined;
   /** Currently locked: set and not lapsed. */
   isLocked?: boolean | undefined;
   ownerVerified?: boolean | undefined;
@@ -114,10 +116,14 @@ export interface GetUserResponse {
 
 /** The detail view of a live account. */
 export interface AdminUserDetail {
-  user: AdminUser | undefined;
+  user:
+    | AdminUser
+    | undefined;
   /** Devices the account has claimed. */
   devicesCount: number;
-  sessions: SessionSummary | undefined;
+  sessions:
+    | SessionSummary
+    | undefined;
   /** Staff-only (rdm-spec I-1). */
   lockReason?: string | undefined;
 }
@@ -165,13 +171,15 @@ export interface LockUserRequest {
   lockedUntil: Timestamp | undefined;
 }
 
-export interface LockUserResponse {}
+export interface LockUserResponse {
+}
 
 export interface UnlockUserRequest {
   userId: string;
 }
 
-export interface UnlockUserResponse {}
+export interface UnlockUserResponse {
+}
 
 export interface DeactivateUserRequest {
   userId: string;
@@ -179,19 +187,22 @@ export interface DeactivateUserRequest {
   refundUnredeemedVouchers: boolean;
 }
 
-export interface DeactivateUserResponse {}
+export interface DeactivateUserResponse {
+}
 
 export interface RestoreUserRequest {
   userId: string;
 }
 
-export interface RestoreUserResponse {}
+export interface RestoreUserResponse {
+}
 
 export interface RevokeUserSessionsRequest {
   userId: string;
 }
 
-export interface RevokeUserSessionsResponse {}
+export interface RevokeUserSessionsResponse {
+}
 
 export interface ListEmailDeliveriesRequest {
   userId: string;
@@ -225,7 +236,7 @@ export interface CheckEmailDeliveryResponse {
   matches: boolean;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
+export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /**
  * Lists, creates, locks, deactivates and signs out accounts. The caller travels as metadata; the
@@ -237,10 +248,7 @@ export interface AdminUserServiceClient {
 
   getUser(request: GetUserRequest, metadata?: Metadata): Observable<GetUserResponse>;
 
-  createStaffUser(
-    request: CreateStaffUserRequest,
-    metadata?: Metadata,
-  ): Observable<CreateStaffUserResponse>;
+  createStaffUser(request: CreateStaffUserRequest, metadata?: Metadata): Observable<CreateStaffUserResponse>;
 
   updateUser(request: UpdateUserRequest, metadata?: Metadata): Observable<UpdateUserResponse>;
 
@@ -250,27 +258,18 @@ export interface AdminUserServiceClient {
 
   unlockUser(request: UnlockUserRequest, metadata?: Metadata): Observable<UnlockUserResponse>;
 
-  deactivateUser(
-    request: DeactivateUserRequest,
-    metadata?: Metadata,
-  ): Observable<DeactivateUserResponse>;
+  deactivateUser(request: DeactivateUserRequest, metadata?: Metadata): Observable<DeactivateUserResponse>;
 
   restoreUser(request: RestoreUserRequest, metadata?: Metadata): Observable<RestoreUserResponse>;
 
-  revokeUserSessions(
-    request: RevokeUserSessionsRequest,
-    metadata?: Metadata,
-  ): Observable<RevokeUserSessionsResponse>;
+  revokeUserSessions(request: RevokeUserSessionsRequest, metadata?: Metadata): Observable<RevokeUserSessionsResponse>;
 
   listEmailDeliveries(
     request: ListEmailDeliveriesRequest,
     metadata?: Metadata,
   ): Observable<ListEmailDeliveriesResponse>;
 
-  checkEmailDelivery(
-    request: CheckEmailDeliveryRequest,
-    metadata?: Metadata,
-  ): Observable<CheckEmailDeliveryResponse>;
+  checkEmailDelivery(request: CheckEmailDeliveryRequest, metadata?: Metadata): Observable<CheckEmailDeliveryResponse>;
 }
 
 /**
@@ -292,10 +291,7 @@ export interface AdminUserServiceController {
   createStaffUser(
     request: CreateStaffUserRequest,
     metadata?: Metadata,
-  ):
-    | Promise<CreateStaffUserResponse>
-    | Observable<CreateStaffUserResponse>
-    | CreateStaffUserResponse;
+  ): Promise<CreateStaffUserResponse> | Observable<CreateStaffUserResponse> | CreateStaffUserResponse;
 
   updateUser(
     request: UpdateUserRequest,
@@ -330,60 +326,47 @@ export interface AdminUserServiceController {
   revokeUserSessions(
     request: RevokeUserSessionsRequest,
     metadata?: Metadata,
-  ):
-    | Promise<RevokeUserSessionsResponse>
-    | Observable<RevokeUserSessionsResponse>
-    | RevokeUserSessionsResponse;
+  ): Promise<RevokeUserSessionsResponse> | Observable<RevokeUserSessionsResponse> | RevokeUserSessionsResponse;
 
   listEmailDeliveries(
     request: ListEmailDeliveriesRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ListEmailDeliveriesResponse>
-    | Observable<ListEmailDeliveriesResponse>
-    | ListEmailDeliveriesResponse;
+  ): Promise<ListEmailDeliveriesResponse> | Observable<ListEmailDeliveriesResponse> | ListEmailDeliveriesResponse;
 
   checkEmailDelivery(
     request: CheckEmailDeliveryRequest,
     metadata?: Metadata,
-  ):
-    | Promise<CheckEmailDeliveryResponse>
-    | Observable<CheckEmailDeliveryResponse>
-    | CheckEmailDeliveryResponse;
+  ): Promise<CheckEmailDeliveryResponse> | Observable<CheckEmailDeliveryResponse> | CheckEmailDeliveryResponse;
 }
 
 export function AdminUserServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'listUsers',
-      'getUser',
-      'createStaffUser',
-      'updateUser',
-      'setUserRoles',
-      'lockUser',
-      'unlockUser',
-      'deactivateUser',
-      'restoreUser',
-      'revokeUserSessions',
-      'listEmailDeliveries',
-      'checkEmailDelivery',
+      "listUsers",
+      "getUser",
+      "createStaffUser",
+      "updateUser",
+      "setUserRoles",
+      "lockUser",
+      "unlockUser",
+      "deactivateUser",
+      "restoreUser",
+      "revokeUserSessions",
+      "listEmailDeliveries",
+      "checkEmailDelivery",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('AdminUserService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("AdminUserService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('AdminUserService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("AdminUserService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const ADMIN_USER_SERVICE_NAME = 'AdminUserService';
+export const ADMIN_USER_SERVICE_NAME = "AdminUserService";

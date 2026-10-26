@@ -45,6 +45,7 @@ import type { DishRow, HoursRow } from './place-form-parts';
 import type { PlaceDetail } from './place-types';
 import { useMapStyle } from './place-page';
 import { useAreas, useCategories, useNames } from './reference';
+import { radiusComparison } from './words';
 import type { FormPhoto } from './uploads';
 
 interface Values {
@@ -277,240 +278,248 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
     <>
       <PageHeader
         breadcrumb={
-          <Link
-            href={editing ? `/places/${place.id}` : '/places'}
-            className="text-sm text-muted-foreground hover:underline"
-          >
-            {editing ? place.nameVi : t('places.title')}
-          </Link>
+          <span className="text-sm text-muted-foreground">
+            <Link href="/places" className="hover:underline">
+              {t('places.title')}
+            </Link>
+            {editing ? (
+              <>
+                {' / '}
+                <Link href={`/places/${place.id}`} className="hover:underline">
+                  {place.nameVi}
+                </Link>
+              </>
+            ) : null}
+          </span>
         }
         title={editing ? t('placeForm.editTitle', { name: place.nameVi }) : t('placeForm.newTitle')}
-        description={editing ? undefined : t('placeForm.newLead')}
+        description={editing ? t('placeForm.editLead') : t('placeForm.newLead')}
       />
       <form
         noValidate
-        className="flex max-w-3xl flex-col gap-6"
+        className="flex flex-col gap-6"
         onSubmit={(event) => {
           event.preventDefault();
           void submit(editing ? 'save' : 'activate');
         }}
       >
-        {venue ? (
-          <p className="flex items-start gap-2 rounded-md bg-info px-3 py-2 text-sm text-info-foreground">
-            <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
-            {t('placeForm.ownerTold', { owner })}
-          </p>
-        ) : null}
-        {stale ? (
-          <div
-            role="alert"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
-          >
-            <span>
-              <strong className="block">{t('placeForm.staleTitle')}</strong>
-              {t('placeForm.staleBody', { name: place?.nameVi ?? values.nameVi })}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setStale(false);
-                router.refresh();
-              }}
-            >
-              {t('placeForm.reload')}
-            </Button>
-          </div>
-        ) : null}
-        {count > 0 ? (
-          <FormAlert>
-            {editing
-              ? t('placeForm.attentionSaved', { count })
-              : t('placeForm.attention', { count })}
-          </FormAlert>
-        ) : alert === null ? null : (
-          <FormAlert>{alert}</FormAlert>
-        )}
-
-        <FormSection title={t('placeForm.about')}>
-          <Field
-            label={t('placeForm.name')}
-            required
-            help={t('placeForm.nameHelp')}
-            error={errors.nameVi}
-          >
-            {(control) => (
-              <Input
-                {...control}
-                lang="vi"
-                value={values.nameVi}
-                onChange={(event) => set('nameVi', event.target.value)}
-              />
-            )}
-          </Field>
-          <Field label={t('place.category')} required error={errors.categoryCode}>
-            {(control) => (
-              <select
-                {...control}
-                value={values.categoryCode}
-                onChange={(event) => set('categoryCode', event.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              >
-                <option value="" disabled>
-                  —
-                </option>
-                {editorialChoices.map((row) => (
-                  <option key={row.code} value={row.code}>
-                    {names.category(row.code)}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
-          <Field
-            label={t('placeForm.description')}
-            required
-            help={t('placeForm.descriptionHelp', {
-              min: 1,
-              max: MAX_DESCRIPTION_CHARS,
-              count: values.descriptionVi.trim().length,
-            })}
-            error={errors.descriptionVi}
-          >
-            {(control) => (
-              <Textarea
-                {...control}
-                lang="vi"
-                rows={6}
-                value={values.descriptionVi}
-                onChange={(event) => set('descriptionVi', event.target.value)}
-              />
-            )}
-          </Field>
-          {descriptionChanged ? (
-            <p
-              role="status"
-              className="flex items-start gap-2 rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground"
+        <div className="flex max-w-3xl flex-col gap-6">
+          {stale ? (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
             >
               <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-              {t('placeForm.textWarning', { name: place.nameVi })}
+              <span className="flex-1">
+                <strong className="block">{t('placeForm.staleTitle')}</strong>
+                {t('placeForm.staleBody', { name: place?.nameVi ?? values.nameVi })}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setStale(false);
+                  router.refresh();
+                }}
+              >
+                {t('placeForm.reload')}
+              </Button>
+            </div>
+          ) : null}
+          {venue ? (
+            <p className="flex items-start gap-2 rounded-md bg-info px-3 py-2 text-sm text-info-foreground">
+              <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+              {t('placeForm.ownerTold', { name: place?.nameVi ?? '', owner })}
             </p>
           ) : null}
-        </FormSection>
-
-        <FormSection title={t('placeForm.location')}>
-          {mapStyle === null || !validPoint ? (
-            <p className="text-sm text-muted-foreground">{t('placeForm.noMap')}</p>
-          ) : (
-            <>
-              <PlaceMap
-                style={mapStyle}
-                center={point}
-                radiusM={editing ? undefined : values.radius}
-                label={t('placeForm.mapLabel')}
-                onMove={(next) =>
-                  setValues((current) => ({
-                    ...current,
-                    lat: String(next.lat),
-                    lng: String(next.lng),
-                  }))
-                }
-                className="h-72"
-              />
-              <p className="text-xs text-muted-foreground">{t('placeForm.mapHelp')}</p>
-            </>
+          {count > 0 ? (
+            <FormAlert>
+              {editing
+                ? t('placeForm.attentionSaved', { count })
+                : t('placeForm.attention', { count })}
+            </FormAlert>
+          ) : alert === null ? null : (
+            <FormAlert>{alert}</FormAlert>
           )}
-          <Field label={t('placeForm.address')} error={errors.addressVi}>
-            {(control) => (
-              <Input
-                {...control}
-                lang="vi"
-                value={values.addressVi}
-                onChange={(event) => set('addressVi', event.target.value)}
-              />
+
+          <FormSection title={t('placeForm.about')}>
+            <Field
+              label={t('placeForm.name')}
+              required
+              help={t('placeForm.nameHelp')}
+              error={errors.nameVi}
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  lang="vi"
+                  value={values.nameVi}
+                  onChange={(event) => set('nameVi', event.target.value)}
+                />
+              )}
+            </Field>
+            <Field label={t('place.category')} required error={errors.categoryCode}>
+              {(control) => (
+                <select
+                  {...control}
+                  value={values.categoryCode}
+                  onChange={(event) => set('categoryCode', event.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="" disabled>
+                    —
+                  </option>
+                  {editorialChoices.map((row) => (
+                    <option key={row.code} value={row.code}>
+                      {names.category(row.code)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field
+              label={t('placeForm.description')}
+              required
+              help={t('placeForm.descriptionHelp', {
+                min: 1,
+                max: MAX_DESCRIPTION_CHARS,
+                count: values.descriptionVi.trim().length,
+              })}
+              error={errors.descriptionVi}
+            >
+              {(control) => (
+                <Textarea
+                  {...control}
+                  lang="vi"
+                  rows={6}
+                  value={values.descriptionVi}
+                  onChange={(event) => set('descriptionVi', event.target.value)}
+                />
+              )}
+            </Field>
+            {descriptionChanged ? (
+              <p
+                role="status"
+                className="flex items-start gap-2 rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground"
+              >
+                <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                {t('placeForm.textWarning', { name: place.nameVi })}
+              </p>
+            ) : null}
+          </FormSection>
+
+          <FormSection title={t('placeForm.location')}>
+            {mapStyle === null || !validPoint ? (
+              <p className="text-sm text-muted-foreground">{t('placeForm.noMap')}</p>
+            ) : (
+              <>
+                <PlaceMap
+                  style={mapStyle}
+                  center={point}
+                  radiusM={editing ? undefined : values.radius}
+                  label={t('placeForm.mapLabel')}
+                  onMove={(next) =>
+                    setValues((current) => ({
+                      ...current,
+                      lat: String(next.lat),
+                      lng: String(next.lng),
+                    }))
+                  }
+                  className="h-72"
+                />
+                <p className="text-xs text-muted-foreground">{t('placeForm.mapHelp')}</p>
+              </>
             )}
-          </Field>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t('placeForm.latitude')} required error={latError}>
+            <Field label={t('placeForm.address')} error={errors.addressVi}>
               {(control) => (
                 <Input
                   {...control}
-                  inputMode="decimal"
-                  value={values.lat}
-                  onChange={(event) => set('lat', event.target.value)}
+                  lang="vi"
+                  value={values.addressVi}
+                  onChange={(event) => set('addressVi', event.target.value)}
                 />
               )}
             </Field>
-            <Field label={t('placeForm.longitude')} required error={latError}>
-              {(control) => (
-                <Input
-                  {...control}
-                  inputMode="decimal"
-                  value={values.lng}
-                  onChange={(event) => set('lng', event.target.value)}
-                />
-              )}
-            </Field>
-          </div>
-        </FormSection>
-
-        <section id="photos" aria-label={t('placeForm.photos')}>
-          <FormSection title={t('placeForm.photos')}>
-            <PhotosEditor
-              photos={values.photos}
-              onChange={(photos) => set('photos', photos)}
-              error={errors.photos}
-            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label={t('placeForm.latitude')} required error={latError}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    inputMode="decimal"
+                    value={values.lat}
+                    onChange={(event) => set('lat', event.target.value)}
+                  />
+                )}
+              </Field>
+              <Field label={t('placeForm.longitude')} required error={latError}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    inputMode="decimal"
+                    value={values.lng}
+                    onChange={(event) => set('lng', event.target.value)}
+                  />
+                )}
+              </Field>
+            </div>
           </FormSection>
-        </section>
 
-        <section id="hours" aria-label={t('placeForm.hours')}>
-          <FormSection title={t('placeForm.hours')}>
-            <HoursEditor rows={values.hours} onChange={(hours) => set('hours', hours)} />
-          </FormSection>
-        </section>
-
-        {venue ? (
-          <section id="menu" aria-label={t('placeForm.menu')}>
-            <FormSection title={t('placeForm.menu')}>
-              <MenuEditor rows={values.menu} onChange={(menu) => set('menu', menu)} />
+          <section id="photos" aria-label={t('placeForm.photos')}>
+            <FormSection title={t('placeForm.photos')}>
+              <PhotosEditor
+                photos={values.photos}
+                onChange={(photos) => set('photos', photos)}
+                error={errors.photos}
+              />
             </FormSection>
           </section>
-        ) : null}
 
-        {editing ? null : (
-          <FormSection title={t('placeForm.editorial')}>
-            <p className="text-sm text-muted-foreground">{t('placeForm.editorialLead')}</p>
-            <SliderField
-              label={t('editorial.radius')}
-              help={t('editorial.radiusHelp', {
-                m: values.radius,
-                comparison: t('editorial.halfBlock'),
-              })}
-              error={errors.triggerRadiusM}
-              value={values.radius}
-              min={MIN_TRIGGER_RADIUS_M}
-              max={MAX_TRIGGER_RADIUS_M}
-              onChange={(radius) => set('radius', radius)}
-            />
-            <SliderField
-              label={t('editorial.priority')}
-              help={t('editorial.priorityHelp')}
-              error={errors.narrationPriority}
-              value={values.priority}
-              min={NARRATION_PRIORITY_MIN}
-              max={NARRATION_PRIORITY_MAX}
-              onChange={(priority) => set('priority', priority)}
-            />
-          </FormSection>
-        )}
+          <section id="hours" aria-label={t('placeForm.hours')}>
+            <FormSection title={t('placeForm.hours')}>
+              <HoursEditor rows={values.hours} onChange={(hours) => set('hours', hours)} />
+            </FormSection>
+          </section>
 
-        <SaveBar>
+          {venue ? (
+            <section id="menu" aria-label={t('placeForm.menu')}>
+              <FormSection title={t('placeForm.menu')}>
+                <MenuEditor rows={values.menu} onChange={(menu) => set('menu', menu)} />
+              </FormSection>
+            </section>
+          ) : null}
+
           {editing ? null : (
-            <p className="mr-auto self-center text-xs text-muted-foreground">
-              {t('placeForm.createNote')}
-            </p>
+            <FormSection title={t('placeForm.editorial')}>
+              <p className="text-sm text-muted-foreground">{t('placeForm.editorialLead')}</p>
+              <SliderField
+                label={t('editorial.radius')}
+                help={t('editorial.radiusHelp', {
+                  m: values.radius,
+                  comparison: t(radiusComparison(values.radius)),
+                })}
+                error={errors.triggerRadiusM}
+                value={values.radius}
+                min={MIN_TRIGGER_RADIUS_M}
+                max={MAX_TRIGGER_RADIUS_M}
+                unit="m"
+                onChange={(radius) => set('radius', radius)}
+              />
+              <SliderField
+                label={t('editorial.priority')}
+                help={t('editorial.priorityHelp')}
+                error={errors.narrationPriority}
+                value={values.priority}
+                min={NARRATION_PRIORITY_MIN}
+                max={NARRATION_PRIORITY_MAX}
+                onChange={(priority) => set('priority', priority)}
+              />
+            </FormSection>
           )}
+        </div>
+        <SaveBar>
+          <p className="mr-auto self-center text-xs text-muted-foreground">
+            {editing ? t('placeForm.editNote') : t('placeForm.createNote')}
+          </p>
           <Button
             type="button"
             variant="outline"

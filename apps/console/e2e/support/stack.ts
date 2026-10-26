@@ -5,9 +5,19 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export const REPO = resolve(__dirname, '../../../..');
-export const GATEWAY = process.env.E2E_GATEWAY ?? 'http://localhost:13000';
+/**
+ * `E2E_STACK=screens`: the screen baselines' own stack (screens/stack.sh), every port up by 10000.
+ * Otherwise the developer's stack, or CI's.
+ */
+export const SCREENS_STACK = process.env.E2E_STACK === 'screens';
+export const CONSOLE = process.env.E2E_CONSOLE ?? `http://localhost:${SCREENS_STACK ? 5183 : 5173}`;
+export const GATEWAY =
+  process.env.E2E_GATEWAY ?? `http://localhost:${SCREENS_STACK ? 23000 : 13000}`;
 export const API = `${GATEWAY}/api/v1`;
-export const MAILPIT = process.env.E2E_MAILPIT ?? 'http://localhost:8025';
+export const MAILPIT =
+  process.env.E2E_MAILPIT ?? `http://localhost:${SCREENS_STACK ? 28025 : 8025}`;
+/** The stack's containers are named `<prefix>-redis`, `<prefix>-identity-db`, … */
+const CONTAINERS = SCREENS_STACK ? 'wayfare-screens' : 'wayfare';
 
 /** A value of a service's local `.env`, never printed. */
 export function envValue(service: string, key: string): string {
@@ -28,6 +38,7 @@ export class Actor {
     path: string,
     body?: unknown,
     expected = [200, 201, 202, 204],
+    attempt = 0,
   ): Promise<T> {
     const response = await fetch(`${API}${path}`, {
       method,
@@ -45,6 +56,16 @@ export class Actor {
       else this.cookies.set(name, value);
     }
     const text = await response.text();
+    // On a loaded machine an upstream can be out of reach for a moment. A 503 means the gateway
+    // reached no service, so nothing happened and any call is asked again; a 504 may have
+    // happened, so only a read or a sign-in is.
+    const retryable =
+      response.status === 503 ||
+      ([502, 504].includes(response.status) && (method === 'GET' || path === '/auth/login'));
+    if (retryable && !expected.includes(response.status) && attempt < 5) {
+      await new Promise((done) => setTimeout(done, 2_000 * (attempt + 1)));
+      return this.call<T>(method, path, body, expected, attempt + 1);
+    }
     if (!expected.includes(response.status))
       throw new Error(`${method} ${path} → ${response.status} ${text}`);
     return (text === '' ? undefined : JSON.parse(text)) as T;
@@ -91,10 +112,8 @@ export function resetRateLimits(): void {
   execFileSync(
     'docker',
     [
-      'compose',
       'exec',
-      '-T',
-      'redis',
+      `${CONTAINERS}-redis`,
       'sh',
       '-c',
       "redis-cli --scan --pattern 'rl:*' | xargs -r redis-cli del",
@@ -116,10 +135,8 @@ export function identitySql(sql: string): string {
   return execFileSync(
     'docker',
     [
-      'compose',
       'exec',
-      '-T',
-      'identity-db',
+      `${CONTAINERS}-identity-db`,
       'psql',
       '-U',
       'wayfare',

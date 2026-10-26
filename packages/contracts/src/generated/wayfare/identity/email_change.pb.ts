@@ -5,15 +5,17 @@
 // source: wayfare/identity/email_change.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
 
-export const protobufPackage = 'wayfare.identity';
+export const protobufPackage = "wayfare.identity";
 
-export interface RequestEmailVerificationRequest {}
+export interface RequestEmailVerificationRequest {
+}
 
-export interface RequestEmailVerificationResponse {}
+export interface RequestEmailVerificationResponse {
+}
 
 export interface VerifyEmailRequest {
   /** Secret: never logged. */
@@ -35,7 +37,8 @@ export interface RequestEmailChangeRequest {
   confirmation: string;
 }
 
-export interface RequestEmailChangeResponse {}
+export interface RequestEmailChangeResponse {
+}
 
 export interface ConfirmEmailChangeRequest {
   /** Secret: never logged. */
@@ -61,7 +64,7 @@ export interface RevertEmailChangeResponse {
   sameAccount: boolean;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
+export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /** The caller travels as metadata; link routes carry only their token. */
 
@@ -73,20 +76,11 @@ export interface EmailChangeServiceClient {
 
   verifyEmail(request: VerifyEmailRequest, metadata?: Metadata): Observable<VerifyEmailResponse>;
 
-  requestEmailChange(
-    request: RequestEmailChangeRequest,
-    metadata?: Metadata,
-  ): Observable<RequestEmailChangeResponse>;
+  requestEmailChange(request: RequestEmailChangeRequest, metadata?: Metadata): Observable<RequestEmailChangeResponse>;
 
-  confirmEmailChange(
-    request: ConfirmEmailChangeRequest,
-    metadata?: Metadata,
-  ): Observable<ConfirmEmailChangeResponse>;
+  confirmEmailChange(request: ConfirmEmailChangeRequest, metadata?: Metadata): Observable<ConfirmEmailChangeResponse>;
 
-  revertEmailChange(
-    request: RevertEmailChangeRequest,
-    metadata?: Metadata,
-  ): Observable<RevertEmailChangeResponse>;
+  revertEmailChange(request: RevertEmailChangeRequest, metadata?: Metadata): Observable<RevertEmailChangeResponse>;
 }
 
 /** The caller travels as metadata; link routes carry only their token. */
@@ -108,53 +102,40 @@ export interface EmailChangeServiceController {
   requestEmailChange(
     request: RequestEmailChangeRequest,
     metadata?: Metadata,
-  ):
-    | Promise<RequestEmailChangeResponse>
-    | Observable<RequestEmailChangeResponse>
-    | RequestEmailChangeResponse;
+  ): Promise<RequestEmailChangeResponse> | Observable<RequestEmailChangeResponse> | RequestEmailChangeResponse;
 
   confirmEmailChange(
     request: ConfirmEmailChangeRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ConfirmEmailChangeResponse>
-    | Observable<ConfirmEmailChangeResponse>
-    | ConfirmEmailChangeResponse;
+  ): Promise<ConfirmEmailChangeResponse> | Observable<ConfirmEmailChangeResponse> | ConfirmEmailChangeResponse;
 
   revertEmailChange(
     request: RevertEmailChangeRequest,
     metadata?: Metadata,
-  ):
-    | Promise<RevertEmailChangeResponse>
-    | Observable<RevertEmailChangeResponse>
-    | RevertEmailChangeResponse;
+  ): Promise<RevertEmailChangeResponse> | Observable<RevertEmailChangeResponse> | RevertEmailChangeResponse;
 }
 
 export function EmailChangeServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'requestEmailVerification',
-      'verifyEmail',
-      'requestEmailChange',
-      'confirmEmailChange',
-      'revertEmailChange',
+      "requestEmailVerification",
+      "verifyEmail",
+      "requestEmailChange",
+      "confirmEmailChange",
+      "revertEmailChange",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('EmailChangeService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("EmailChangeService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('EmailChangeService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("EmailChangeService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const EMAIL_CHANGE_SERVICE_NAME = 'EmailChangeService';
+export const EMAIL_CHANGE_SERVICE_NAME = "EmailChangeService";

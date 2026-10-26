@@ -9,6 +9,12 @@ export interface GcsOptions {
   readonly bucket: string;
   /** Local only: the emulator's origin. */
   readonly apiEndpoint?: string;
+  /**
+   * Local only: the emulator's origin as a browser reaches it, when the service reaches it by
+   * another name (a container's `http://fake-gcs:4443`). A signed upload names it instead; the
+   * emulator checks no signature.
+   */
+  readonly uploadEndpoint?: string;
   /** Local only: a service-account key file to sign with. Unset, ADC signs through IAM. */
   readonly keyFilename?: string;
 }
@@ -19,8 +25,13 @@ const isNotFound = (error: unknown): boolean =>
 /** The only file that imports `@google-cloud/storage` (conventions §11.5). */
 export class GcsStorageProvider implements StorageProvider {
   private readonly bucket: Bucket;
+  private readonly uploadOrigin: { readonly from: string; readonly to: string } | null;
 
   constructor(options: GcsOptions) {
+    this.uploadOrigin =
+      options.apiEndpoint !== undefined && options.uploadEndpoint !== undefined
+        ? { from: options.apiEndpoint, to: options.uploadEndpoint }
+        : null;
     const storage = new Storage({
       ...(options.apiEndpoint === undefined ? {} : { apiEndpoint: options.apiEndpoint }),
       ...(options.keyFilename === undefined ? {} : { keyFilename: options.keyFilename }),
@@ -43,7 +54,10 @@ export class GcsStorageProvider implements StorageProvider {
       extensionHeaders: { 'x-goog-content-length-range': lengthRange },
     });
     return {
-      url,
+      url:
+        this.uploadOrigin !== null && url.startsWith(this.uploadOrigin.from)
+          ? this.uploadOrigin.to + url.slice(this.uploadOrigin.from.length)
+          : url,
       requiredHeaders: {
         'Content-Type': input.contentType,
         'x-goog-content-length-range': lengthRange,

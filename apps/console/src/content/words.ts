@@ -36,6 +36,9 @@ export interface LocalizationState {
   readonly stale: boolean;
   readonly audioStatus: string;
   readonly audioStale: boolean;
+  /** The ready audio's length and voice; absent where the read doesn't carry them. */
+  readonly audioDurationMs?: number | null;
+  readonly voiceId?: string | null;
 }
 
 /** What a tourist in `lang` hears meanwhile (rdm-spec §1.5's content tiers). */

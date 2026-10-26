@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@wayfare/ui/dialogs';
 import { PageHeader } from '@wayfare/ui/list';
 import { Card } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
-import { RefreshCw } from 'lucide-react';
+import { CircleX, Clock, Info, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -28,7 +28,9 @@ import { useCan } from '../shell/can';
 import { useJobSubscription, useSocketEvent } from '../shell/socket';
 import { useTargetName, useTriggerText } from './job-words';
 import { controlsFor, isFinished, jobTone, taskTone } from './jobs';
+import { displayName } from './narration-providers';
 import { RegenerateDialog } from './regenerate-dialog';
+import { formatTime } from '../i18n/format';
 
 type Job = Awaited<ReturnType<typeof adminNarrationGet>>['data'];
 type Task = Job['tasks'][number];
@@ -78,8 +80,7 @@ export function NarrationJob({ initial }: { initial: Job }) {
   });
 
   const now = new Date();
-  const clock = (iso: string) =>
-    new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const clock = (iso: string) => formatTime(iso, locale);
   const act = async (control: Control) => {
     if (busy !== null) return;
     setBusy(control);
@@ -103,28 +104,60 @@ export function NarrationJob({ initial }: { initial: Job }) {
 
   const waiting = (task: Task) =>
     task.status === 'QUEUED' && task.failureReason === 'PROVIDER_UNAVAILABLE';
+  // The waiting line in the info colour, a failure in red, each with its icon.
   const detail = (task: Task) => {
     if (waiting(task) && task.nextAttemptAt !== null) {
       const minutes = Math.max(
         0,
         Math.ceil((new Date(task.nextAttemptAt).getTime() - now.getTime()) / 60_000),
       );
-      return t('job.waiting', {
-        time: clock(task.providerDownSince ?? task.startedAt ?? data.createdAt),
-        next: clock(task.nextAttemptAt),
-        minutes,
-      });
+      return (
+        <span className="flex items-start gap-1.5 text-info-foreground">
+          <Clock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          {t('job.waiting', {
+            time: clock(task.providerDownSince ?? task.startedAt ?? data.createdAt),
+            next: clock(task.nextAttemptAt),
+            minutes,
+          })}
+        </span>
+      );
     }
     if (task.status === 'RUNNING' && task.stage === 'SYNTHESIZE') return t('job.making');
-    return task.lastError ?? '';
+    if (task.lastError === null) return '';
+    // A failure says how many tries, what went wrong, and what to do.
+    return task.status === 'FAILED' ? (
+      <span className="flex items-start gap-1.5 text-destructive">
+        <CircleX aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+        {t(task.stage === 'TRANSLATE' ? 'job.failedTranslation' : 'job.failedAudio', {
+          tries: task.attempts,
+          error: task.lastError,
+        })}
+      </span>
+    ) : (
+      task.lastError
+    );
   };
-  const stage = (task: Task) =>
-    task.status === 'SUCCEEDED'
-      ? t('stage.PUBLISHED')
-      : t('job.stageOf', {
-          stage: tDynamic(`stage.${task.stage}`),
-          i: STAGES.indexOf(task.stage) + 1,
-        });
+  const stage = (task: Task) => {
+    const done = task.status === 'SUCCEEDED';
+    const step = done ? STAGES.length : STAGES.indexOf(task.stage) + 1;
+    return (
+      <span className="flex flex-col gap-1">
+        <span aria-hidden className="flex gap-0.5">
+          {STAGES.map((name, index) => (
+            <span
+              key={name}
+              className={`h-1.5 w-4 rounded-full ${index < step ? 'bg-primary' : 'bg-muted'}`}
+            />
+          ))}
+        </span>
+        <span className="whitespace-nowrap">
+          {done
+            ? t('stage.PUBLISHED')
+            : t('job.stageOf', { stage: tDynamic(`stage.${task.stage}`), i: step })}
+        </span>
+      </span>
+    );
+  };
   const manage = can('narration.job.manage');
   const controls = manage ? controlsFor(data.status, data.failedTasks) : [];
   const label: Record<Control, string> = {
@@ -159,7 +192,7 @@ export function NarrationJob({ initial }: { initial: Job }) {
             {controls.map((control) => (
               <Button
                 key={control}
-                variant={control === 'cancel' ? 'outline' : 'default'}
+                variant="outline"
                 busy={busy === control && control !== 'cancel' ? t('action.saving') : undefined}
                 onClick={() => (control === 'cancel' ? setCancelling(true) : void act(control))}
               >
@@ -175,6 +208,15 @@ export function NarrationJob({ initial }: { initial: Job }) {
           </div>
         }
       />
+      {data.status === 'PAUSED' ? (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-md bg-info px-4 py-3 text-sm text-info-foreground"
+        >
+          <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t('job.pausedLine')}
+        </p>
+      ) : null}
       <Card className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-foreground">
@@ -190,7 +232,12 @@ export function NarrationJob({ initial }: { initial: Job }) {
             label={t('jobs.doneOf', { done: data.completedTasks, total: data.totalTasks })}
           />
         </div>
-        <div className="overflow-x-auto">
+        <div
+          className="relative overflow-x-auto"
+          role="region"
+          aria-label={t('a11y.table', { name: t('job.tasks') })}
+          tabIndex={0}
+        >
           <table className="w-full text-left text-sm">
             <caption className="sr-only">{t('job.liveNote')}</caption>
             <thead className="text-xs text-muted-foreground">
@@ -222,7 +269,14 @@ export function NarrationJob({ initial }: { initial: Job }) {
                     </JobStatusBadge>
                   </td>
                   <td className="px-2 py-3 text-muted-foreground">
-                    {[task.translationProvider, task.speechProvider]
+                    {[
+                      task.translationProvider === null
+                        ? null
+                        : displayName({ role: 'translation', name: task.translationProvider }),
+                      task.speechProvider === null
+                        ? null
+                        : displayName({ role: 'speech', name: task.speechProvider }),
+                    ]
                       .filter((provider) => provider !== null)
                       .join(' · ') || t('place.none')}
                   </td>
@@ -242,6 +296,7 @@ export function NarrationJob({ initial }: { initial: Job }) {
         title={t('job.cancelTitle')}
         description={t('job.cancelBody')}
         confirm={t('job.cancel')}
+        tone="destructive"
         busy={busy === 'cancel' ? t('action.saving') : undefined}
         labels={{ cancel: t('job.keep'), close: t('action.close') }}
         onConfirm={() => void act('cancel')}

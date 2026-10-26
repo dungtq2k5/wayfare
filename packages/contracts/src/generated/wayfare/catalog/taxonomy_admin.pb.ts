@@ -5,13 +5,13 @@
 // source: wayfare/catalog/taxonomy_admin.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { GeoPoint } from '../common/geo.pb';
-import { CategoryAppliesTo } from './place_types.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { GeoPoint } from "../common/geo.pb";
+import { CategoryAppliesTo } from "./place_types.pb";
 
-export const protobufPackage = 'wayfare.catalog';
+export const protobufPackage = "wayfare.catalog";
 
 /** A category, active or not, with how many non-deleted Places use it. */
 export interface AdminCategory {
@@ -24,7 +24,8 @@ export interface AdminCategory {
   placeCount: number;
 }
 
-export interface ListAdminCategoriesRequest {}
+export interface ListAdminCategoriesRequest {
+}
 
 export interface ListAdminCategoriesResponse {
   categories: AdminCategory[];
@@ -76,7 +77,8 @@ export interface AdminArea {
   placeCounts: AreaPlaceCounts | undefined;
 }
 
-export interface ListAdminAreasRequest {}
+export interface ListAdminAreasRequest {
+}
 
 export interface ListAdminAreasResponse {
   areas: AdminArea[];
@@ -108,7 +110,9 @@ export interface CreateAreaResponse {
 /** Only the fields sent change; the code never does. */
 export interface UpdateAreaRequest {
   areaId: string;
-  nameVi?: string | undefined;
+  nameVi?:
+    | string
+    | undefined;
   /** GeoJSON Polygon. */
   boundaryGeojson?: string | undefined;
   center: GeoPoint | undefined;
@@ -121,7 +125,7 @@ export interface UpdateAreaResponse {
   area: AdminArea | undefined;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
+export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
 
 /**
  * Categories and areas. The caller travels as metadata; the gateway checks
@@ -134,20 +138,11 @@ export interface TaxonomyAdminServiceClient {
     metadata?: Metadata,
   ): Observable<ListAdminCategoriesResponse>;
 
-  createCategory(
-    request: CreateCategoryRequest,
-    metadata?: Metadata,
-  ): Observable<CreateCategoryResponse>;
+  createCategory(request: CreateCategoryRequest, metadata?: Metadata): Observable<CreateCategoryResponse>;
 
-  updateCategory(
-    request: UpdateCategoryRequest,
-    metadata?: Metadata,
-  ): Observable<UpdateCategoryResponse>;
+  updateCategory(request: UpdateCategoryRequest, metadata?: Metadata): Observable<UpdateCategoryResponse>;
 
-  listAdminAreas(
-    request: ListAdminAreasRequest,
-    metadata?: Metadata,
-  ): Observable<ListAdminAreasResponse>;
+  listAdminAreas(request: ListAdminAreasRequest, metadata?: Metadata): Observable<ListAdminAreasResponse>;
 
   getAdminArea(request: GetAdminAreaRequest, metadata?: Metadata): Observable<GetAdminAreaResponse>;
 
@@ -165,10 +160,7 @@ export interface TaxonomyAdminServiceController {
   listAdminCategories(
     request: ListAdminCategoriesRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ListAdminCategoriesResponse>
-    | Observable<ListAdminCategoriesResponse>
-    | ListAdminCategoriesResponse;
+  ): Promise<ListAdminCategoriesResponse> | Observable<ListAdminCategoriesResponse> | ListAdminCategoriesResponse;
 
   createCategory(
     request: CreateCategoryRequest,
@@ -204,30 +196,26 @@ export interface TaxonomyAdminServiceController {
 export function TaxonomyAdminServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'listAdminCategories',
-      'createCategory',
-      'updateCategory',
-      'listAdminAreas',
-      'getAdminArea',
-      'createArea',
-      'updateArea',
+      "listAdminCategories",
+      "createCategory",
+      "updateCategory",
+      "listAdminAreas",
+      "getAdminArea",
+      "createArea",
+      "updateArea",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('TaxonomyAdminService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("TaxonomyAdminService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('TaxonomyAdminService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("TaxonomyAdminService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const TAXONOMY_ADMIN_SERVICE_NAME = 'TaxonomyAdminService';
+export const TAXONOMY_ADMIN_SERVICE_NAME = "TaxonomyAdminService";

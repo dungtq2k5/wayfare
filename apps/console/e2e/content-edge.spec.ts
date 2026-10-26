@@ -90,7 +90,7 @@ test('2: a conflict keeps Approve off until I’ve seen… is ticked, then ackno
   await expect(page.getByText('Changed since this was sent: phone')).toBeVisible();
   const phone = page.getByRole('region', { name: 'phone' });
   await expect(phone.getByText('When sent')).toBeVisible();
-  await expect(phone.getByText('+84999999999')).toBeVisible();
+  await expect(phone.getByText('099 999 9999')).toBeVisible();
   const approve = page.getByRole('button', { name: 'Approve…' });
   await expect(approve).toBeDisabled();
   await expectAccessible(page);
@@ -235,7 +235,7 @@ test('6: two reveals are two audit rows; a redacted application has nothing to r
     `UPDATE owner_registrations SET national_id_ciphertext = NULL, national_id_last4 = NULL, pii_redacted_at = now() WHERE id = '${id}'`,
   );
   await page.reload();
-  await expect(page.getByText('Redacted 180 days after the decision.')).toBeVisible();
+  await expect(page.getByText(/^Redacted on .*, 180 days after the decision\.$/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reveal…' })).toHaveCount(0);
   await expectAccessible(page);
 });

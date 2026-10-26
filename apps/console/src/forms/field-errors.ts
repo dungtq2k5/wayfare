@@ -29,10 +29,11 @@ function sentence(
   issue: { code: string; minimum?: unknown; maximum?: unknown; format?: unknown },
   field: string,
   value: unknown,
-  { t }: Translator,
+  { t, tDynamic }: Translator,
   overrides: IssueOverrides,
 ): string {
-  if (blank(value)) return t('issue.required');
+  // An empty field says what to do with it ("Write a description."); the general line otherwise.
+  if (blank(value)) return tDynamic(`required.${field}`, undefined, t('issue.required'));
   const count = lengthOf(value);
   const minimum = Number(issue.minimum);
   const special = overrides[field]?.({ code: issue.code, count, minimum });

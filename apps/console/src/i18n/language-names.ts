@@ -10,3 +10,13 @@ export function autonym(code: string): string {
     return code;
   }
 }
+
+/** A language's name in the console's language ("Vietnamese", "Chinese"); the code when unknown. */
+export function languageName(code: string, locale: string): string {
+  try {
+    const name = new Intl.DisplayNames([locale], { type: 'language' }).of(code);
+    return name === undefined ? code : name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
+  } catch {
+    return code;
+  }
+}

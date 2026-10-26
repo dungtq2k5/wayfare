@@ -14,4 +14,7 @@ export type OwnerPlaceResultResponseDtoPlaceLocalizationsItem = {
   audioStatus: OwnerPlaceResultResponseDtoPlaceLocalizationsItemAudioStatus;
   audioStale: boolean;
   translationSource: OwnerPlaceResultResponseDtoPlaceLocalizationsItemTranslationSource;
+  audioDurationMs: number | null;
+  /** @nullable */
+  voiceId: string | null;
 };

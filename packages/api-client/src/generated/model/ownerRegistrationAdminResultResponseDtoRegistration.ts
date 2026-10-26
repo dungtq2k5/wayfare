@@ -33,4 +33,5 @@ export type OwnerRegistrationAdminResultResponseDtoRegistration = {
   piiRedacted: boolean;
   applicant: OwnerRegistrationAdminResultResponseDtoRegistrationApplicant;
   priorApplications: OwnerRegistrationAdminResultResponseDtoRegistrationPriorApplicationsItem[];
+  piiRedactedAt: string | null;
 };

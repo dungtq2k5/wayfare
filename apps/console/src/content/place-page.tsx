@@ -15,7 +15,7 @@ import {
 } from '@wayfare/ui/menu';
 import { StatusBadge } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
-import { Ellipsis, Info, Pencil } from 'lucide-react';
+import { Clock, Ellipsis, Info, LoaderCircle, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../app/providers';
@@ -26,13 +26,15 @@ import { useCan } from '../shell/can';
 import { EditorialSection } from './editorial-section';
 import { NarrationSection } from './narration-section';
 import { DeactivateDialog, DeleteDialog, ownerName } from './place-actions';
-import { Facts, History, HoursList, Section } from './place-sections';
+import { Facts, focusSection, History, HoursList, Section } from './place-sections';
 import type { PlaceDetail } from './place-types';
 import { QrSection } from './qr-section';
 import { RegenerateDialog } from './regenerate-dialog';
 import { narrationRows } from './narration-section';
 import { useAreas, useNames } from './reference';
-import { printedCode, statusTone } from './words';
+import { printedCode, radiusComparison, statusTone, waitKey } from './words';
+import type { InactiveReason } from './words';
+import { formatDate, formatPhone } from '../i18n/format';
 
 /** The map style for the page's theme: the pack's dark one in dark, when it has one. */
 export function useMapStyle(areaId: string): string | null {
@@ -74,6 +76,11 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
   const [draftRadius, setDraftRadius] = useState<number | null>(null);
   const mapStyle = useMapStyle(data.areaId);
   const previous = useRef(data.status);
+  const toQr = useRef(false);
+  // Arriving from a list's *QR sticker* (`#qr`): the section takes focus, as from the menu.
+  useEffect(() => {
+    if (window.location.hash === '#qr') focusSection('qr');
+  }, []);
 
   // L7b: the audio arrived while the page was open.
   useEffect(() => {
@@ -111,6 +118,8 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
   const now = new Date();
   const deleted = data.deletedAt !== null;
   const radius = draftRadius ?? data.triggerRadiusM;
+  // A Place that waits says why (round 34 §2).
+  const wait = waitKey(status, data.inactiveReason as InactiveReason | null);
 
   return (
     <>
@@ -121,7 +130,12 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
           </Link>
         }
         title={data.nameVi}
-        description={`${printedCode(data.publicCode)} · ${names.area(data.areaCode)} · ${names.category(data.categoryCode)}`}
+        description={[
+          printedCode(data.publicCode),
+          names.area(data.areaCode),
+          names.category(data.categoryCode),
+          ...(venue ? [t('place.ownedBy', { owner })] : []),
+        ].join(' · ')}
         action={
           deleted ? undefined : (
             <div className="flex flex-wrap items-center gap-2">
@@ -149,9 +163,18 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
                     <Ellipsis aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <a href="#qr">{t('place.qr')}</a>
+                <DropdownMenuContent
+                  align="end"
+                  onCloseAutoFocus={(event) => {
+                    // *QR sticker* moves focus to the section, not back to the menu's button.
+                    if (!toQr.current) return;
+                    toQr.current = false;
+                    event.preventDefault();
+                    focusSection('qr');
+                  }}
+                >
+                  <DropdownMenuItem onSelect={() => (toQr.current = true)}>
+                    {t('place.qr')}
                   </DropdownMenuItem>
                   {can('narration.job.manage') ? (
                     <DropdownMenuItem onSelect={() => setDialog('regenerate')}>
@@ -177,6 +200,9 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
         <StatusBadge tone={deleted ? 'inactive' : statusTone(status)}>
           {deleted ? t('places.deleted') : tDynamic(`status.${status}`)}
         </StatusBadge>
+        {deleted || wait === null ? null : (
+          <span className="text-sm text-muted-foreground">· {tDynamic(wait)}</span>
+        )}
       </div>
       {venue ? (
         <p className="flex items-start gap-2 rounded-md bg-info px-3 py-2 text-sm text-info-foreground">
@@ -185,18 +211,37 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
         </p>
       ) : null}
       {showGate ? (
+        // Nothing is wrong: the info style, each item with its live state's icon.
         <div
           role="status"
-          className="flex flex-col gap-1 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
+          className="flex flex-col gap-2 rounded-md bg-info px-4 py-3 text-sm text-info-foreground"
         >
-          <strong>{t('gate.title')}</strong>
-          <ul className="list-disc pl-5">
-            {missing.includes('en.text') ? <li>{t('gate.enText')}</li> : null}
+          <strong className="flex items-center gap-2">
+            <Info aria-hidden className="size-4 shrink-0" />
+            {t('gate.title')}
+          </strong>
+          <ul className="flex flex-col gap-1 pl-6 [&_svg]:size-4 [&_svg]:shrink-0">
+            {missing.includes('en.text') ? (
+              <li className="flex items-center gap-2">
+                <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" />
+                {t('gate.enText')}
+              </li>
+            ) : null}
             {missing.includes('en.audio') ? (
-              <li>{missing.includes('en.text') ? t('gate.enAudio') : t('gate.enAudioMaking')}</li>
+              missing.includes('en.text') ? (
+                <li className="flex items-center gap-2">
+                  <Clock aria-hidden />
+                  {t('gate.enAudio')}
+                </li>
+              ) : (
+                <li className="flex items-center gap-2">
+                  <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" />
+                  {t('gate.enAudioMaking')}
+                </li>
+              )
             ) : null}
           </ul>
-          <span>{t('gate.byItself')}</span>
+          <span className="pl-6">{t('gate.byItself')}</span>
         </div>
       ) : null}
       {gate === null ? null : <FormAlert>{gate}</FormAlert>}
@@ -226,7 +271,9 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
                 ...(data.priceBand === null
                   ? []
                   : [[t('place.price'), t('place.priceBand', { band: data.priceBand })] as const]),
-                ...(data.phone === null ? [] : [[t('place.phone'), data.phone] as const]),
+                ...(data.phone === null
+                  ? []
+                  : [[t('place.phone'), formatPhone(data.phone)] as const]),
                 ...(data.websiteUrl === null
                   ? []
                   : [[t('place.website'), data.websiteUrl] as const]),
@@ -340,10 +387,7 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
                 [t('places.kind'), tDynamic(`kind.${kind}`)],
                 ...(venue ? [[t('places.owner'), owner] as const] : []),
                 [t('place.area'), names.area(data.areaCode)],
-                [
-                  t('place.created'),
-                  new Date(data.createdAt).toLocaleDateString(translator.locale),
-                ],
+                [t('place.created'), formatDate(data.createdAt, translator.locale)],
                 [t('place.updated'), relativeTime(data.updatedAt, now, translator)],
               ]}
             />
@@ -356,6 +400,14 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
                 radiusM={radius}
                 label={t('place.location')}
               />
+            )}
+            {draftRadius === null || Number.isNaN(draftRadius) ? null : (
+              <p className="text-xs text-muted-foreground">
+                {t('place.circleCaption', {
+                  m: draftRadius,
+                  comparison: t(radiusComparison(draftRadius)),
+                })}
+              </p>
             )}
             <Facts
               rows={[

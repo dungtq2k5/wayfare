@@ -11,6 +11,7 @@ import {
 import { Button } from '@wayfare/ui/button';
 import { Field, FormAlert, Input } from '@wayfare/ui/field';
 import { toast } from '@wayfare/ui/toaster';
+import { Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { errorText } from '../client/errors';
 import { validateForm } from '../forms/field-errors';
@@ -29,6 +30,7 @@ export function SliderField({
   max,
   onChange,
   required = true,
+  unit,
 }: {
   label: string;
   help: string;
@@ -38,30 +40,43 @@ export function SliderField({
   max: number;
   onChange: (value: number) => void;
   required?: boolean;
+  /** The value's unit after the field and at the slider's ends ("m"). */
+  unit?: string;
 }) {
+  const end = (n: number) => (unit === undefined ? String(n) : `${n} ${unit}`);
   return (
     <Field label={label} help={help} error={error} required={required}>
       {(control) => (
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={min}
-            max={max}
-            value={value}
-            aria-hidden
-            tabIndex={-1}
-            onChange={(event) => onChange(Number(event.target.value))}
-            className="h-2 flex-1 accent-primary"
-          />
-          <Input
-            {...control}
-            type="number"
-            min={min}
-            max={max}
-            value={Number.isNaN(value) ? '' : value}
-            onChange={(event) => onChange(event.target.valueAsNumber)}
-            className="w-20 text-right"
-          />
+        <div className="flex items-start gap-3">
+          <div className="flex flex-1 flex-col gap-1 pt-2" aria-hidden>
+            <input
+              type="range"
+              min={min}
+              max={max}
+              value={value}
+              tabIndex={-1}
+              onChange={(event) => onChange(Number(event.target.value))}
+              className="h-2 w-full accent-primary"
+            />
+            <span className="flex justify-between text-xs text-muted-foreground">
+              <span>{end(min)}</span>
+              <span>{end(max)}</span>
+            </span>
+          </div>
+          <span className="flex items-center gap-2">
+            <Input
+              {...control}
+              type="number"
+              min={min}
+              max={max}
+              value={Number.isNaN(value) ? '' : value}
+              onChange={(event) => onChange(event.target.valueAsNumber)}
+              className="w-20 text-right"
+            />
+            {unit === undefined ? null : (
+              <span className="text-sm text-muted-foreground">{unit}</span>
+            )}
+          </span>
         </div>
       )}
     </Field>
@@ -128,7 +143,26 @@ export function EditorialSection({
   };
 
   return (
-    <Section id="editorial" title={t('place.editorial')}>
+    <Section
+      id="editorial"
+      title={t('place.editorial')}
+      action={
+        canEdit && !editing ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setEditing(true);
+              // The map draws the circle being edited, and says its size, from the start.
+              onDraftRadius(radius);
+            }}
+          >
+            <Pencil aria-hidden />
+            {t('place.edit')}
+          </Button>
+        ) : undefined
+      }
+    >
       {editing ? (
         <form
           noValidate
@@ -146,6 +180,7 @@ export function EditorialSection({
             value={radius}
             min={MIN_TRIGGER_RADIUS_M}
             max={MAX_TRIGGER_RADIUS_M}
+            unit="m"
             onChange={(value) => {
               setRadius(value);
               if (!Number.isNaN(value)) onDraftRadius(value);
@@ -194,14 +229,7 @@ export function EditorialSection({
               [t('editorial.priority'), t('place.editorialPriority', { p: priority })],
             ]}
           />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">{t('place.editorialOnly')}</p>
-            {canEdit ? (
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                {t('place.edit')}
-              </Button>
-            ) : null}
-          </div>
+          <p className="text-xs text-muted-foreground">{t('place.editorialOnly')}</p>
         </>
       )}
     </Section>

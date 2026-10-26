@@ -49,6 +49,7 @@ export function DialogContent({
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
+        data-overlay
         className={cn(overlay, 'duration-(--duration-fast) motion-reduce:animate-none')}
       />
       <DialogPrimitive.Content
@@ -107,6 +108,7 @@ export function DrawerContent({
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
+        data-overlay
         className={cn(overlay, 'duration-(--duration-normal) motion-reduce:animate-none')}
       />
       <DialogPrimitive.Content

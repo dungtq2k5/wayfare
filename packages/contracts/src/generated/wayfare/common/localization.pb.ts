@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 
-export const protobufPackage = 'wayfare.common';
+export const protobufPackage = "wayfare.common";
 
 /** What a synthesis job localizes (rdm-spec N-1 `target_type`). */
 export enum LocalizationTargetType {
@@ -19,4 +19,4 @@ export enum LocalizationTargetType {
   UNRECOGNIZED = -1,
 }
 
-export const WAYFARE_COMMON_PACKAGE_NAME = 'wayfare.common';
+export const WAYFARE_COMMON_PACKAGE_NAME = "wayfare.common";

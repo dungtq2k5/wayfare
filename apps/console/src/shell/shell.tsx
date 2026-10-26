@@ -147,6 +147,7 @@ function NavLink({ item, count }: { item: NavItem; count?: number | undefined })
           <>
             <span
               aria-hidden
+              data-count
               className="rounded-full bg-primary px-2 text-xs font-medium text-primary-foreground"
             >
               {count}

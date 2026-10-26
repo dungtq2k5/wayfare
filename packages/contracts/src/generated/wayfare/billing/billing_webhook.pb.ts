@@ -5,11 +5,11 @@
 // source: wayfare/billing/billing_webhook.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
 
-export const protobufPackage = 'wayfare.billing';
+export const protobufPackage = "wayfare.billing";
 
 /** Which Stripe endpoint delivered an event (rdm-spec B-4). */
 export enum StripeEndpoint {
@@ -37,17 +37,15 @@ export interface ReceiveStripeEventRequest {
   endpoint: StripeEndpoint;
 }
 
-export interface ReceiveStripeEventResponse {}
+export interface ReceiveStripeEventResponse {
+}
 
-export const WAYFARE_BILLING_PACKAGE_NAME = 'wayfare.billing';
+export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";
 
 /** The gateway never parses the body: billing verifies the signature over the exact bytes. */
 
 export interface BillingWebhookServiceClient {
-  receiveStripeEvent(
-    request: ReceiveStripeEventRequest,
-    metadata?: Metadata,
-  ): Observable<ReceiveStripeEventResponse>;
+  receiveStripeEvent(request: ReceiveStripeEventRequest, metadata?: Metadata): Observable<ReceiveStripeEventResponse>;
 }
 
 /** The gateway never parses the body: billing verifies the signature over the exact bytes. */
@@ -56,35 +54,24 @@ export interface BillingWebhookServiceController {
   receiveStripeEvent(
     request: ReceiveStripeEventRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ReceiveStripeEventResponse>
-    | Observable<ReceiveStripeEventResponse>
-    | ReceiveStripeEventResponse;
+  ): Promise<ReceiveStripeEventResponse> | Observable<ReceiveStripeEventResponse> | ReceiveStripeEventResponse;
 }
 
 export function BillingWebhookServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ['receiveStripeEvent'];
+    const grpcMethods: string[] = ["receiveStripeEvent"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('BillingWebhookService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcMethod("BillingWebhookService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('BillingWebhookService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("BillingWebhookService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const BILLING_WEBHOOK_SERVICE_NAME = 'BillingWebhookService';
+export const BILLING_WEBHOOK_SERVICE_NAME = "BillingWebhookService";

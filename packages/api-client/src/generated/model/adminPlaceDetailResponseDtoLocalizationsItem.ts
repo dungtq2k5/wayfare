@@ -14,4 +14,7 @@ export type AdminPlaceDetailResponseDtoLocalizationsItem = {
   audioStatus: AdminPlaceDetailResponseDtoLocalizationsItemAudioStatus;
   audioStale: boolean;
   translationSource: AdminPlaceDetailResponseDtoLocalizationsItemTranslationSource;
+  audioDurationMs: number | null;
+  /** @nullable */
+  voiceId: string | null;
 };

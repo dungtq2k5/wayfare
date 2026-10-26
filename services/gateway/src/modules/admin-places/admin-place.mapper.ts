@@ -101,6 +101,8 @@ export function toAdminPlaceResponseDto(
         localization.translationSource,
         'translationSource',
       ),
+      audioDurationMs: localization.audioDurationMs ?? null,
+      voiceId: localization.voiceId ?? null,
     })),
     photos: place.photos.map((photo) => ({
       id: photo.id,

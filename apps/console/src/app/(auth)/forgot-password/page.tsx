@@ -6,12 +6,13 @@ import { Field, FormAlert, Input } from '@wayfare/ui/field';
 import { Card } from '@wayfare/ui/surfaces';
 import { z } from 'zod';
 import { zEmail } from '@wayfare/contracts';
+import { Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { errorText } from '../../../client/errors';
 import { validateForm } from '../../../forms/field-errors';
 import { useConsole } from '../../../i18n/provider';
-import { ResultCard } from '../../../auth/link';
+import { ActionLink, ResultCard } from '../../../auth/link';
 
 const forgotSchema = z.object({ email: zEmail });
 
@@ -27,7 +28,12 @@ export default function ForgotPasswordPage() {
 
   if (sent !== null) {
     return (
-      <ResultCard title={t('forgot.sentTitle')} body={t('forgot.sentBody', { email: sent })} />
+      <ResultCard
+        icon={Mail}
+        title={t('forgot.sentTitle')}
+        body={t('forgot.sentBody', { email: sent })}
+        action={<ActionLink href="/sign-in">{t('forgot.back')}</ActionLink>}
+      />
     );
   }
   return (

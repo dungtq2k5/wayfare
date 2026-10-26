@@ -1,7 +1,14 @@
 'use client';
 
 import { Button } from '@wayfare/ui/button';
-import { DataList, LoadMore, PageHeader, Pagination, SearchField } from '@wayfare/ui/list';
+import {
+  DataList,
+  ListCard,
+  LoadMore,
+  PageHeader,
+  Pagination,
+  SearchField,
+} from '@wayfare/ui/list';
 import type { Sort } from '@wayfare/ui/list';
 import {
   DropdownMenu,
@@ -14,7 +21,8 @@ import { StatusBadge } from '@wayfare/ui/surfaces';
 import type { StatusTone } from '@wayfare/ui/surfaces';
 import { Ellipsis, MapPin, Plus, SearchX } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Filter } from '../components/filter';
+import { ClearFilters, Filter } from '../components/filter';
+import { lowerFirst } from '../i18n/format';
 import { useConsole } from '../i18n/provider';
 import { relativeTime } from '../notifications/text';
 import { ErrorView } from '../states/states';
@@ -171,6 +179,7 @@ export function ListDemo({ statusOf }: { statusOf: (place: SamplePlace) => Statu
             setPage(1);
           }}
         />
+        {filtered ? <ClearFilters label={t('places.clearFilters')} onClear={clear} /> : null}
       </div>
       {failed ? (
         <ErrorView
@@ -210,12 +219,6 @@ export function ListDemo({ statusOf }: { statusOf: (place: SamplePlace) => Statu
               { key: 'category', label: t('places.category') },
               { key: 'status', label: t('places.status') },
               { key: 'updated', label: t('places.updated'), sortable: true },
-              {
-                key: 'actions',
-                label: t('places.rowActions'),
-                hiddenLabel: true,
-                className: 'w-12 text-right',
-              },
             ]}
             rows={shown}
             rowKey={(place) => place.id}
@@ -243,30 +246,23 @@ export function ListDemo({ statusOf }: { statusOf: (place: SamplePlace) => Statu
                       {t(`status.${statusOf(place)}`)}
                     </StatusBadge>
                   );
-                case 'updated':
-                  return <span className="text-muted-foreground">{updated(place)}</span>;
                 default:
-                  return actions(place);
+                  return <span className="text-muted-foreground">{updated(place)}</span>;
               }
             }}
             card={(place) => (
-              <div className="flex flex-col gap-2 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="flex flex-col">
-                    <span className="font-medium text-foreground">{place.name}</span>
-                    <span className="text-xs text-muted-foreground">{place.code}</span>
-                  </span>
+              <ListCard
+                name={<span className="font-medium text-foreground">{place.name}</span>}
+                status={
                   <StatusBadge tone={statusOf(place)}>{t(`status.${statusOf(place)}`)}</StatusBadge>
-                </div>
-                <span className="text-muted-foreground">
-                  {place.area} · {place.category}
-                </span>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{updated(place)}</span>
-                  {actions(place)}
-                </div>
-              </div>
+                }
+                facts={`${place.code} · ${place.area} · ${place.category}`}
+                time={t('places.updatedWhen', {
+                  when: lowerFirst(updated(place), translator.locale),
+                })}
+              />
             )}
+            rowEnd={{ label: t('places.rowActions'), render: actions }}
           />
           <Pagination
             page={page}

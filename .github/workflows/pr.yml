@@ -116,6 +116,17 @@ jobs:
 
       - run: pnpm --filter @wayfare/console exec playwright install --with-deps chromium
 
+      # The screen baselines draw records made with fixed names on a fresh stack, so they run before
+      # any flow writes to it (apps/console/e2e/README.md): the seed and the super admin first.
+      - name: Seed the stack
+        run: pnpm seed:dev && pnpm --filter @wayfare/identity bootstrap:super-admin
+        env:
+          BOOTSTRAP_SUPER_ADMIN_EMAIL: superadmin@wayfare.local
+          BOOTSTRAP_SUPER_ADMIN_PASSWORD: super admin pass 1
+
+      - name: The console's screen baselines
+        run: pnpm --filter @wayfare/console test:screens
+
       - name: The console's Playwright flows
         run: pnpm --filter @wayfare/console e2e
 
@@ -124,7 +135,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: apps/console/playwright-report
+          # The report, and each moved screen's expected, actual and diff images.
+          path: |
+            apps/console/playwright-report
+            apps/console/test-results
 
       - name: Stack logs on failure
         if: failure()

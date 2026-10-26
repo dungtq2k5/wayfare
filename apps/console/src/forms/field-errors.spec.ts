@@ -19,9 +19,15 @@ describe('field errors (K13)', () => {
     expect(long.ok ? null : long.errors.description).toBe(
       'Keep it under 2000 characters (now 2001).',
     );
+    // An empty field says what to do with it; a field with no sentence of its own, the general one.
     expect(validateForm(description, { description: '  ' }, vi)).toEqual({
       ok: false,
-      errors: { description: 'Trường này là bắt buộc.' },
+      errors: { description: 'Hãy viết phần mô tả.' },
+    });
+    const note = z.object({ note: z.string().trim().min(1) });
+    expect(validateForm(note, { note: '' }, en)).toEqual({
+      ok: false,
+      errors: { note: 'This is required.' },
     });
   });
 

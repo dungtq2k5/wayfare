@@ -116,6 +116,9 @@ message LocalizationReadiness {
   AudioStatus audio_status = 4;
   bool audio_stale = 5;
   TranslationSource translation_source = 6;
+  // The ready audio's length and the voice that read it; unset until audio exists.
+  optional int32 audio_duration_ms = 7;
+  optional string voice_id = 8;
 }
 
 message AdminPhoto {

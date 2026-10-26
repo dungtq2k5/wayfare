@@ -21,6 +21,8 @@ interface BaseProps {
   confirm: string;
   busy?: string | undefined;
   labels: DialogLabels;
+  /** The button's strength: destructive only for what can't be undone. */
+  tone?: 'primary' | 'destructive';
 }
 
 /** A confirmation (P4a): the action named in the title and on its button, *Cancel* first. */
@@ -33,6 +35,7 @@ export function ConfirmDialog({
   busy,
   labels,
   alert,
+  tone = 'primary',
   onConfirm,
 }: BaseProps & { onConfirm: () => void }) {
   return (
@@ -44,7 +47,11 @@ export function ConfirmDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {labels.cancel}
           </Button>
-          <Button busy={busy} onClick={onConfirm}>
+          <Button
+            variant={tone === 'destructive' ? 'destructive' : 'default'}
+            busy={busy}
+            onClick={onConfirm}
+          >
             {confirm}
           </Button>
         </DialogFooter>
@@ -116,6 +123,7 @@ export function ReasonDialog({
   noteHelp,
   minLength,
   maxLength,
+  tone = 'destructive',
   onConfirm,
 }: BaseProps & {
   noteLabel: string;
@@ -162,7 +170,7 @@ export function ReasonDialog({
             {labels.cancel}
           </Button>
           <Button
-            variant="destructive"
+            variant={tone === 'destructive' ? 'destructive' : 'default'}
             busy={busy}
             disabled={length < minLength}
             onClick={() => onConfirm(note.trim())}

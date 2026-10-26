@@ -9,7 +9,9 @@
     "start": "next start --port 5173",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
-    "e2e": "playwright test"
+    "e2e": "playwright test --project=chromium",
+    "test:screens": "E2E_SUITE=screens playwright test --project=screens",
+    "test:screens:update": "E2E_SUITE=screens playwright test --project=screens --update-snapshots=all"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.0",

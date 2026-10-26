@@ -138,6 +138,8 @@ export const zProviderHealth = z
     errorRate: z.number().min(0).max(1),
     recentCalls: z.number().int().min(0),
     coolingUntil: zInstant.nullable(),
+    /** While open: when it stopped answering, through reopenings. */
+    downSince: zInstant.nullable(),
     /** Each narration replica has its own breakers. */
     scope: z.literal('process'),
   })

@@ -83,6 +83,9 @@ export const adminPlaceResponseSchema = z.object({
       audioStatus: z.enum(AudioStatus),
       audioStale: z.boolean(),
       translationSource: z.enum(TranslationSource),
+      /** The ready audio's length, and the voice that read it; null until audio exists. */
+      audioDurationMs: z.number().int().nullable(),
+      voiceId: z.string().nullable(),
     }),
   ),
   photos: z.array(

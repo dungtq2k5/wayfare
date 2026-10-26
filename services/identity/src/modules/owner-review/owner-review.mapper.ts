@@ -88,6 +88,7 @@ export function toOwnerRegistrationAdmin(
     ...(row.internalNote === null ? {} : { internalNote: row.internalNote }),
     ...(row.reviewedById === null ? {} : { reviewedById: row.reviewedById }),
     piiRedacted: row.piiRedactedAt !== null,
+    ...(row.piiRedactedAt === null ? {} : { piiRedactedAt: toProtoTimestamp(row.piiRedactedAt) }),
     applicant: {
       id: user.id,
       email: user.email,

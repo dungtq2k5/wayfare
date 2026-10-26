@@ -5,12 +5,12 @@
 // source: wayfare/identity/auth.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from '../../google/protobuf/timestamp.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
 
-export const protobufPackage = 'wayfare.identity';
+export const protobufPackage = "wayfare.identity";
 
 /** How a session was opened; decides the token transport (rdm-spec I-3). */
 export enum SessionClient {
@@ -59,15 +59,20 @@ export interface LogoutRequest {
   refreshToken?: string | undefined;
 }
 
-export interface LogoutAllRequest {}
+export interface LogoutAllRequest {
+}
 
-export interface LogoutResponse {}
+export interface LogoutResponse {
+}
 
-export interface LogoutAllResponse {}
+export interface LogoutAllResponse {
+}
 
-export interface ClaimDeviceRequest {}
+export interface ClaimDeviceRequest {
+}
 
-export interface ClaimDeviceResponse {}
+export interface ClaimDeviceResponse {
+}
 
 export interface GetTokenCutoffRequest {
   userId: string;
@@ -85,7 +90,9 @@ export interface SessionUser {
   fullName?: string | undefined;
   preferredLocale: string;
   isEmailVerified: boolean;
-  createdAt: Timestamp | undefined;
+  createdAt:
+    | Timestamp
+    | undefined;
   /** A hard bounce was recorded since the address was last verified. */
   emailBounced: boolean;
 }
@@ -106,7 +113,9 @@ export interface RefreshResponse {
 export interface Session {
   user: SessionUser | undefined;
   accessToken: string;
-  accessExpiresAt: Timestamp | undefined;
+  accessExpiresAt:
+    | Timestamp
+    | undefined;
   /** Secret: never logged. */
   refreshToken: string;
   refreshExpiresAt: Timestamp | undefined;
@@ -154,7 +163,8 @@ export interface GoogleLinkRequest {
   linkTicket: string;
 }
 
-export interface GoogleLinkResponse {}
+export interface GoogleLinkResponse {
+}
 
 /** Exactly one of the two: the current password, or a Google confirmation. */
 export interface UnlinkGoogleRequest {
@@ -163,7 +173,8 @@ export interface UnlinkGoogleRequest {
   confirmation: string;
 }
 
-export interface UnlinkGoogleResponse {}
+export interface UnlinkGoogleResponse {
+}
 
 export interface MintFakeGoogleTokenRequest {
   email: string;
@@ -178,7 +189,7 @@ export interface MintFakeGoogleTokenResponse {
   idToken: string;
 }
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
+export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /** Signs people in and out. The caller (and any device) travels as metadata. */
 
@@ -197,10 +208,7 @@ export interface AuthServiceClient {
 
   /** Internal, called by the gateway only (api-endpoints-plan §12.2). */
 
-  getTokenCutoff(
-    request: GetTokenCutoffRequest,
-    metadata?: Metadata,
-  ): Observable<GetTokenCutoffResponse>;
+  getTokenCutoff(request: GetTokenCutoffRequest, metadata?: Metadata): Observable<GetTokenCutoffResponse>;
 
   /**
    * Continue with Google (ADRs 0062–0064): a nonce for the caller's device, then the token that
@@ -213,10 +221,7 @@ export interface AuthServiceClient {
 
   /** A fresh token for the caller's linked Google account, in place of the current password. */
 
-  googleConfirm(
-    request: GoogleConfirmRequest,
-    metadata?: Metadata,
-  ): Observable<GoogleConfirmResponse>;
+  googleConfirm(request: GoogleConfirmRequest, metadata?: Metadata): Observable<GoogleConfirmResponse>;
 
   /** Links the ticket's Google account after the password sign-in it asked for (ADR 0064). */
 
@@ -240,10 +245,7 @@ export interface AuthServiceController {
     metadata?: Metadata,
   ): Promise<RegisterResponse> | Observable<RegisterResponse> | RegisterResponse;
 
-  login(
-    request: LoginRequest,
-    metadata?: Metadata,
-  ): Promise<LoginResponse> | Observable<LoginResponse> | LoginResponse;
+  login(request: LoginRequest, metadata?: Metadata): Promise<LoginResponse> | Observable<LoginResponse> | LoginResponse;
 
   refresh(
     request: RefreshRequest,
@@ -311,41 +313,38 @@ export interface AuthServiceController {
   mintFakeGoogleToken(
     request: MintFakeGoogleTokenRequest,
     metadata?: Metadata,
-  ):
-    | Promise<MintFakeGoogleTokenResponse>
-    | Observable<MintFakeGoogleTokenResponse>
-    | MintFakeGoogleTokenResponse;
+  ): Promise<MintFakeGoogleTokenResponse> | Observable<MintFakeGoogleTokenResponse> | MintFakeGoogleTokenResponse;
 }
 
 export function AuthServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'register',
-      'login',
-      'refresh',
-      'logout',
-      'logoutAll',
-      'claimDevice',
-      'getTokenCutoff',
-      'googleNonce',
-      'googleSignIn',
-      'googleConfirm',
-      'googleLink',
-      'unlinkGoogle',
-      'mintFakeGoogleToken',
+      "register",
+      "login",
+      "refresh",
+      "logout",
+      "logoutAll",
+      "claimDevice",
+      "getTokenCutoff",
+      "googleNonce",
+      "googleSignIn",
+      "googleConfirm",
+      "googleLink",
+      "unlinkGoogle",
+      "mintFakeGoogleToken",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('AuthService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("AuthService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('AuthService', method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod("AuthService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const AUTH_SERVICE_NAME = 'AuthService';
+export const AUTH_SERVICE_NAME = "AuthService";

@@ -5,13 +5,15 @@ import { adminNarrationList } from '@wayfare/api-client';
 import type { AdminNarrationListParams } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { JobStatusBadge, Progress } from '@wayfare/ui/content';
-import { DataList, PageHeader, Pagination } from '@wayfare/ui/list';
+import { DataList, ListCard, PageHeader, Pagination, RowChevron } from '@wayfare/ui/list';
+import type { Sort } from '@wayfare/ui/list';
 import { EmptyState } from '@wayfare/ui/states';
 import { AudioLines, Radio, Server } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { failureOf } from '../client/errors';
 import { Filter } from '../components/filter';
+import { lowerFirst } from '../i18n/format';
 import { useConsole } from '../i18n/provider';
 import { relativeTime } from '../notifications/text';
 import { useSocketEvent } from '../shell/socket';
@@ -63,6 +65,7 @@ export function NarrationJobs() {
   const [status, setStatus] = useState<string | null>(null);
   const [trigger, setTrigger] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<Sort>({ key: 'started', direction: 'descending' });
   const [changed, setChanged] = useState<ReadonlySet<string>>(new Set());
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   useEffect(() => {
@@ -73,7 +76,7 @@ export function NarrationJobs() {
   const params: AdminNarrationListParams = {
     page,
     pageSize: PAGE_SIZE,
-    sort: '-createdAt',
+    sort: sort.direction === 'descending' ? '-createdAt' : 'createdAt',
     ...(status === null ? {} : { status: status as JobStatus }),
     ...(trigger === null ? {} : { trigger: trigger as (typeof TRIGGERS)[number] }),
   };
@@ -192,11 +195,15 @@ export function NarrationJobs() {
               { key: 'status', label: t('jobs.status') },
               { key: 'progress', label: t('jobs.progress') },
               { key: 'failed', label: t('jobs.failedCol') },
-              { key: 'started', label: t('jobs.started') },
+              { key: 'started', label: t('jobs.started'), sortable: true },
             ]}
             rows={list.data?.data}
             rowKey={(row) => row.id}
-            sort={{ key: 'started', direction: 'descending' }}
+            sort={sort}
+            onSort={(next) => {
+              setSort(next);
+              setPage(1);
+            }}
             rowClassName={(row) =>
               changed.has(row.id)
                 ? 'bg-accent'
@@ -223,15 +230,21 @@ export function NarrationJobs() {
               }
             }}
             card={(row) => (
-              <div className="flex flex-col gap-2 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  {target(row)}
-                  {badge(row)}
-                </div>
-                <span className="text-muted-foreground">{triggerText(row)}</span>
+              <ListCard
+                name={target(row)}
+                status={badge(row)}
+                facts={triggerText(row)}
+                time={t('jobs.startedWhen', {
+                  when: lowerFirst(
+                    relativeTime(row.startedAt ?? row.createdAt, now, translator),
+                    translator.locale,
+                  ),
+                })}
+              >
                 {progress(row)}
-              </div>
+              </ListCard>
             )}
+            rowEnd={{ label: t('submissions.open'), render: () => <RowChevron /> }}
           />
           {list.data === undefined ? null : (
             <Pagination

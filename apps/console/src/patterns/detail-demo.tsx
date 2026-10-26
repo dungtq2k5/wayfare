@@ -85,6 +85,7 @@ export function DetailDemo({
               toast.error(t('toast.saveFailed'), {
                 description: t('toast.failedBody', { id: 'req_01JBX7Q2M4N8' }),
                 duration: Infinity,
+                action: { label: t('action.retry'), onClick: () => undefined },
               })
             }
           >

@@ -39,15 +39,20 @@ export function DropdownMenuSeparator() {
   return <Menu.Separator className="-mx-1 my-1 h-px bg-border" />;
 }
 
+/** A submenu's item; `value` is its current choice, said before the chevron ("English"). */
 export function DropdownMenuSubTrigger({
   className,
   children,
+  value,
   ...props
-}: ComponentProps<typeof Menu.SubTrigger>) {
+}: ComponentProps<typeof Menu.SubTrigger> & { value?: string }) {
   return (
     <Menu.SubTrigger className={cn(item, 'data-[state=open]:bg-muted', className)} {...props}>
       {children}
-      <ChevronRight aria-hidden className="ml-auto size-4" />
+      {value === undefined ? null : (
+        <span className="ml-auto text-xs text-muted-foreground">{value}</span>
+      )}
+      <ChevronRight aria-hidden className={cn('size-4', value === undefined && 'ml-auto')} />
     </Menu.SubTrigger>
   );
 }

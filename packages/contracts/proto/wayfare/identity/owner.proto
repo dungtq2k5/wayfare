@@ -103,6 +103,8 @@ message OwnerRegistrationAdmin {
   bool pii_redacted = 4;
   RegistrationApplicant applicant = 5;
   repeated PriorRegistration prior_applications = 6;
+  // When the PII was redacted; unset while it is kept.
+  optional google.protobuf.Timestamp pii_redacted_at = 7;
 }
 
 message SubmitRegistrationRequest {

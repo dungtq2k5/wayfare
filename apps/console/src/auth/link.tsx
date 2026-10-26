@@ -4,6 +4,7 @@ import { usersMe } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { Card } from '@wayfare/ui/surfaces';
 import { CircleCheck, Link2Off } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -53,31 +54,33 @@ export async function signedInEmail(): Promise<string | null> {
   );
 }
 
-/** One result and one next step (C4a–C4f). */
+/**
+ * One result and one next step (C2b, C4a–C4f), centred: an outcome, not a form. The icon says which
+ * outcome, in a muted circle — an undone change or a stopped recovery isn't a success.
+ */
 export function ResultCard({
-  tone = 'done',
+  icon: Icon = CircleCheck,
   title,
   body,
   action,
 }: {
-  tone?: 'done' | 'expired';
+  icon?: LucideIcon;
   title: string;
   body: string;
   action?: ReactNode;
 }) {
   return (
-    <Card className="flex flex-col items-start gap-3">
+    <Card className="flex flex-col items-center gap-3 text-center">
       <span
         aria-hidden
-        className={
-          tone === 'done'
-            ? 'flex size-10 items-center justify-center rounded-full bg-success text-success-foreground'
-            : 'flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground'
-        }
+        className={`flex size-12 items-center justify-center rounded-full bg-muted ${
+          // A done result's icon in the primary colour; an undone or stopped one stays muted.
+          Icon === CircleCheck ? 'text-primary' : 'text-muted-foreground'
+        }`}
       >
-        {tone === 'done' ? <CircleCheck className="size-5" /> : <Link2Off className="size-5" />}
+        <Icon className="size-6" />
       </span>
-      <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+      <h1 className="text-base font-semibold text-foreground">{title}</h1>
       <p className="text-sm text-muted-foreground">{body}</p>
       {action === undefined ? null : <div className="mt-2 w-full">{action}</div>}
     </Card>
@@ -89,7 +92,7 @@ export function ExpiredLink() {
   const { t } = useConsole();
   return (
     <ResultCard
-      tone="expired"
+      icon={Link2Off}
       title={t('link.expired.title')}
       body={t('link.expired.body')}
       action={<ActionLink href="/sign-in">{t('forgot.back')}</ActionLink>}

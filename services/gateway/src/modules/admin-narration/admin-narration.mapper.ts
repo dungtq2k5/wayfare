@@ -99,6 +99,7 @@ export function toProviderHealth(provider: narrationGrpc.ProviderHealth): Provid
     errorRate: provider.errorRate,
     recentCalls: provider.recentCalls,
     coolingUntil: iso(fromOptionalProtoTimestamp(provider.coolingUntil, 'coolingUntil')),
+    downSince: iso(fromOptionalProtoTimestamp(provider.downSince, 'downSince')),
     scope: 'process',
   };
 }

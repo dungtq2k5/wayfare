@@ -177,6 +177,8 @@ export function wayfareConfig({ tsconfigRootDir }) {
         'apps/mobile/android/**',
         // Next.js builds and Playwright's reports.
         '**/.next/**',
+        // The screen baselines' own development server's build (apps/console/e2e/README.md).
+        '**/.next-screens/**',
         '**/playwright-report/**',
         '**/test-results/**',
       ],

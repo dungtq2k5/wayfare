@@ -5,15 +5,15 @@
 // source: wayfare/catalog/owner_place.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from '../../google/protobuf/timestamp.pb';
-import { AdminPlace, LocalizationReadiness } from './place_admin.pb';
-import { PhotoView, PlaceInactiveReason, PlaceStatus } from './place_types.pb';
-import { Submission, SubmissionKind } from './submission.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import { AdminPlace, LocalizationReadiness } from "./place_admin.pb";
+import { PhotoView, PlaceInactiveReason, PlaceStatus } from "./place_types.pb";
+import { Submission, SubmissionKind } from "./submission.pb";
 
-export const protobufPackage = 'wayfare.catalog';
+export const protobufPackage = "wayfare.catalog";
 
 /** A Venue's pending submission, by reference. */
 export interface PendingSubmissionRef {
@@ -37,7 +37,8 @@ export interface OwnerPlace {
   updatedAt: Timestamp | undefined;
 }
 
-export interface ListMyPlacesRequest {}
+export interface ListMyPlacesRequest {
+}
 
 export interface ListMyPlacesResponse {
   places: OwnerPlace[];
@@ -48,13 +49,16 @@ export interface GetMyPlaceRequest {
 }
 
 export interface GetMyPlaceResponse {
-  place: AdminPlace | undefined;
+  place:
+    | AdminPlace
+    | undefined;
   /** The hash an `UPDATE` sends back as its base (rdm-spec C-11). */
   editableHash: string;
   pendingSubmission: Submission | undefined;
 }
 
-export interface GetMyLimitsRequest {}
+export interface GetMyLimitsRequest {
+}
 
 export interface GetMyLimitsResponse {
   maxPlaces: number;
@@ -82,7 +86,7 @@ export interface ReactivateMyPlaceResponse {
   place: AdminPlace | undefined;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
+export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
 
 /** The caller travels as metadata; every Venue is the caller's own, or it is not found. */
 
@@ -93,15 +97,9 @@ export interface OwnerPlaceServiceClient {
 
   getMyLimits(request: GetMyLimitsRequest, metadata?: Metadata): Observable<GetMyLimitsResponse>;
 
-  deactivateMyPlace(
-    request: DeactivateMyPlaceRequest,
-    metadata?: Metadata,
-  ): Observable<DeactivateMyPlaceResponse>;
+  deactivateMyPlace(request: DeactivateMyPlaceRequest, metadata?: Metadata): Observable<DeactivateMyPlaceResponse>;
 
-  reactivateMyPlace(
-    request: ReactivateMyPlaceRequest,
-    metadata?: Metadata,
-  ): Observable<ReactivateMyPlaceResponse>;
+  reactivateMyPlace(request: ReactivateMyPlaceRequest, metadata?: Metadata): Observable<ReactivateMyPlaceResponse>;
 }
 
 /** The caller travels as metadata; every Venue is the caller's own, or it is not found. */
@@ -125,45 +123,35 @@ export interface OwnerPlaceServiceController {
   deactivateMyPlace(
     request: DeactivateMyPlaceRequest,
     metadata?: Metadata,
-  ):
-    | Promise<DeactivateMyPlaceResponse>
-    | Observable<DeactivateMyPlaceResponse>
-    | DeactivateMyPlaceResponse;
+  ): Promise<DeactivateMyPlaceResponse> | Observable<DeactivateMyPlaceResponse> | DeactivateMyPlaceResponse;
 
   reactivateMyPlace(
     request: ReactivateMyPlaceRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ReactivateMyPlaceResponse>
-    | Observable<ReactivateMyPlaceResponse>
-    | ReactivateMyPlaceResponse;
+  ): Promise<ReactivateMyPlaceResponse> | Observable<ReactivateMyPlaceResponse> | ReactivateMyPlaceResponse;
 }
 
 export function OwnerPlaceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'listMyPlaces',
-      'getMyPlace',
-      'getMyLimits',
-      'deactivateMyPlace',
-      'reactivateMyPlace',
+      "listMyPlaces",
+      "getMyPlace",
+      "getMyLimits",
+      "deactivateMyPlace",
+      "reactivateMyPlace",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('OwnerPlaceService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("OwnerPlaceService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('OwnerPlaceService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("OwnerPlaceService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const OWNER_PLACE_SERVICE_NAME = 'OwnerPlaceService';
+export const OWNER_PLACE_SERVICE_NAME = "OwnerPlaceService";

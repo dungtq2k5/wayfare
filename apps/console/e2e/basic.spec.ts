@@ -62,8 +62,9 @@ test('C11b: a staff account changes its name, then signs out everywhere', async 
   await page.getByRole('button', { name: /^Account menu:/ }).click();
   await expect(page.getByRole('menuitem')).toHaveText([
     'Account',
-    'Language',
-    'Appearance',
+    // A submenu's item says its current value before the chevron (C11a).
+    'LanguageEnglish',
+    'AppearanceSystem',
     'Sign out',
   ]);
   await page.getByRole('menuitem', { name: 'Account' }).click();
@@ -177,7 +178,8 @@ test('P1–P5: the patterns', async ({ page }) => {
   // Filters to nothing (P1c), then cleared.
   await page.getByRole('searchbox', { name: 'Search places' }).fill('no such place');
   await expect(page.getByRole('heading', { name: 'No places match these filters' })).toBeVisible();
-  await page.getByRole('button', { name: 'Clear filters' }).click();
+  // Once a filter is set, *Clear filters* is in the toolbar too; the one the empty state offers.
+  await page.getByRole('button', { name: 'Clear filters' }).last().click();
   await expect(page.getByText('1–20 of 248')).toBeVisible();
   // P3: a short description, its error and the count above; Cancel with changes asks (P3b).
   const description = page.getByRole('textbox', { name: 'Description' });

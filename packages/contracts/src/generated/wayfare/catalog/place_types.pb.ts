@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 
-export const protobufPackage = 'wayfare.catalog';
+export const protobufPackage = "wayfare.catalog";
 
 /** Who a Place belongs to (rdm-spec C-1). */
 export enum PlaceKind {
@@ -91,9 +91,13 @@ export enum ContentTier {
 /** One opening-hours row (rdm-spec C-16): exactly one of weekday and specific_date. */
 export interface OpeningHoursRow {
   /** ISO weekday, 1 = Monday. */
-  weekday?: number | undefined;
+  weekday?:
+    | number
+    | undefined;
   /** YYYY-MM-DD. */
-  specificDate?: string | undefined;
+  specificDate?:
+    | string
+    | undefined;
   /** HH:MM, business time. */
   opensAt?: string | undefined;
   closesAt?: string | undefined;
@@ -136,4 +140,4 @@ export interface PlaceLocalization {
   audio: PlaceAudio | undefined;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
+export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";

@@ -109,40 +109,42 @@ export function FormDemo() {
       </h2>
       <form
         noValidate
-        className="flex max-w-2xl flex-col gap-6"
+        className="flex flex-col gap-6"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
         }}
       >
-        {count > 0 ? (
-          <FormAlert>{t('form.attention', { count })}</FormAlert>
-        ) : failure === null ? null : (
-          <FormAlert>{failure}</FormAlert>
-        )}
-        <FormSection title={t('form.basics')}>
-          <Field label={t('field.name')} required error={errors.name}>
-            {(control) => <Input {...control} {...field('name')} />}
-          </Field>
-        </FormSection>
-        <FormSection title={t('form.description')}>
-          <Field label={t('form.description')} required error={errors.description}>
-            {(control) => <Textarea {...control} {...field('description')} />}
-          </Field>
-        </FormSection>
-        <FormSection title={t('form.location')}>
-          <Field
-            label={t('form.address')}
-            required
-            help={t('form.addressHelp')}
-            error={errors.address}
-          >
-            {(control) => <Input {...control} {...field('address')} />}
-          </Field>
-          <Field label={t('form.phone')} error={errors.phone}>
-            {(control) => <Input {...control} type="tel" {...field('phone')} />}
-          </Field>
-        </FormSection>
+        <div className="flex max-w-2xl flex-col gap-6">
+          {count > 0 ? (
+            <FormAlert>{t('form.attention', { count })}</FormAlert>
+          ) : failure === null ? null : (
+            <FormAlert>{failure}</FormAlert>
+          )}
+          <FormSection title={t('form.basics')}>
+            <Field label={t('field.name')} required error={errors.name}>
+              {(control) => <Input {...control} {...field('name')} />}
+            </Field>
+          </FormSection>
+          <FormSection title={t('form.description')}>
+            <Field label={t('form.description')} required error={errors.description}>
+              {(control) => <Textarea {...control} {...field('description')} />}
+            </Field>
+          </FormSection>
+          <FormSection title={t('form.location')}>
+            <Field
+              label={t('form.address')}
+              required
+              help={t('form.addressHelp')}
+              error={errors.address}
+            >
+              {(control) => <Input {...control} {...field('address')} />}
+            </Field>
+            <Field label={t('form.phone')} error={errors.phone}>
+              {(control) => <Input {...control} type="tel" {...field('phone')} />}
+            </Field>
+          </FormSection>
+        </div>
         <SaveBar>
           <Button
             type="button"

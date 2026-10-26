@@ -5,11 +5,11 @@
 // source: wayfare/identity/password.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
 
-export const protobufPackage = 'wayfare.identity';
+export const protobufPackage = "wayfare.identity";
 
 /** Why an action token was issued (rdm-spec I-9). */
 export enum ActionTokenPurpose {
@@ -27,7 +27,8 @@ export interface RequestPasswordResetRequest {
   email: string;
 }
 
-export interface RequestPasswordResetResponse {}
+export interface RequestPasswordResetResponse {
+}
 
 export interface ValidateResetTokenRequest {
   /** Secret: never logged. */
@@ -51,7 +52,8 @@ export interface CompletePasswordResetRequest {
   preferredLocale?: string | undefined;
 }
 
-export interface CompletePasswordResetResponse {}
+export interface CompletePasswordResetResponse {
+}
 
 export interface ChangePasswordRequest {
   /** Secret: never logged. */
@@ -60,9 +62,10 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
-export interface ChangePasswordResponse {}
+export interface ChangePasswordResponse {
+}
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
+export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /** Emailed password links, and the signed-in password change. The caller travels as metadata. */
 
@@ -72,20 +75,14 @@ export interface PasswordServiceClient {
     metadata?: Metadata,
   ): Observable<RequestPasswordResetResponse>;
 
-  validateResetToken(
-    request: ValidateResetTokenRequest,
-    metadata?: Metadata,
-  ): Observable<ValidateResetTokenResponse>;
+  validateResetToken(request: ValidateResetTokenRequest, metadata?: Metadata): Observable<ValidateResetTokenResponse>;
 
   completePasswordReset(
     request: CompletePasswordResetRequest,
     metadata?: Metadata,
   ): Observable<CompletePasswordResetResponse>;
 
-  changePassword(
-    request: ChangePasswordRequest,
-    metadata?: Metadata,
-  ): Observable<ChangePasswordResponse>;
+  changePassword(request: ChangePasswordRequest, metadata?: Metadata): Observable<ChangePasswordResponse>;
 }
 
 /** Emailed password links, and the signed-in password change. The caller travels as metadata. */
@@ -94,26 +91,17 @@ export interface PasswordServiceController {
   requestPasswordReset(
     request: RequestPasswordResetRequest,
     metadata?: Metadata,
-  ):
-    | Promise<RequestPasswordResetResponse>
-    | Observable<RequestPasswordResetResponse>
-    | RequestPasswordResetResponse;
+  ): Promise<RequestPasswordResetResponse> | Observable<RequestPasswordResetResponse> | RequestPasswordResetResponse;
 
   validateResetToken(
     request: ValidateResetTokenRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ValidateResetTokenResponse>
-    | Observable<ValidateResetTokenResponse>
-    | ValidateResetTokenResponse;
+  ): Promise<ValidateResetTokenResponse> | Observable<ValidateResetTokenResponse> | ValidateResetTokenResponse;
 
   completePasswordReset(
     request: CompletePasswordResetRequest,
     metadata?: Metadata,
-  ):
-    | Promise<CompletePasswordResetResponse>
-    | Observable<CompletePasswordResetResponse>
-    | CompletePasswordResetResponse;
+  ): Promise<CompletePasswordResetResponse> | Observable<CompletePasswordResetResponse> | CompletePasswordResetResponse;
 
   changePassword(
     request: ChangePasswordRequest,
@@ -124,27 +112,23 @@ export interface PasswordServiceController {
 export function PasswordServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'requestPasswordReset',
-      'validateResetToken',
-      'completePasswordReset',
-      'changePassword',
+      "requestPasswordReset",
+      "validateResetToken",
+      "completePasswordReset",
+      "changePassword",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('PasswordService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("PasswordService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('PasswordService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("PasswordService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const PASSWORD_SERVICE_NAME = 'PasswordService';
+export const PASSWORD_SERVICE_NAME = "PasswordService";

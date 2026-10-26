@@ -37,14 +37,14 @@ type Open = 'name' | 'email' | 'password' | 'unlink' | 'everywhere' | null;
 /** One line of a card: what it is, its value, its action. */
 function Row({ label, value, action }: { label: string; value: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 last:border-b-0 last:pb-0">
-      <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex flex-col gap-3 border-b border-border py-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-sm font-medium text-foreground">{label}</span>
         <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {value}
         </span>
       </div>
-      {action}
+      {action === undefined ? null : <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -167,6 +167,7 @@ export function AccountView() {
 
         <Card className="flex flex-col gap-2">
           <CardTitle>{t('account.signingIn')}</CardTitle>
+          {staff ? <p className="text-sm text-muted-foreground">{t('account.staffNote')}</p> : null}
           <Row
             label={t('account.password')}
             value={me.signIn.password ? t('account.passwordSet') : t('account.passwordNotSet')}
@@ -178,9 +179,7 @@ export function AccountView() {
               ) : undefined
             }
           />
-          {staff ? (
-            <p className="pt-2 text-sm text-muted-foreground">{t('account.staffNote')}</p>
-          ) : me.signIn.google ? (
+          {staff ? null : me.signIn.google ? (
             <Row
               label={t('account.google')}
               value={t('account.googleLinked', { googleEmail: me.signIn.googleEmail ?? '' })}

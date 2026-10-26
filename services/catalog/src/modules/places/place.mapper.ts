@@ -75,6 +75,8 @@ export const ADMIN_PLACE_SELECT = {
       translationSource: true,
       audioStatus: true,
       audioSourceContentHash: true,
+      audioDurationMs: true,
+      voiceId: true,
     },
     orderBy: { lang: 'asc' },
   },
@@ -223,6 +225,10 @@ export function toAdminPlace(
       translationSource: translationSourceProto.toProto(
         localization.translationSource as TranslationSource,
       ),
+      ...(localization.audioDurationMs === null
+        ? {}
+        : { audioDurationMs: localization.audioDurationMs }),
+      ...(localization.voiceId === null ? {} : { voiceId: localization.voiceId }),
     })),
     photos: row.photos.map((photo) => ({
       id: photo.id,

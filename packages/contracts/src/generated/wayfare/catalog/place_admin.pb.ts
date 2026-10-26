@@ -5,12 +5,12 @@
 // source: wayfare/catalog/place_admin.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from '../../google/protobuf/timestamp.pb';
-import { GeoPoint } from '../common/geo.pb';
-import { PageNumberMeta, PageNumberRequest } from '../common/page.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import { GeoPoint } from "../common/geo.pb";
+import { PageNumberMeta, PageNumberRequest } from "../common/page.pb";
 import {
   AudioStatus,
   MenuCurrency,
@@ -21,9 +21,9 @@ import {
   PlaceKind,
   PlaceStatus,
   TranslationSource,
-} from './place_types.pb';
+} from "./place_types.pb";
 
-export const protobufPackage = 'wayfare.catalog';
+export const protobufPackage = "wayfare.catalog";
 
 export interface ListPlacesRequest {
   /** `q` matches the Vietnamese name or the public code. */
@@ -115,6 +115,9 @@ export interface LocalizationReadiness {
   audioStatus: AudioStatus;
   audioStale: boolean;
   translationSource: TranslationSource;
+  /** The ready audio's length and the voice that read it; unset until audio exists. */
+  audioDurationMs?: number | undefined;
+  voiceId?: string | undefined;
 }
 
 export interface AdminPhoto {
@@ -253,7 +256,8 @@ export interface DeletePlaceRequest {
   placeId: string;
 }
 
-export interface DeletePlaceResponse {}
+export interface DeletePlaceResponse {
+}
 
 export interface RestorePlaceRequest {
   placeId: string;
@@ -274,7 +278,7 @@ export interface GetPlaceQrResponse {
   publicCode: string;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
+export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
 
 /**
  * Creates, edits, publishes and deletes Places. The caller travels as metadata; the gateway checks
@@ -284,10 +288,7 @@ export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
 export interface PlaceAdminServiceClient {
   listPlaces(request: ListPlacesRequest, metadata?: Metadata): Observable<ListPlacesResponse>;
 
-  getPlaceAdmin(
-    request: GetPlaceAdminRequest,
-    metadata?: Metadata,
-  ): Observable<GetPlaceAdminResponse>;
+  getPlaceAdmin(request: GetPlaceAdminRequest, metadata?: Metadata): Observable<GetPlaceAdminResponse>;
 
   createEditorialPlace(
     request: CreateEditorialPlaceRequest,
@@ -296,15 +297,9 @@ export interface PlaceAdminServiceClient {
 
   updatePlace(request: UpdatePlaceRequest, metadata?: Metadata): Observable<UpdatePlaceResponse>;
 
-  updateEditorial(
-    request: UpdateEditorialRequest,
-    metadata?: Metadata,
-  ): Observable<UpdateEditorialResponse>;
+  updateEditorial(request: UpdateEditorialRequest, metadata?: Metadata): Observable<UpdateEditorialResponse>;
 
-  replacePhotos(
-    request: ReplacePhotosRequest,
-    metadata?: Metadata,
-  ): Observable<ReplacePhotosResponse>;
+  replacePhotos(request: ReplacePhotosRequest, metadata?: Metadata): Observable<ReplacePhotosResponse>;
 
   replaceMenu(request: ReplaceMenuRequest, metadata?: Metadata): Observable<ReplaceMenuResponse>;
 
@@ -313,15 +308,9 @@ export interface PlaceAdminServiceClient {
     metadata?: Metadata,
   ): Observable<ReplaceOpeningHoursResponse>;
 
-  requestActivation(
-    request: RequestActivationRequest,
-    metadata?: Metadata,
-  ): Observable<RequestActivationResponse>;
+  requestActivation(request: RequestActivationRequest, metadata?: Metadata): Observable<RequestActivationResponse>;
 
-  deactivatePlace(
-    request: DeactivatePlaceRequest,
-    metadata?: Metadata,
-  ): Observable<DeactivatePlaceResponse>;
+  deactivatePlace(request: DeactivatePlaceRequest, metadata?: Metadata): Observable<DeactivatePlaceResponse>;
 
   deletePlace(request: DeletePlaceRequest, metadata?: Metadata): Observable<DeletePlaceResponse>;
 
@@ -349,10 +338,7 @@ export interface PlaceAdminServiceController {
   createEditorialPlace(
     request: CreateEditorialPlaceRequest,
     metadata?: Metadata,
-  ):
-    | Promise<CreateEditorialPlaceResponse>
-    | Observable<CreateEditorialPlaceResponse>
-    | CreateEditorialPlaceResponse;
+  ): Promise<CreateEditorialPlaceResponse> | Observable<CreateEditorialPlaceResponse> | CreateEditorialPlaceResponse;
 
   updatePlace(
     request: UpdatePlaceRequest,
@@ -362,10 +348,7 @@ export interface PlaceAdminServiceController {
   updateEditorial(
     request: UpdateEditorialRequest,
     metadata?: Metadata,
-  ):
-    | Promise<UpdateEditorialResponse>
-    | Observable<UpdateEditorialResponse>
-    | UpdateEditorialResponse;
+  ): Promise<UpdateEditorialResponse> | Observable<UpdateEditorialResponse> | UpdateEditorialResponse;
 
   replacePhotos(
     request: ReplacePhotosRequest,
@@ -380,26 +363,17 @@ export interface PlaceAdminServiceController {
   replaceOpeningHours(
     request: ReplaceOpeningHoursRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ReplaceOpeningHoursResponse>
-    | Observable<ReplaceOpeningHoursResponse>
-    | ReplaceOpeningHoursResponse;
+  ): Promise<ReplaceOpeningHoursResponse> | Observable<ReplaceOpeningHoursResponse> | ReplaceOpeningHoursResponse;
 
   requestActivation(
     request: RequestActivationRequest,
     metadata?: Metadata,
-  ):
-    | Promise<RequestActivationResponse>
-    | Observable<RequestActivationResponse>
-    | RequestActivationResponse;
+  ): Promise<RequestActivationResponse> | Observable<RequestActivationResponse> | RequestActivationResponse;
 
   deactivatePlace(
     request: DeactivatePlaceRequest,
     metadata?: Metadata,
-  ):
-    | Promise<DeactivatePlaceResponse>
-    | Observable<DeactivatePlaceResponse>
-    | DeactivatePlaceResponse;
+  ): Promise<DeactivatePlaceResponse> | Observable<DeactivatePlaceResponse> | DeactivatePlaceResponse;
 
   deletePlace(
     request: DeletePlaceRequest,
@@ -420,36 +394,32 @@ export interface PlaceAdminServiceController {
 export function PlaceAdminServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'listPlaces',
-      'getPlaceAdmin',
-      'createEditorialPlace',
-      'updatePlace',
-      'updateEditorial',
-      'replacePhotos',
-      'replaceMenu',
-      'replaceOpeningHours',
-      'requestActivation',
-      'deactivatePlace',
-      'deletePlace',
-      'restorePlace',
-      'getPlaceQr',
+      "listPlaces",
+      "getPlaceAdmin",
+      "createEditorialPlace",
+      "updatePlace",
+      "updateEditorial",
+      "replacePhotos",
+      "replaceMenu",
+      "replaceOpeningHours",
+      "requestActivation",
+      "deactivatePlace",
+      "deletePlace",
+      "restorePlace",
+      "getPlaceQr",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('PlaceAdminService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("PlaceAdminService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('PlaceAdminService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("PlaceAdminService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const PLACE_ADMIN_SERVICE_NAME = 'PlaceAdminService';
+export const PLACE_ADMIN_SERVICE_NAME = "PlaceAdminService";

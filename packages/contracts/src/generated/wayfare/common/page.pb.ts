@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 
-export const protobufPackage = 'wayfare.common';
+export const protobufPackage = "wayfare.common";
 
 /** A cursor-style list request. */
 export interface PageRequest {
@@ -34,4 +34,4 @@ export interface PageNumberMeta {
   total: number;
 }
 
-export const WAYFARE_COMMON_PACKAGE_NAME = 'wayfare.common';
+export const WAYFARE_COMMON_PACKAGE_NAME = "wayfare.common";

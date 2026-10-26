@@ -12,7 +12,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { errorText } from '../client/errors';
-import { autonym } from '../i18n/language-names';
+import { formatDuration } from '../i18n/format';
+import { autonym, languageName } from '../i18n/language-names';
 import { useConsole } from '../i18n/provider';
 import { useCan } from '../shell/can';
 import { useJobSubscription, useSocketEvent } from '../shell/socket';
@@ -39,7 +40,7 @@ export function narrationRows(localizations: readonly LocalizationState[]): Loca
 
 function State({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 [&_svg]:size-3.5 [&_svg]:shrink-0">
+    <span className="inline-flex items-center gap-1 whitespace-nowrap [&_svg]:size-3.5 [&_svg]:shrink-0">
       {icon}
       {children}
     </span>
@@ -98,6 +99,9 @@ export function NarrationSection({
       },
       (error: unknown) => toast.error(errorText(error, translator), { duration: Infinity }),
     );
+  // The source's text is the Place's own: regenerating it remakes its audio only.
+  const made = (row: LocalizationState) =>
+    row.lang === 'vi' ? row.audioStatus === 'READY' : row.textReady;
   const making = (lang: string) =>
     latest !== null && !isFinished(latest.status) && latest.requestedLangs.includes(lang);
 
@@ -144,9 +148,16 @@ export function NarrationSection({
       );
     if (row.audioStatus === 'READY')
       return (
-        <State icon={<CircleCheck aria-hidden className="text-primary" />}>
-          {t('narration.ready')}
-        </State>
+        <span className="flex flex-col gap-0.5">
+          <State icon={<CircleCheck aria-hidden className="text-primary" />}>
+            {row.audioDurationMs == null
+              ? t('narration.ready')
+              : `${t('narration.ready')} · ${formatDuration(row.audioDurationMs)}`}
+          </State>
+          {row.voiceId == null ? null : (
+            <span className="text-xs text-muted-foreground">{row.voiceId}</span>
+          )}
+        </span>
       );
     if (row.audioStatus === 'FAILED')
       return (
@@ -171,7 +182,7 @@ export function NarrationSection({
   };
   const gets = (row: LocalizationState) => {
     const tier = touristsGet(row.lang, localizations);
-    if (tier === 'self') return autonym(row.lang);
+    if (tier === 'self') return languageName(row.lang, translator.locale);
     return tier === 'english' ? t('narration.englishUntil') : t('narration.sourceUntil');
   };
 
@@ -190,7 +201,8 @@ export function NarrationSection({
       </div>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="text-muted-foreground">{t('narration.latestJob')}</span>
-        {latest === null ? (
+        {/* Nothing until the jobs answer: "No job yet" would be wrong while they load. */}
+        {jobs.data === undefined ? null : latest === null ? (
           <span className="text-muted-foreground">{t('narration.noJob')}</span>
         ) : (
           <>
@@ -211,7 +223,12 @@ export function NarrationSection({
           </>
         )}
       </div>
-      <div className="overflow-x-auto">
+      <div
+        className="relative overflow-x-auto"
+        role="region"
+        aria-label={t('a11y.table', { name: t('narration.title') })}
+        tabIndex={0}
+      >
         <table className="w-full text-left text-sm">
           <caption className="sr-only">{t('narration.title')}</caption>
           <thead className="text-xs text-muted-foreground">
@@ -236,7 +253,11 @@ export function NarrationSection({
           <tbody>
             {rows.map((row) => (
               <tr key={row.lang} className="border-t border-border">
-                <th scope="row" className="py-3 pr-3 font-medium text-foreground" lang={row.lang}>
+                <th
+                  scope="row"
+                  className="py-3 pr-3 font-medium whitespace-nowrap text-foreground"
+                  lang={row.lang}
+                >
                   {row.lang === 'vi'
                     ? t('narration.sourceLabel', { language: autonym('vi') })
                     : autonym(row.lang)}
@@ -245,14 +266,14 @@ export function NarrationSection({
                 <td className="py-3 pr-3">{audio(row)}</td>
                 <td className="py-3 pr-3 text-muted-foreground">{gets(row)}</td>
                 <td className="py-3 text-right">
-                  {manage && row.lang !== 'vi' && !making(row.lang) ? (
+                  {manage && !making(row.lang) ? (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => make(row.lang)}
-                      aria-label={`${row.textReady ? t('narration.regenerate') : t('narration.make')}: ${autonym(row.lang)}`}
+                      aria-label={`${made(row) ? t('narration.regenerate') : t('narration.make')}: ${autonym(row.lang)}`}
                     >
-                      {row.textReady ? t('narration.regenerate') : t('narration.make')}
+                      {made(row) ? t('narration.regenerate') : t('narration.make')}
                     </Button>
                   ) : null}
                 </td>

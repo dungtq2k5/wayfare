@@ -15,7 +15,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@wayfare/ui/menu';
-import { ChevronDown, Languages, LogOut, Monitor, UserRound } from 'lucide-react';
+import { ChevronDown, Languages, LogOut, SunMoon, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { clearPageCookie, setPageCookie, SIGNED_IN_MARKER } from '../client/cookies';
 import { useTheme } from '../app/providers';
@@ -62,7 +62,7 @@ export function AccountMenu() {
           {t('menu.account')}
         </DropdownMenuItem>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger value={t(`language.${locale}`)}>
             <Languages aria-hidden className="size-4" />
             {t('menu.language')}
           </DropdownMenuSubTrigger>
@@ -85,8 +85,8 @@ export function AccountMenu() {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <Monitor aria-hidden className="size-4" />
+          <DropdownMenuSubTrigger value={t(`menu.${themeOf(theme)}`)}>
+            <SunMoon aria-hidden className="size-4" />
             {t('menu.appearance')}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>

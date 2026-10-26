@@ -16,10 +16,10 @@ import {
   NARRATION_PRIORITY_MAX,
   NARRATION_PRIORITY_MIN,
   scopeLanguages,
-  SUBMISSION_EDITABLE_FIELDS,
 } from '@wayfare/contracts';
 import type { NarrationLanguageScope, SubmissionEditableField } from '@wayfare/contracts';
 import { Button } from '@wayfare/ui/button';
+import { SubmissionKindChip } from '@wayfare/ui/content';
 import { Field, Input } from '@wayfare/ui/field';
 import { PageHeader } from '@wayfare/ui/list';
 import { Card, StatusBadge } from '@wayfare/ui/surfaces';
@@ -40,8 +40,9 @@ import { insidePolygon } from './geo';
 import { Facts } from './place-sections';
 import { useMapStyle } from './place-page';
 import { useAreas, useCategories, useNames } from './reference';
-import { FieldCard } from './submission-diff';
+import { FieldCard, ProposalDetails } from './submission-diff';
 import type { DiffColumn, PhotoSource } from './submission-diff';
+import { printedCode } from './words';
 
 type Detail = Awaited<ReturnType<typeof adminSubmissionsGet>>['data'];
 type LivePlace = NonNullable<Detail['livePlace']>;
@@ -96,6 +97,21 @@ const REFUSALS: Partial<Record<string, string>> = {
  * gains its *When sent* column, and keeps *Approve* off until *I've seen…* is ticked. A decision
  * someone else made first is S4b; neither decision has an Undo — the owner is told at once.
  */
+/** The field cards in the Place page's order: Details' fields, Photos, Hours, Menu, Location. */
+const CARD_ORDER: readonly SubmissionEditableField[] = [
+  'nameVi',
+  'categoryCode',
+  'addressVi',
+  'descriptionVi',
+  'priceBand',
+  'phone',
+  'websiteUrl',
+  'photos',
+  'openingHours',
+  'menu',
+  'location',
+];
+
 export function SubmissionPage({ initial }: { initial: Detail }) {
   const translator = useConsole();
   const { t, tDynamic } = translator;
@@ -138,6 +154,8 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
   const [busy, setBusy] = useState(false);
   const [alert, setAlert] = useState<string | null>(null);
   const [decided, setDecided] = useState(false);
+  // Decided, here or by someone else while the page was open: nothing is editable.
+  const readOnly = !pending || decided;
 
   const area =
     areas.data?.find((row) =>
@@ -171,12 +189,15 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
     if (entry !== undefined) return [{ label: t('submission.now'), value: entry.before }, proposed];
     return [{ label: t('submission.now'), value: payload[field] }];
   };
-  const shown = SUBMISSION_EDITABLE_FIELDS.filter(
-    (field) => creating || changed.has(field) || conflicted.has(field),
-  );
+  // A new venue's plain fields sit in its Details card; its photos only when it has some.
+  const shown = creating
+    ? (['photos', 'openingHours', 'menu', 'location'] as const).filter(
+        (field) => field !== 'photos' || ((payload.photos as unknown[] | null) ?? []).length > 0,
+      )
+    : CARD_ORDER.filter((field) => changed.has(field) || conflicted.has(field));
   const unchanged = creating
     ? []
-    : SUBMISSION_EDITABLE_FIELDS.filter((field) => !changed.has(field) && !conflicted.has(field));
+    : CARD_ORDER.filter((field) => !changed.has(field) && !conflicted.has(field));
 
   // Who changed the live Place since: named only for a reader of the audit log (K11).
   const who = useQuery({
@@ -288,20 +309,24 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
         title={creating ? t('submission.newVenue', { name }) : t('submission.changesTo', { name })}
         badges={
           <>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            <SubmissionKindChip kind={submission.kind}>
               {tDynamic(`submissionKind.${submission.kind}`)}
-            </span>
+            </SubmissionKindChip>
             <StatusBadge tone={STATUS_TONES[submission.status]}>
               {pending
                 ? t('status.pending')
-                : tDynamic(`decision.${submission.status}`, undefined, submission.status)}
+                : tDynamic(`submissionStatus.${submission.status}`, undefined, submission.status)}
             </StatusBadge>
           </>
         }
-        description={t('submission.sentBy', {
-          owner,
-          when: relativeTime(submission.submittedAt, now, translator),
-        })}
+        description={[
+          t('submission.sentBy', {
+            owner,
+            when: relativeTime(submission.submittedAt, now, translator),
+          }),
+          ...(livePlace === null ? [] : [printedCode(livePlace.publicCode)]),
+          ...(area === undefined ? [] : [names.area(area.code)]),
+        ].join(' · ')}
         action={
           livePlace === null ? undefined : (
             <Button asChild variant="outline">
@@ -319,7 +344,8 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-info px-4 py-3 text-sm text-info-foreground"
         >
-          <span>
+          <Info aria-hidden className="size-4 shrink-0" />
+          <span className="flex-1">
             <strong className="block">{t('decided.title')}</strong>
             {t('decided.body')}
           </span>
@@ -361,10 +387,13 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
           {creating ? (
-            <p className="flex items-start gap-2 rounded-md bg-info px-4 py-3 text-sm text-info-foreground">
-              <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
-              {t('submission.createNote', { owner })}
-            </p>
+            <>
+              <p className="flex items-start gap-2 rounded-md bg-info px-4 py-3 text-sm text-info-foreground">
+                <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+                {t('submission.createNote', { owner })}
+              </p>
+              <ProposalDetails payload={payload} />
+            </>
           ) : (
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               {t('submission.counts', { changed: shown.length, same: unchanged.length })}
@@ -426,7 +455,7 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
                   {...control}
                   inputMode="numeric"
                   value={radius}
-                  disabled={!pending}
+                  disabled={readOnly}
                   onChange={(event) => setRadius(event.target.value)}
                 />
               )}
@@ -444,7 +473,7 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
                   {...control}
                   inputMode="numeric"
                   value={priority}
-                  disabled={!pending}
+                  disabled={readOnly}
                   onChange={(event) => setPriority(event.target.value)}
                 />
               )}
@@ -454,9 +483,9 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
                 <select
                   {...control}
                   value={category}
-                  disabled={!pending}
+                  disabled={readOnly}
                   onChange={(event) => setCategory(event.target.value)}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">
                     {t('submission.asProposed', { category: proposedCategory })}
@@ -504,7 +533,18 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
             />
           </Card>
 
-          {pending && !decided && can('submission.review') ? (
+          {readOnly ? (
+            <Card className="flex flex-col gap-3" aria-labelledby="decision">
+              <h2 id="decision" className="text-lg font-semibold text-foreground">
+                {t('submission.decision')}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {t('decided.line', {
+                  decision: tDynamic(`decision.${submission.status}`, undefined, submission.status),
+                })}
+              </p>
+            </Card>
+          ) : can('submission.review') ? (
             <Card className="flex flex-col gap-3" aria-labelledby="decision">
               <h2 id="decision" className="text-lg font-semibold text-foreground">
                 {t('submission.decision')}

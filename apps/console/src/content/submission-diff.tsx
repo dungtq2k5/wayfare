@@ -6,10 +6,14 @@ import { PlaceMap } from '@wayfare/ui/map';
 import type { MapPoint } from '@wayfare/ui/map';
 import { Card } from '@wayfare/ui/surfaces';
 import { wordDiff } from '@wayfare/ui/word-diff';
+import { cn } from '@wayfare/ui/cn';
 import { ImageOff } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useConsole } from '../i18n/provider';
+import { formatPhone } from '../i18n/format';
 import { pinMove } from './geo';
+import { Facts, HoursList } from './place-sections';
+import type { PlaceDetail } from './place-types';
 import { useNames } from './reference';
 
 /** One column of a field's card: *When sent*, *Now* or *Proposed*, and its value. */
@@ -66,7 +70,13 @@ export function FieldCard({
   const { t, tDynamic } = useConsole();
   const heading = tDynamic(`field.${field}`);
   return (
-    <Card className="flex flex-col gap-3" aria-label={heading}>
+    <Card
+      className={cn(
+        'flex flex-col gap-3',
+        columns.length === 1 && '[&_[data-column-label]]:sr-only',
+      )}
+      aria-label={heading}
+    >
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-foreground first-letter:uppercase">
           {heading}
@@ -96,7 +106,12 @@ function FieldBody({
 }) {
   switch (field) {
     case 'openingHours':
-      return <HoursDiff columns={columns} />;
+      // With nothing to compare, the hours as a Place's page lists them.
+      return columns.length === 1 ? (
+        <HoursList rows={(columns[0]!.value as PlaceDetail['openingHours'] | null) ?? []} />
+      ) : (
+        <HoursDiff columns={columns} />
+      );
     case 'menu':
       return <MenuDiff columns={columns} />;
     case 'photos':
@@ -113,8 +128,69 @@ function Grid({ count, children }: { count: number; children: ReactNode }) {
   return <div className={`grid grid-cols-1 gap-4 ${cols}`}>{children}</div>;
 }
 
+/** A column's label; a card with one column (a new venue's) keeps it for readers only. */
 function ColumnLabel({ children }: { children: ReactNode }) {
-  return <p className="mb-1 text-xs text-muted-foreground">{children}</p>;
+  return (
+    <p data-column-label className="mb-1 text-xs text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+/** The fields a new venue's Details card holds, in its order. */
+const DETAIL_FIELDS = [
+  'nameVi',
+  'categoryCode',
+  'addressVi',
+  'descriptionVi',
+  'priceBand',
+  'phone',
+  'websiteUrl',
+] as const satisfies readonly SubmissionEditableField[];
+
+/**
+ * A new venue's proposal (S6): with nothing to compare, its plain fields as one Details card of
+ * labels and values; location, hours, menu and photos keep their own cards.
+ */
+export function ProposalDetails({
+  payload,
+}: {
+  payload: Readonly<Partial<Record<SubmissionEditableField, unknown>>>;
+}) {
+  const { t, tDynamic } = useConsole();
+  const text = useValueText();
+  return (
+    <Card className="flex flex-col gap-3" aria-labelledby="proposal-details">
+      <h2 id="proposal-details" className="text-base font-semibold text-foreground">
+        {t('place.details')}
+      </h2>
+      <Facts
+        rows={DETAIL_FIELDS.map((field) => [
+          upperFirst(tDynamic(`field.${field}`)),
+          <span key={field} lang="vi" className="whitespace-pre-wrap">
+            {text(field, payload[field])}
+          </span>,
+        ])}
+      />
+    </Card>
+  );
+}
+
+const upperFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** How a plain field's value reads: a category's name, a price band, a phone in groups. */
+function useValueText(): (field: SubmissionEditableField, value: unknown) => string {
+  const { t } = useConsole();
+  const names = useNames();
+  // These fields hold a string or a number (the price band), never an object.
+  return (field, value) => {
+    if (typeof value !== 'string' && typeof value !== 'number') return t('place.none');
+    if (value === '') return t('place.none');
+    if (field === 'categoryCode') return names.category(String(value));
+    if (field === 'priceBand') return t('place.priceBand', { band: Number(value) });
+    if (field === 'phone') return formatPhone(String(value));
+    return String(value);
+  };
 }
 
 /** Text, a category, a price band, an address, a phone or a website. */
@@ -125,16 +201,8 @@ function ValueColumns({
   field: SubmissionEditableField;
   columns: readonly DiffColumn[];
 }) {
-  const { t } = useConsole();
-  const names = useNames();
-  // These fields hold a string or a number (the price band), never an object.
-  const text = (value: unknown): string => {
-    if (typeof value !== 'string' && typeof value !== 'number') return t('place.none');
-    if (value === '') return t('place.none');
-    if (field === 'categoryCode') return names.category(String(value));
-    if (field === 'priceBand') return t('place.priceBand', { band: Number(value) });
-    return String(value);
-  };
+  const valueText = useValueText();
+  const text = (value: unknown) => valueText(field, value);
   const proposed = columns.at(-1)!;
   const compared = columns.length > 1 ? columns.at(-2)! : null;
   const runs =
@@ -236,7 +304,12 @@ function HoursDiff({ columns }: { columns: readonly DiffColumn[] }) {
   const day = (key: string) =>
     key.startsWith('w') ? t('place.weekday', { day: key.slice(1) }) : key;
   return (
-    <div className="overflow-x-auto">
+    <div
+      className="relative overflow-x-auto"
+      role="region"
+      aria-label={t('a11y.table', { name: t('placeForm.hours') })}
+      tabIndex={0}
+    >
       <table className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr>
@@ -244,7 +317,12 @@ function HoursDiff({ columns }: { columns: readonly DiffColumn[] }) {
               {t('submission.day')}
             </th>
             {columns.map((column) => (
-              <th key={column.label} scope="col" className="py-1 pr-4 font-normal">
+              <th
+                key={column.label}
+                scope="col"
+                data-column-label
+                className="py-1 pr-4 font-normal"
+              >
                 {column.label}
               </th>
             ))}
@@ -320,13 +398,19 @@ function MenuDiff({ columns }: { columns: readonly DiffColumn[] }) {
               {name}
             </span>
             {columns.length > 1 ? (
-              <span
-                className={
-                  change === null ? 'text-muted-foreground' : 'text-muted-foreground line-through'
-                }
-              >
-                {price(was)}
-              </span>
+              <>
+                <span
+                  className={
+                    change === null ? 'text-muted-foreground' : 'text-muted-foreground line-through'
+                  }
+                >
+                  {price(was)}
+                </span>
+                {/* From and to read without colour. */}
+                <span aria-hidden className="text-muted-foreground">
+                  ›
+                </span>
+              </>
             ) : null}
             <span className="font-medium text-foreground">{price(now)}</span>
             {change === null ? null : (

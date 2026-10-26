@@ -17,7 +17,12 @@ export function FormSection({ title, children }: { title: string; children: Reac
 /** *Save* and *Cancel* in a bar that stays in view at the bottom of the page (P3). */
 export function SaveBar({ children }: { children: ReactNode }) {
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 mt-6 flex justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:-mx-6 sm:px-6">
+    // The main area's full width (its padding undone); below 640 px the buttons stack, the
+    // primary on top.
+    <div
+      data-save-bar
+      className="sticky bottom-0 z-10 -mx-4 mt-6 flex flex-col-reverse gap-2 border-t border-border bg-background px-4 py-3 *:w-full sm:-mx-6 sm:flex-row sm:items-center sm:justify-end sm:px-6 sm:*:w-auto lg:-mx-8 lg:px-8"
+    >
       {children}
     </div>
   );

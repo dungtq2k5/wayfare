@@ -4,6 +4,8 @@ dist/
 coverage/
 # Next.js builds and Playwright's reports (apps/console).
 .next/
+# The screen baselines' own development server (apps/console/e2e/README.md).
+.next-screens/
 # Written by `next dev` / `next build`, pointing into .next/.
 apps/console/next-env.d.ts
 playwright-report/

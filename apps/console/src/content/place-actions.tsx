@@ -64,6 +64,8 @@ export function DeactivateDialog({
       alert={alert}
       noteLabel={t('deactivate.reason')}
       noteHelp={venue ? t('deactivate.reasonHelpVenue', { owner }) : t('deactivate.reasonHelp')}
+      // Destructive only for a Venue: an Editorial Place's deactivation has *Undo*.
+      tone={venue ? 'destructive' : 'primary'}
       minLength={1}
       maxLength={MAX_ADMIN_REASON_LENGTH}
       onConfirm={(reason) => {

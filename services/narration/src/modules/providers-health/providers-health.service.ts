@@ -40,6 +40,7 @@ export class ProvidersHealthService {
         errorRate: state.errorRate,
         recentCalls: state.recentCalls,
         coolingUntil: state.coolingUntil?.toISOString() ?? null,
+        downSince: state.downSince?.toISOString() ?? null,
         scope: 'process',
       }));
     return [

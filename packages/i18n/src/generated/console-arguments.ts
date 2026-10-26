@@ -61,7 +61,7 @@ export interface ConsoleArguments {
   readonly "placeForm.removePhoto": { "n": string | number };
   readonly "placeForm.moveEarlier": { "n": string | number };
   readonly "placeForm.moveLater": { "n": string | number };
-  readonly "placeForm.ownerTold": { "owner": string | number };
+  readonly "placeForm.ownerTold": { "name": string | number; "owner": string | number };
   readonly "placeForm.textWarning": { "name": string | number };
   readonly "placeForm.staleBody": { "name": string | number };
   readonly "placeForm.attention": { "count": number };
@@ -134,4 +134,18 @@ export interface ConsoleArguments {
   readonly "providers.resting": { "time": string | number };
   readonly "place.priceBand": { "band": number };
   readonly "place.weekday": { "day": "1" | "2" | "3" | "4" | "5" | "6" | "7" | string };
+  readonly "a11y.table": { "name": string | number };
+  readonly "places.updatedWhen": { "when": string | number };
+  readonly "submissions.sentWhen": { "when": string | number };
+  readonly "registrations.submittedWhen": { "when": string | number };
+  readonly "jobs.startedWhen": { "when": string | number };
+  readonly "places.rowMenu": { "name": string | number };
+  readonly "submissions.menuDishes": { "count": number };
+  readonly "place.weekdayShort": { "day": "1" | "2" | "3" | "4" | "5" | "6" | "7" | string };
+  readonly "place.circleCaption": { "m": string | number; "comparison": string | number };
+  readonly "registration.submittedDecided": { "submitted": string | number; "decided": string | number };
+  readonly "reveal.redactedOn": { "date": string | number };
+  readonly "job.failedTranslation": { "tries": number; "error": string | number };
+  readonly "job.failedAudio": { "tries": number; "error": string | number };
+  readonly "providers.whyBodySince": { "role": string | number; "time": string | number; "name": string | number };
 }

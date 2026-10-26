@@ -14,4 +14,7 @@ export type AdminSubmissionResponseDtoLivePlaceLocalizationsItem = {
   audioStatus: AdminSubmissionResponseDtoLivePlaceLocalizationsItemAudioStatus;
   audioStale: boolean;
   translationSource: AdminSubmissionResponseDtoLivePlaceLocalizationsItemTranslationSource;
+  audioDurationMs: number | null;
+  /** @nullable */
+  voiceId: string | null;
 };

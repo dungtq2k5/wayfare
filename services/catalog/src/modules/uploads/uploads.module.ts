@@ -20,6 +20,9 @@ import { UploadsService } from './uploads.service';
         new GcsStorageProvider({
           bucket: config.get('GCS_BUCKET_MEDIA', { infer: true }),
           apiEndpoint: config.get('GCS_API_ENDPOINT', { infer: true }),
+          // Locally, the emulator as a browser reaches it is where it serves media from: in a
+          // container catalog reaches it as `fake-gcs`, which a browser cannot.
+          uploadEndpoint: new URL(config.get('GCS_PUBLIC_BASE_URL', { infer: true })).origin,
           keyFilename: config.get('GOOGLE_APPLICATION_CREDENTIALS', { infer: true }),
         }),
     },

@@ -2,19 +2,30 @@
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { adminOwnerRegistrationsList } from '@wayfare/api-client';
-import { DataList, PageHeader, Pagination, SearchField } from '@wayfare/ui/list';
+import type { AdminOwnerRegistrationsListParams } from '@wayfare/api-client';
+import {
+  DataList,
+  ListCard,
+  PageHeader,
+  Pagination,
+  RowChevron,
+  SearchField,
+} from '@wayfare/ui/list';
 import { EmptyState } from '@wayfare/ui/states';
 import { StatusBadge } from '@wayfare/ui/surfaces';
 import { SearchX, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { failureOf } from '../client/errors';
+import { ClearFilters, Filter } from '../components/filter';
 import { useConsole } from '../i18n/provider';
+import { formatPhone, lowerFirst } from '../i18n/format';
 import { relativeTime } from '../notifications/text';
 import { ErrorView } from '../states/states';
 import { REGISTRATION_TONES } from './registration-page';
 
 const PAGE_SIZE = 20;
+const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN'] as const;
 
 type Row = Awaited<ReturnType<typeof adminOwnerRegistrationsList>>['data'][number];
 
@@ -23,12 +34,18 @@ export function RegistrationsList() {
   const translator = useConsole();
   const { t, tDynamic } = translator;
   const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const q = search.trim();
+  const params: AdminOwnerRegistrationsListParams = {
+    page,
+    pageSize: PAGE_SIZE,
+    ...(q === '' ? {} : { q }),
+    ...(status === null ? {} : { status: status as (typeof STATUSES)[number] }),
+  };
   const list = useQuery({
-    queryKey: ['registrations', page, q],
-    queryFn: () =>
-      adminOwnerRegistrationsList({ page, pageSize: PAGE_SIZE, ...(q === '' ? {} : { q }) }),
+    queryKey: ['registrations', params],
+    queryFn: () => adminOwnerRegistrationsList(params),
     placeholderData: keepPreviousData,
   });
   const now = new Date();
@@ -48,10 +65,10 @@ export function RegistrationsList() {
   const contact = (row: Row) => (
     <span className="flex flex-col">
       <span>{row.contactName}</span>
-      <span className="text-xs text-muted-foreground">{row.contactPhone}</span>
+      <span className="text-xs text-muted-foreground">{formatPhone(row.contactPhone)}</span>
     </span>
   );
-  const status = (row: Row) => (
+  const badge = (row: Row) => (
     <StatusBadge tone={REGISTRATION_TONES[row.status]}>
       {tDynamic(`regStatus.${row.status}`)}
     </StatusBadge>
@@ -70,11 +87,31 @@ export function RegistrationsList() {
             setPage(1);
           }}
         />
+        <Filter
+          name={t('places.status')}
+          allLabel={t('places.all')}
+          value={status}
+          options={STATUSES.map((value) => ({ value, label: tDynamic(`regStatus.${value}`) }))}
+          onChange={(value) => {
+            setStatus(value);
+            setPage(1);
+          }}
+        />
+        {q !== '' || status !== null ? (
+          <ClearFilters
+            label={t('places.clearFilters')}
+            onClear={() => {
+              setSearch('');
+              setStatus(null);
+              setPage(1);
+            }}
+          />
+        ) : null}
       </div>
       {list.isError ? (
         <ErrorView failure={failureOf(list.error)} onRetry={() => void list.refetch()} />
       ) : list.data !== undefined && list.data.data.length === 0 ? (
-        q === '' ? (
+        q === '' && status === null ? (
           <EmptyState
             icon={<UserPlus />}
             title={t('registrations.emptyTitle')}
@@ -113,21 +150,32 @@ export function RegistrationsList() {
                     </span>
                   );
                 default:
-                  return status(row);
+                  return badge(row);
               }
             }}
             card={(row) => (
-              <div className="flex flex-col gap-2 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  {business(row)}
-                  {status(row)}
-                </div>
-                {contact(row)}
-                <span className="text-xs text-muted-foreground">
-                  {relativeTime(row.submittedAt, now, translator)}
-                </span>
-              </div>
+              <ListCard
+                name={
+                  <Link
+                    href={`/registrations/${row.id}`}
+                    className="font-medium text-foreground hover:underline"
+                  >
+                    {row.businessName}
+                  </Link>
+                }
+                status={badge(row)}
+                facts={[row.businessRegistrationNo, row.contactName, formatPhone(row.contactPhone)]
+                  .filter((part) => part !== null)
+                  .join(' · ')}
+                time={t('registrations.submittedWhen', {
+                  when: lowerFirst(
+                    relativeTime(row.submittedAt, now, translator),
+                    translator.locale,
+                  ),
+                })}
+              />
             )}
+            rowEnd={{ label: t('submissions.open'), render: () => <RowChevron /> }}
           />
           {list.data === undefined ? null : (
             <Pagination

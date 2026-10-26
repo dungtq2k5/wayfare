@@ -6,6 +6,7 @@ import {
   emailChangeRevertChange,
   emailChangeVerify,
 } from '@wayfare/api-client';
+import { ShieldCheck, Undo2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { clearPageCookie, SIGNED_IN_MARKER } from '../client/cookies';
 import { useConsole } from '../i18n/provider';
@@ -122,6 +123,7 @@ export function LinkAction({ kind }: { kind: LinkKind }) {
         case 'revert':
           return (
             <ResultCard
+              icon={Undo2}
               title={t('link.reverted.title')}
               body={t('link.reverted.body', { email })}
               action={<ActionLink href="/sign-in">{t('link.signIn')}</ActionLink>}
@@ -130,8 +132,10 @@ export function LinkAction({ kind }: { kind: LinkKind }) {
         case 'cancelRecovery':
           return (
             <ResultCard
+              icon={ShieldCheck}
               title={t('link.recoveryStopped.title')}
               body={t('link.recoveryStopped.body')}
+              action={<ActionLink href="/">{t('link.toConsole')}</ActionLink>}
             />
           );
       }

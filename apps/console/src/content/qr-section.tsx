@@ -70,7 +70,7 @@ export function QrSection({
             />
           )}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className="flex min-w-0 grow basis-56 flex-col gap-3">
           <p className="text-sm text-foreground">{t('qr.body', { code: printed })}</p>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">

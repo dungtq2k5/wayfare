@@ -45,6 +45,7 @@ export function DataList<T>({
   onSort,
   skeletonRows = 6,
   rowClassName,
+  rowEnd,
 }: {
   caption: string;
   columns: readonly Column[];
@@ -57,14 +58,23 @@ export function DataList<T>({
   skeletonRows?: number;
   /** A row's own class: a row that just changed takes the accent fill, which fades (round 33). */
   rowClassName?: (row: T) => string | undefined;
+  /**
+   * What ends each row and each card: a `RowChevron` for a row that opens a page, or the row's
+   * menu. In the table it takes a last column of its own, labelled `rowEnd.label` for readers.
+   */
+  rowEnd?: { label: string; render: (row: T) => ReactNode };
 }) {
+  const shown: readonly Column[] =
+    rowEnd === undefined
+      ? columns
+      : [...columns, { key: ROW_END, label: rowEnd.label, hiddenLabel: true, className: 'w-px' }];
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <table className="hidden w-full text-left text-sm md:table">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-muted">
           <tr>
-            {columns.map((column) => (
+            {shown.map((column) => (
               <HeaderCell key={column.key} column={column} sort={sort} onSort={onSort} />
             ))}
           </tr>
@@ -73,7 +83,7 @@ export function DataList<T>({
           {rows === undefined
             ? Array.from({ length: skeletonRows }, (_, index) => (
                 <tr key={index} className="border-t border-border">
-                  {columns.map((column) => (
+                  {shown.map((column) => (
                     <td key={column.key} className="px-4 py-4">
                       <Skeleton className="h-4 w-3/4" />
                     </td>
@@ -82,9 +92,9 @@ export function DataList<T>({
               ))
             : rows.map((row) => (
                 <tr key={rowKey(row)} className={cn('border-t border-border', rowClassName?.(row))}>
-                  {columns.map((column) => (
+                  {shown.map((column) => (
                     <td key={column.key} className={cn('px-4 py-3 align-middle', column.className)}>
-                      {cell(row, column.key)}
+                      {column.key === ROW_END ? rowEnd?.render(row) : cell(row, column.key)}
                     </td>
                   ))}
                 </tr>
@@ -100,11 +110,54 @@ export function DataList<T>({
               </li>
             ))
           : rows.map((row) => (
-              <li key={rowKey(row)} className={cn('p-4', rowClassName?.(row))}>
-                {card(row)}
+              <li
+                key={rowKey(row)}
+                className={cn('flex items-center gap-2 p-4', rowClassName?.(row))}
+              >
+                <div className="min-w-0 flex-1">{card(row)}</div>
+                {rowEnd?.render(row)}
               </li>
             ))}
       </ul>
+    </div>
+  );
+}
+
+const ROW_END = '__rowEnd';
+
+/** The end of a row that opens a page: the row's name is the link, this only shows it goes on. */
+export function RowChevron() {
+  return <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />;
+}
+
+/**
+ * A phone-width card (round 33's table-to-cards rule): name and status, one line of facts, the
+ * labelled time.
+ */
+export function ListCard({
+  name,
+  status,
+  facts,
+  time,
+  children,
+}: {
+  name: ReactNode;
+  status?: ReactNode;
+  facts?: ReactNode;
+  time: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">{name}</div>
+        {status}
+      </div>
+      {facts === undefined ? null : (
+        <p className="truncate text-xs text-muted-foreground">{facts}</p>
+      )}
+      {children}
+      <p className="text-xs text-muted-foreground">{time}</p>
     </div>
   );
 }

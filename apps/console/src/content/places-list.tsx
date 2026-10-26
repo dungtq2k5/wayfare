@@ -5,16 +5,23 @@ import { adminPlacesList, adminPlacesRestore } from '@wayfare/api-client';
 import type { AdminPlacesListParams } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { KindChip } from '@wayfare/ui/content';
-import { DataList, PageHeader, Pagination, SearchField } from '@wayfare/ui/list';
+import { DataList, ListCard, PageHeader, Pagination, SearchField } from '@wayfare/ui/list';
 import type { Sort } from '@wayfare/ui/list';
 import { EmptyState } from '@wayfare/ui/states';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@wayfare/ui/menu';
 import { StatusBadge } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
-import { MapPin, Plus, SearchX } from 'lucide-react';
+import { Ellipsis, MapPin, Plus, SearchX } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { errorText, failureOf } from '../client/errors';
-import { Filter } from '../components/filter';
+import { ClearFilters, Filter } from '../components/filter';
+import { lowerFirst } from '../i18n/format';
 import { useConsole } from '../i18n/provider';
 import { relativeTime } from '../notifications/text';
 import { useCan } from '../shell/can';
@@ -91,6 +98,10 @@ export function PlacesList() {
       (error: unknown) => toast.error(errorText(error, translator), { duration: Infinity }),
     );
 
+  const waitText = (row: Row) => {
+    const wait = waitKey(row.status, row.inactiveReason as InactiveReason | null);
+    return wait === null ? null : tDynamic(wait);
+  };
   const statusCell = (row: Row) => {
     const wait = waitKey(row.status, row.inactiveReason as InactiveReason | null);
     if (row.deletedAt !== null)
@@ -106,18 +117,54 @@ export function PlacesList() {
   };
   const nameCell = (row: Row) => (
     <span className="flex flex-col">
-      <Link href={`/places/${row.id}`} className="font-medium text-foreground hover:underline">
+      <Link
+        href={`/places/${row.id}`}
+        className={`font-medium hover:underline ${row.deletedAt === null ? 'text-foreground' : 'text-muted-foreground'}`}
+      >
         {row.nameVi}
       </Link>
       <span className="text-xs text-muted-foreground">{printedCode(row.publicCode)}</span>
     </span>
   );
   const action = (row: Row) =>
-    row.deletedAt !== null && can('place.delete') ? (
-      <Button variant="outline" size="sm" onClick={() => restore(row)}>
-        {t('places.restore')}
-      </Button>
-    ) : null;
+    row.deletedAt !== null ? (
+      can('place.delete') ? (
+        <Button variant="outline" size="sm" onClick={() => restore(row)}>
+          {t('places.restore')}
+        </Button>
+      ) : null
+    ) : (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t('places.rowMenu', { name: row.nameVi })}
+          >
+            <Ellipsis aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link href={`/places/${row.id}`}>{t('places.open')}</Link>
+          </DropdownMenuItem>
+          {can('place.update') ? (
+            <DropdownMenuItem asChild>
+              <Link href={`/places/${row.id}/edit`}>{t('place.edit')}</Link>
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem asChild>
+            <Link href={`/places/${row.id}#qr`}>{t('place.qr')}</Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  const updated = (row: Row) =>
+    row.deletedAt === null
+      ? t('places.updatedWhen', {
+          when: lowerFirst(relativeTime(row.updatedAt, now, translator), translator.locale),
+        })
+      : t('places.deletedWhen', { when: relativeTime(row.deletedAt, now, translator) });
 
   return (
     <>
@@ -191,6 +238,7 @@ export function PlacesList() {
           />
           {t('places.includeDeleted')}
         </label>
+        {filtered ? <ClearFilters label={t('places.clearFilters')} onClear={clear} /> : null}
       </div>
       {list.isError ? (
         <ErrorView failure={failureOf(list.error)} onRetry={() => void list.refetch()} />
@@ -224,12 +272,6 @@ export function PlacesList() {
               { key: 'area', label: t('places.area') },
               { key: 'category', label: t('places.category') },
               { key: 'updated', label: t('places.updated'), sortable: true },
-              {
-                key: 'actions',
-                label: t('places.rowActions'),
-                hiddenLabel: true,
-                className: 'text-right',
-              },
             ]}
             rows={list.data?.data}
             rowKey={(row) => row.id}
@@ -239,7 +281,8 @@ export function PlacesList() {
               setPage(1);
             }}
             cell={(row, column) => {
-              const greyed = row.deletedAt !== null ? 'opacity-60' : undefined;
+              // Greyed by colour, not opacity: faded muted text would fall below contrast.
+              const greyed = row.deletedAt !== null ? 'text-muted-foreground' : undefined;
               switch (column) {
                 case 'place':
                   return <span className={greyed}>{nameCell(row)}</span>;
@@ -251,7 +294,7 @@ export function PlacesList() {
                   return <span className={greyed}>{names.area(row.areaCode)}</span>;
                 case 'category':
                   return <span className={greyed}>{names.category(row.categoryCode)}</span>;
-                case 'updated':
+                default:
                   return (
                     <span className="text-muted-foreground">
                       {row.deletedAt === null
@@ -261,28 +304,38 @@ export function PlacesList() {
                           })}
                     </span>
                   );
-                default:
-                  return action(row);
               }
             }}
             card={(row) => (
-              <div className="flex flex-col gap-2 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  {nameCell(row)}
-                  {statusCell(row)}
-                </div>
-                <span className="flex flex-wrap items-center gap-2 text-muted-foreground">
+              <ListCard
+                name={
+                  <Link
+                    href={`/places/${row.id}`}
+                    className={`font-medium hover:underline ${row.deletedAt === null ? 'text-foreground' : 'text-muted-foreground'}`}
+                  >
+                    {row.nameVi}
+                  </Link>
+                }
+                status={
+                  row.deletedAt !== null ? (
+                    <StatusBadge tone="inactive">{t('places.deleted')}</StatusBadge>
+                  ) : (
+                    <StatusBadge tone={statusTone(row.status)}>
+                      {tDynamic(`status.${row.status}`)}
+                    </StatusBadge>
+                  )
+                }
+                facts={`${printedCode(row.publicCode)} · ${names.area(row.areaCode)} · ${names.category(row.categoryCode)}`}
+                time={updated(row)}
+              >
+                {/* The kind, and why a row waits beside it. */}
+                <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <KindChip kind={row.kind}>{tDynamic(`kind.${row.kind}`)}</KindChip>
-                  {names.area(row.areaCode)} · {names.category(row.categoryCode)}
+                  {row.deletedAt !== null ? null : waitText(row)}
                 </span>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {relativeTime(row.updatedAt, now, translator)}
-                  </span>
-                  {action(row)}
-                </div>
-              </div>
+              </ListCard>
             )}
+            rowEnd={{ label: t('places.rowActions'), render: action }}
           />
           {list.data === undefined ? null : (
             <Pagination

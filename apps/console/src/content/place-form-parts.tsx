@@ -232,7 +232,11 @@ export function HoursEditor({
             {(control) => (
               <Input
                 {...control}
-                type="time"
+                // A text field, not type="time": that one follows the browser's locale (AM and PM).
+                inputMode="numeric"
+                placeholder="HH:MM"
+                pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                maxLength={5}
                 disabled={row.closed}
                 value={row.opensAt}
                 onChange={(event) => set(row.key, { opensAt: event.target.value })}
@@ -243,7 +247,10 @@ export function HoursEditor({
             {(control) => (
               <Input
                 {...control}
-                type="time"
+                inputMode="numeric"
+                placeholder="HH:MM"
+                pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                maxLength={5}
                 disabled={row.closed}
                 value={row.closesAt}
                 onChange={(event) => set(row.key, { closesAt: event.target.value })}
@@ -342,7 +349,7 @@ export function MenuEditor({
     <div className="flex flex-col gap-3">
       {rows.map((row) => (
         <div key={row.key} className="flex flex-wrap items-end gap-3">
-          <Field label={t('placeForm.dish')} className="min-w-48 flex-1">
+          <Field label={t('placeForm.dish')} required className="min-w-48 flex-1">
             {(control) => (
               <Input
                 {...control}
@@ -351,7 +358,7 @@ export function MenuEditor({
               />
             )}
           </Field>
-          <Field label={t('placeForm.dishPrice')} className="w-32">
+          <Field label={t('placeForm.dishPrice')} required className="w-32">
             {(control) => (
               <Input
                 {...control}

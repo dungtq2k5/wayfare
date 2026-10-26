@@ -22,3 +22,9 @@ export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
 /** Development-only aids (the fake Google hook, `/dev/patterns`); dead code in a production build. */
 export const DEVELOPMENT = process.env.NODE_ENV !== 'production';
+
+/**
+ * The build folder: `.next`, unless a second development server runs beside the first (the screen
+ * baselines' own console, e2e/README.md), which takes its own.
+ */
+export const DIST_DIR = process.env.NEXT_DIST_DIR ?? '.next';

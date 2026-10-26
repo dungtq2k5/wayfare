@@ -5,11 +5,11 @@
 // source: wayfare/catalog/offline.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
 
-export const protobufPackage = 'wayfare.catalog';
+export const protobufPackage = "wayfare.catalog";
 
 export interface GetManifestRequest {
   areaId: string;
@@ -33,15 +33,12 @@ export interface GetManifestDiffResponse {
   diffJson: string;
 }
 
-export const WAYFARE_CATALOG_PACKAGE_NAME = 'wayfare.catalog';
+export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";
 
 export interface OfflineServiceClient {
   getManifest(request: GetManifestRequest, metadata?: Metadata): Observable<GetManifestResponse>;
 
-  getManifestDiff(
-    request: GetManifestDiffRequest,
-    metadata?: Metadata,
-  ): Observable<GetManifestDiffResponse>;
+  getManifestDiff(request: GetManifestDiffRequest, metadata?: Metadata): Observable<GetManifestDiffResponse>;
 }
 
 export interface OfflineServiceController {
@@ -53,27 +50,24 @@ export interface OfflineServiceController {
   getManifestDiff(
     request: GetManifestDiffRequest,
     metadata?: Metadata,
-  ):
-    | Promise<GetManifestDiffResponse>
-    | Observable<GetManifestDiffResponse>
-    | GetManifestDiffResponse;
+  ): Promise<GetManifestDiffResponse> | Observable<GetManifestDiffResponse> | GetManifestDiffResponse;
 }
 
 export function OfflineServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ['getManifest', 'getManifestDiff'];
+    const grpcMethods: string[] = ["getManifest", "getManifestDiff"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('OfflineService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("OfflineService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('OfflineService', method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod("OfflineService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const OFFLINE_SERVICE_NAME = 'OfflineService';
+export const OFFLINE_SERVICE_NAME = "OfflineService";

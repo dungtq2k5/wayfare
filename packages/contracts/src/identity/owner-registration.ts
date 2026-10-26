@@ -133,6 +133,8 @@ export const zOwnerRegistrationAdmin = zOwnerRegistrationAdminItem
   .extend({
     applicant: zRegistrationApplicant,
     priorApplications: z.array(zPriorRegistration),
+    /** When the national ID and contact details were redacted; null while they are kept. */
+    piiRedactedAt: zInstant.nullable(),
   })
   .strict();
 /** The review detail. */

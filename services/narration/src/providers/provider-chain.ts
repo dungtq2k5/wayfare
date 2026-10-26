@@ -85,6 +85,8 @@ export interface ProviderState {
   readonly errorRate: number;
   readonly recentCalls: number;
   readonly coolingUntil: Date | null;
+  /** While open: when it first stopped answering in this outage, through reopenings. */
+  readonly downSince: Date | null;
 }
 
 /** How many recent calls the error rate covers. */
@@ -93,6 +95,8 @@ export const ERROR_RATE_WINDOW = 100;
 interface Breaker {
   consecutiveFailures: number;
   coolingUntil: number | null;
+  /** When the breaker first opened in this outage; cleared by an answer. */
+  downSince: number | null;
   recent: boolean[];
   /** Whether its last failure was a provider that could not be reached. */
   lastUnreachable: boolean;
@@ -127,6 +131,7 @@ export class ProviderChain<P extends { readonly name: string }> {
       this.breakers.set(provider.name, {
         consecutiveFailures: 0,
         coolingUntil: null,
+        downSince: null,
         recent: [],
         lastUnreachable: false,
       });
@@ -188,6 +193,7 @@ export class ProviderChain<P extends { readonly name: string }> {
         errorRate: breaker.recent.length === 0 ? 0 : failures / breaker.recent.length,
         recentCalls: breaker.recent.length,
         coolingUntil: open ? new Date(breaker.coolingUntil!) : null,
+        downSince: open && breaker.downSince !== null ? new Date(breaker.downSince) : null,
       };
     });
   }
@@ -200,11 +206,13 @@ export class ProviderChain<P extends { readonly name: string }> {
     if (ok) {
       breaker.consecutiveFailures = 0;
       breaker.coolingUntil = null;
+      breaker.downSince = null;
       return;
     }
     breaker.consecutiveFailures += 1;
     if (breaker.consecutiveFailures >= (this.options.threshold ?? PROVIDER_FAILURE_THRESHOLD)) {
       breaker.coolingUntil = this.now() + (this.options.cooldownMs ?? PROVIDER_COOLDOWN_MS);
+      breaker.downSince ??= this.now();
       // The next failure after the cooldown opens it again at once.
       breaker.consecutiveFailures = (this.options.threshold ?? PROVIDER_FAILURE_THRESHOLD) - 1;
     }

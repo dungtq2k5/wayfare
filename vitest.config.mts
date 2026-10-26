@@ -77,7 +77,7 @@ export default defineConfig({
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
       unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
       unit('mobile', './apps/mobile', ['src/**/*.spec.ts']),
-      unit('console', './apps/console', ['src/**/*.spec.ts']),
+      unit('console', './apps/console', ['src/**/*.spec.ts', 'e2e/screens/*.spec.ts']),
       unit('ui', './packages/ui', ['src/**/*.spec.ts']),
       unit('design-tokens', './packages/design-tokens', ['src/**/*.spec.ts']),
       unit('api-client', './packages/api-client', ['src/**/*.spec.ts']),

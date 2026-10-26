@@ -5,11 +5,11 @@
 // source: wayfare/billing/entitlement.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
 
-export const protobufPackage = 'wayfare.billing';
+export const protobufPackage = "wayfare.billing";
 
 /** Which languages a plan narrates (rdm-spec B-1). */
 export enum NarrationLanguageScope {
@@ -53,15 +53,12 @@ export interface GetEntitlementsResponse {
   entitlements: Entitlements | undefined;
 }
 
-export const WAYFARE_BILLING_PACKAGE_NAME = 'wayfare.billing';
+export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";
 
 /** Every limit check asks this (api-endpoints-plan §12.2). Callers fail closed. */
 
 export interface EntitlementServiceClient {
-  getEntitlements(
-    request: GetEntitlementsRequest,
-    metadata?: Metadata,
-  ): Observable<GetEntitlementsResponse>;
+  getEntitlements(request: GetEntitlementsRequest, metadata?: Metadata): Observable<GetEntitlementsResponse>;
 }
 
 /** Every limit check asks this (api-endpoints-plan §12.2). Callers fail closed. */
@@ -70,31 +67,24 @@ export interface EntitlementServiceController {
   getEntitlements(
     request: GetEntitlementsRequest,
     metadata?: Metadata,
-  ):
-    | Promise<GetEntitlementsResponse>
-    | Observable<GetEntitlementsResponse>
-    | GetEntitlementsResponse;
+  ): Promise<GetEntitlementsResponse> | Observable<GetEntitlementsResponse> | GetEntitlementsResponse;
 }
 
 export function EntitlementServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ['getEntitlements'];
+    const grpcMethods: string[] = ["getEntitlements"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('EntitlementService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("EntitlementService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('EntitlementService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("EntitlementService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const ENTITLEMENT_SERVICE_NAME = 'EntitlementService';
+export const ENTITLEMENT_SERVICE_NAME = "EntitlementService";

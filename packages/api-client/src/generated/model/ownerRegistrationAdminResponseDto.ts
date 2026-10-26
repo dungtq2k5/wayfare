@@ -33,4 +33,5 @@ export interface OwnerRegistrationAdminResponseDto {
   piiRedacted: boolean;
   applicant: OwnerRegistrationAdminResponseDtoApplicant;
   priorApplications: OwnerRegistrationAdminResponseDtoPriorApplicationsItem[];
+  piiRedactedAt: string | null;
 }

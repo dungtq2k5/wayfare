@@ -141,10 +141,10 @@ test('4: a registration → Reveal… with a reason → the number, Hide → app
   await reveal.getByLabel('Why you need it').fill('Checking it against the certificate');
   await expectAccessible(page);
   await reveal.getByRole('button', { name: 'Reveal', exact: true }).click();
-  await expect(page.getByText('079201001234')).toBeVisible();
+  await expect(page.getByText('079 201 001 234')).toBeVisible();
   await expect(page.getByText('Shown once, to you.', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Hide' }).click();
-  await expect(page.getByText('079201001234')).toHaveCount(0);
+  await expect(page.getByText('079 201 001 234')).toHaveCount(0);
   await expect(page.getByText('•••• 1234')).toBeVisible();
   await page.getByRole('button', { name: 'Approve…' }).click();
   await page
@@ -193,7 +193,9 @@ test('6: a custom role sees Edit, never Deactivate, Delete or New place; a moder
   await page.getByRole('button', { name: 'More actions' }).click();
   await expect(page.getByRole('menuitem', { name: 'QR sticker' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toHaveCount(0);
-  await page.keyboard.press('Escape');
+  // *QR sticker* goes to the page's own section and moves focus to its heading (L9).
+  await page.getByRole('menuitem', { name: 'QR sticker' }).click();
+  await expect(page.getByRole('heading', { name: 'QR sticker', level: 2 })).toBeFocused();
   await page.goto('/places');
   await expect(page.getByRole('heading', { name: 'Places', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'New place' })).toHaveCount(0);

@@ -204,6 +204,8 @@ message ProviderHealth {
   double error_rate = 6;
   int32 recent_calls = 7;
   google.protobuf.Timestamp cooling_until = 8;
+  // While open: when it stopped answering, through reopenings.
+  google.protobuf.Timestamp down_since = 9;
 }
 
 message ListVoicesRequest {}

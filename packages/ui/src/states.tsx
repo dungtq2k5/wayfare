@@ -33,7 +33,7 @@ export function EmptyState({
     >
       <span
         aria-hidden
-        className="mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5"
+        className="mb-2 flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-6"
       >
         {icon}
       </span>
@@ -71,7 +71,7 @@ export function ErrorState({
     >
       <span
         aria-hidden
-        className="mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-destructive [&_svg]:size-5"
+        className="mb-2 flex size-12 items-center justify-center rounded-full bg-muted text-destructive [&_svg]:size-6"
       >
         {icon}
       </span>
@@ -125,6 +125,7 @@ export function Banner({
   return (
     <div
       role="status"
+      data-tone={tone}
       className={cn(
         'flex flex-wrap items-center gap-3 px-6 py-2 text-sm [&_svg]:size-4 [&_svg]:shrink-0',
         tones[tone],

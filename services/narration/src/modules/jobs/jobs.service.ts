@@ -525,6 +525,8 @@ export class JobsService {
           provider.coolingUntil === null
             ? undefined
             : toProtoTimestamp(new Date(provider.coolingUntil)),
+        downSince:
+          provider.downSince === null ? undefined : toProtoTimestamp(new Date(provider.downSince)),
       })),
     };
   }

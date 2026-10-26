@@ -4,17 +4,35 @@ import { useQuery } from '@tanstack/react-query';
 import { adminNarrationProviders } from '@wayfare/api-client';
 import { PageHeader } from '@wayfare/ui/list';
 import { Card } from '@wayfare/ui/surfaces';
-import { TriangleAlert } from 'lucide-react';
+import { JobStatusBadge } from '@wayfare/ui/content';
+import type { JobTone } from '@wayfare/ui/content';
+import { Info } from 'lucide-react';
 import Link from 'next/link';
 import { failureOf } from '../client/errors';
 import { useConsole } from '../i18n/provider';
 import { ErrorView } from '../states/states';
+import { formatTime } from '../i18n/format';
 
 type Provider = Awaited<ReturnType<typeof adminNarrationProviders>>['data'][number];
 
 // ponytail: the API names no cost; Google is the one paid provider today. A `paid` flag on the
 // providers' answer when a second one appears.
 const PAID = new Set(['google']);
+
+/** The providers as people know them; a name the console doesn't know reads as it is. */
+const DISPLAY_NAMES: Record<string, Record<string, string>> = {
+  translation: { free: 'Google Translate', google: 'Google Cloud Translation' },
+  speech: { edge: 'Edge TTS', google: 'Google Cloud Text-to-Speech' },
+};
+export const displayName = (row: Pick<Provider, 'name' | 'role'>): string =>
+  DISPLAY_NAMES[row.role]?.[row.name] ?? row.name;
+
+const STATE_TONES: Record<ReturnType<typeof providerState>, JobTone> = {
+  serving: 'done',
+  standingBy: 'queued',
+  // Retried by itself: nobody has to act, so a warning, not a failure.
+  notAnswering: 'partial',
+};
 
 /** Serving is the first in order that answers; an open breaker is not answering. */
 export function providerState(row: Provider, rows: readonly Provider[]) {
@@ -38,8 +56,7 @@ export function NarrationProviders() {
     queryFn: async () => (await adminNarrationProviders()).data,
   });
   const rows = providers.data ?? [];
-  const clock = (iso: string) =>
-    new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const clock = (iso: string) => formatTime(iso, locale);
   const roleName = (role: string) =>
     role === 'speech' ? t('providers.speech') : t('providers.translation');
   const down = rows.filter((row) => row.position === 0 && row.breaker === 'open');
@@ -63,12 +80,18 @@ export function NarrationProviders() {
             <div
               key={row.name}
               role="status"
-              className="flex items-start gap-2 rounded-md bg-warning px-4 py-3 text-sm text-warning-foreground"
+              className="flex items-start gap-2 rounded-md bg-info px-4 py-3 text-sm text-info-foreground"
             >
-              <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
               <span>
                 <strong className="block">{t('providers.whyTitle')}</strong>
-                {t('providers.whyBody', { role: roleName(row.role), name: row.name })}
+                {row.downSince === null
+                  ? t('providers.whyBody', { role: roleName(row.role), name: displayName(row) })
+                  : t('providers.whyBodySince', {
+                      role: roleName(row.role),
+                      name: displayName(row),
+                      time: clock(row.downSince),
+                    })}
               </span>
             </div>
           ))}
@@ -77,7 +100,12 @@ export function NarrationProviders() {
               <h2 id={`role-${role}`} className="text-lg font-semibold text-foreground">
                 {roleName(role)}
               </h2>
-              <div className="overflow-x-auto">
+              <div
+                className="relative overflow-x-auto"
+                role="region"
+                aria-label={t('a11y.table', { name: roleName(role) })}
+                tabIndex={0}
+              >
                 <table className="w-full text-left text-sm">
                   <thead className="text-xs text-muted-foreground">
                     <tr>
@@ -103,23 +131,17 @@ export function NarrationProviders() {
                         return (
                           <tr key={row.name} className="border-t border-border align-top">
                             <th scope="row" className="px-2 py-3 font-medium text-foreground">
-                              {row.name}
+                              {displayName(row)}
                             </th>
                             <td className="px-2 py-3">
                               {PAID.has(row.name) ? t('providers.paid') : t('providers.free')}
                             </td>
                             <td className="px-2 py-3">
                               <span className="flex flex-col">
-                                <span
-                                  className={
-                                    state === 'notAnswering'
-                                      ? 'font-medium text-destructive'
-                                      : state === 'serving'
-                                        ? 'font-medium text-success-foreground'
-                                        : 'text-foreground'
-                                  }
-                                >
-                                  {t(`providers.${state}`)}
+                                <span>
+                                  <JobStatusBadge tone={STATE_TONES[state]}>
+                                    {t(`providers.${state}`)}
+                                  </JobStatusBadge>
                                 </span>
                                 {row.coolingUntil === null ? null : (
                                   <span className="text-xs text-muted-foreground">

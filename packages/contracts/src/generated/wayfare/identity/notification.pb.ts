@@ -5,13 +5,13 @@
 // source: wayfare/identity/notification.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from '../../google/protobuf/timestamp.pb';
-import { CursorPage, PageRequest } from '../common/page.pb';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
+import { CursorPage, PageRequest } from "../common/page.pb";
 
-export const protobufPackage = 'wayfare.identity';
+export const protobufPackage = "wayfare.identity";
 
 export interface ListNotificationsRequest {
   page: PageRequest | undefined;
@@ -33,7 +33,8 @@ export interface NotificationItem {
   createdAt: Timestamp | undefined;
 }
 
-export interface GetUnreadCountRequest {}
+export interface GetUnreadCountRequest {
+}
 
 export interface GetUnreadCountResponse {
   count: number;
@@ -43,13 +44,16 @@ export interface MarkReadRequest {
   notificationId: string;
 }
 
-export interface MarkReadResponse {}
+export interface MarkReadResponse {
+}
 
-export interface MarkAllReadRequest {}
+export interface MarkAllReadRequest {
+}
 
-export interface MarkAllReadResponse {}
+export interface MarkAllReadResponse {
+}
 
-export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
+export const WAYFARE_IDENTITY_PACKAGE_NAME = "wayfare.identity";
 
 /**
  * The caller's own feed. The caller travels as metadata.
@@ -59,15 +63,9 @@ export const WAYFARE_IDENTITY_PACKAGE_NAME = 'wayfare.identity';
  */
 
 export interface NotificationServiceClient {
-  listNotifications(
-    request: ListNotificationsRequest,
-    metadata?: Metadata,
-  ): Observable<ListNotificationsResponse>;
+  listNotifications(request: ListNotificationsRequest, metadata?: Metadata): Observable<ListNotificationsResponse>;
 
-  getUnreadCount(
-    request: GetUnreadCountRequest,
-    metadata?: Metadata,
-  ): Observable<GetUnreadCountResponse>;
+  getUnreadCount(request: GetUnreadCountRequest, metadata?: Metadata): Observable<GetUnreadCountResponse>;
 
   markRead(request: MarkReadRequest, metadata?: Metadata): Observable<MarkReadResponse>;
 
@@ -85,10 +83,7 @@ export interface NotificationServiceController {
   listNotifications(
     request: ListNotificationsRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ListNotificationsResponse>
-    | Observable<ListNotificationsResponse>
-    | ListNotificationsResponse;
+  ): Promise<ListNotificationsResponse> | Observable<ListNotificationsResponse> | ListNotificationsResponse;
 
   getUnreadCount(
     request: GetUnreadCountRequest,
@@ -108,28 +103,19 @@ export interface NotificationServiceController {
 
 export function NotificationServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = [
-      'listNotifications',
-      'getUnreadCount',
-      'markRead',
-      'markAllRead',
-    ];
+    const grpcMethods: string[] = ["listNotifications", "getUnreadCount", "markRead", "markAllRead"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('NotificationService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("NotificationService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('NotificationService', method)(
-        constructor.prototype[method],
-        method,
-        descriptor,
-      );
+      GrpcStreamMethod("NotificationService", method)(constructor.prototype[method], method, descriptor);
       Object.defineProperty(constructor.prototype, method, descriptor);
     }
   };
 }
 
-export const NOTIFICATION_SERVICE_NAME = 'NotificationService';
+export const NOTIFICATION_SERVICE_NAME = "NotificationService";

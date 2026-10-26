@@ -17,9 +17,10 @@ import { cn } from '@wayfare/ui/cn';
 import { Bell, CheckCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { failureOf } from '../client/errors';
 import { useConsole } from '../i18n/provider';
+import { notificationIcon } from '../notifications/icons';
 import { notificationTarget, notificationText, relativeTime } from '../notifications/text';
 import type { FeedNotification } from '../notifications/text';
 import { ErrorView } from '../states/states';
@@ -81,6 +82,7 @@ export function NotificationBell() {
   }, [feed.data]);
   const context = { placeName: (id: string) => places.data?.get(id) };
   const count = unread.data ?? 0;
+  const heading = useRef<HTMLHeadingElement>(null);
   const now = new Date();
 
   const openRow = (row: FeedNotification) => {
@@ -109,6 +111,7 @@ export function NotificationBell() {
             {count > 0 ? (
               <span
                 aria-hidden
+                data-count
                 className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-xs leading-none font-medium text-destructive-foreground"
               >
                 {count > 9 ? '9+' : count}
@@ -120,22 +123,35 @@ export function NotificationBell() {
           align="end"
           className="flex max-h-120 w-96 max-w-dvw flex-col"
           aria-label={t('notifications.title')}
+          // Opening reads the panel from its title, then *Mark all read* (round 33's focus order).
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            heading.current?.focus();
+          }}
         >
           <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-            <h2 className="text-base font-semibold text-foreground">{t('notifications.title')}</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={count === 0}
-              onClick={() =>
-                void notificationsMarkAllRead().then(() =>
-                  queries.invalidateQueries({ queryKey: ['notifications'] }),
-                )
-              }
+            <h2
+              ref={heading}
+              tabIndex={-1}
+              className="text-base font-semibold text-foreground outline-none"
             >
-              <CheckCheck aria-hidden />
-              {t('notifications.markAllRead')}
-            </Button>
+              {t('notifications.title')}
+            </h2>
+            {rows.length === 0 ? null : (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={count === 0}
+                onClick={() =>
+                  void notificationsMarkAllRead().then(() =>
+                    queries.invalidateQueries({ queryKey: ['notifications'] }),
+                  )
+                }
+              >
+                <CheckCheck aria-hidden />
+                {t('notifications.markAllRead')}
+              </Button>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {feed.isError ? (
@@ -155,21 +171,13 @@ export function NotificationBell() {
                       type="button"
                       onClick={() => openRow(row)}
                       className={cn(
-                        'flex w-full items-start gap-3 px-4 py-3 text-left text-sm outline-none transition-shadow duration-(--duration-slow) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset motion-reduce:transition-none motion-safe:animate-in motion-safe:slide-in-from-top-2',
-                        row.readAt === null
-                          ? 'bg-accent text-accent-foreground'
-                          : 'text-foreground',
+                        'flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-foreground outline-none transition-shadow duration-(--duration-slow) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset motion-reduce:transition-none motion-safe:animate-in motion-safe:slide-in-from-top-2',
+                        row.readAt === null && 'bg-accent',
                         outlined === row.id && 'ring-2 ring-ring ring-inset',
                       )}
                     >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'mt-1.5 size-2 shrink-0 rounded-full',
-                          row.readAt === null ? 'bg-primary' : 'bg-transparent',
-                        )}
-                      />
-                      <span className="flex min-w-0 flex-col gap-1">
+                      <TypeIcon type={row.type} />
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className={row.readAt === null ? 'font-medium' : undefined}>
                           {row.readAt === null ? (
                             <span className="sr-only">{t('notifications.unread')}: </span>
@@ -180,6 +188,13 @@ export function NotificationBell() {
                           {relativeTime(row.createdAt, now, translator)}
                         </span>
                       </span>
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'mt-1.5 size-2 shrink-0 rounded-full',
+                          row.readAt === null ? 'bg-primary' : 'bg-transparent',
+                        )}
+                      />
                     </button>
                   </li>
                 ))}
@@ -196,7 +211,7 @@ export function NotificationBell() {
             ) : null}
           </div>
           {me.ownership === 'verified' ? (
-            <div className="border-t border-border px-4 py-3">
+            <div className="border-t border-border px-4 py-3 text-center">
               <Link
                 href="/owner/notifications"
                 onClick={() => setOpen(false)}
@@ -209,5 +224,18 @@ export function NotificationBell() {
         </PopoverContent>
       </Popover>
     </>
+  );
+}
+
+/** The *Notification item*'s type icon, in a muted circle. */
+function TypeIcon({ type }: { type: string }) {
+  const Icon = notificationIcon(type);
+  return (
+    <span
+      aria-hidden
+      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+    >
+      <Icon className="size-4" />
+    </span>
   );
 }
