@@ -111,8 +111,9 @@ const NON_JSON = new Map([
 describe('OpenAPI contract', () => {
   it('documents every route of this build, and no probe', () => {
     const names = operations().map(([name]) => name);
-    // 152, and Continue with Google's five; the dev route stays out of the document.
-    expect(names).toHaveLength(157);
+    // 152, Continue with Google's five, and round 35's four reads (a recovery, a dictionary
+    // entry, the corrections and the stuck Places); the dev route stays out of the document.
+    expect(names).toHaveLength(161);
     expect(names.some((name) => name.includes('/dev/'))).toBe(false);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);

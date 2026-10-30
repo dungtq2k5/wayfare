@@ -5,6 +5,7 @@ import { Button } from '@wayfare/ui/button';
 import { Field, Input } from '@wayfare/ui/field';
 import { ArrowDown, ArrowUp, Plus, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { DayInput } from '../forms/day-input';
 import { useConsole } from '../i18n/provider';
 import { UploadRefused, uploadPhoto } from './uploads';
 import type { FormPhoto } from './uploads';
@@ -219,11 +220,10 @@ export function HoursEditor({
           ) : (
             <Field label={t('placeForm.date')} className="w-40">
               {(control) => (
-                <Input
+                <DayInput
                   {...control}
-                  type="date"
                   value={row.date ?? ''}
-                  onChange={(event) => set(row.key, { date: event.target.value })}
+                  onChange={(day) => set(row.key, { date: day })}
                 />
               )}
             </Field>

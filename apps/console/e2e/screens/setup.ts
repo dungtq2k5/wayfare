@@ -35,7 +35,21 @@ export const PEOPLE = {
   bounced: 'bao.do@example.com',
   /** A second admin, who applies as an owner too (R4b): Lan's own screens stay a staff member's. */
   quang: 'quang.vo@example.com',
+  /** A second super admin, beside the bootstrap one (round 35's U4, U9, V4). */
+  mai: 'mai.anh@example.com',
+  /** A custom role: the admin's permissions but the log and narration jobs, plus three it may not
+   * give (round 35's U4b, O3). */
+  ha: 'ha.thu@example.com',
+  /** Registers the map packs, as the tiles build does (round 35's A5). */
+  duy: 'duy.tran@example.com',
 } as const;
+
+/** Hà Thu's role (round 35's §0): the admin's permissions, less two, plus three of a super admin's. */
+const HA_ROLE = {
+  name: 'Content lead',
+  less: ['audit.read', 'narration.job.manage'],
+  more: ['user.role.assign', 'role.create', 'role.update'],
+};
 
 /**
  * Waits for narration to finish the seed's Places: a fresh stack is busy with them for minutes,
@@ -128,7 +142,31 @@ export async function screensSetup(): Promise<() => void> {
     `UPDATE users SET email_bounced_at = coalesce(email_bounced_at, now()) WHERE email = '${PEOPLE.bounced}'`,
   );
 
-  await publishMapPacks(superAdmin);
+  await once(PEOPLE.mai, async () => {
+    await staff(superAdmin, PEOPLE.mai, 'Mai Anh', [await roleId(superAdmin, 'ADMIN')]);
+    // The console never gives super admin (api §1.6): the bootstrap script's way, in SQL.
+    identitySql(
+      `INSERT INTO user_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = '${PEOPLE.mai}' AND r.code = 'SUPER_ADMIN' ON CONFLICT DO NOTHING`,
+    );
+  });
+  await once(PEOPLE.ha, async () => {
+    const { data: roles } = await superAdmin.call<{
+      data: { code: string; permissionCodes: string[] }[];
+    }>('GET', '/admin/roles');
+    const admin = roles.find((role) => role.code === 'ADMIN')!.permissionCodes;
+    const codes = [...admin.filter((code) => !HA_ROLE.less.includes(code)), ...HA_ROLE.more];
+    await staff(superAdmin, PEOPLE.ha, 'Hà Thu', [
+      await customRole(superAdmin, HA_ROLE.name, codes),
+    ]);
+  });
+  await once(PEOPLE.duy, async () =>
+    staff(superAdmin, PEOPLE.duy, 'Duy Tran', [
+      await customRole(superAdmin, 'Tiles build', ['map_pack.manage']),
+    ]),
+  );
+  const duy = new Actor();
+  await duy.signIn(PEOPLE.duy, PASSWORD);
+  await publishMapPacks(duy);
   resetRateLimits();
   await startBrowserServer();
   return stopBrowserServer;

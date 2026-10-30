@@ -36,6 +36,8 @@ model Place {
   phone                 String?                               @db.VarChar(20)
   websiteUrl            String?                               @map("website_url") @db.VarChar(512)
   status                String                                @db.VarChar(16)
+  /// When `status` last changed; stamped by a trigger (prisma/sql/schema-objects.sql), never by a write.
+  statusChangedAt       DateTime                              @default(now()) @map("status_changed_at") @db.Timestamptz(3)
   inactiveReason        String?                               @map("inactive_reason") @db.VarChar(24)
   activationRequestedAt DateTime?                             @map("activation_requested_at") @db.Timestamptz(3)
   publishedAt           DateTime?                             @map("published_at") @db.Timestamptz(3)

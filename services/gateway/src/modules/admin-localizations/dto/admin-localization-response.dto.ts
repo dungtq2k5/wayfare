@@ -1,4 +1,4 @@
-import { zCorrection, zLocalizationOverview } from '@wayfare/contracts';
+import { zCorrection, zCorrectionListItem, zLocalizationOverview } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -10,3 +10,6 @@ export const correctionResultResponseSchema = z.object({ correction: zCorrection
 
 /** What `PUT …/:lang` returns under `data`. */
 export class CorrectionResultResponseDto extends createZodDto(correctionResultResponseSchema) {}
+
+/** One row of `GET /admin/narration/corrections`. */
+export class CorrectionListItemResponseDto extends createZodDto(zCorrectionListItem) {}

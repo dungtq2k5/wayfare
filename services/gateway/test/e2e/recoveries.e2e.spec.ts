@@ -43,6 +43,8 @@ const recovery = (over: Partial<identityGrpc.Recovery> = {}): identityGrpc.Recov
   createdAt: at,
   updatedAt: at,
   expiresAt: at,
+  owner: { name: 'Minh Tran', email: 'minh@example.com' },
+  approvedAt: undefined,
   ...over,
 });
 

@@ -52,6 +52,7 @@ const entry = (
   note: 'sample',
   isActive: true,
   updatedAt: at,
+  updatedById: newId(),
   ...over,
 });
 
@@ -95,6 +96,9 @@ describe('/admin/narration/pronunciations', () => {
       note: 'sample',
       isActive: true,
       updatedAt: '2026-05-01T00:00:00.000Z',
+      updatedById: list.body.data[0].updatedById,
+      // The caller holds no user.read: the changer is unnamed (api §0's names rule).
+      updatedBy: { id: list.body.data[0].updatedById, name: null },
     });
     expect(list.body.meta).toMatchObject({ nextCursor: 'next' });
     expect(gateway.narration.pronunciations.calls[0]!.request).toMatchObject({ q: 'Bến' });
@@ -194,6 +198,7 @@ describe('/admin/narration/localizations', () => {
         translationSource: TranslationSource.HUMAN,
         audioStatus: audioStatusProto.fromProto(2)!,
         correction: null,
+        needsReview: false,
       },
     ],
   };

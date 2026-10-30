@@ -54,6 +54,7 @@ function pack(over: Partial<catalogGrpc.MapPack> = {}): catalogGrpc.MapPack {
     publishedAt: undefined,
     retiredAt: undefined,
     createdAt: toProtoTimestamp(new Date('2026-09-19T10:00:00.000Z')),
+    createdById: newId(),
     ...over,
   };
 }

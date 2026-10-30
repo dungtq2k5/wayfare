@@ -1,4 +1,4 @@
-import { trimTrailingSlashes } from '@wayfare/contracts';
+import { STUCK_PROCESSING_AFTER_MS, trimTrailingSlashes } from '@wayfare/contracts';
 import { zLogLevel, zNodeEnv, zPort, zPublicKeysEnv } from '@wayfare/nest-common';
 import type { TypedConfigService } from '@wayfare/nest-common';
 import { z } from 'zod';
@@ -50,6 +50,8 @@ export const envSchema = z
     METRICS_PORT: zPort,
     // The oldest client build accepted; configuration, so the floor moves without a release.
     MIN_SUPPORTED_APP_VERSION: z.string().regex(SEMVER).default('0.0.0'),
+    // How long a Place may be PROCESSING with no job moving it before it is stuck (product §F7).
+    STUCK_PROCESSING_AFTER_MS: z.coerce.number().int().min(0).default(STUCK_PROCESSING_AFTER_MS),
     APP_VERSION: z.string().default('0.0.0-dev'),
     GIT_SHA: z.string().default('unknown'),
     BUILT_AT: z.string().default('unknown'),

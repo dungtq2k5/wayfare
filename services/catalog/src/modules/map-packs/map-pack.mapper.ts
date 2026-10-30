@@ -36,5 +36,6 @@ export function toMapPack(row: MapPackRow): catalogGrpc.MapPack {
     publishedAt: row.publishedAt === null ? undefined : toProtoTimestamp(row.publishedAt),
     retiredAt: row.retiredAt === null ? undefined : toProtoTimestamp(row.retiredAt),
     createdAt: toProtoTimestamp(row.createdAt),
+    createdById: row.createdById,
   };
 }

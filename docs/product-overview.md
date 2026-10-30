@@ -240,6 +240,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 - **Activation gate:** a Place cannot go public until its English localization and audio are ready. Editing the description invalidates existing audio, flips the Place to `processing`, and remembers that activation was requested.
 - Users & dynamic roles: create roles, assign permissions from a fixed permission catalogue.
 - TTS job monitor: queued/running/paused/failed jobs with **live progress** and pause/resume/cancel.
+- **Stuck Places:** a Place left in `processing` for over an hour with no narration job queued, running or paused is listed on the console's Home and as the Places list's *Stuck*, with its last job and *Make narration again* — nothing else would move it.
 - Pronunciation dictionary editor for proper nouns (F3).
 - Audit log: who did what to which resource, when.
 - Analytics dashboards. *(P1)*

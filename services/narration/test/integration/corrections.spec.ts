@@ -214,6 +214,61 @@ describe('reverting a correction', () => {
   });
 });
 
+describe('the corrections list', () => {
+  it('keeps each language’s latest, in use or needing review, review first', async () => {
+    const market = place();
+    const temple = place('Chùa Ngọc Hoàng');
+    // In use: an active correction on the current Vietnamese.
+    await put(market.id, market.hash);
+    // Superseded by a Vietnamese change: reverted by nobody — needs review.
+    await put(temple.id, temple.hash);
+    await prisma.localizationOverride.updateMany({
+      where: { targetId: temple.id },
+      data: { status: OverrideStatus.REVERTED },
+    });
+    // A person's revert: not listed.
+    await put(market.id, market.hash, { lang: 'ja', name: 'Ben Thanh' });
+    const ja = await prisma.localizationOverride.findFirstOrThrow({ where: { lang: 'ja' } });
+    await prisma.localizationOverride.update({
+      where: { id: ja.id },
+      data: { status: OverrideStatus.REVERTED, revertedById: ja.editedById },
+    });
+
+    const list = await services.corrections.listCorrections(
+      { page: { limit: 20, cursor: undefined }, reviewFirst: true },
+      staff(),
+    );
+    expect(list.items.map((item) => [item.targetNameVi, item.needsReview])).toEqual([
+      ['Chùa Ngọc Hoàng', true],
+      ['Chợ Bến Thành', false],
+    ]);
+    // Only the latest per language: correcting English again replaces the row listed.
+    await put(market.id, market.hash, { name: 'Ben Thanh Market (corrected)' });
+    const again = await services.corrections.listCorrections(
+      { page: { limit: 20, cursor: undefined }, reviewFirst: false },
+      staff(),
+    );
+    expect(again.items.map((item) => item.correction!.name)).toContain(
+      'Ben Thanh Market (corrected)',
+    );
+    expect(again.items).toHaveLength(2);
+    // A page of one, then the next by its cursor, without repeats.
+    const first = await services.corrections.listCorrections(
+      { page: { limit: 1, cursor: undefined }, reviewFirst: true },
+      staff(),
+    );
+    const second = await services.corrections.listCorrections(
+      { page: { limit: 1, cursor: first.page!.nextCursor }, reviewFirst: true },
+      staff(),
+    );
+    expect([first.items[0]!.needsReview, second.items[0]!.needsReview]).toEqual([true, false]);
+    expect(second.page?.nextCursor).toBeUndefined();
+    // The overview marks the superseded language the same way.
+    const screen = await overview(temple.id);
+    expect(screen.languages.find((row) => row.lang === 'en')!.needsReview).toBe(true);
+  });
+});
+
 describe('localization-overrides-prune', () => {
   it('deletes retired corrections past the window and keeps every active one', async () => {
     const target = place();

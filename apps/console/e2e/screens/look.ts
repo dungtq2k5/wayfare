@@ -21,7 +21,8 @@ const VARIABLE = ['.maplibregl-canvas', 'img[alt^="QR sticker"]', '[data-count]'
 
 /**
  * What varies, masked. Under an open dialog's overlay only the dialog's own: a mask is painted on
- * top of everything, so the page's behind it are hidden instead (`UNDER_OVERLAY`).
+ * top of everything, so the page's behind it are hidden instead, a map painted in the mask's colour
+ * under the scrim (magenta, Playwright's mask), as an open page masks it (`UNDER_OVERLAY`).
  */
 async function variable(page: Page): Promise<Locator[]> {
   const modal = await covered(page);
@@ -32,7 +33,8 @@ async function variable(page: Page): Promise<Locator[]> {
 const covered = async (page: Page): Promise<boolean> =>
   (await page.locator('[data-overlay][data-state="open"]').count()) > 0;
 
-const UNDER_OVERLAY = `${VARIABLE.map((selector) => `${selector}:not([role="dialog"] *)`).join(', ')} { visibility: hidden !important; }`;
+const UNDER_OVERLAY = `${VARIABLE.map((selector) => `${selector}:not([role="dialog"] *)`).join(', ')} { visibility: hidden !important; }
+.maplibregl-map:not([role="dialog"] *)::after { content: ""; position: absolute; inset: 0; background: magenta; }`;
 
 /**
  * Checks a state a spec has driven the page into, then draws it, in place: the page is resized and
@@ -58,6 +60,8 @@ export async function look(
     disabled?: string[];
     /** The viewport rather than the whole page: a toast or a panel fixed to it. */
     viewportOnly?: boolean;
+    /** With `viewportOnly`: the window where the spec left it, not the page's top (an open menu). */
+    keepScroll?: boolean;
     /** One region rather than the page: a pattern on the page that shows them all. */
     target?: Locator;
     /** The state is the API down (C16a): its banner is the point, not a request that failed. */
@@ -126,20 +130,21 @@ export async function look(
       }
       await page.evaluate(keepNormalized, RULES);
       // From the top: a full-page capture draws the fixed sidebar wherever the scroll left it.
-      await page.evaluate(() => window.scrollTo(0, 0));
+      if (options.keepScroll !== true) await page.evaluate(() => window.scrollTo(0, 0));
       const file = `${name}-${width}-${scheme}.png`;
       const mask = [...(await variable(page)), ...(options.mask ?? [])];
       const under = await covered(page);
       // A whole page draws the save bar where it ends, under the content, as the frames do; a
       // sticky bar would be caught wherever the window happened to end, under a map's mask.
       const whole = options.viewportOnly !== true;
-      const style = `${whole ? '[data-save-bar] { position: static !important; }' : ''}${under ? UNDER_OVERLAY : ''}`;
+      // A waiting count's box is one width however many digits the run left it with (it is masked).
+      const style = `[data-count] { display: inline-block !important; width: 1.75rem !important; }${whole ? '[data-save-bar] { position: static !important; }' : ''}${under ? UNDER_OVERLAY : ''}`;
       // The rules are added around the capture, and taken away after it.
-      const rules = style === '' ? null : await page.addStyleTag({ content: style });
+      const rules = await page.addStyleTag({ content: style });
       await (options.target === undefined
         ? expect(page).toHaveScreenshot(file, { mask, fullPage: whole })
         : expect(options.target).toHaveScreenshot(file, { mask }));
-      await rules?.evaluate((node) => (node as Element).remove());
+      await rules.evaluate((node) => (node as Element).remove());
     }
   }
   await page.evaluate(stopNormalizing);
@@ -166,4 +171,16 @@ export async function tabsThrough(page: Page, stops: RegExp[]): Promise<void> {
     await page.keyboard.press('Tab');
     await expect(page.locator(':focus')).toHaveAccessibleName(stop);
   }
+}
+
+/** Starts tabbing from a page's heading: `tabsThrough` then checks the stops after it. */
+export async function from(page: Page, level: 1 | 2 = 1): Promise<void> {
+  await page
+    .getByRole('main')
+    .getByRole('heading', { level })
+    .first()
+    .evaluate((heading: HTMLElement) => {
+      heading.tabIndex = -1;
+      heading.focus();
+    });
 }

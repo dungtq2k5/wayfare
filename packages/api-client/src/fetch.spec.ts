@@ -76,6 +76,17 @@ describe('apiFetch', () => {
     );
   });
 
+  it("returns a body that isn't JSON as a Blob (a preview's audio)", async () => {
+    setup([
+      () => new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'audio/mpeg' } }),
+    ]);
+    const blob = await apiFetch<Blob>('/admin/narration/pronunciations/preview', {
+      method: 'POST',
+    });
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.size).toBe(3);
+  });
+
   it('adds the bearer and a JSON content type to a body', async () => {
     const session: ApiSession = { accessToken: () => Promise.resolve('tok'), recover: vi.fn() };
     const fetchMock = setup([() => json(201, { data: {} })], session);

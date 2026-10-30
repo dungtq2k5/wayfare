@@ -5,19 +5,29 @@ import { EmptyState } from '@wayfare/ui/states';
 import { Construction, House } from 'lucide-react';
 import { useConsole } from '../i18n/provider';
 import type { PlainKey } from '../i18n/messages';
+import { StuckPlacesCard, useStuck } from '../operations/stuck';
 import { useMe } from './me';
 
 /** Home (C6, C7): the person's queues and activity will land here; for now, the way in. */
 export function HomeView() {
   const { t } = useConsole();
   const me = useMe();
+  const stuckQuery = useStuck();
+  const stuck = stuckQuery.data ?? [];
+  // Nothing until the stuck read answers: the empty line, then the card, would jump.
+  const waiting = stuckQuery.isPending && stuckQuery.fetchStatus !== 'idle';
   return (
     <>
       <PageHeader
         title={t('home.title')}
         description={me.ownership === null ? t('home.leadStaff') : t('home.leadOwner')}
       />
-      <EmptyState icon={<House />} title={t('home.emptyTitle')} body={t('home.emptyBody')} />
+      {/* X1: *Needs a look* first, only when a Place is stuck; no card and no empty line else. */}
+      {waiting ? null : stuck.length > 0 ? (
+        <StuckPlacesCard stuck={stuck} />
+      ) : (
+        <EmptyState icon={<House />} title={t('home.emptyTitle')} body={t('home.emptyBody')} />
+      )}
     </>
   );
 }

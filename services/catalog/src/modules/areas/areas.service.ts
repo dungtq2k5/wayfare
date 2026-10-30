@@ -4,6 +4,7 @@ import {
   AuditAction,
   AuditActorType,
   AuditResourceType,
+  MapPackStatus,
   PlaceStatus,
 } from '@wayfare/contracts';
 import type { AdminArea, AreaPlaceCounts, AreaPolygon, GeoPoint } from '@wayfare/contracts';
@@ -89,6 +90,10 @@ export class AreasService {
              default_zoom, sort_order, is_active
       FROM areas WHERE ${only}::uuid IS NULL OR id = ${only}::uuid
       ORDER BY sort_order, code`;
+    const packs = await this.prisma.mapPack.findMany({
+      where: { status: MapPackStatus.PUBLISHED, ...(areaId === undefined ? {} : { areaId }) },
+      select: { areaId: true, version: true, publishedAt: true },
+    });
     const groups = await this.prisma.place.groupBy({
       by: ['areaId', 'status'],
       where: { deletedAt: null, ...(areaId === undefined ? {} : { areaId }) },
@@ -114,6 +119,7 @@ export class AreasService {
         sortOrder: row.sort_order,
         isActive: row.is_active,
         placeCounts: placeCounts satisfies AreaPlaceCounts,
+        publishedPack: published(packs.find((pack) => pack.areaId === row.id)),
       };
     });
   }
@@ -345,4 +351,12 @@ export class AreasService {
       }),
     );
   }
+}
+
+/** The published pack as an area row carries it. */
+function published(
+  pack: { version: number; publishedAt: Date | null } | undefined,
+): AdminArea['publishedPack'] {
+  if (pack === undefined || pack.publishedAt === null) return null;
+  return { version: pack.version, publishedAt: pack.publishedAt.toISOString() };
 }

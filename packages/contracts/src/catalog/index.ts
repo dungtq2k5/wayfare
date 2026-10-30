@@ -1,4 +1,5 @@
 export * from './categories';
+export * from './category-icons';
 export * from './enums';
 export * from './limits';
 export * from './localization';

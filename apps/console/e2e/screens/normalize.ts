@@ -17,6 +17,15 @@ export const RULES: readonly Rule[] = [
   // A Place's public code, as stickers print it (4 + 4): alone, after "code", "is" or "· ", or
   // before " ·".
   ['(^|[Cc]ode |is |· )[A-Z0-9]{4} [A-Z0-9]{4}(?=$| ·| —|,)', 'g', '$1AB12 CD34'],
+  // A range of dates (the audit log's Dates) keeps its length: the default seven days, ending on the
+  // day every date reads; H1b's fixed range of more than 93 days as it is. Each date's spaces become
+  // no-break spaces, so the single-date rule below leaves them alone.
+  ['\\b1 Jun 2026 – 25 Oct 2026\\b', 'g', '1\u00a0Jun\u00a02026 – 25\u00a0Oct\u00a02026'],
+  [
+    '\\b\\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{4} – \\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{4}\\b',
+    'g',
+    '26\u00a0Sep\u00a02026 – 2\u00a0Oct\u00a02026',
+  ],
   // A date the run sets: a record's creation, an account's start.
   ['\\b\\d{1,2}/\\d{1,2}/\\d{4}\\b', 'g', '10/24/2026'],
   ['\\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{1,2}, \\d{4}\\b', 'g', 'Oct 24, 2026'],
@@ -25,6 +34,11 @@ export const RULES: readonly Rule[] = [
   // A clock time the run sets (a provider resting, a task's next try) and the minutes to it.
   ['\\b(since|at|until) \\d{1,2}:\\d{2}\\b', 'g', '$1 14:05'],
   ['\\(in \\d+ min\\)', 'g', '(in 4 min)'],
+  // A date with its time ("25 Oct 2026, 08:12"), and a time alone in a cell (the audit log's).
+  ['(\\d{4}, )\\d{1,2}:\\d{2}\\b', 'g', '$108:12'],
+  ['^\\d{1,2}:\\d{2}$', 'g', '08:30'],
+  // A user's open sessions: every sign-in a spec makes opens one.
+  ['^\\d+ open$', 'g', '3 open'],
 ];
 
 /** The text as every run draws it. */

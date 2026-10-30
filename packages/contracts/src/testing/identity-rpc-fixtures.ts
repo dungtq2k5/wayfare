@@ -1,5 +1,6 @@
 // Valid identity RPC messages for the staff console, for stubbed peers in the gateway suites.
 import type { Timestamp } from '../generated/google/protobuf/timestamp.pb';
+import { AccountKind as ProtoAccountKind } from '../generated/wayfare/identity/admin_user.pb';
 import type { AdminUser, AdminUserDetail } from '../generated/wayfare/identity/admin_user.pb';
 import type { AuditLogEntry } from '../generated/wayfare/identity/audit.pb';
 import type { Role } from '../generated/wayfare/identity/role.pb';
@@ -25,6 +26,7 @@ export function adminUserFixture(overrides: Partial<AdminUser> = {}): AdminUser 
     lastLoginAt: undefined,
     deletedAt: undefined,
     createdAt: FIXTURE_TIMESTAMP,
+    kind: ProtoAccountKind.ACCOUNT_KIND_STAFF,
     ...overrides,
   };
 }
@@ -35,6 +37,11 @@ export function adminUserDetailFixture(overrides: Partial<AdminUserDetail> = {})
     user: adminUserFixture(),
     devicesCount: 1,
     sessions: { live: 2, console: 1, web: 0, mobile: 1 },
+    permissionCodes: ['audit.read', 'user.read'],
+    passwordSet: true,
+    preferredLocale: 'en',
+    devicesLastSeenAt: undefined,
+    ownerRegistration: undefined,
     ...overrides,
   };
 }

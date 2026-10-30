@@ -3,6 +3,7 @@ import { replacementTypeProto } from '@wayfare/contracts/grpc';
 import type { narrationGrpc } from '@wayfare/contracts/grpc';
 import { fromProtoTimestamp } from '@wayfare/nest-common';
 import type { UpdatePronunciationDto } from './dto/admin-pronunciation.dto';
+import type { NamedPerson } from '../people-names/people-names.service';
 
 /** An entry's replacement type; an unknown value is a narration newer than this gateway. */
 function typeOf(value: number): ReplacementType {
@@ -14,6 +15,7 @@ function typeOf(value: number): ReplacementType {
 /** A dictionary entry as the console lists it. */
 export function toPronunciationEntry(
   entry: narrationGrpc.PronunciationEntry | undefined,
+  nameOf: (id: string) => NamedPerson,
 ): PronunciationEntry {
   if (entry === undefined) throw new Error('narration sent no entry');
   return {
@@ -26,6 +28,8 @@ export function toPronunciationEntry(
     note: entry.note ?? null,
     isActive: entry.isActive,
     updatedAt: fromProtoTimestamp(entry.updatedAt, 'updatedAt').toISOString(),
+    updatedById: entry.updatedById,
+    updatedBy: nameOf(entry.updatedById),
   };
 }
 

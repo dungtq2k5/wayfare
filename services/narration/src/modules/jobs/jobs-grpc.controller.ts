@@ -66,6 +66,13 @@ export class JobsGrpcController implements narrationGrpc.SynthesisAdminServiceCo
     return this.jobs.listProviders(unpackCallerContext(metadata));
   }
 
+  getTargetJobStates(
+    request: narrationGrpc.GetTargetJobStatesRequest,
+    metadata?: Metadata,
+  ): Promise<narrationGrpc.GetTargetJobStatesResponse> {
+    return this.jobs.getTargetJobStates(request, unpackCallerContext(metadata));
+  }
+
   listVoices(
     _request: narrationGrpc.ListVoicesRequest,
     metadata?: Metadata,

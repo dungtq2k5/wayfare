@@ -360,7 +360,8 @@ export function PageHeader({
 }) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1">
+      {/* It takes the room the action leaves, so a long line wraps beside the action, not under. */}
+      <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1">
         {breadcrumb}
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold text-foreground">{title}</h1>

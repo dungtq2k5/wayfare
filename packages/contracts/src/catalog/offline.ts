@@ -91,6 +91,9 @@ export const zMapPack = z
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
     retiredAt: z.iso.datetime({ offset: true }).nullable(),
     createdAt: z.iso.datetime({ offset: true }),
+    createdById: zUuidV7,
+    /** Who registered it; `name` is `null` unless the caller may see names (api §0's rule). */
+    createdBy: z.object({ id: zUuidV7, name: z.string().nullable() }).strict(),
   })
   .strict();
 /** A console map pack. */

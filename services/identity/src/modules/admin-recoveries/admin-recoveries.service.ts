@@ -35,7 +35,7 @@ import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { allows } from './domain/recovery-transitions';
-import { RECOVERY_SELECT, toRecovery } from './recovery.mapper';
+import { RECOVERY_SELECT, RECOVERY_VIEW_SELECT, toRecovery } from './recovery.mapper';
 import type { RecoveryRow } from './recovery.mapper';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -131,7 +131,7 @@ export class AdminRecoveriesService {
         }
         throw error;
       });
-    return { recovery: toRecovery(row) };
+    return { recovery: toRecovery(await this.view(row.id)) };
   }
 
   /** The queue, a page at a time; newest first. */
@@ -156,13 +156,28 @@ export class AdminRecoveriesService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
-        select: RECOVERY_SELECT,
+        select: RECOVERY_VIEW_SELECT,
       }),
     ]);
     return {
       recoveries: rows.map(toRecovery),
       page: { page: query.page, pageSize: query.pageSize, total },
     };
+  }
+
+  /** One case, as its page reads it. */
+  async getRecovery(
+    request: identityGrpc.GetRecoveryRequest,
+    context: RequestContext,
+  ): Promise<identityGrpc.GetRecoveryResponse> {
+    requireAccountContext(context);
+    const { recoveryId } = parseRpcRequest(recoveryIdField, request);
+    const row = await this.prisma.accountRecovery.findUnique({
+      where: { id: recoveryId },
+      select: RECOVERY_VIEW_SELECT,
+    });
+    if (row === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'ACCOUNT_RECOVERY' });
+    return { recovery: toRecovery(row) };
   }
 
   /**
@@ -226,7 +241,7 @@ export class AdminRecoveriesService {
     });
     if (outcome.delivered.inserted) await this.notifications.announce(outcome.delivered.row);
     this.dispatcher.run([outcome.mail]);
-    return { recovery: toRecovery(outcome.row) };
+    return { recovery: toRecovery(await this.view(outcome.row.id)) };
   }
 
   /** Rejection ends the case with its note, and tells the owner it is over. */
@@ -274,10 +289,18 @@ export class AdminRecoveriesService {
       return { row, mail };
     });
     this.dispatcher.run([outcome.mail]);
-    return { recovery: toRecovery(outcome.row) };
+    return { recovery: toRecovery(await this.view(outcome.row.id)) };
   }
 
   /** The case, locked for the length of a decision. */
+  /** A case with its people, read after a write commits. */
+  private view(recoveryId: string) {
+    return this.prisma.accountRecovery.findUniqueOrThrow({
+      where: { id: recoveryId },
+      select: RECOVERY_VIEW_SELECT,
+    });
+  }
+
   private async lock(tx: Prisma.TransactionClient, recoveryId: string): Promise<RecoveryRow> {
     const locked = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM account_recoveries WHERE id = ${recoveryId}::uuid FOR UPDATE`;

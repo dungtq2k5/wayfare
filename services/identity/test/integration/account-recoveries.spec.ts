@@ -174,6 +174,21 @@ describe('approval and the hold', () => {
     expect(row.holdUntil!.getTime() - Date.now()).toBeCloseTo(RECOVERY_HOLD_HOURS * HOUR_MS, -4);
     expect(row.cancelTokenHash).not.toBeNull();
 
+    // The page's read: the owner, the people and when it was approved.
+    const { recovery: page } = await services.adminRecoveries.getRecovery(
+      { recoveryId: recovery!.id },
+      approver,
+    );
+    expect(page?.owner?.email).toBe(owner.email);
+    expect(page?.openedByName).toBeDefined();
+    expect(page?.approvedByName).toBeDefined();
+    const approvedAt = Number(page!.approvedAt!.seconds) * 1000;
+    expect(row.holdUntil!.getTime() - approvedAt).toBeCloseTo(RECOVERY_HOLD_HOURS * HOUR_MS, -4);
+    expect(
+      (await errorOf(services.adminRecoveries.getRecovery({ recoveryId: owner.id }, approver)))
+        .code,
+    ).toBe('RESOURCE_NOT_FOUND');
+
     // The old address, which is the one the real owner still reads if this is a takeover.
     const { mail } = await lastMail(owner.email);
     expect(mail.subject).toContain('recovering access');

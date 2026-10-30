@@ -10,6 +10,7 @@ import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "../../google/protobuf/timestamp.pb";
 import { CursorPage, PageRequest } from "../common/page.pb";
+import { AccountKind } from "./admin_user.pb";
 
 export const protobufPackage = "wayfare.identity";
 
@@ -47,12 +48,21 @@ export interface AuditLogEntry {
 export interface AuditLogActor {
   type: string;
   userId?: string | undefined;
-  deviceId?: string | undefined;
+  deviceId?:
+    | string
+    | undefined;
+  /** A `USER` actor's name (unset when erased) and kind. The gateway shows the name by its rule. */
+  name?: string | undefined;
+  kind?: AccountKind | undefined;
 }
 
 export interface AuditLogResource {
   type: string;
-  id?: string | undefined;
+  id?:
+    | string
+    | undefined;
+  /** A `USER` resource's name; other resources carry none. */
+  label?: string | undefined;
 }
 
 export interface ListAuditActionsRequest {

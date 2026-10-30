@@ -10,6 +10,7 @@ import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "../../google/protobuf/timestamp.pb";
 import { LocalizationTargetType } from "../common/localization.pb";
+import { CursorPage, PageRequest } from "../common/page.pb";
 
 export const protobufPackage = "wayfare.narration";
 
@@ -68,6 +69,28 @@ export interface RevertCorrectionRequest {
 export interface RevertCorrectionResponse {
 }
 
+export interface ListCorrectionsRequest {
+  page:
+    | PageRequest
+    | undefined;
+  /** Needing review first, then newest; otherwise newest first. */
+  reviewFirst: boolean;
+}
+
+export interface ListCorrectionsResponse {
+  items: CorrectionListItem[];
+  page: CursorPage | undefined;
+}
+
+export interface CorrectionListItem {
+  correction:
+    | Correction
+    | undefined;
+  /** The target's Vietnamese name now; empty when the target is gone. */
+  targetNameVi: string;
+  needsReview: boolean;
+}
+
 export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
 
 /** The correction screen and its two writes. The gateway checks `localization.edit`. */
@@ -81,6 +104,10 @@ export interface CorrectionServiceClient {
   putCorrection(request: PutCorrectionRequest, metadata?: Metadata): Observable<PutCorrectionResponse>;
 
   revertCorrection(request: RevertCorrectionRequest, metadata?: Metadata): Observable<RevertCorrectionResponse>;
+
+  /** The corrections across every target: each language's latest, in use or needing review. */
+
+  listCorrections(request: ListCorrectionsRequest, metadata?: Metadata): Observable<ListCorrectionsResponse>;
 }
 
 /** The correction screen and its two writes. The gateway checks `localization.edit`. */
@@ -103,11 +130,18 @@ export interface CorrectionServiceController {
     request: RevertCorrectionRequest,
     metadata?: Metadata,
   ): Promise<RevertCorrectionResponse> | Observable<RevertCorrectionResponse> | RevertCorrectionResponse;
+
+  /** The corrections across every target: each language's latest, in use or needing review. */
+
+  listCorrections(
+    request: ListCorrectionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListCorrectionsResponse> | Observable<ListCorrectionsResponse> | ListCorrectionsResponse;
 }
 
 export function CorrectionServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getLocalizationOverview", "putCorrection", "revertCorrection"];
+    const grpcMethods: string[] = ["getLocalizationOverview", "putCorrection", "revertCorrection", "listCorrections"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("CorrectionService", method)(constructor.prototype[method], method, descriptor);

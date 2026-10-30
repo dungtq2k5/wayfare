@@ -47,14 +47,29 @@ export class AdminRecoveriesController {
     return this.recoveries.open(context, params.id, body);
   }
 
+  // Either permission reads, as the navigation does: an approver need not open cases.
   @Get('email-recoveries')
-  @RequirePermission('user.email.recover.open')
+  @RequirePermission('user.email.recover.open', 'user.email.recover.approve')
   @NoStore()
   @ApiOperation({ summary: 'The cases, a page at a time; newest first.' })
   @ApiEnvelope(RecoveryResponseDto, { list: 'page' })
   @ZodSerializerDto(RecoveryResponseDto)
   list(@Ctx() context: AccountContext, @Query() query: RecoveryQueryDto): Promise<Paged<Recovery>> {
     return this.recoveries.list(context, query);
+  }
+
+  @Get('email-recoveries/:id')
+  @RequirePermission('user.email.recover.open', 'user.email.recover.approve')
+  @NoStore()
+  @ApiOperation({ summary: 'One case, for its page: its people and its timeline.' })
+  @ApiEnvelope(RecoveryResultResponseDto)
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(RecoveryResultResponseDto)
+  get(
+    @Ctx() context: AccountContext,
+    @Param() params: RecoveryIdParamDto,
+  ): Promise<{ recovery: Recovery }> {
+    return this.recoveries.get(context, params.id);
   }
 
   @Post('email-recoveries/:id/approve')

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   AUDIT_ACTIONS,
+  AuditResourceType,
   AUDIT_QUERY_MAX_DAYS,
   compareStrings,
   zAuditActionFilter,
@@ -22,7 +23,7 @@ import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import type { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { AUDIT_LOG_VIEW_SELECT, toAuditLogEntry } from './audit-log.mapper';
+import { AUDIT_LOG_VIEW_SELECT, AUDIT_PERSON_SELECT, toAuditLogEntry } from './audit-log.mapper';
 
 const DAY_MS = 86_400_000;
 
@@ -125,8 +126,20 @@ export class AuditService {
     });
     const page = rows.slice(0, fields.page.limit);
     const last = page.at(-1);
+    // The people the page names, in one read: each actor, and each user a row is about.
+    const ids = new Set<string>();
+    for (const row of page) {
+      if (row.actorUserId !== null) ids.add(row.actorUserId);
+      if (row.resourceType === (AuditResourceType.USER as string) && row.resourceId !== null)
+        ids.add(row.resourceId);
+    }
+    const people = await this.prisma.user.findMany({
+      where: { id: { in: [...ids] } },
+      select: AUDIT_PERSON_SELECT,
+    });
+    const byId = new Map(people.map((person) => [person.id, person]));
     return {
-      entries: page.map(toAuditLogEntry),
+      entries: page.map((row) => toAuditLogEntry(row, byId)),
       page:
         rows.length > fields.page.limit && last !== undefined
           ? {

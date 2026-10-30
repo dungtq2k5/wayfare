@@ -18,6 +18,9 @@ service SynthesisAdminService {
   rpc RetryFailedTasks(RetryFailedTasksRequest) returns (RetryFailedTasksResponse);
   rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
   rpc ListVoices(ListVoicesRequest) returns (ListVoicesResponse);
+  // Internal: whether each target has a job still moving, and its latest job (the stuck-Places
+  // check).
+  rpc GetTargetJobStates(GetTargetJobStatesRequest) returns (GetTargetJobStatesResponse);
 }
 
 // Why a job exists (rdm-spec N-1).
@@ -225,4 +228,30 @@ message Voice {
   string id = 1;
   string language_code = 2;
   optional string gender = 3;
+}
+
+message GetTargetJobStatesRequest {
+  wayfare.common.LocalizationTargetType target_type = 1;
+  repeated string target_ids = 2;
+}
+
+message GetTargetJobStatesResponse {
+  // One per target that has a job; a target with none is absent.
+  repeated TargetJobState states = 1;
+}
+
+message TargetJobState {
+  string target_id = 1;
+  // A job QUEUED, RUNNING or PAUSED: something will move the target.
+  bool active = 2;
+  TargetLastJob last_job = 3;
+}
+
+// The target's latest job, as the stuck-Places check reads it.
+message TargetLastJob {
+  string id = 1;
+  SynthesisJobStatus status = 2;
+  google.protobuf.Timestamp finished_at = 3;
+  optional string error_summary = 4;
+  optional string cancelled_by_id = 5;
 }

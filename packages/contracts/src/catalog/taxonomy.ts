@@ -3,6 +3,8 @@ import { zUuidV7 } from '../common/ids';
 import { CategoryAppliesTo, PlaceStatus } from './enums';
 import { zCategoryCode, zGeoPoint } from './schemas';
 
+const zInstant = z.iso.datetime({ offset: true });
+
 /** The most vertices an area's boundary may have (rdm-spec C-3), the closing repeat not counted. */
 export const MAX_AREA_VERTICES = 500;
 
@@ -148,6 +150,11 @@ export const zAdminArea = z
     sortOrder: z.number().int(),
     isActive: z.boolean(),
     placeCounts: zAreaPlaceCounts,
+    /** The published map pack's version and when; `null` without one. */
+    publishedPack: z
+      .object({ version: z.number().int(), publishedAt: zInstant })
+      .strict()
+      .nullable(),
   })
   .strict();
 /** An admin area. */

@@ -5,9 +5,23 @@ import { adminNarrationCreate, adminNarrationList } from '@wayfare/api-client';
 import { CONTENT_LANGUAGES } from '@wayfare/contracts';
 import { Button } from '@wayfare/ui/button';
 import { JobStatusBadge, Progress } from '@wayfare/ui/content';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@wayfare/ui/menu';
 import { Card } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
-import { CircleCheck, CircleX, LoaderCircle, Minus, RefreshCw, TriangleAlert } from 'lucide-react';
+import {
+  CircleCheck,
+  CircleX,
+  Ellipsis,
+  LoaderCircle,
+  Minus,
+  RefreshCw,
+  TriangleAlert,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -86,6 +100,7 @@ export function NarrationSection({
 
   const rows = narrationRows(localizations);
   const manage = can('narration.job.manage');
+  const correct = can('localization.edit');
   const make = (lang: string) =>
     void adminNarrationCreate({
       targetType: 'PLACE',
@@ -266,7 +281,32 @@ export function NarrationSection({
                 <td className="py-3 pr-3">{audio(row)}</td>
                 <td className="py-3 pr-3 text-muted-foreground">{gets(row)}</td>
                 <td className="py-3 text-right">
-                  {manage && !making(row.lang) ? (
+                  {correct && row.lang !== 'vi' ? (
+                    // T1b: a translated row's menu adds *Correct the translation* (K18).
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t('narration.rowMenu', { language: autonym(row.lang) })}
+                        >
+                          <Ellipsis aria-hidden />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {manage && !making(row.lang) ? (
+                          <DropdownMenuItem onSelect={() => make(row.lang)}>
+                            {made(row) ? t('narration.regenerate') : t('narration.make')}
+                          </DropdownMenuItem>
+                        ) : null}
+                        <DropdownMenuItem asChild>
+                          <Link href={`/narration/corrections/PLACE/${placeId}/${row.lang}`}>
+                            {t('narration.correct')}
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : manage && !making(row.lang) ? (
                     <Button
                       variant="ghost"
                       size="sm"

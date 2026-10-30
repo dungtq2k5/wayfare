@@ -50,7 +50,34 @@ export interface Recovery {
   expiresAt: Timestamp | undefined;
   completedAt: Timestamp | undefined;
   createdAt: Timestamp | undefined;
-  updatedAt: Timestamp | undefined;
+  updatedAt:
+    | Timestamp
+    | undefined;
+  /** The account being recovered, always shown to staff. */
+  owner:
+    | RecoveryOwner
+    | undefined;
+  /** The people, by name; unset for an erased account. The gateway shows them by its names rule. */
+  openedByName?: string | undefined;
+  approvedByName?:
+    | string
+    | undefined;
+  /** When it was approved: the hold's end less RECOVERY_HOLD_HOURS; unset before approval. */
+  approvedAt: Timestamp | undefined;
+}
+
+export interface RecoveryOwner {
+  /** Unset for an erased account. */
+  name?: string | undefined;
+  email: string;
+}
+
+export interface GetRecoveryRequest {
+  recoveryId: string;
+}
+
+export interface GetRecoveryResponse {
+  recovery: Recovery | undefined;
 }
 
 export interface OpenRecoveryRequest {
@@ -124,6 +151,8 @@ export interface RecoveryAdminServiceClient {
 
   listRecoveries(request: ListRecoveriesRequest, metadata?: Metadata): Observable<ListRecoveriesResponse>;
 
+  getRecovery(request: GetRecoveryRequest, metadata?: Metadata): Observable<GetRecoveryResponse>;
+
   approveRecovery(request: ApproveRecoveryRequest, metadata?: Metadata): Observable<ApproveRecoveryResponse>;
 
   rejectRecovery(request: RejectRecoveryRequest, metadata?: Metadata): Observable<RejectRecoveryResponse>;
@@ -145,6 +174,11 @@ export interface RecoveryAdminServiceController {
     metadata?: Metadata,
   ): Promise<ListRecoveriesResponse> | Observable<ListRecoveriesResponse> | ListRecoveriesResponse;
 
+  getRecovery(
+    request: GetRecoveryRequest,
+    metadata?: Metadata,
+  ): Promise<GetRecoveryResponse> | Observable<GetRecoveryResponse> | GetRecoveryResponse;
+
   approveRecovery(
     request: ApproveRecoveryRequest,
     metadata?: Metadata,
@@ -158,7 +192,13 @@ export interface RecoveryAdminServiceController {
 
 export function RecoveryAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["openRecovery", "listRecoveries", "approveRecovery", "rejectRecovery"];
+    const grpcMethods: string[] = [
+      "openRecovery",
+      "listRecoveries",
+      "getRecovery",
+      "approveRecovery",
+      "rejectRecovery",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("RecoveryAdminService", method)(constructor.prototype[method], method, descriptor);

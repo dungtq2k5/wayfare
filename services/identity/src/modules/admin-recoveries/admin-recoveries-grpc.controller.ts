@@ -24,6 +24,13 @@ export class AdminRecoveriesGrpcController implements identityGrpc.RecoveryAdmin
     return this.recoveries.listRecoveries(request, unpackCallerContext(metadata));
   }
 
+  getRecovery(
+    request: identityGrpc.GetRecoveryRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.GetRecoveryResponse> {
+    return this.recoveries.getRecovery(request, unpackCallerContext(metadata));
+  }
+
   approveRecovery(
     request: identityGrpc.ApproveRecoveryRequest,
     metadata?: Metadata,

@@ -25,6 +25,7 @@ import type {
 
 import type {
   AdminRecoveriesApprove200,
+  AdminRecoveriesGet200,
   AdminRecoveriesList200,
   AdminRecoveriesListParams,
   AdminRecoveriesOpenRecovery201,
@@ -243,6 +244,106 @@ export function useAdminRecoveriesList<TData = Awaited<ReturnType<typeof adminRe
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getAdminRecoveriesListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getAdminRecoveriesGetUrl = (id: string,) => {
+
+
+
+
+  return `/admin/email-recoveries/${id}`
+}
+
+/**
+ * @summary One case, for its page: its people and its timeline.
+ */
+export const adminRecoveriesGet = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<AdminRecoveriesGet200> => {
+
+  return apiFetch<AdminRecoveriesGet200>(getAdminRecoveriesGetUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminRecoveriesGetQueryKey = (id: string,) => {
+    return [
+    `/admin/email-recoveries/${id}`
+    ] as const;
+    }
+
+
+export const getAdminRecoveriesGetQueryOptions = <TData = Awaited<ReturnType<typeof adminRecoveriesGet>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminRecoveriesGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminRecoveriesGetQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminRecoveriesGet>>> = ({ signal }) => adminRecoveriesGet(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminRecoveriesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminRecoveriesGetQueryResult = NonNullable<Awaited<ReturnType<typeof adminRecoveriesGet>>>
+export type AdminRecoveriesGetQueryError = unknown
+
+
+export function useAdminRecoveriesGet<TData = Awaited<ReturnType<typeof adminRecoveriesGet>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminRecoveriesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminRecoveriesGet>>,
+          TError,
+          Awaited<ReturnType<typeof adminRecoveriesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminRecoveriesGet<TData = Awaited<ReturnType<typeof adminRecoveriesGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminRecoveriesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminRecoveriesGet>>,
+          TError,
+          Awaited<ReturnType<typeof adminRecoveriesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminRecoveriesGet<TData = Awaited<ReturnType<typeof adminRecoveriesGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminRecoveriesGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary One case, for its page: its people and its timeline.
+ */
+
+export function useAdminRecoveriesGet<TData = Awaited<ReturnType<typeof adminRecoveriesGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminRecoveriesGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminRecoveriesGetQueryOptions(id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

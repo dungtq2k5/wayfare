@@ -1,4 +1,6 @@
 import {
+  AccountKind,
+  OwnerRegistrationStatus,
   EmailBounceType,
   EmailDeliveryStatus,
   EmailTemplate,
@@ -32,6 +34,10 @@ export const adminUserResponseSchema = z.object({
   lastLoginAt: zInstant.nullable(),
   deletedAt: zInstant.nullable(),
   createdAt: zInstant,
+  /** What the account is, from its roles (rdm-spec I-1). */
+  kind: z.enum(AccountKind),
+  /** The latest owner registration's status; `null` when it never applied (rdm-spec I-8). */
+  ownerRegistrationStatus: z.enum(OwnerRegistrationStatus).nullable(),
 });
 
 /** An account, as the console's writes return it. */
@@ -73,8 +79,22 @@ export const adminUserDetailResponseSchema = adminUserResponseSchema.extend({
   }),
   /** Staff-only; set while locked. */
   lockReason: z.string().nullable(),
-  /** Owner registration status — not built yet, always `null`. */
-  ownerRegistration: z.null(),
+  /** The union of the account's roles' live codes: what it can do, against the viewer's own. */
+  permissionCodes: z.array(z.string()),
+  passwordSet: z.boolean(),
+  /** The Google address when it was linked (rdm-spec I-15); `null` when not linked. */
+  googleEmail: z.string().nullable(),
+  preferredLocale: z.string(),
+  /** The latest device's last sighting; `null` with no device. */
+  devicesLastSeenAt: zInstant.nullable(),
+  /** The latest owner registration; `null` when the account never applied. */
+  ownerRegistration: z
+    .object({
+      status: z.enum(OwnerRegistrationStatus),
+      submittedAt: zInstant,
+      reviewedAt: zInstant.nullable(),
+    })
+    .nullable(),
 });
 
 /** What `GET /admin/users/:id` returns — discriminated on `erased`. */

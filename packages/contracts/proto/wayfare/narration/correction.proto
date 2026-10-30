@@ -5,6 +5,7 @@ package wayfare.narration;
 
 import "google/protobuf/timestamp.proto";
 import "wayfare/common/localization.proto";
+import "wayfare/common/page.proto";
 
 // The correction screen and its two writes. The gateway checks `localization.edit`.
 service CorrectionService {
@@ -12,6 +13,8 @@ service CorrectionService {
       returns (GetLocalizationOverviewResponse);
   rpc PutCorrection(PutCorrectionRequest) returns (PutCorrectionResponse);
   rpc RevertCorrection(RevertCorrectionRequest) returns (RevertCorrectionResponse);
+  // The corrections across every target: each language's latest, in use or needing review.
+  rpc ListCorrections(ListCorrectionsRequest) returns (ListCorrectionsResponse);
 }
 
 // Where a correction stands (rdm-spec N-7).
@@ -66,3 +69,21 @@ message RevertCorrectionRequest {
 }
 
 message RevertCorrectionResponse {}
+
+message ListCorrectionsRequest {
+  wayfare.common.PageRequest page = 1;
+  // Needing review first, then newest; otherwise newest first.
+  bool review_first = 2;
+}
+
+message ListCorrectionsResponse {
+  repeated CorrectionListItem items = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+message CorrectionListItem {
+  Correction correction = 1;
+  // The target's Vietnamese name now; empty when the target is gone.
+  string target_name_vi = 2;
+  bool needs_review = 3;
+}

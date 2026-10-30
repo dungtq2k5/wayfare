@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { NARRATION_VOICES, voiceFor } from '../../config/voices';
 import { withVoice } from './edge.speech-provider';
 import { isUnreachable } from '../provider-chain';
+import { FAKE_SPEECH_FAILS_MARKER } from '../fake-failure';
 import { FakeSpeechProvider, silentMp3 } from './fake.speech-provider';
 import { GoogleSpeechProvider } from './google.speech-provider';
 import type { GoogleSpeechClient } from './google.speech-provider';
@@ -35,6 +36,17 @@ describe('FakeSpeechProvider', () => {
         voice: { id: 'v', languageCode: 'en' },
       }),
     ).rejects.toThrow();
+  });
+
+  it('fails a text holding the marker, and only that text', async () => {
+    const fake = new FakeSpeechProvider();
+    const voice = { id: 'fake-en', languageCode: 'en' };
+    await expect(
+      fake.synthesize({ ssml: `<speak>Ốc ${FAKE_SPEECH_FAILS_MARKER}</speak>`, voice }),
+    ).rejects.toThrow('marked text');
+    await expect(fake.synthesize({ ssml: '<speak>Ốc</speak>', voice })).resolves.toBeInstanceOf(
+      Buffer,
+    );
   });
 
   it('out of reach, fails with a network code the chain reads as an outage', async () => {

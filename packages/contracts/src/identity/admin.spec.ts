@@ -3,8 +3,9 @@ import { AUDIT_METADATA_ALLOWLIST } from '../audit/allowlist';
 import { zAuditActionFilter } from '../audit/filters';
 import { AuditAction } from '../audit/vocabulary';
 import { errorDetailsSchema } from '../errors/registry';
+import { zRejectRecoveryInput } from './account-recovery';
 import { SESSION_REVOKED_REASONS } from './enums';
-import { MAX_ROLE_CODE_LENGTH } from './limits';
+import { MAX_RECOVERY_DECISION_NOTE_LENGTH, MAX_ROLE_CODE_LENGTH } from './limits';
 import { TOKEN_REVOCATION_REASONS, TokenRevocationReason } from './revocation';
 import { roleCodeCandidates, roleCodeFromName } from './role-code';
 
@@ -110,5 +111,18 @@ describe('zAuditActionFilter', () => {
     expect(zAuditActionFilter.safeParse('RETIRED_LONG_AGO').success).toBe(true);
     expect(zAuditActionFilter.safeParse('user_locked').success).toBe(false);
     expect(zAuditActionFilter.safeParse(`A${'B'.repeat(64)}`).success).toBe(false);
+  });
+});
+
+describe('zRejectRecoveryInput', () => {
+  it('takes a note of up to 1000 characters, on several lines', () => {
+    const note = (length: number) => ({ decisionNote: `a\n${'x'.repeat(length - 2)}` });
+    expect(zRejectRecoveryInput.safeParse(note(MAX_RECOVERY_DECISION_NOTE_LENGTH)).success).toBe(
+      true,
+    );
+    expect(
+      zRejectRecoveryInput.safeParse(note(MAX_RECOVERY_DECISION_NOTE_LENGTH + 1)).success,
+    ).toBe(false);
+    expect(zRejectRecoveryInput.safeParse({ decisionNote: '   ' }).success).toBe(false);
   });
 });

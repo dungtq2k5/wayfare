@@ -1,3 +1,10 @@
+/**
+ * A text holding this fails the fake speech provider, and only that text: a test makes one
+ * Place's narration fail while every other Place's keeps working. The fakes never run in
+ * production (`env.schema.ts`).
+ */
+export const FAKE_SPEECH_FAILS_MARKER = '[fake:speech-fails]';
+
 /** How a fake provider answers (local and test only): normally, failing, or out of reach. */
 export type FakeFailure = boolean | 'unreachable';
 

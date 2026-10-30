@@ -93,4 +93,11 @@ export class AdminUsersGrpcController implements identityGrpc.AdminUserServiceCo
   ): Promise<identityGrpc.CheckEmailDeliveryResponse> {
     return this.users.checkEmailDelivery(request, unpackCallerContext(metadata));
   }
+
+  getUserNames(
+    request: identityGrpc.GetUserNamesRequest,
+    metadata?: Metadata,
+  ): Promise<identityGrpc.GetUserNamesResponse> {
+    return this.users.getUserNames(request, unpackCallerContext(metadata));
+  }
 }

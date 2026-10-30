@@ -4,6 +4,7 @@ import {
   PlaceInactiveReason,
   PlaceKind,
   PlaceStatus,
+  SynthesisJobStatus,
   TranslationSource,
   zGeoPoint,
   zOpeningHoursRow,
@@ -36,6 +37,9 @@ export const adminPlaceListItemResponseSchema = z.object({
   cover: zPhotoView.nullable(),
   updatedAt: zInstant,
   deletedAt: zInstant.nullable(),
+  location: zGeoPoint,
+  /** When the status last changed (rdm-spec C-1). */
+  statusChangedAt: zInstant,
 });
 
 /** One row of `GET /admin/places`. */
@@ -144,3 +148,24 @@ export const activationResultResponseSchema = z.object({
 
 /** What `POST /admin/places/:id/activate` returns under `data`. */
 export class ActivationResultResponseDto extends createZodDto(activationResultResponseSchema) {}
+
+/**
+ * One stuck Place (product §F7): `PROCESSING` longer than the threshold with no narration job
+ * moving it, since when, and its latest job — the why. `cancelledBy.name` follows the names rule.
+ */
+export const stuckPlaceResponseSchema = z.object({
+  place: adminPlaceListItemResponseSchema,
+  processingSince: zInstant,
+  lastJob: z
+    .object({
+      id: zUuidV7,
+      status: z.enum(SynthesisJobStatus),
+      finishedAt: zInstant.nullable(),
+      errorSummary: z.string().nullable(),
+      cancelledBy: z.object({ id: zUuidV7, name: z.string().nullable() }).nullable(),
+    })
+    .nullable(),
+});
+
+/** One stuck Place. */
+export class StuckPlaceResponseDto extends createZodDto(stuckPlaceResponseSchema) {}

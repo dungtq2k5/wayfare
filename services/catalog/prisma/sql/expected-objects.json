@@ -29,5 +29,6 @@
     "place_submissions_reviewed_ck",
     "place_submissions_update_base_ck",
     "map_packs_zoom_ck"
-  ]
+  ],
+  "triggers": ["places_status_changed_at_trg"]
 }

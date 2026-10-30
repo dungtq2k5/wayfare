@@ -3,6 +3,7 @@ syntax = "proto3";
 // The catalogue's taxonomy administration — api-endpoints-plan §3.6, rdm-spec C-2, C-3.
 package wayfare.catalog;
 
+import "google/protobuf/timestamp.proto";
 import "wayfare/catalog/place_types.proto";
 import "wayfare/common/geo.proto";
 
@@ -79,6 +80,13 @@ message AdminArea {
   int32 sort_order = 7;
   bool is_active = 8;
   AreaPlaceCounts place_counts = 9;
+  // The published map pack; absent without one.
+  AdminAreaPublishedPack published_pack = 10;
+}
+
+message AdminAreaPublishedPack {
+  int32 version = 1;
+  google.protobuf.Timestamp published_at = 2;
 }
 
 message ListAdminAreasRequest {}

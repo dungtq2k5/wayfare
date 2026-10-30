@@ -40,6 +40,8 @@ message MapPack {
   google.protobuf.Timestamp created_at = 16;
   // The dark flavour's style; absent for a pack with light only.
   optional MapPackObject style_dark = 17;
+  // Who registered it; the gateway names them by its rule.
+  string created_by_id = 18;
 }
 
 message ListMapPacksRequest {

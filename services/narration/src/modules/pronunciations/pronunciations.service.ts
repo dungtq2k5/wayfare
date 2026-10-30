@@ -178,6 +178,16 @@ export class PronunciationsService {
   }
 
   /** Hard-deleted (rdm-spec N-5); the audit row keeps the history, and the term fans out. */
+  /** One entry, for its page. */
+  async getEntry(
+    request: narrationGrpc.GetEntryRequest,
+    context: RequestContext,
+  ): Promise<narrationGrpc.GetEntryResponse> {
+    requireAccountContext(context);
+    const { entryId } = parseRpcRequest(entryIdField, request);
+    return { entry: toPronunciationEntry(await this.entry(entryId)) };
+  }
+
   async deleteEntry(
     request: narrationGrpc.DeleteEntryRequest,
     context: RequestContext,

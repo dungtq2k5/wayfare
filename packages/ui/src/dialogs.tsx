@@ -125,12 +125,18 @@ export function ReasonDialog({
   maxLength,
   tone = 'destructive',
   onConfirm,
+  children,
+  placeholder,
 }: BaseProps & {
   noteLabel: string;
   noteHelp: string;
+  /** An example of a good reason, muted in the empty field. */
+  placeholder?: string;
   minLength: number;
   maxLength: number;
   onConfirm: (note: string) => void;
+  /** What the decision also needs, after the note: a date, a line, a box to tick. */
+  children?: ReactNode;
 }) {
   const [note, setNote] = useState('');
   const counterId = useId();
@@ -151,6 +157,7 @@ export function ReasonDialog({
               <Textarea
                 {...control}
                 value={note}
+                placeholder={placeholder}
                 maxLength={maxLength}
                 onChange={(event) => setNote(event.target.value)}
               />
@@ -164,6 +171,7 @@ export function ReasonDialog({
             </>
           )}
         </Field>
+        {children}
         {alert === undefined || alert === null ? null : <FormAlert>{alert}</FormAlert>}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

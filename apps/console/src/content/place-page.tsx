@@ -28,6 +28,7 @@ import { NarrationSection } from './narration-section';
 import { DeactivateDialog, DeleteDialog, ownerName } from './place-actions';
 import { Facts, focusSection, History, HoursList, Section } from './place-sections';
 import type { PlaceDetail } from './place-types';
+import { StuckAlert, StuckChip, useStuck } from '../operations/stuck';
 import { QrSection } from './qr-section';
 import { RegenerateDialog } from './regenerate-dialog';
 import { narrationRows } from './narration-section';
@@ -120,6 +121,12 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
   const radius = draftRadius ?? data.triggerRadiusM;
   // A Place that waits says why (round 34 §2).
   const wait = waitKey(status, data.inactiveReason as InactiveReason | null);
+  // X2: a Place processing too long with nothing making its audio says so at the top.
+  const stuckList = useStuck();
+  const stuck =
+    !deleted &&
+    status === 'PROCESSING' &&
+    (stuckList.data ?? []).some((row) => row.place.id === data.id);
 
   return (
     <>
@@ -200,17 +207,20 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
         <StatusBadge tone={deleted ? 'inactive' : statusTone(status)}>
           {deleted ? t('places.deleted') : tDynamic(`status.${status}`)}
         </StatusBadge>
-        {deleted || wait === null ? null : (
+        {deleted || wait === null || stuck ? null : (
           <span className="text-sm text-muted-foreground">· {tDynamic(wait)}</span>
         )}
+        {stuck ? <StuckChip /> : null}
       </div>
+      {stuck ? <StuckAlert placeId={data.id} name={data.nameVi} /> : null}
       {venue ? (
         <p className="flex items-start gap-2 rounded-md bg-info px-3 py-2 text-sm text-info-foreground">
           <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
           {t('place.belongsTo', { name: data.nameVi, owner })}
         </p>
       ) : null}
-      {showGate ? (
+      {/* A stuck Place's alert says what the gate would wrongly call "being made". */}
+      {showGate && !stuck ? (
         // Nothing is wrong: the info style, each item with its live state's icon.
         <div
           role="status"

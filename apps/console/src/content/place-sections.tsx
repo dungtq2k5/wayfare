@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { auditLogsList } from '@wayfare/api-client';
+import type { AuditLogsListResourceType } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { Card } from '@wayfare/ui/surfaces';
 import { Pencil } from 'lucide-react';
@@ -151,34 +152,58 @@ export function HoursList({ rows }: { rows: PlaceDetail['openingHours'] }) {
   );
 }
 
-/**
- * History (L2), for a reader holding `audit.read`: what happened to the Place, newest first, from
- * the audit log since it was created.
- */
+/** History (L2) of a Place. */
 export function History({ place }: { place: PlaceDetail }) {
+  return <RecordHistory resourceType="PLACE" resourceId={place.id} createdAt={place.createdAt} />;
+}
+
+/** The audit log's widest read (api §1.8): a history older than this starts here. */
+const MAX_HISTORY_DAYS = 93;
+
+/**
+ * A record's History, for a reader holding `audit.read`: what happened to it, newest first, from
+ * the audit log since it was created; people by name for a reader holding `user.read` (K1). It ends
+ * in *See all in the audit log*, the log filtered on the record (K22, H3).
+ */
+export function RecordHistory({
+  resourceType,
+  resourceId,
+  createdAt,
+}: {
+  resourceType: AuditLogsListResourceType;
+  resourceId: string;
+  /** When the record was made; without it, the log's widest read. */
+  createdAt?: string;
+}) {
   const translator = useConsole();
   const { t, tDynamic } = translator;
   const me = useMe();
   const log = useQuery({
-    queryKey: ['place-history', place.id],
-    queryFn: () =>
-      auditLogsList({
-        resourceId: place.id,
-        // A minute early: the creation's audit row takes catalog's clock, `createdAt` the
-        // database's, and the first may be a little earlier.
-        from: new Date(Date.parse(place.createdAt) - 60_000).toISOString(),
-        to: new Date().toISOString(),
+    queryKey: ['history', resourceType, resourceId],
+    queryFn: () => {
+      const now = Date.now();
+      // A minute early: the creation's audit row takes the service's clock, `createdAt` the
+      // database's, and the first may be a little earlier.
+      const oldest = now - MAX_HISTORY_DAYS * 86_400_000;
+      const from =
+        createdAt === undefined ? oldest : Math.max(Date.parse(createdAt) - 60_000, oldest);
+      return auditLogsList({
+        resourceType,
+        resourceId,
+        from: new Date(from).toISOString(),
+        to: new Date(now).toISOString(),
         limit: 50,
-      }),
+      });
+    },
   });
   const now = new Date();
   const rows = log.data?.data ?? [];
-  const who = (actor: { type: string; userId: string | null }) =>
+  const who = (actor: { type: string; userId: string | null; name: string | null }) =>
     actor.type === 'SYSTEM' || actor.userId === null
       ? t('place.system')
       : actor.userId === me.user.id
         ? t('history.you')
-        : t('history.staff');
+        : (actor.name ?? t('history.staff'));
   return (
     <Section id="history" title={t('place.history')}>
       {log.isSuccess && rows.length === 0 ? (
@@ -188,7 +213,12 @@ export function History({ place }: { place: PlaceDetail }) {
           {rows.map((row) => (
             <li key={row.id} className="flex flex-col gap-1 py-2 text-sm">
               <span className="font-medium text-foreground">
-                {tDynamic(`audit.${row.action}`, undefined, t('audit.other'))}
+                {/* A Place's history keeps its own short words ("Activated"); the rest name the record. */}
+                {tDynamic(
+                  resourceType === 'PLACE' ? `audit.${row.action}` : `auditAction.${row.action}`,
+                  undefined,
+                  tDynamic(`auditAction.${row.action}`, undefined, t('audit.other')),
+                )}
               </span>
               <span className="text-xs text-muted-foreground">
                 {t('place.historyBy', {
@@ -200,6 +230,12 @@ export function History({ place }: { place: PlaceDetail }) {
           ))}
         </ol>
       )}
+      <Link
+        href={`/audit?${new URLSearchParams({ resourceType, resourceId }).toString()}`}
+        className="self-start text-sm font-medium text-primary hover:underline"
+      >
+        {t('history.seeAll')}
+      </Link>
     </Section>
   );
 }

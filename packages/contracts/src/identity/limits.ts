@@ -26,6 +26,9 @@ export const RECOVERY_EXPIRY_DAYS = 14;
 /** Upper bound of the support ticket a recovery names (rdm-spec I-14 `support_reference`). */
 export const MAX_SUPPORT_REFERENCE_LENGTH = 64;
 
+/** Upper bound of why a recovery was rejected (rdm-spec I-14 `decision_note`, `TEXT`). */
+export const MAX_RECOVERY_DECISION_NOTE_LENGTH = 1000;
+
 /** Each action token's lifetime (rdm-spec I-9). */
 export const ACTION_TOKEN_TTL_MS: Readonly<Record<ActionTokenPurpose, number>> = {
   [ActionTokenPurpose.PASSWORD_RESET]: HOUR_MS,

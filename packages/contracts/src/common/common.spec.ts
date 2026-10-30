@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LANGUAGE_ENGLISH_NAMES,
+  LANGUAGE_NAMES,
   normalizeLang,
   servedLanguage,
   SUPPORTED_LANGUAGES,
@@ -139,5 +141,17 @@ describe('the served languages', () => {
   it('servedLanguage keeps a served value and names the owner of a corrupt one', () => {
     expect(servedLanguage('zh-Hans', 'row')).toBe('zh-Hans');
     expect(() => servedLanguage('xx', 'place 1')).toThrow(/"xx" on place 1/);
+  });
+});
+
+describe('language names', () => {
+  it('names every served language in itself and in English', () => {
+    for (const lang of SUPPORTED_LANGUAGES) {
+      expect(LANGUAGE_NAMES[lang]).toMatch(/\S/);
+      expect(LANGUAGE_ENGLISH_NAMES[lang]).toMatch(/\S/);
+    }
+    expect(Object.keys(LANGUAGE_NAMES)).toHaveLength(SUPPORTED_LANGUAGES.length);
+    expect(Object.keys(LANGUAGE_ENGLISH_NAMES)).toHaveLength(SUPPORTED_LANGUAGES.length);
+    expect(LANGUAGE_NAMES['zh-Hans']).toBe('简体中文');
   });
 });

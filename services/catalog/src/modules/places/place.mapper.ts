@@ -114,6 +114,7 @@ export const ADMIN_PLACE_LIST_SELECT = {
   syncVersion: true,
   updatedAt: true,
   deletedAt: true,
+  statusChangedAt: true,
   category: { select: { code: true } },
   area: { select: { code: true } },
   photos: {
@@ -253,6 +254,7 @@ export function toAdminPlace(
 /** One console table row. */
 export function toAdminPlaceListItem(
   row: AdminPlaceListRow,
+  location: GeoPoint,
   mediaBase: string,
 ): catalogGrpc.AdminPlaceListItem {
   const cover = row.photos[0];
@@ -280,5 +282,7 @@ export function toAdminPlaceListItem(
         : toPhotoView(zPhotoVariants.parse(cover.variants).thumb, mediaBase),
     updatedAt: toProtoTimestamp(row.updatedAt),
     deletedAt: row.deletedAt === null ? undefined : toProtoTimestamp(row.deletedAt),
+    location,
+    statusChangedAt: toProtoTimestamp(row.statusChangedAt),
   };
 }

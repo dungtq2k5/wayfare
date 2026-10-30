@@ -1,4 +1,10 @@
-import { LocalizationTargetType, zCorrectionInput, zLanguage, zUuidV7 } from '@wayfare/contracts';
+import {
+  LocalizationTargetType,
+  zCorrectionInput,
+  zCorrectionsQuery,
+  zLanguage,
+  zUuidV7,
+} from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -20,3 +26,6 @@ export class LocalizationLangParamDto extends createZodDto(localizationLangParam
 
 /** Validated `PUT …/:lang` body (api-endpoints-plan §4.5). */
 export class PutCorrectionDto extends createZodDto(zCorrectionInput) {}
+
+/** Validated `GET /admin/narration/corrections` query. */
+export class CorrectionsQueryDto extends createZodDto(zCorrectionsQuery) {}

@@ -35,6 +35,8 @@ message ListPlacesRequest {
   optional string category_code = 5;
   optional string owner_user_id = 6;
   bool include_deleted = 7;
+  // With status PROCESSING: only Places in it since before this instant (the stuck-Places check).
+  google.protobuf.Timestamp processing_before = 8;
 }
 
 message ListPlacesResponse {
@@ -58,6 +60,9 @@ message AdminPlaceListItem {
   PhotoView cover = 12;
   google.protobuf.Timestamp updated_at = 13;
   google.protobuf.Timestamp deleted_at = 14;
+  wayfare.common.GeoPoint location = 15;
+  // When the status last changed (rdm-spec C-1).
+  google.protobuf.Timestamp status_changed_at = 16;
 }
 
 message GetPlaceAdminRequest {

@@ -3,6 +3,7 @@ import { mapPackStatusProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { fromOptionalProtoTimestamp, fromProtoTimestamp } from '@wayfare/nest-common';
 import type { RegisterMapPackDto } from './dto/admin-map-pack.dto';
+import type { NamedPerson } from '../people-names/people-names.service';
 
 /** One pack object; its size arrives as an `int64` string. */
 export function toMapPackObject(object: catalogGrpc.MapPackObject | undefined): MapPackObject {
@@ -18,7 +19,10 @@ function statusOf(value: number): MapPackStatus {
 }
 
 /** A map pack as the console lists it. */
-export function toMapPack(pack: catalogGrpc.MapPack | undefined): MapPack {
+export function toMapPack(
+  pack: catalogGrpc.MapPack | undefined,
+  nameOf: (id: string) => NamedPerson,
+): MapPack {
   if (pack === undefined) throw new Error('catalog sent no map pack');
   return {
     id: pack.id,
@@ -38,6 +42,8 @@ export function toMapPack(pack: catalogGrpc.MapPack | undefined): MapPack {
     publishedAt: fromOptionalProtoTimestamp(pack.publishedAt, 'publishedAt')?.toISOString() ?? null,
     retiredAt: fromOptionalProtoTimestamp(pack.retiredAt, 'retiredAt')?.toISOString() ?? null,
     createdAt: fromProtoTimestamp(pack.createdAt, 'createdAt').toISOString(),
+    createdById: pack.createdById,
+    createdBy: nameOf(pack.createdById),
   };
 }
 

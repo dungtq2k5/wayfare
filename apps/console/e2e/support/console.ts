@@ -1,7 +1,7 @@
 // What every flow does in the browser: sign in, check a page with axe, and the language checks.
 import AxeBuilder from '@axe-core/playwright';
 import { expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import en from '@wayfare/i18n/locales/en/console.json';
 import vi from '@wayfare/i18n/locales/vi/console.json';
 
@@ -39,10 +39,13 @@ export async function expectAccessible(page: Page): Promise<void> {
 
 /**
  * The console in Vietnamese leaves no English string (edge 7): no English sentence whose
- * Vietnamese differs shows on the page.
+ * Vietnamese differs shows on the page. `data` names the elements whose text is a record's own.
  */
-export async function expectNoEnglish(page: Page): Promise<void> {
-  const text = await page.locator('body').innerText();
+export async function expectNoEnglish(page: Page, data?: Locator): Promise<void> {
+  let text = await page.locator('body').innerText();
+  // What people wrote (a custom role's name) is theirs, in whatever language they wrote it.
+  for (const written of data === undefined ? [] : await data.allInnerTexts())
+    text = text.replace(written, '');
   const english = Object.entries(en as Record<string, string>)
     .filter(
       ([key, value]) =>

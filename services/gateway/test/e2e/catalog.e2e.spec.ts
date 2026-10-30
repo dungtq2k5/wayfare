@@ -1,6 +1,6 @@
 import { status } from '@grpc/grpc-js';
 import { newId } from '@wayfare/contracts';
-import { catalogGrpc } from '@wayfare/contracts/grpc';
+import { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
 import {
   adminPlaceFixture,
   areaFixture,
@@ -104,6 +104,8 @@ beforeEach(() => {
           status: catalogGrpc.PlaceStatus.PLACE_STATUS_DRAFT,
           syncVersion: '9',
           updatedAt: toProtoTimestamp(new Date()),
+          location: { lat: 10.7725, lng: 106.698 },
+          statusChangedAt: toProtoTimestamp(new Date()),
         },
       ],
       page: { page: 1, pageSize: 20, total: 1 },
@@ -420,6 +422,61 @@ describe('/admin/places', () => {
     const res = await console_(method, path, [permission]).send(body);
     expect(res.status).toBe(expected);
     expect(res.headers['cache-control']).toBe('private, no-store');
+  });
+
+  it('lists the stuck Places: processing past the threshold with no job moving them', async () => {
+    const row = (id: string) => ({
+      id,
+      kind: catalogGrpc.PlaceKind.PLACE_KIND_EDITORIAL,
+      publicCode: FIXTURE_PUBLIC_CODE,
+      nameVi: 'Chợ',
+      categoryCode: 'MARKET',
+      areaId,
+      areaCode: 'hcmc-d1-core',
+      status: catalogGrpc.PlaceStatus.PLACE_STATUS_PROCESSING,
+      syncVersion: '9',
+      updatedAt: toProtoTimestamp(new Date()),
+      location: { lat: 10.7725, lng: 106.698 },
+      statusChangedAt: toProtoTimestamp(new Date('2026-10-01T00:00:00.000Z')),
+    });
+    const [failed, paused, never] = [newId(), newId(), newId()];
+    gateway.catalog.placeAdmin.handlers.listPlaces = () =>
+      Promise.resolve({
+        places: [row(failed), row(paused), row(never)],
+        page: { page: 1, pageSize: 100, total: 3 },
+      });
+    const cancelledBy = newId();
+    gateway.narration.synthesisAdmin.handlers.getTargetJobStates = () =>
+      Promise.resolve({
+        states: [
+          {
+            targetId: failed,
+            active: false,
+            lastJob: {
+              id: newId(),
+              status: narrationGrpc.SynthesisJobStatus.SYNTHESIS_JOB_STATUS_CANCELLED,
+              finishedAt: toProtoTimestamp(new Date()),
+              cancelledById: cancelledBy,
+            },
+          },
+          // A person paused it: it is moving, not stuck.
+          { targetId: paused, active: true, lastJob: undefined },
+        ],
+      });
+    const res = await console_('get', '/admin/places/stuck', ['place.read']);
+    expect(res.status).toBe(200);
+    const stuck = res.body.data as { place: { id: string }; lastJob: unknown }[];
+    expect(stuck.map((item) => item.place.id)).toEqual([failed, never]);
+    expect(res.body.data[0]).toMatchObject({
+      processingSince: '2026-10-01T00:00:00.000Z',
+      // No user.read: the canceller is unnamed (api §0's names rule).
+      lastJob: { status: 'CANCELLED', cancelledBy: { id: cancelledBy, name: null } },
+    });
+    expect(stuck[1]!.lastJob).toBeNull();
+    // Oldest first and capped: catalog is asked for at most 100, by when the status changed.
+    const asked = gateway.catalog.placeAdmin.calls.at(-1)!.request as catalogGrpc.ListPlacesRequest;
+    expect(asked).toMatchObject({ page: { page: 1, pageSize: 100, sort: 'statusChangedAt' } });
+    expect(asked.processingBefore).toBeDefined();
   });
 
   it('lists a page and shows a Place with nulls for what is absent', async () => {

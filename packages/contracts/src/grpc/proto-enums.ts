@@ -57,6 +57,8 @@ import {
   LegalParty as ProtoLegalParty,
 } from '../generated/wayfare/identity/user.pb';
 import {
+  AccountKind as ProtoAccountKind,
+  OwnerStatus as ProtoOwnerStatus,
   EmailBounceType as ProtoEmailBounceType,
   EmailDeliveryStatus as ProtoEmailDeliveryStatus,
   EmailTemplate as ProtoEmailTemplate,
@@ -95,10 +97,12 @@ import {
   SynthesisTrigger as ProtoSynthesisTrigger,
 } from '../generated/wayfare/narration/synthesis_admin.pb';
 import {
+  AccountKind,
   AccountRecoveryStatus,
   ActionTokenPurpose,
   LegalDocument,
   OwnerRegistrationStatus,
+  OwnerStatus,
   Platform,
   RecoveryEvidenceCode,
 } from '../identity/enums';
@@ -166,6 +170,12 @@ export const ownerRegistrationStatusProto = protoEnumBridge(
   OwnerRegistrationStatus,
   ProtoOwnerRegistrationStatus,
 );
+
+/** `AccountKind` ⇄ `wayfare.identity.AccountKind`. */
+export const accountKindProto = protoEnumBridge('AccountKind', AccountKind, ProtoAccountKind);
+
+/** `OwnerStatus` ⇄ `wayfare.identity.OwnerStatus`. */
+export const ownerStatusProto = protoEnumBridge('OwnerStatus', OwnerStatus, ProtoOwnerStatus);
 
 /** `PlaceKind` ⇄ `wayfare.catalog.PlaceKind`. */
 export const placeKindProto = protoEnumBridge('PlaceKind', PlaceKind, ProtoPlaceKind);
@@ -369,6 +379,8 @@ export const PROTO_ENUM_BRIDGES = [
   emailDeliveryStatusProto,
   emailBounceTypeProto,
   ownerRegistrationStatusProto,
+  accountKindProto,
+  ownerStatusProto,
   placeKindProto,
   placeStatusProto,
   placeInactiveReasonProto,

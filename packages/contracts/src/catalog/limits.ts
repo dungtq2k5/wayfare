@@ -98,3 +98,12 @@ export const HOTSET_REQUIRED_READY = 3;
 
 /** How many Places one background prefetch may name (api-endpoints-plan §4.1). */
 export const PREFETCH_MAX_PLACES = 3;
+
+/**
+ * How long a Place may be `PROCESSING` with no narration job moving it before it is stuck — the
+ * gateway's `STUCK_PROCESSING_AFTER_MS` default (product §F7).
+ */
+export const STUCK_PROCESSING_AFTER_MS = 3_600_000;
+
+/** At most this many stuck Places are listed (the pilot holds about a hundred Places). */
+export const MAX_STUCK_PLACES = 100;

@@ -1,6 +1,7 @@
 import type { AdminArea, AdminCategory } from '@wayfare/contracts';
 import { categoryAppliesToProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
+import { toProtoTimestamp } from '@wayfare/nest-common';
 
 /** A category as the console lists it. */
 export function toAdminCategory(category: AdminCategory): catalogGrpc.AdminCategory {
@@ -32,5 +33,12 @@ export function toAdminArea(area: AdminArea): catalogGrpc.AdminArea {
       active: area.placeCounts.ACTIVE,
       inactive: area.placeCounts.INACTIVE,
     },
+    publishedPack:
+      area.publishedPack === null
+        ? undefined
+        : {
+            version: area.publishedPack.version,
+            publishedAt: toProtoTimestamp(new Date(area.publishedPack.publishedAt)),
+          },
   };
 }

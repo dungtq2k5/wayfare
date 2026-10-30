@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { normalizeText } from './normalize';
 
 describe('what varies, normalised', () => {
+  it('fixes a date with its time, and a time alone', () => {
+    expect(normalizeText('Delivered · 25 Oct 2026, 16:02')).toBe('Delivered · 2 Oct 2026, 08:12');
+    expect(normalizeText('23:26')).toBe('08:30');
+    expect(normalizeText('7 open')).toBe('3 open');
+  });
+
   it('fixes relative times wherever they sit', () => {
     expect(normalizeText('Sent by Minh Tran · 34 days ago')).toBe('Sent by Minh Tran · 3 days ago');
     expect(normalizeText('Just now')).toBe('3 days ago');
@@ -38,6 +44,15 @@ describe('what varies, normalised', () => {
   it('fixes the dates a run sets', () => {
     expect(normalizeText('10/25/2026')).toBe('10/24/2026');
     expect(normalizeText('Account since Sep 19, 2026')).toBe('Account since Oct 24, 2026');
+  });
+
+  it('keeps a range of dates seven days long, and the fixed one of more than 93', () => {
+    expect(normalizeText('20 Oct 2026 – 28 Oct 2026')).toBe(
+      '26\u00a0Sep\u00a02026 – 2\u00a0Oct\u00a02026',
+    );
+    expect(normalizeText('1 Jun 2026 – 25 Oct 2026')).toBe(
+      '1\u00a0Jun\u00a02026 – 25\u00a0Oct\u00a02026',
+    );
   });
 
   it('fixes the clock times a run sets', () => {

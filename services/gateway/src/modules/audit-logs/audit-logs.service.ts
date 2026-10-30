@@ -21,7 +21,7 @@ export class AuditLogsService {
       context,
     );
     return Paged.cursor(
-      response.entries.map(toAuditLogResponseDto),
+      response.entries.map((entry) => toAuditLogResponseDto(entry, context)),
       response.page?.nextCursor ?? null,
     );
   }

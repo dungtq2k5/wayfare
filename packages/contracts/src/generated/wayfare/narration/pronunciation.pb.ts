@@ -31,7 +31,19 @@ export interface PronunciationEntry {
   alphabet?: string | undefined;
   note?: string | undefined;
   isActive: boolean;
-  updatedAt: Timestamp | undefined;
+  updatedAt:
+    | Timestamp
+    | undefined;
+  /** Who last changed it; the gateway names them by its rule. */
+  updatedById: string;
+}
+
+export interface GetEntryRequest {
+  entryId: string;
+}
+
+export interface GetEntryResponse {
+  entry: PronunciationEntry | undefined;
 }
 
 /** One entry as a write states it; `id` and the timestamps are the server's. */
@@ -105,6 +117,8 @@ export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
 export interface PronunciationServiceClient {
   listEntries(request: ListEntriesRequest, metadata?: Metadata): Observable<ListEntriesResponse>;
 
+  getEntry(request: GetEntryRequest, metadata?: Metadata): Observable<GetEntryResponse>;
+
   createEntry(request: CreateEntryRequest, metadata?: Metadata): Observable<CreateEntryResponse>;
 
   updateEntry(request: UpdateEntryRequest, metadata?: Metadata): Observable<UpdateEntryResponse>;
@@ -126,6 +140,11 @@ export interface PronunciationServiceController {
     request: ListEntriesRequest,
     metadata?: Metadata,
   ): Promise<ListEntriesResponse> | Observable<ListEntriesResponse> | ListEntriesResponse;
+
+  getEntry(
+    request: GetEntryRequest,
+    metadata?: Metadata,
+  ): Promise<GetEntryResponse> | Observable<GetEntryResponse> | GetEntryResponse;
 
   createEntry(
     request: CreateEntryRequest,
@@ -155,7 +174,14 @@ export interface PronunciationServiceController {
 
 export function PronunciationServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listEntries", "createEntry", "updateEntry", "deleteEntry", "previewAudio"];
+    const grpcMethods: string[] = [
+      "listEntries",
+      "getEntry",
+      "createEntry",
+      "updateEntry",
+      "deleteEntry",
+      "previewAudio",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("PronunciationService", method)(constructor.prototype[method], method, descriptor);

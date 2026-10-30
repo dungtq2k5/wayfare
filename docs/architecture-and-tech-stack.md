@@ -750,7 +750,8 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `GOOGLE_CLOUD_PROJECT` | narration | the project for Google Translation and Text-to-Speech; credentials come from ADC — a key file locally, the service identity in Cloud Run |
 | `CATALOG_GRPC_URL` | narration | catalog's gRPC address, for `GetLocalizationSource` |
 | `SYNTHESIS_CONCURRENCY` | narration | optional; tasks run at once per process, 1 to `MAX_CONCURRENT_TTS_JOBS` (the default) |
-| `FAKE_PROVIDER_FAILURES` | narration | local and test only: `translation`, `speech` or both — the fake of that kind fails every call; refused in production, as is `fake` in a provider order |
+| `FAKE_PROVIDER_FAILURES` | narration | local and test only: `translation`, `speech` or both — the fake of that kind fails every call; refused in production, as is `fake` in a provider order. Without it, the fake speech provider still fails **one** text: any holding the marker `[fake:speech-fails]` (development builds only), so a test can strand one Place without stopping the stack's narration |
+| `STUCK_PROCESSING_AFTER_MS` | gateway | How long a Place may sit in `PROCESSING` with no narration job before the console lists it as stuck; `3600000` (an hour) by default, `15000` in the Compose stacks so tests need not wait an hour |
 | `MAP_PACK_DATA_DIR` | catalog | base directory for the path-traversal guard |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally (OTLP) |
 | `OTEL_SDK_DISABLED` | all services | `true` turns tracing off; the test config sets it. Read by the OTel bootstrap in `nest-common`, not by the env schema |

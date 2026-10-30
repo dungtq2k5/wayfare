@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Paged } from '@wayfare/nest-common';
+import { LocalizationTargetType, MAX_STUCK_PLACES } from '@wayfare/contracts';
+import { localizationTargetTypeProto } from '@wayfare/contracts/grpc';
+import { Paged, toProtoTimestamp } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import type { Env } from '../../config/env.schema';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { IdentityService } from '../identity/identity.service';
+import { PeopleNamesService } from '../people-names/people-names.service';
+import { NarrationServiceGrpcClient } from '../narration-client/narration-service-grpc.client';
 import {
   toActivationResultResponseDto,
   toAdminPlaceListItemResponseDto,
@@ -14,6 +18,7 @@ import {
   toReplaceMenuRequest,
   toReplaceOpeningHoursRequest,
   toReplacePhotosRequest,
+  toStuckPlaceResponseDto,
   toUpdatePlaceRequest,
 } from './admin-place.mapper';
 import type {
@@ -21,6 +26,7 @@ import type {
   AdminPlaceDetailResponseDto,
   AdminPlaceListItemResponseDto,
   AdminPlaceResultResponseDto,
+  StuckPlaceResponseDto,
 } from './dto/admin-place-response.dto';
 import type {
   CreatePlaceDto,
@@ -42,12 +48,54 @@ const result = (response: { place?: Parameters<typeof toAdminPlaceResponseDto>[0
 export class AdminPlacesService {
   private readonly qrBaseUrl: string;
 
+  private readonly stuckAfterMs: number;
+
   constructor(
     private readonly catalog: CatalogServiceGrpcClient,
     private readonly identity: IdentityService,
+    private readonly narration: NarrationServiceGrpcClient,
+    private readonly people: PeopleNamesService,
     config: ConfigService<Env, true>,
   ) {
     this.qrBaseUrl = config.get('PUBLIC_QR_BASE_URL', { infer: true });
+    this.stuckAfterMs = config.get('STUCK_PROCESSING_AFTER_MS', { infer: true });
+  }
+
+  /**
+   * `GET /admin/places/stuck` (product §F7): `PROCESSING` for longer than the threshold, not
+   * deleted, and no narration job `QUEUED`, `RUNNING` or `PAUSED` for it (a pause is a person's
+   * decision). Oldest first.
+   */
+  // ponytail: capped at MAX_STUCK_PLACES and not paged — the pilot holds about a hundred Places;
+  // page it if a city's worth appears.
+  async stuck(context: AccountContext): Promise<StuckPlaceResponseDto[]> {
+    const { places } = await this.catalog.placeAdmin.call(
+      'listPlaces',
+      {
+        page: { page: 1, pageSize: MAX_STUCK_PLACES, sort: 'statusChangedAt' },
+        includeDeleted: false,
+        processingBefore: toProtoTimestamp(new Date(Date.now() - this.stuckAfterMs)),
+      },
+      context,
+    );
+    if (places.length === 0) return [];
+    const { states } = await this.narration.synthesisAdmin.call(
+      'getTargetJobStates',
+      {
+        targetType: localizationTargetTypeProto.toProto(LocalizationTargetType.PLACE),
+        targetIds: places.map((place) => place.id),
+      },
+      context,
+    );
+    const byTarget = new Map(states.map((state) => [state.targetId, state]));
+    const stuck = places.filter((place) => byTarget.get(place.id)?.active !== true);
+    const nameOf = await this.people.of(
+      context,
+      stuck.map((place) => byTarget.get(place.id)?.lastJob?.cancelledById),
+    );
+    return stuck.map((place) =>
+      toStuckPlaceResponseDto(place, byTarget.get(place.id)?.lastJob, nameOf),
+    );
   }
 
   async list(

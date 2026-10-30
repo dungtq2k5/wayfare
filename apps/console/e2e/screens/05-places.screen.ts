@@ -157,6 +157,10 @@ test('L2 an Editorial Place, L3 its narration, L6 its editorial controls, L9 its
   });
   await page.reload();
   await expect(page.getByText('Out of date').first()).toBeVisible();
+  // History is read again after the reload: its rows, before L6's whole page is drawn.
+  await expect(
+    page.getByRole('region', { name: 'History' }).getByText('Created', { exact: true }),
+  ).toBeVisible();
   await look(page, 'l3-narration', {
     target: page.getByRole('region', { name: 'Narration', exact: true }).first(),
   });
@@ -276,14 +280,27 @@ test('L8c Places, including deleted', async ({ page }) => {
   await look(page, 'l8c-places-including-deleted');
 });
 
-/** A seeded Venue to deactivate: the first live one by name that no other screen draws. */
+/**
+ * A seeded Venue to deactivate: the first by name that no other screen draws. An attempt that timed
+ * out in the browser may still have deactivated it, so a retry turns it back on and draws the same one.
+ */
 async function seededVenue(): Promise<{ id: string; nameVi: string }> {
   const lan = await actor(PEOPLE.lan);
-  const { data } = await lan.call<{ data: { id: string; nameVi: string }[] }>(
+  const { data } = await lan.call<{ data: { id: string; nameVi: string; status: string }[] }>(
     'GET',
-    '/admin/places?kind=VENUE&status=ACTIVE&sort=nameVi&pageSize=50',
+    '/admin/places?kind=VENUE&sort=nameVi&pageSize=50',
   );
-  return data.find((row) => row.nameVi !== 'Ốc Oanh' && !row.nameVi.startsWith('Quán Ốc Mẫu'))!;
+  const venue = data.find(
+    (row) =>
+      ['ACTIVE', 'INACTIVE'].includes(row.status) &&
+      row.nameVi !== 'Ốc Oanh' &&
+      !row.nameVi.startsWith('Quán Ốc Mẫu'),
+  )!;
+  if (venue.status === 'INACTIVE') {
+    await lan.call('POST', `/admin/places/${venue.id}/activate`);
+    await untilStatus(lan, venue.id, 'ACTIVE');
+  }
+  return venue;
 }
 
 test('L8e deactivate a Venue, L8f deactivated with no Undo', async ({ page }) => {

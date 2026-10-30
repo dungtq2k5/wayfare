@@ -4,7 +4,10 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { RecoveryResultResponseDtoRecoveryApprovedBy } from './recoveryResultResponseDtoRecoveryApprovedBy.js';
 import type { RecoveryResultResponseDtoRecoveryEvidenceCodesItem } from './recoveryResultResponseDtoRecoveryEvidenceCodesItem.js';
+import type { RecoveryResultResponseDtoRecoveryOpenedBy } from './recoveryResultResponseDtoRecoveryOpenedBy.js';
+import type { RecoveryResultResponseDtoRecoveryOwner } from './recoveryResultResponseDtoRecoveryOwner.js';
 import type { RecoveryResultResponseDtoRecoveryStatus } from './recoveryResultResponseDtoRecoveryStatus.js';
 
 export type RecoveryResultResponseDtoRecovery = {
@@ -29,4 +32,8 @@ export type RecoveryResultResponseDtoRecovery = {
   createdAt: string;
   /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
   updatedAt: string;
+  owner: RecoveryResultResponseDtoRecoveryOwner;
+  openedBy: RecoveryResultResponseDtoRecoveryOpenedBy;
+  approvedBy: RecoveryResultResponseDtoRecoveryApprovedBy;
+  approvedAt: string | null;
 };

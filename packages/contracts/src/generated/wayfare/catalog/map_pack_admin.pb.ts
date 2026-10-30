@@ -41,7 +41,11 @@ export interface MapPack {
     | Timestamp
     | undefined;
   /** The dark flavour's style; absent for a pack with light only. */
-  styleDark?: MapPackObject | undefined;
+  styleDark?:
+    | MapPackObject
+    | undefined;
+  /** Who registered it; the gateway names them by its rule. */
+  createdById: string;
 }
 
 export interface ListMapPacksRequest {

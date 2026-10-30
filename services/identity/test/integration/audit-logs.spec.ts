@@ -1,4 +1,5 @@
-import { AUDIT_ACTIONS, compareStrings, newId, SystemRole } from '@wayfare/contracts';
+import { AccountKind, AUDIT_ACTIONS, compareStrings, newId, SystemRole } from '@wayfare/contracts';
+import { accountKindProto } from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import { toProtoTimestamp } from '@wayfare/nest-common';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -68,6 +69,24 @@ describe('ListAuditLogs', () => {
       resource: { type: 'USER' },
       metadataJson: '{"reason":"r"}',
     });
+  });
+
+  it("names a user actor and a user resource, with the actor's kind", async () => {
+    const actor = await staffAccount(prisma, [SystemRole.SUPER_ADMIN], { fullName: 'Mai Anh' });
+    const subject = await staffAccount(prisma, [], { fullName: 'Minh Tran' });
+    const erasedAt = new Date(now - 2 * HOUR);
+    const erased = await staffAccount(prisma, [], { deletedAt: erasedAt, erasedAt });
+    await row(new Date(now - HOUR), { actorUserId: actor.id, resourceId: subject.id });
+    await row(new Date(now - 2 * HOUR), { actorUserId: erased.id, resourceId: erased.id });
+    const { entries } = await list(actor.context);
+    expect(entries[0]?.actor).toMatchObject({
+      name: 'Mai Anh',
+      kind: accountKindProto.toProto(AccountKind.STAFF),
+    });
+    expect(entries[0]?.resource?.label).toBe('Minh Tran');
+    // An erased person keeps their kind but has no name.
+    expect(entries[1]?.actor?.name).toBeUndefined();
+    expect(entries[1]?.resource?.label).toBeUndefined();
   });
 
   it('pages by keyset without gaps or repeats, across equal instants', async () => {

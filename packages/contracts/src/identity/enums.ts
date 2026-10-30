@@ -33,6 +33,32 @@ export enum OwnerRegistrationStatus {
 /** Every `OwnerRegistrationStatus` value. */
 export const OWNER_REGISTRATION_STATUSES = Object.values(OwnerRegistrationStatus);
 
+/**
+ * What an account is, from its roles (rdm-spec I-1): staff if it holds any role but `USER` and
+ * `VENUE_OWNER`, else an owner if it holds `VENUE_OWNER`, else a tourist.
+ */
+export enum AccountKind {
+  STAFF = 'STAFF',
+  OWNER = 'OWNER',
+  TOURIST = 'TOURIST',
+}
+
+/** Every `AccountKind` value. */
+export const ACCOUNT_KINDS = Object.values(AccountKind);
+
+/**
+ * The users list's owner filter (api-endpoints-plan §1.6): verified, applying (a pending
+ * registration, not yet verified), or neither.
+ */
+export enum OwnerStatus {
+  VERIFIED = 'VERIFIED',
+  PENDING = 'PENDING',
+  NONE = 'NONE',
+}
+
+/** Every `OwnerStatus` value. */
+export const OWNER_STATUSES = Object.values(OwnerStatus);
+
 /** What a single-use emailed token is for — rdm-spec I-9 `action_tokens.purpose`. */
 export enum ActionTokenPurpose {
   PASSWORD_RESET = 'PASSWORD_RESET',

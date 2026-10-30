@@ -14,6 +14,40 @@ type ProtoCorrection = narrationGrpc.Correction;
 /** A correction's row. */
 export type OverrideRow = LocalizationOverride;
 
+/** A correction's row as raw SQL returns it: the columns' own names. */
+export interface OverrideColumnsRow {
+  readonly id: string;
+  readonly target_type: string;
+  readonly target_id: string;
+  readonly lang: string;
+  readonly source_content_hash: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly status: string;
+  readonly edited_by_id: string;
+  readonly reverted_by_id: string | null;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+}
+
+/** A raw row as Prisma's own type. */
+export function fromOverrideColumnsRow(row: OverrideColumnsRow): OverrideRow {
+  return {
+    id: row.id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    lang: row.lang,
+    sourceContentHash: row.source_content_hash,
+    name: row.name,
+    description: row.description,
+    status: row.status,
+    editedById: row.edited_by_id,
+    revertedById: row.reverted_by_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 /** A correction as the console shows it; `supersededByHash` is the target's current hash away. */
 export function toCorrection(row: OverrideRow, currentHash: string): Correction {
   return {

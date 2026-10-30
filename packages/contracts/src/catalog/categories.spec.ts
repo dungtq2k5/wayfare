@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SYSTEM_CATEGORIES, systemCategory, TEST_CATEGORY_PREFIX } from './categories';
 import { zCategoryCode } from './schemas';
+import { CATEGORY_ICONS, categoryIconName } from './category-icons';
 
 describe('SYSTEM_CATEGORIES', () => {
   it('holds valid, unique codes and unique sort orders, none with the test prefix', () => {
@@ -18,5 +19,17 @@ describe('SYSTEM_CATEGORIES', () => {
   it('finds an entry by code', () => {
     expect(systemCategory('MARKET')?.appliesTo).toBe('ANY');
     expect(systemCategory('NOPE')).toBeUndefined();
+  });
+});
+
+describe('categoryIconName', () => {
+  it("draws a mapped code's icon, and a new code as the pin", () => {
+    expect(categoryIconName('STREET_FOOD')).toBe('soup');
+    expect(categoryIconName('NIGHT_MARKET')).toBe('map-pin');
+  });
+
+  it('maps every system category', () => {
+    for (const entry of SYSTEM_CATEGORIES)
+      expect(Object.hasOwn(CATEGORY_ICONS, entry.code)).toBe(true);
   });
 });

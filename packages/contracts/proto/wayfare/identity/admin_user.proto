@@ -5,6 +5,7 @@ package wayfare.identity;
 
 import "google/protobuf/timestamp.proto";
 import "wayfare/common/page.proto";
+import "wayfare/identity/owner.proto";
 
 // Lists, creates, locks, deactivates and signs out accounts. The caller travels as metadata; the
 // gateway checks the route's permission, identity checks the rules it alone can know.
@@ -21,6 +22,40 @@ service AdminUserService {
   rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (RevokeUserSessionsResponse);
   rpc ListEmailDeliveries(ListEmailDeliveriesRequest) returns (ListEmailDeliveriesResponse);
   rpc CheckEmailDelivery(CheckEmailDeliveryRequest) returns (CheckEmailDeliveryResponse);
+  // Internal: people's names for other services' reads (api-endpoints-plan §0's names rule). The
+  // gateway decides whether the caller may see them.
+  rpc GetUserNames(GetUserNamesRequest) returns (GetUserNamesResponse);
+}
+
+// What an account is, from its roles (rdm-spec I-1).
+enum AccountKind {
+  ACCOUNT_KIND_UNSPECIFIED = 0;
+  ACCOUNT_KIND_STAFF = 1;
+  ACCOUNT_KIND_OWNER = 2;
+  ACCOUNT_KIND_TOURIST = 3;
+}
+
+// The users list's owner filter.
+enum OwnerStatus {
+  OWNER_STATUS_UNSPECIFIED = 0;
+  OWNER_STATUS_VERIFIED = 1;
+  OWNER_STATUS_PENDING = 2;
+  OWNER_STATUS_NONE = 3;
+}
+
+message GetUserNamesRequest {
+  repeated string user_ids = 1;
+}
+
+message GetUserNamesResponse {
+  // One per known id; an unknown id is absent.
+  repeated UserName users = 1;
+}
+
+// `name` is the full name, else the email; unset for an erased account.
+message UserName {
+  string id = 1;
+  optional string name = 2;
 }
 
 // A transactional email template (rdm-spec I-13).
@@ -66,8 +101,10 @@ message ListUsersRequest {
   optional string role_id = 2;
   // Currently locked: set and not lapsed.
   optional bool is_locked = 3;
-  optional bool owner_verified = 4;
+  reserved 4;
+  reserved "owner_verified";
   bool include_deleted = 5;
+  optional OwnerStatus owner_status = 6;
 }
 
 message ListUsersResponse {
@@ -104,6 +141,9 @@ message AdminUser {
   google.protobuf.Timestamp last_login_at = 9;
   google.protobuf.Timestamp deleted_at = 10;
   google.protobuf.Timestamp created_at = 11;
+  AccountKind kind = 12;
+  // The latest registration's status; unset when the account never applied.
+  optional OwnerRegistrationStatus owner_registration_status = 13;
 }
 
 // An erased account: only its id and when (ADR 0048).
@@ -131,6 +171,22 @@ message AdminUserDetail {
   SessionSummary sessions = 3;
   // Staff-only (rdm-spec I-1).
   optional string lock_reason = 4;
+  // The union of the account's roles' live codes.
+  repeated string permission_codes = 5;
+  bool password_set = 6;
+  // The Google address when it was linked (rdm-spec I-15); unset when not linked.
+  optional string google_email = 7;
+  string preferred_locale = 8;
+  // The latest device's last sighting; unset with no device.
+  google.protobuf.Timestamp devices_last_seen_at = 9;
+  // The latest registration; unset when the account never applied.
+  OwnerRegistrationSummary owner_registration = 10;
+}
+
+message OwnerRegistrationSummary {
+  OwnerRegistrationStatus status = 1;
+  google.protobuf.Timestamp submitted_at = 2;
+  google.protobuf.Timestamp reviewed_at = 3;
 }
 
 // Live session families, by client.

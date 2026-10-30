@@ -114,3 +114,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS map_packs_one_published
   WHERE status = 'PUBLISHED';
 ALTER TABLE map_packs DROP CONSTRAINT IF EXISTS map_packs_zoom_ck;
 ALTER TABLE map_packs ADD CONSTRAINT map_packs_zoom_ck CHECK (max_zoom >= min_zoom);
+
+-- places.status_changed_at (rdm-spec C-1): stamped whenever the status changes, by every write path —
+-- the service's updates, the consumers' and raw SQL alike — so no path can forget it. A trigger is used
+-- only for a column every write path must stamp (conventions §5).
+CREATE OR REPLACE FUNCTION places_stamp_status_changed_at() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.status_changed_at := now();
+  RETURN NEW;
+END
+$$;
+DROP TRIGGER IF EXISTS places_status_changed_at_trg ON places;
+CREATE TRIGGER places_status_changed_at_trg
+  BEFORE UPDATE OF status ON places
+  FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)
+  EXECUTE FUNCTION places_stamp_status_changed_at();

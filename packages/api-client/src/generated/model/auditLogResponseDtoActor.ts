@@ -4,6 +4,7 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { AuditLogResponseDtoActorKind } from './auditLogResponseDtoActorKind.js';
 import type { AuditLogResponseDtoActorType } from './auditLogResponseDtoActorType.js';
 
 export type AuditLogResponseDtoActor = {
@@ -12,4 +13,7 @@ export type AuditLogResponseDtoActor = {
   userId: string | null;
   /** @nullable */
   deviceId: string | null;
+  /** @nullable */
+  name: string | null;
+  kind: AuditLogResponseDtoActorKind;
 };

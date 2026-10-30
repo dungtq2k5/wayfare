@@ -15,7 +15,7 @@ export interface MapPoint {
 let registered = false;
 
 /** The `pmtiles://` protocol a map pack's style names its archive with (ADR 0023), once. */
-function registerPmtiles(): void {
+export function registerPmtiles(): void {
   if (registered) return;
   maplibregl.addProtocol('pmtiles', new Protocol().tile);
   registered = true;

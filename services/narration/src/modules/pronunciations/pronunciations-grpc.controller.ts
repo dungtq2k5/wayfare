@@ -31,6 +31,13 @@ export class PronunciationsGrpcController implements narrationGrpc.Pronunciation
     return this.pronunciations.updateEntry(request, unpackCallerContext(metadata));
   }
 
+  getEntry(
+    request: narrationGrpc.GetEntryRequest,
+    metadata?: Metadata,
+  ): Promise<narrationGrpc.GetEntryResponse> {
+    return this.pronunciations.getEntry(request, unpackCallerContext(metadata));
+  }
+
   deleteEntry(
     request: narrationGrpc.DeleteEntryRequest,
     metadata?: Metadata,

@@ -74,6 +74,9 @@ export const zPronunciationEntry = z
     note: z.string().nullable(),
     isActive: z.boolean(),
     updatedAt: z.iso.datetime({ offset: true }),
+    updatedById: zUuidV7,
+    /** Who last changed it; `name` is `null` unless the caller may see names (api §0's rule). */
+    updatedBy: z.object({ id: zUuidV7, name: z.string().nullable() }).strict(),
   })
   .strict();
 /** A dictionary entry. */

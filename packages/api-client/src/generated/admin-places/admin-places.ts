@@ -34,6 +34,7 @@ import type {
   AdminPlacesReplaceOpeningHours200,
   AdminPlacesReplacePhotos200,
   AdminPlacesRestore200,
+  AdminPlacesStuck200,
   AdminPlacesUpdate200,
   AdminPlacesUpdateEditorial200,
   CreatePlaceDto,
@@ -265,7 +266,107 @@ export const useAdminPlacesCreate = <TError = unknown,
       > => {
       return useMutation(getAdminPlacesCreateMutationOptions(options), queryClient);
     }
-    export const getAdminPlacesGetUrl = (id: string,) => {
+    export const getAdminPlacesStuckUrl = () => {
+
+
+
+
+  return `/admin/places/stuck`
+}
+
+/**
+ * @summary Places processing longer than the threshold with no narration job moving them.
+ */
+export const adminPlacesStuck = async ( options?: Parameters<typeof apiFetch>[1]): Promise<AdminPlacesStuck200> => {
+
+  return apiFetch<AdminPlacesStuck200>(getAdminPlacesStuckUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminPlacesStuckQueryKey = () => {
+    return [
+    `/admin/places/stuck`
+    ] as const;
+    }
+
+
+export const getAdminPlacesStuckQueryOptions = <TData = Awaited<ReturnType<typeof adminPlacesStuck>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlacesStuck>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminPlacesStuckQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminPlacesStuck>>> = ({ signal }) => adminPlacesStuck({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminPlacesStuck>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminPlacesStuckQueryResult = NonNullable<Awaited<ReturnType<typeof adminPlacesStuck>>>
+export type AdminPlacesStuckQueryError = unknown
+
+
+export function useAdminPlacesStuck<TData = Awaited<ReturnType<typeof adminPlacesStuck>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlacesStuck>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPlacesStuck>>,
+          TError,
+          Awaited<ReturnType<typeof adminPlacesStuck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPlacesStuck<TData = Awaited<ReturnType<typeof adminPlacesStuck>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlacesStuck>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPlacesStuck>>,
+          TError,
+          Awaited<ReturnType<typeof adminPlacesStuck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPlacesStuck<TData = Awaited<ReturnType<typeof adminPlacesStuck>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlacesStuck>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Places processing longer than the threshold with no narration job moving them.
+ */
+
+export function useAdminPlacesStuck<TData = Awaited<ReturnType<typeof adminPlacesStuck>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlacesStuck>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminPlacesStuckQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getAdminPlacesGetUrl = (id: string,) => {
 
 
 

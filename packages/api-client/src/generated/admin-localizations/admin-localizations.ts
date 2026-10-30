@@ -24,6 +24,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminCorrectionsList200,
+  AdminCorrectionsListParams,
   AdminLocalizationsOverview200,
   AdminLocalizationsPut200,
   PutCorrectionDto
@@ -332,3 +334,110 @@ export const useAdminLocalizationsRevert = <TError = unknown,
       > => {
       return useMutation(getAdminLocalizationsRevertMutationOptions(options), queryClient);
     }
+    export const getAdminCorrectionsListUrl = (params?: AdminCorrectionsListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/admin/narration/corrections?${stringifiedParams}` : `/admin/narration/corrections`
+}
+
+/**
+ * @summary The corrections across targets, needing review first.
+ */
+export const adminCorrectionsList = async (params?: AdminCorrectionsListParams, options?: Parameters<typeof apiFetch>[1]): Promise<AdminCorrectionsList200> => {
+
+  return apiFetch<AdminCorrectionsList200>(getAdminCorrectionsListUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminCorrectionsListQueryKey = (params?: AdminCorrectionsListParams,) => {
+    return [
+    `/admin/narration/corrections`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getAdminCorrectionsListQueryOptions = <TData = Awaited<ReturnType<typeof adminCorrectionsList>>, TError = unknown>(params?: AdminCorrectionsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminCorrectionsList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminCorrectionsListQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminCorrectionsList>>> = ({ signal }) => adminCorrectionsList(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminCorrectionsList>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminCorrectionsListQueryResult = NonNullable<Awaited<ReturnType<typeof adminCorrectionsList>>>
+export type AdminCorrectionsListQueryError = unknown
+
+
+export function useAdminCorrectionsList<TData = Awaited<ReturnType<typeof adminCorrectionsList>>, TError = unknown>(
+ params: undefined |  AdminCorrectionsListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminCorrectionsList>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminCorrectionsList>>,
+          TError,
+          Awaited<ReturnType<typeof adminCorrectionsList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminCorrectionsList<TData = Awaited<ReturnType<typeof adminCorrectionsList>>, TError = unknown>(
+ params?: AdminCorrectionsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminCorrectionsList>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminCorrectionsList>>,
+          TError,
+          Awaited<ReturnType<typeof adminCorrectionsList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminCorrectionsList<TData = Awaited<ReturnType<typeof adminCorrectionsList>>, TError = unknown>(
+ params?: AdminCorrectionsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminCorrectionsList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The corrections across targets, needing review first.
+ */
+
+export function useAdminCorrectionsList<TData = Awaited<ReturnType<typeof adminCorrectionsList>>, TError = unknown>(
+ params?: AdminCorrectionsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminCorrectionsList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminCorrectionsListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+

@@ -9,6 +9,7 @@ import "wayfare/common/page.proto";
 // How a term is read aloud. The gateway checks `pronunciation.manage`.
 service PronunciationService {
   rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+  rpc GetEntry(GetEntryRequest) returns (GetEntryResponse);
   rpc CreateEntry(CreateEntryRequest) returns (CreateEntryResponse);
   rpc UpdateEntry(UpdateEntryRequest) returns (UpdateEntryResponse);
   rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
@@ -35,6 +36,16 @@ message PronunciationEntry {
   optional string note = 7;
   bool is_active = 8;
   google.protobuf.Timestamp updated_at = 9;
+  // Who last changed it; the gateway names them by its rule.
+  string updated_by_id = 10;
+}
+
+message GetEntryRequest {
+  string entry_id = 1;
+}
+
+message GetEntryResponse {
+  PronunciationEntry entry = 1;
 }
 
 // One entry as a write states it; `id` and the timestamps are the server's.

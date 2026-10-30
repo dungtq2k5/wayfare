@@ -6,6 +6,7 @@
   "exports": {
     "./*": "./src/*.tsx",
     "./paging": "./src/paging.ts",
+    "./boundary-model": "./src/boundary-model.ts",
     "./word-diff": "./src/word-diff.ts",
     "./cn": "./src/cn.ts"
   },

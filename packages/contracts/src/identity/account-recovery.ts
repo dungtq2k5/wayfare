@@ -4,7 +4,12 @@ import { zPageQuery } from '../common/pagination';
 import { normalizeText } from '../common/text';
 import { zEmail } from './email';
 import { AccountRecoveryStatus, RECOVERY_EVIDENCE_CODES, RecoveryEvidenceCode } from './enums';
-import { MAX_PASSWORD_LENGTH, MAX_SUPPORT_REFERENCE_LENGTH, MIN_PASSWORD_LENGTH } from './limits';
+import {
+  MAX_PASSWORD_LENGTH,
+  MAX_RECOVERY_DECISION_NOTE_LENGTH,
+  MAX_SUPPORT_REFERENCE_LENGTH,
+  MIN_PASSWORD_LENGTH,
+} from './limits';
 
 const zInstant = z.iso.datetime({ offset: true });
 
@@ -55,6 +60,13 @@ export const zRecovery = z
     completedAt: zInstant.nullable(),
     createdAt: zInstant,
     updatedAt: zInstant,
+    /** The account being recovered, always shown to staff. `name` is `null` once erased. */
+    owner: z.object({ name: z.string().nullable(), email: z.string() }).strict(),
+    /** The people; `name` is `null` unless the caller may see names (api §0's rule). */
+    openedBy: z.object({ id: zUuidV7, name: z.string().nullable() }).strict(),
+    approvedBy: z.object({ id: zUuidV7, name: z.string().nullable() }).strict().nullable(),
+    /** When it was approved: the hold's end less `RECOVERY_HOLD_HOURS`; `null` before. */
+    approvedAt: zInstant.nullable(),
   })
   .strict();
 /** One recovery case. */
@@ -72,7 +84,14 @@ export const zRecoveryQuery = zPageQuery({
 export type RecoveryQuery = z.output<typeof zRecoveryQuery>;
 
 /** `POST /admin/email-recoveries/:id/reject` body: the note says why. */
-export const zRejectRecoveryInput = z.object({ decisionNote: zSupportReference }).strict();
+export const zRejectRecoveryInput = z
+  .object({
+    decisionNote: z
+      .string()
+      .transform(normalizeText)
+      .pipe(z.string().min(1).max(MAX_RECOVERY_DECISION_NOTE_LENGTH)),
+  })
+  .strict();
 
 /**
  * `POST /account-recoveries/:id/cancel` body. The token comes from a hold notice; the case's own

@@ -20,11 +20,14 @@ export function toPronunciationEntry(row: PronunciationRow): narrationGrpc.Pronu
     note: row.note ?? undefined,
     isActive: row.isActive,
     updatedAt: toProtoTimestamp(row.updatedAt),
+    updatedById: row.updatedById,
   };
 }
 
 /** An entry as the domain reads it: what a write states, whatever wire shape it arrived in. */
-export function fromProtoPronunciationDraft(draft: narrationGrpc.PronunciationDraft): Entry {
+export function fromProtoPronunciationDraft(
+  draft: narrationGrpc.PronunciationDraft,
+): Omit<Entry, 'updatedById' | 'updatedBy'> {
   return {
     id: '',
     term: draft.term,

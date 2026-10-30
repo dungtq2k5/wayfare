@@ -24,18 +24,32 @@ async function put(path: string, bytes: Buffer, contentType: string): Promise<vo
   if (!response.ok) throw new Error(`upload ${path} → ${response.status}`);
 }
 
-/** Uploads, registers and publishes each area's pack, unless one is published already. */
+/** The area whose packs round 35's A5 draws: a published version, and one being built after it. */
+export const PACKS_AREA = 'hcmc-d1-core';
+
+/**
+ * Uploads, registers and publishes each area's pack, unless one is published already; District 1
+ * also gets a second version, registered and not published (A5's *Building* row).
+ */
 export async function publishMapPacks(admin: Actor): Promise<void> {
   const { data: areas } = await admin.call<{
     data: { id: string; code: string; mapPack: unknown }[];
   }>('GET', '/areas');
   for (const area of areas) {
-    if (area.mapPack == null) await publishMapPack(admin, area);
+    if (area.mapPack != null) continue;
+    await registerMapPack(admin, area, 'v1', true);
+    if (area.code === PACKS_AREA) await registerMapPack(admin, area, 'v2', false);
   }
 }
 
-async function publishMapPack(admin: Actor, area: { id: string; code: string }): Promise<void> {
-  const archive = Buffer.from(`screens stand-in for ${area.code}'s map pack`);
+/** Uploads and registers one version of an area's pack, as the tiles build does; publishes it when asked. */
+export async function registerMapPack(
+  admin: Actor,
+  area: { id: string; code: string },
+  edition: string,
+  publish: boolean,
+): Promise<void> {
+  const archive = Buffer.from(`screens stand-in for ${area.code}'s map pack, ${edition}`);
   const prefix = `maps/${area.code}/${sha256(archive).slice(0, 16)}/`;
   const objects = {
     pmtiles: { path: `${prefix}map.pmtiles`, bytes: archive, type: 'application/octet-stream' },
@@ -72,5 +86,5 @@ async function publishMapPack(admin: Actor, area: { id: string; code: string }):
       buildTool: 'apps/console/e2e/screens',
     },
   );
-  await admin.call('POST', `/admin/map-packs/${data.mapPack.id}/publish`);
+  if (publish) await admin.call('POST', `/admin/map-packs/${data.mapPack.id}/publish`);
 }

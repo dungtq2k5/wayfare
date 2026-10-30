@@ -1,7 +1,10 @@
 import {
+  accountKindProto,
   emailBounceTypeProto,
   emailDeliveryStatusProto,
   emailTemplateProto,
+  ownerRegistrationStatusProto,
+  ownerStatusProto,
 } from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import {
@@ -37,7 +40,27 @@ export function toAdminUserResponseDto(
     lastLoginAt: iso(fromOptionalProtoTimestamp(user.lastLoginAt, 'lastLoginAt')),
     deletedAt: iso(fromOptionalProtoTimestamp(user.deletedAt, 'deletedAt')),
     createdAt: fromProtoTimestamp(user.createdAt, 'createdAt').toISOString(),
+    kind: known(accountKindProto, user.kind, 'kind'),
+    ownerRegistrationStatus:
+      user.ownerRegistrationStatus === undefined
+        ? null
+        : known(
+            ownerRegistrationStatusProto,
+            user.ownerRegistrationStatus,
+            'ownerRegistrationStatus',
+          ),
   };
+}
+
+/** A proto enum value the gateway knows; an unknown one is an identity newer than this gateway. */
+function known<D extends string>(
+  bridge: { fromProto(value: number): D | null },
+  value: number,
+  field: string,
+): D {
+  const member = bridge.fromProto(value);
+  if (member === null) throw new Error(`identity sent an unknown ${field}: ${String(value)}`);
+  return member;
 }
 
 /** One list row: the placeholder for an erased account, the account otherwise. */
@@ -80,7 +103,33 @@ export function toAdminUserViewResponse(
       },
     },
     lockReason: detail.lockReason ?? null,
-    ownerRegistration: null,
+    permissionCodes: detail.permissionCodes,
+    passwordSet: detail.passwordSet,
+    googleEmail: detail.googleEmail ?? null,
+    preferredLocale: detail.preferredLocale,
+    devicesLastSeenAt: iso(
+      fromOptionalProtoTimestamp(detail.devicesLastSeenAt, 'devicesLastSeenAt'),
+    ),
+    ownerRegistration:
+      detail.ownerRegistration === undefined || detail.ownerRegistration === null
+        ? null
+        : {
+            status: known(
+              ownerRegistrationStatusProto,
+              detail.ownerRegistration.status,
+              'ownerRegistration.status',
+            ),
+            submittedAt: fromProtoTimestamp(
+              detail.ownerRegistration.submittedAt,
+              'ownerRegistration.submittedAt',
+            ).toISOString(),
+            reviewedAt: iso(
+              fromOptionalProtoTimestamp(
+                detail.ownerRegistration.reviewedAt,
+                'ownerRegistration.reviewedAt',
+              ),
+            ),
+          },
   };
 }
 
@@ -95,7 +144,9 @@ export function toListUsersRequest(query: ListUsersQueryDto): identityGrpc.ListU
     },
     ...(query.roleId === undefined ? {} : { roleId: query.roleId }),
     ...(query.isLocked === undefined ? {} : { isLocked: query.isLocked }),
-    ...(query.ownerVerified === undefined ? {} : { ownerVerified: query.ownerVerified }),
+    ...(query.ownerStatus === undefined
+      ? {}
+      : { ownerStatus: ownerStatusProto.toProto(query.ownerStatus) }),
     includeDeleted: query.includeDeleted ?? false,
   };
 }

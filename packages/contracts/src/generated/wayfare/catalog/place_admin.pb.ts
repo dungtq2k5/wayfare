@@ -34,6 +34,8 @@ export interface ListPlacesRequest {
   categoryCode?: string | undefined;
   ownerUserId?: string | undefined;
   includeDeleted: boolean;
+  /** With status PROCESSING: only Places in it since before this instant (the stuck-Places check). */
+  processingBefore: Timestamp | undefined;
 }
 
 export interface ListPlacesResponse {
@@ -57,6 +59,11 @@ export interface AdminPlaceListItem {
   cover: PhotoView | undefined;
   updatedAt: Timestamp | undefined;
   deletedAt: Timestamp | undefined;
+  location:
+    | GeoPoint
+    | undefined;
+  /** When the status last changed (rdm-spec C-1). */
+  statusChangedAt: Timestamp | undefined;
 }
 
 export interface GetPlaceAdminRequest {

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AudioStatus } from '../catalog/enums';
 import { MAX_DESCRIPTION_CHARS, MAX_PLACE_NAME_LENGTH } from '../catalog/limits';
 import { zUuidV7 } from '../common/ids';
+import { zCursorQuery } from '../common/pagination';
 import { zServedLanguage } from '../common/languages';
 import { zSha256Hex } from '../events/event-definition';
 import { LocalizationTargetType, OverrideStatus, TranslationSource } from './enums';
@@ -49,8 +50,13 @@ export const zLocalizationOverviewRow = z
     description: z.string().nullable(),
     translationSource: z.enum(TranslationSource),
     audioStatus: z.enum(AudioStatus),
-    /** The correction held for this language, whether or not it is in use. */
+    /**
+     * The language's latest correction, whether or not it is in use: an active one, or one a
+     * Vietnamese change superseded (a revert by nobody). A person's revert leaves none.
+     */
     correction: zCorrection.nullable(),
+    /** The correction no longer matches the Vietnamese: someone should look at it again. */
+    needsReview: z.boolean(),
   })
   .strict();
 
@@ -68,3 +74,27 @@ export const zLocalizationOverview = z
   .strict();
 /** A correction screen. */
 export type LocalizationOverview = z.output<typeof zLocalizationOverview>;
+
+/** `GET /admin/narration/corrections` (api-endpoints-plan §4.5): which come first. */
+export const CORRECTIONS_SHOW = ['REVIEW_FIRST', 'RECENT'] as const;
+
+/** The corrections list's query: needing review first (the default), or newest first. */
+export const zCorrectionsQuery = zCursorQuery
+  .extend({ show: z.enum(CORRECTIONS_SHOW).default('REVIEW_FIRST') })
+  .strict();
+/** A validated corrections list query. */
+export type CorrectionsQuery = z.output<typeof zCorrectionsQuery>;
+
+/** One row of the corrections list: a language's latest correction across every target. */
+export const zCorrectionListItem = z
+  .object({
+    correction: zCorrection,
+    /** The target's Vietnamese name now; empty when the target is gone. */
+    targetNameVi: z.string(),
+    needsReview: z.boolean(),
+    /** Who wrote it; `name` is `null` unless the caller may see names (api §0's rule). */
+    editedBy: z.object({ id: zUuidV7, name: z.string().nullable() }).strict(),
+  })
+  .strict();
+/** One row of the corrections list. */
+export type CorrectionListItem = z.output<typeof zCorrectionListItem>;

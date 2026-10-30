@@ -26,6 +26,8 @@ export type AdminUserViewResponseDto = {
   deletedAt: string | null;
   /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
   createdAt: string;
+  kind: 'STAFF' | 'OWNER' | 'TOURIST';
+  ownerRegistrationStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN' | null;
   /**
      * @minimum 0
      * @maximum 9007199254740991
@@ -57,8 +59,18 @@ export type AdminUserViewResponseDto = {
 };
   /** @nullable */
   lockReason: string | null;
+  permissionCodes: string[];
+  passwordSet: boolean;
   /** @nullable */
-  ownerRegistration: null;
+  googleEmail: string | null;
+  preferredLocale: string;
+  devicesLastSeenAt: string | null;
+  ownerRegistration: {
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
+  submittedAt: string;
+  reviewedAt: string | null;
+} | null;
 } | {
   erased: true;
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */

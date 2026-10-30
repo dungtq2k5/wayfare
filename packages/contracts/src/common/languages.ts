@@ -34,6 +34,45 @@ export const SUPPORTED_LANGUAGES = [...CONTENT_LANGUAGES, ...LONG_TAIL_LANGUAGES
 /** Every language Wayfare serves. */
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
+/**
+ * Each language written in itself, the one list the app and the console draw: a picker must be
+ * readable by someone who cannot read the rest.
+ */
+export const LANGUAGE_NAMES: Readonly<Record<Language, string>> = {
+  vi: 'Tiếng Việt',
+  en: 'English',
+  'zh-Hans': '简体中文',
+  ja: '日本語',
+  ko: '한국어',
+  'zh-Hant': '繁體中文',
+  fr: 'Français',
+  de: 'Deutsch',
+  es: 'Español',
+  ru: 'Русский',
+  th: 'ไทย',
+  id: 'Bahasa Indonesia',
+  ms: 'Bahasa Melayu',
+  hi: 'हिन्दी',
+};
+
+/** Each language in English: the app picker's second line and the console's English names. */
+export const LANGUAGE_ENGLISH_NAMES: Readonly<Record<Language, string>> = {
+  vi: 'Vietnamese',
+  en: 'English',
+  'zh-Hans': 'Chinese (Simplified)',
+  ja: 'Japanese',
+  ko: 'Korean',
+  'zh-Hant': 'Chinese (Traditional)',
+  fr: 'French',
+  de: 'German',
+  es: 'Spanish',
+  ru: 'Russian',
+  th: 'Thai',
+  id: 'Indonesian',
+  ms: 'Malay',
+  hi: 'Hindi',
+};
+
 /** Upper bound of a BCP 47 language code column (rdm-spec §2.3). */
 export const MAX_LANGUAGE_CODE_LENGTH = 16;
 

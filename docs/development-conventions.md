@@ -597,6 +597,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS place_submissions_one_pending_update
 
 - Every statement is idempotent and carries a comment naming the invariant and the rdm-spec table.
 - The file **is** rdm-spec §5 in executable form; a PR changing one changes the other.
+- **A trigger only stamps a column that every write path must stamp** — today `places.status_changed_at`, which about twenty writes, raw SQL among them, would otherwise each have to remember. It lives here with its function, never moves a row's meaning beyond that stamp, and has an integration test proving it fires on the change and not on any other edit.
 - `pnpm db:verify` asserts every object in §5 exists in both the working and the `_test` database. Run it after any schema change — a push can succeed on the empty test database and refuse on the populated working one.
 
 ### 8.8 Query hygiene
@@ -705,6 +706,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 ### 11.2 Language codes and fallback
 
 - Language codes are validated against `CONTENT_LANGUAGES` / `isSupportedLanguage()` and normalized with `normalizeLang()` — `zh` becomes `zh-Hans`, `EN-us` becomes `en`.
+- **A language's name comes from one list,** `LANGUAGE_NAMES` (each language written in itself — "简体中文", "ไทย") and `LANGUAGE_ENGLISH_NAMES` in `packages/contracts`, read by the app and the console alike; never `Intl.DisplayNames`, whose names differ by browser and runtime. A spec holds both lists to every `Language`.
 - **A language is typed `Language`.** Inputs parse with `zLanguage` (which normalizes); a schema describing what the server returns types its `lang` with `zServedLanguage`; a string from the database becomes a `Language` only through `servedLanguage(value, owner)`, which throws on a corrupt row — the request fails as a `500` naming the row, never a value outside the union — and never through a cast. A persisted client value is checked with `isSupportedLanguage` when it is read back. `string` remains only where any tag is genuinely accepted: a `?lang=` before normalization (`zRequestedLanguage`), a tag handed to `Intl`, and the stored forms a client parses, which stay open on purpose (§12.2).
 - The content fallback chain is `resolveContentTier()` in `packages/core`, used wherever the source and its localization rows are — the server, when shaping responses. **MUST NOT** re-implement "if no Japanese then English" anywhere else. A client does not re-resolve: a synced record already carries the server's resolution for its language (`contentTier`, `stale`), and the app shows the record for its content language as it is.
 - Every localized record crossing the API carries `contentTier` and `stale`; the UI **MUST** show when content is not in the requested language.
@@ -790,6 +792,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 ### 12.5 Accessibility
 
 - Every interactive element has an accessible label; icon-only buttons are labelled from the i18n bundle.
+- **Every text field has a placeholder, in the mobile app and the web apps alike** (the product owner): an example of what goes in it, in each language ("e.g. Bến Thành Market"), never its label or its help, which stay outside the field and readable once typing starts. A field where an example would mislead (a password, a name typed to confirm a delete) has none, and its design says so.
 - Touch targets are at least 44 × 44 pt. Colour is never the only signal (a "sponsored" marker has text, not only a tint).
 - Every narration has its transcript reachable from the now-playing card.
 - **Metadata is built as icon-and-text pairs** — a distance with its icon, a time with its icon — each one unit that wraps as a whole, so at a large text size the icon stays beside its words.
@@ -855,9 +858,9 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
   - **`test:screens` checks; `test:screens:update` rewrites** the baselines a change moved, on a fresh stack, committed with the change: `apps/console/e2e/screens/stack.sh reset && E2E_STACK=screens pnpm --filter @wayfare/console test:screens:update`. A failing check writes each moved screen's expected, actual and diff images (in CI, the uploaded report). The project retries once, for a run under load.
 - **A screen is done when** every state of its state matrix has a baseline **and the designer's fidelity review** — each baseline beside its frame at the same width and scheme, each difference either fixed in the build or brought into Figma with its reason — **has nothing open**. Pixel noise is not a difference; a token step of spacing, a missing or wrong icon, a different structure, wrong copy or a wrong component is.
 - **What the console's screens follow** (from that review):
-  - **Formats:** dates as day, short month, year ("2 Oct 2026"); times in 24 hours, never AM or PM; phone numbers in their national form, in groups ("028 3940 1234"); a long email breaks only after the "@".
+  - **Formats:** dates as day, short month, year ("2 Oct 2026"), **and typed as they are shown**: every date field is `DayInput` (`apps/console/src/forms/day-input.tsx`), which reads day-month-year in both languages ("30 Oct 2026", "30 thg 10, 2026", "30/10/2026") and ISO, never month first, rewrites the text as the console writes dates when it is left, and hands the form `yyyy-mm-dd` — never the browser's date input, whose order follows the browser's locale; times in 24 hours, never AM or PM; phone numbers in their national form, in groups ("028 3940 1234"); a long email breaks only after the "@".
   - **States:** a result, empty or error state's icon is a 48 px circle holding a 24 px icon; its way out is an outline button with no icon. Toasts use outline icons in their own colours and outline action buttons.
-  - **Errors and help:** an empty required field's error names the action ("Write a description.", "Choose a category."), "This is required." only as the fallback; the help stays under a field when its error appears; every reason field shows its counter; optional notes' help sits under the field, not as a placeholder.
+  - **Errors and help:** an empty required field's error names the action ("Write a description.", "Choose a category."), "This is required." only as the fallback; the help stays under a field when its error appears; every reason field shows its counter; help sits under its field, never inside it; every text field has its placeholder (§12.5).
   - **Buttons:** destructive only for what cannot be undone; where no one action is the default (a job's controls), all are outline. A section's *Edit* carries its `pencil`.
   - **Lists:** a row that opens a page ends in `chevron-right`; only what the API sorts is sortable; a deleted row keeps its contrast; a table box that scrolls sideways is keyboard-reachable; at 360 nothing scrolls sideways.
   - **The Places list** opens sorted by *Updated*, newest first. **A Place's narration** offers no *Regenerate* for a language a running job already covers.

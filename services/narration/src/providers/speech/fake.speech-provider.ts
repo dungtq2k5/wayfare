@@ -1,6 +1,6 @@
 import { SpeechProvider } from './speech-provider';
 import type { VoiceSpec } from './speech-provider';
-import { fakeFailureError } from '../fake-failure';
+import { FAKE_SPEECH_FAILS_MARKER, fakeFailureError } from '../fake-failure';
 import type { FakeFailure } from '../fake-failure';
 
 /** MPEG-2 Layer III, 32 kbps, 24 kHz, mono, no CRC: one 96-byte frame is 24 ms. */
@@ -18,7 +18,7 @@ export function silentMp3(ms: number): Buffer {
 /**
  * The local and test default: a real MP3 stream of silent frames whose length follows the SSML, so
  * chunking, joining, duration, size and hashing run for real. Fails every call when told to, or is
- * out of reach.
+ * out of reach; fails one text holding `FAKE_SPEECH_FAILS_MARKER`.
  */
 export class FakeSpeechProvider extends SpeechProvider {
   readonly name = 'fake' as const;
@@ -40,6 +40,9 @@ export class FakeSpeechProvider extends SpeechProvider {
   synthesize(input: { ssml: string; voice: VoiceSpec }): Promise<Buffer> {
     const failure = fakeFailureError('speech', this.failing);
     if (failure !== null) return Promise.reject(failure);
+    if (input.ssml.includes(FAKE_SPEECH_FAILS_MARKER)) {
+      return Promise.reject(new Error('fake speech failure (marked text)'));
+    }
     if (Buffer.byteLength(input.ssml, 'utf8') > this.maxInputBytes) {
       return Promise.reject(new Error('input over the fake limit'));
     }

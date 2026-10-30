@@ -1,11 +1,19 @@
 import {
+  AccountKind,
   ADMIN_EXCLUDED_PERMISSIONS,
   AuditAction,
   compareStrings,
   newId,
+  OwnerRegistrationStatus,
+  OwnerStatus,
   PERMISSION_CODES,
   SystemRole,
 } from '@wayfare/contracts';
+import {
+  accountKindProto,
+  ownerRegistrationStatusProto,
+  ownerStatusProto,
+} from '@wayfare/contracts/grpc';
 import { hashToken, toProtoTimestamp } from '@wayfare/nest-common';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { BillingPortService } from '../../src/modules/billing-port/billing-port.service';
@@ -103,11 +111,16 @@ describe('ListUsers', () => {
     );
     expect(admins.page?.total).toBe(2);
 
-    const owners = await adminUsers.listUsers(
-      { page: PAGE, includeDeleted: false, ownerVerified: true },
-      actor.context,
-    );
-    expect(owners.users.map((item) => item.user?.id)).toEqual([owner.id]);
+    const byOwnerStatus = async (ownerStatus: OwnerStatus) =>
+      (
+        await adminUsers.listUsers(
+          { page: PAGE, includeDeleted: false, ownerStatus: ownerStatusProto.toProto(ownerStatus) },
+          actor.context,
+        )
+      ).users.map((item) => item.user?.id);
+    expect(await byOwnerStatus(OwnerStatus.VERIFIED)).toEqual([owner.id]);
+    expect(await byOwnerStatus(OwnerStatus.PENDING)).toEqual([]);
+    expect(await byOwnerStatus(OwnerStatus.NONE)).not.toContain(owner.id);
 
     const second = await adminUsers.listUsers(
       { page: { ...PAGE, pageSize: 3, page: 2 }, includeDeleted: false },
@@ -115,6 +128,40 @@ describe('ListUsers', () => {
     );
     expect(second.users).toHaveLength(1);
     expect(second.page).toEqual({ page: 2, pageSize: 3, total: 4 });
+  });
+
+  it('reads an applicant as pending, with its kind and latest registration', async () => {
+    const actor = await superAdmin();
+    const applicant = await staffAccount(prisma, []);
+    await prisma.ownerRegistration.create({
+      data: {
+        userId: applicant.id,
+        status: OwnerRegistrationStatus.PENDING,
+        businessName: 'Ốc Vũ',
+        businessAddress: '12 Lê Lợi, Quận 1',
+        contactName: 'Nguyễn Văn Hải',
+        contactPhone: '+84901234567',
+      },
+    });
+    const { users } = await adminUsers.listUsers(
+      {
+        page: PAGE,
+        includeDeleted: false,
+        ownerStatus: ownerStatusProto.toProto(OwnerStatus.PENDING),
+      },
+      actor.context,
+    );
+    expect(users.map((item) => item.user?.id)).toEqual([applicant.id]);
+    expect(users[0]?.user?.kind).toBe(accountKindProto.toProto(AccountKind.TOURIST));
+    expect(users[0]?.user?.ownerRegistrationStatus).toBe(
+      ownerRegistrationStatusProto.toProto(OwnerRegistrationStatus.PENDING),
+    );
+    const { user } = await adminUsers.getUser({ userId: applicant.id }, actor.context);
+    expect(user?.ownerRegistration?.status).toBe(
+      ownerRegistrationStatusProto.toProto(OwnerRegistrationStatus.PENDING),
+    );
+    expect(user?.passwordSet).toBe(false);
+    expect(user?.permissionCodes).toEqual([]);
   });
 
   it('shows an erased account as a placeholder only', async () => {
@@ -705,5 +752,26 @@ describe('no acting above your own level', () => {
       actor.context,
     );
     expect((await prisma.user.findUniqueOrThrow({ where: { id: target.id } })).isLocked).toBe(true);
+  });
+});
+
+describe('GetUserNames', () => {
+  it('names each known id: the full name, else the email, none for an erased account', async () => {
+    const actor = await superAdmin();
+    const named = await admin({ fullName: 'Lan Pham' });
+    const unnamed = await admin({ fullName: null, email: 'no.name@example.com' });
+    const erasedAt = new Date();
+    const erased = await staffAccount(prisma, [], { deletedAt: erasedAt, erasedAt });
+    const unknown = newId();
+    const { users } = await adminUsers.getUserNames(
+      { userIds: [named.id, unnamed.id, erased.id, unknown] },
+      actor.context,
+    );
+    const byId = new Map(users.map((user) => [user.id, user.name]));
+    expect(byId.get(named.id)).toBe('Lan Pham');
+    expect(byId.get(unnamed.id)).toBe('no.name@example.com');
+    expect(byId.has(erased.id)).toBe(true);
+    expect(byId.get(erased.id)).toBeUndefined();
+    expect(byId.has(unknown)).toBe(false);
   });
 });

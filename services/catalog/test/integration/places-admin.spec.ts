@@ -10,6 +10,7 @@ import {
   PlaceKind,
   PlaceStatus,
 } from '@wayfare/contracts';
+import { toProtoTimestamp } from '@wayfare/nest-common';
 import { catalogGrpc } from '@wayfare/contracts/grpc';
 import { FIXTURE_OUTSIDE } from '@wayfare/contracts/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -678,6 +679,39 @@ describe('DeletePlace and RestorePlace', () => {
   });
 });
 
+describe('status_changed_at', () => {
+  it('is stamped by the trigger on a status change, and left alone by any other edit', async () => {
+    const place = (await places.createEditorialPlace(createRequest(), staff())).place!;
+    const stamp = async () =>
+      (await prisma.place.findUniqueOrThrow({ where: { id: place.id } })).statusChangedAt;
+    const created = await stamp();
+    await places.updatePlace(updateRequest(place.id, { nameVi: 'Đổi tên' }), staff());
+    expect(await stamp()).toEqual(created);
+    await prisma.$executeRaw`UPDATE places SET status = 'PROCESSING' WHERE id = ${place.id}::uuid`;
+    expect((await stamp()).getTime()).toBeGreaterThan(created.getTime());
+  });
+
+  it('lets the list keep Places processing since before an instant, with their location', async () => {
+    const processing = await processingPlace();
+    const draft = (await places.createEditorialPlace(createRequest(), staff())).place!;
+    const list = (processingBefore: Date) =>
+      places.listPlaces(
+        {
+          page: { page: 1, pageSize: 20, sort: 'statusChangedAt' },
+          includeDeleted: false,
+          processingBefore: toProtoTimestamp(processingBefore),
+        },
+        staff(),
+      );
+    const later = await list(new Date(Date.now() + 60_000));
+    expect(later.places.map((row) => row.id)).toEqual([processing.id]);
+    expect(later.places[0]?.location).toEqual(processing.location);
+    expect(later.places[0]?.statusChangedAt).toBeDefined();
+    expect((await list(new Date(Date.now() - 60_000))).places).toEqual([]);
+    expect(draft.id).not.toBe(processing.id);
+  });
+});
+
 describe('ListPlaces and GetPlaceAdmin', () => {
   it('pages, filters and searches', async () => {
     const draft = (await places.createEditorialPlace(createRequest(), staff())).place!;
@@ -690,6 +724,7 @@ describe('ListPlaces and GetPlaceAdmin', () => {
         {
           page: { page: 1, pageSize: 20, sort: '-updatedAt' },
           includeDeleted: false,
+          processingBefore: undefined,
           ...overrides,
         },
         staff(),

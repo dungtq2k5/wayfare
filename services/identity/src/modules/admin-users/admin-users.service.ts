@@ -7,6 +7,7 @@ import {
   ActionTokenPurpose,
   compareStrings,
   EmailTemplate,
+  IdentityProvider,
   IDENTITY_USER_DEACTIVATED,
   IDENTITY_USER_LOCKED,
   MAX_ADMIN_REASON_LENGTH,
@@ -15,6 +16,8 @@ import {
   MAX_LOCK_REASON_LENGTH,
   MAX_ROLES_PER_USER,
   normalizeText,
+  OwnerRegistrationStatus,
+  OwnerStatus,
   SessionClient,
   SessionRevokedReason,
   SystemRole,
@@ -23,6 +26,7 @@ import {
   zPageQuery,
   zUuidV7,
 } from '@wayfare/contracts';
+import { ownerStatusProto } from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import {
   decodeCursor,
@@ -59,6 +63,7 @@ import {
 } from './admin-user.mapper';
 import type { AdminUserRow } from './admin-user.mapper';
 import { addedCodesActorLacks, targetCodesActorLacks } from './domain/escalation';
+import { nameOf } from '../users/domain/name-of';
 
 // Widened: role codes are read from the database as plain strings.
 const SUPER_ADMIN_CODE: string = SystemRole.SUPER_ADMIN;
@@ -98,9 +103,13 @@ const listFields = z.object({
   }),
   roleId: zUuidV7.optional(),
   isLocked: z.boolean().optional(),
-  ownerVerified: z.boolean().optional(),
+  ownerStatus: z.enum(OwnerStatus).optional(),
   includeDeleted: z.boolean(),
 });
+
+/** At most this many ids per `GetUserNames` (a page of any list, with room). */
+const MAX_NAME_IDS = 200;
+const namesFields = z.object({ userIds: z.array(zUuidV7).max(MAX_NAME_IDS) });
 
 const createFields = z.object({
   email: zEmail,
@@ -169,7 +178,13 @@ export class AdminUsersService {
     context: RequestContext,
   ): Promise<identityGrpc.ListUsersResponse> {
     requireAccountContext(context);
-    const fields = parseRpcRequest(listFields, request);
+    const fields = parseRpcRequest(listFields, {
+      ...request,
+      ownerStatus:
+        request.ownerStatus === undefined
+          ? undefined
+          : ownerStatusProto.fromProto(request.ownerStatus),
+    });
     const { page, pageSize, sort, q } = fields.page;
     const now = new Date();
 
@@ -191,11 +206,15 @@ export class AdminUsersService {
       const lockedNow = Prisma.sql`(u.is_locked AND (u.locked_until IS NULL OR u.locked_until > ${now}))`;
       conditions.push(fields.isLocked ? lockedNow : Prisma.sql`NOT ${lockedNow}`);
     }
-    if (fields.ownerVerified !== undefined) {
+    if (fields.ownerStatus !== undefined) {
+      // Applying: not verified, with a registration waiting for review.
+      const pending = Prisma.sql`EXISTS (SELECT 1 FROM owner_registrations r WHERE r.user_id = u.id AND r.status = ${OwnerRegistrationStatus.PENDING})`;
       conditions.push(
-        fields.ownerVerified
+        fields.ownerStatus === OwnerStatus.VERIFIED
           ? Prisma.sql`u.owner_verified_at IS NOT NULL`
-          : Prisma.sql`u.owner_verified_at IS NULL`,
+          : fields.ownerStatus === OwnerStatus.PENDING
+            ? Prisma.sql`u.owner_verified_at IS NULL AND ${pending}`
+            : Prisma.sql`u.owner_verified_at IS NULL AND NOT ${pending}`,
       );
     }
     const where =
@@ -244,12 +263,27 @@ export class AdminUsersService {
       const row = await this.target(tx, userId);
       if (row.erasedAt !== null)
         return { erased: toErasedUser({ ...row, erasedAt: row.erasedAt }) };
-      const [devicesCount, sessions] = await Promise.all([
-        tx.device.count({ where: { userId } }),
+      const [devices, sessions, account, grants] = await Promise.all([
+        tx.device.aggregate({ where: { userId }, _count: true, _max: { lastSeenAt: true } }),
         tx.session.findMany({
           where: { userId, rotatedAt: null, revokedAt: null, expiresAt: { gt: now } },
           select: { client: true },
           distinct: ['familyId'],
+        }),
+        tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: {
+            passwordHash: true,
+            preferredLocale: true,
+            identities: {
+              where: { provider: IdentityProvider.GOOGLE },
+              select: { emailAtLink: true },
+            },
+          },
+        }),
+        tx.userRole.findMany({
+          where: { userId },
+          select: { role: { select: ROLE_GRANTS_SELECT } },
         }),
       ]);
       const byClient = (client: SessionClient) =>
@@ -258,7 +292,12 @@ export class AdminUsersService {
         user: toAdminUserDetail(
           row,
           {
-            devicesCount,
+            devicesCount: devices._count,
+            permissionCodes: permissionsOf(grantsOf(grants.map(({ role }) => role))),
+            passwordSet: account.passwordHash !== null,
+            googleEmail: account.identities[0]?.emailAtLink ?? null,
+            preferredLocale: account.preferredLocale,
+            devicesLastSeenAt: devices._max.lastSeenAt,
             sessions: {
               live: sessions.length,
               console: byClient(SessionClient.CONSOLE),
@@ -270,6 +309,23 @@ export class AdminUsersService {
         ),
       };
     });
+  }
+
+  /**
+   * People's names for other services' reads: the full name, else the email; an erased account
+   * has none. An unknown id is left out. Whether the caller may see them is the gateway's rule.
+   */
+  async getUserNames(
+    request: identityGrpc.GetUserNamesRequest,
+    context: RequestContext,
+  ): Promise<identityGrpc.GetUserNamesResponse> {
+    requireAccountContext(context);
+    const { userIds } = parseRpcRequest(namesFields, request);
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(userIds)] } },
+      select: { id: true, fullName: true, email: true, erasedAt: true },
+    });
+    return { users: rows.map((row) => ({ id: row.id, ...nameOf(row) })) };
   }
 
   /**

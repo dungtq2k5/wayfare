@@ -4,6 +4,7 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { AdminUsersListOwnerStatus } from './adminUsersListOwnerStatus.js';
 
 export type AdminUsersListParams = {
 /**
@@ -27,6 +28,6 @@ q?: string;
  */
 roleId?: string;
 isLocked?: string;
-ownerVerified?: string;
+ownerStatus?: AdminUsersListOwnerStatus;
 includeDeleted?: string;
 };

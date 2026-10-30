@@ -4,7 +4,7 @@ import {
   SynthesisJobStatus,
   SynthesisTaskStatus,
 } from '@wayfare/contracts';
-import { synthesisJobStatusProto } from '@wayfare/contracts/grpc';
+import { localizationGrpc, synthesisJobStatusProto } from '@wayfare/contracts/grpc';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { configuredChains } from '../../src/providers/configured-providers';
 import { outboxPayloads, testPrisma, truncateAll } from '../setup/database';
@@ -277,5 +277,38 @@ describe('the monitor reads', () => {
     expect(
       await errorCode(services.jobs.createManualJob(manualRequest(deleted.id, ['en']), staff())),
     ).toBe('LOCALIZATION_TARGET_UNAVAILABLE');
+  });
+});
+
+describe('GetTargetJobStates', () => {
+  const PLACE = localizationGrpc.LocalizationTargetType.LOCALIZATION_TARGET_TYPE_PLACE;
+  const states = async (targetIds: string[]) =>
+    new Map(
+      (
+        await services.jobs.getTargetJobStates({ targetType: PLACE, targetIds }, staff())
+      ).states.map((state) => [state.targetId, state]),
+    );
+
+  it('is active for a queued, running or paused job; else names the latest; none without', async () => {
+    const queued = await fiveLanguageJob();
+    const paused = await fiveLanguageJob();
+    await services.jobs.pauseJob({ jobId: paused.jobId }, staff());
+    const cancelled = await fiveLanguageJob();
+    await services.jobs.cancelJob({ jobId: cancelled.jobId }, staff());
+    const nothing = services.catalog.place();
+
+    const byTarget = await states([queued.placeId, paused.placeId, cancelled.placeId, nothing.id]);
+    expect(byTarget.get(queued.placeId)?.active).toBe(true);
+    // A person paused it: it is moving, not stuck.
+    expect(byTarget.get(paused.placeId)?.active).toBe(true);
+    expect(byTarget.get(cancelled.placeId)).toMatchObject({
+      active: false,
+      lastJob: {
+        id: cancelled.jobId,
+        status: synthesisJobStatusProto.toProto(SynthesisJobStatus.CANCELLED),
+      },
+    });
+    expect(byTarget.get(cancelled.placeId)?.lastJob?.cancelledById).toBeDefined();
+    expect(byTarget.has(nothing.id)).toBe(false);
   });
 });

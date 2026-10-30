@@ -7,6 +7,7 @@
 import type { AdminAreaResponseDtoBoundary } from './adminAreaResponseDtoBoundary.js';
 import type { AdminAreaResponseDtoCenter } from './adminAreaResponseDtoCenter.js';
 import type { AdminAreaResponseDtoPlaceCounts } from './adminAreaResponseDtoPlaceCounts.js';
+import type { AdminAreaResponseDtoPublishedPack } from './adminAreaResponseDtoPublishedPack.js';
 
 export interface AdminAreaResponseDto {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
@@ -27,4 +28,5 @@ export interface AdminAreaResponseDto {
   sortOrder: number;
   isActive: boolean;
   placeCounts: AdminAreaResponseDtoPlaceCounts;
+  publishedPack: AdminAreaResponseDtoPublishedPack;
 }

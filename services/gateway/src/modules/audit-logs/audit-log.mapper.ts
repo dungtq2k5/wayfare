@@ -1,6 +1,9 @@
 import { AuditActorType, AuditResourceType, parseEnum } from '@wayfare/contracts';
+import { accountKindProto } from '@wayfare/contracts/grpc';
 import type { identityGrpc } from '@wayfare/contracts/grpc';
 import { fromProtoTimestamp, toProtoTimestamp } from '@wayfare/nest-common';
+import type { AccountContext } from '@wayfare/nest-common';
+import { visibleName } from '../people-names/people-names.service';
 import type { AuditLogResponseDto } from './dto/audit-log-response.dto';
 import type { ListAuditLogsQueryDto } from './dto/audit-log.dto';
 
@@ -8,7 +11,10 @@ import type { ListAuditLogsQueryDto } from './dto/audit-log.dto';
  * One audit row. The actor and resource types are checked against their enums on the way out —
  * a value this build does not know is a server fault; the action passes through as a string.
  */
-export function toAuditLogResponseDto(entry: identityGrpc.AuditLogEntry): AuditLogResponseDto {
+export function toAuditLogResponseDto(
+  entry: identityGrpc.AuditLogEntry,
+  context: AccountContext,
+): AuditLogResponseDto {
   const metadata: unknown = JSON.parse(entry.metadataJson);
   if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata)) {
     throw new Error('An audit row carries non-object metadata');
@@ -21,11 +27,14 @@ export function toAuditLogResponseDto(entry: identityGrpc.AuditLogEntry): AuditL
       type: parseEnum(AuditActorType, entry.actor?.type ?? ''),
       userId: entry.actor?.userId ?? null,
       deviceId: entry.actor?.deviceId ?? null,
+      name: visibleName(context, entry.actor?.name),
+      kind: entry.actor?.kind === undefined ? null : accountKindProto.fromProto(entry.actor.kind),
     },
     action: entry.action,
     resource: {
       type: parseEnum(AuditResourceType, entry.resource?.type ?? ''),
       id: entry.resource?.id ?? null,
+      label: visibleName(context, entry.resource?.label),
     },
     metadata: metadata as Record<string, unknown>,
     ip: entry.ip ?? null,

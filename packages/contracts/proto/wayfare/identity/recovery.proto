@@ -31,6 +31,7 @@ enum RecoveryEvidenceCode {
 service RecoveryAdminService {
   rpc OpenRecovery(OpenRecoveryRequest) returns (OpenRecoveryResponse);
   rpc ListRecoveries(ListRecoveriesRequest) returns (ListRecoveriesResponse);
+  rpc GetRecovery(GetRecoveryRequest) returns (GetRecoveryResponse);
   rpc ApproveRecovery(ApproveRecoveryRequest) returns (ApproveRecoveryResponse);
   rpc RejectRecovery(RejectRecoveryRequest) returns (RejectRecoveryResponse);
 }
@@ -57,6 +58,27 @@ message Recovery {
   google.protobuf.Timestamp completed_at = 12;
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
+  // The account being recovered, always shown to staff.
+  RecoveryOwner owner = 15;
+  // The people, by name; unset for an erased account. The gateway shows them by its names rule.
+  optional string opened_by_name = 16;
+  optional string approved_by_name = 17;
+  // When it was approved: the hold's end less RECOVERY_HOLD_HOURS; unset before approval.
+  google.protobuf.Timestamp approved_at = 18;
+}
+
+message RecoveryOwner {
+  // Unset for an erased account.
+  optional string name = 1;
+  string email = 2;
+}
+
+message GetRecoveryRequest {
+  string recovery_id = 1;
+}
+
+message GetRecoveryResponse {
+  Recovery recovery = 1;
 }
 
 message OpenRecoveryRequest {

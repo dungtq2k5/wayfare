@@ -31,7 +31,16 @@ export class AdminRecoveriesService {
       },
       context,
     );
-    return { recovery: toRecovery(response.recovery) };
+    return { recovery: toRecovery(response.recovery, context) };
+  }
+
+  async get(context: AccountContext, recoveryId: string): Promise<{ recovery: Recovery }> {
+    const response = await this.identity.adminRecoveries.call(
+      'getRecovery',
+      { recoveryId },
+      context,
+    );
+    return { recovery: toRecovery(response.recovery, context) };
   }
 
   async list(context: AccountContext, query: RecoveryQueryDto): Promise<Paged<Recovery>> {
@@ -42,7 +51,7 @@ export class AdminRecoveriesService {
     );
     const meta = toPageMetaOrThrow(response.page);
     return Paged.page(
-      response.recoveries.map((row) => toRecovery(row)),
+      response.recoveries.map((row) => toRecovery(row, context)),
       meta.page,
       meta.pageSize,
       meta.total,
@@ -55,7 +64,7 @@ export class AdminRecoveriesService {
       { recoveryId },
       context,
     );
-    return { recovery: toRecovery(response.recovery) };
+    return { recovery: toRecovery(response.recovery, context) };
   }
 
   async reject(
@@ -68,6 +77,6 @@ export class AdminRecoveriesService {
       { recoveryId, decisionNote: body.decisionNote },
       context,
     );
-    return { recovery: toRecovery(response.recovery) };
+    return { recovery: toRecovery(response.recovery, context) };
   }
 }

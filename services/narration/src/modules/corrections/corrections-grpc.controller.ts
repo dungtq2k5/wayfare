@@ -30,4 +30,11 @@ export class CorrectionsGrpcController implements narrationGrpc.CorrectionServic
   ): Promise<narrationGrpc.RevertCorrectionResponse> {
     return this.corrections.revertCorrection(request, unpackCallerContext(metadata));
   }
+
+  listCorrections(
+    request: narrationGrpc.ListCorrectionsRequest,
+    metadata?: Metadata,
+  ): Promise<narrationGrpc.ListCorrectionsResponse> {
+    return this.corrections.listCorrections(request, unpackCallerContext(metadata));
+  }
 }

@@ -55,6 +55,8 @@ function area(over: Partial<catalogGrpc.AdminArea> = {}): catalogGrpc.AdminArea 
     sortOrder: 5,
     isActive: true,
     placeCounts: { draft: 1, processing: 0, active: 2, inactive: 0 },
+    // As the wire delivers it: proto-loader's `defaults` sends an absent message as `null`.
+    publishedPack: null as unknown as undefined,
     ...over,
   };
 }
@@ -149,6 +151,20 @@ describe('/admin/areas', () => {
       center: undefined,
       isActive: false,
     });
+  });
+
+  it('lets a pack manager read the areas, never change them', async () => {
+    const packs = staff(['map_pack.manage']);
+    gateway.catalog.taxonomyAdmin.handlers.listAdminAreas = () =>
+      Promise.resolve({ areas: [area()] });
+    gateway.catalog.taxonomyAdmin.handlers.getAdminArea = () => Promise.resolve({ area: area() });
+    expect((await call('get', '/admin/areas', packs)).status).toBe(200);
+    expect((await call('get', `/admin/areas/${newId()}`, packs)).status).toBe(200);
+    expect((await call('post', '/admin/areas', packs).send({})).status).toBe(403);
+    expect(
+      (await call('patch', `/admin/areas/${newId()}`, packs).send({ isActive: false })).status,
+    ).toBe(403);
+    expect((await call('get', '/admin/areas', staff(['place.read']))).status).toBe(403);
   });
 
   it('refuses an unclosed ring, a zoom out of range and a code in an edit before catalog', async () => {

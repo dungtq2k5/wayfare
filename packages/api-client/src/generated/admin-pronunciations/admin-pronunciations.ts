@@ -25,6 +25,7 @@ import type {
 
 import type {
   AdminPronunciationsCreate201,
+  AdminPronunciationsGet200,
   AdminPronunciationsList200,
   AdminPronunciationsListParams,
   AdminPronunciationsUpdate200,
@@ -340,7 +341,107 @@ export const useAdminPronunciationsPreview = <TError = unknown,
       > => {
       return useMutation(getAdminPronunciationsPreviewMutationOptions(options), queryClient);
     }
-    export const getAdminPronunciationsUpdateUrl = (id: string,) => {
+    export const getAdminPronunciationsGetUrl = (id: string,) => {
+
+
+
+
+  return `/admin/narration/pronunciations/${id}`
+}
+
+/**
+ * @summary One entry, for its page.
+ */
+export const adminPronunciationsGet = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<AdminPronunciationsGet200> => {
+
+  return apiFetch<AdminPronunciationsGet200>(getAdminPronunciationsGetUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminPronunciationsGetQueryKey = (id: string,) => {
+    return [
+    `/admin/narration/pronunciations/${id}`
+    ] as const;
+    }
+
+
+export const getAdminPronunciationsGetQueryOptions = <TData = Awaited<ReturnType<typeof adminPronunciationsGet>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPronunciationsGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminPronunciationsGetQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminPronunciationsGet>>> = ({ signal }) => adminPronunciationsGet(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminPronunciationsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminPronunciationsGetQueryResult = NonNullable<Awaited<ReturnType<typeof adminPronunciationsGet>>>
+export type AdminPronunciationsGetQueryError = unknown
+
+
+export function useAdminPronunciationsGet<TData = Awaited<ReturnType<typeof adminPronunciationsGet>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPronunciationsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPronunciationsGet>>,
+          TError,
+          Awaited<ReturnType<typeof adminPronunciationsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPronunciationsGet<TData = Awaited<ReturnType<typeof adminPronunciationsGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPronunciationsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPronunciationsGet>>,
+          TError,
+          Awaited<ReturnType<typeof adminPronunciationsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPronunciationsGet<TData = Awaited<ReturnType<typeof adminPronunciationsGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPronunciationsGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary One entry, for its page.
+ */
+
+export function useAdminPronunciationsGet<TData = Awaited<ReturnType<typeof adminPronunciationsGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPronunciationsGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminPronunciationsGetQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getAdminPronunciationsUpdateUrl = (id: string,) => {
 
 
 

@@ -8,6 +8,7 @@
 import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
+import { Timestamp } from "../../google/protobuf/timestamp.pb";
 import { GeoPoint } from "../common/geo.pb";
 import { CategoryAppliesTo } from "./place_types.pb";
 
@@ -74,7 +75,16 @@ export interface AdminArea {
   defaultZoom: number;
   sortOrder: number;
   isActive: boolean;
-  placeCounts: AreaPlaceCounts | undefined;
+  placeCounts:
+    | AreaPlaceCounts
+    | undefined;
+  /** The published map pack; absent without one. */
+  publishedPack: AdminAreaPublishedPack | undefined;
+}
+
+export interface AdminAreaPublishedPack {
+  version: number;
+  publishedAt: Timestamp | undefined;
 }
 
 export interface ListAdminAreasRequest {

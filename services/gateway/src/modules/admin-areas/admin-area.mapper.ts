@@ -1,6 +1,7 @@
 import { zAdminArea } from '@wayfare/contracts';
 import type { AdminArea } from '@wayfare/contracts';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
+import { fromProtoTimestamp } from '@wayfare/nest-common';
 import { toGeoPoint } from '../catalog/catalog.mapper';
 import type { CreateAreaDto, UpdateAreaDto } from './dto/admin-area.dto';
 
@@ -23,6 +24,16 @@ export function toAdminArea(area: catalogGrpc.AdminArea | undefined): AdminArea 
       ACTIVE: counts?.active ?? 0,
       INACTIVE: counts?.inactive ?? 0,
     },
+    publishedPack:
+      area.publishedPack === undefined || area.publishedPack === null
+        ? null
+        : {
+            version: area.publishedPack.version,
+            publishedAt: fromProtoTimestamp(
+              area.publishedPack.publishedAt,
+              'publishedPack.publishedAt',
+            ).toISOString(),
+          },
   };
 }
 

@@ -65,6 +65,7 @@ import {
   parseRpcRequest,
   requireAccountContext,
   rpcError,
+  zProtoTimestamp,
 } from '@wayfare/nest-common';
 import type { AccountContext, RequestContext, SocketEmitter } from '@wayfare/nest-common';
 import QRCode from 'qrcode';
@@ -109,6 +110,7 @@ const PLACE_SORT_COLUMNS = {
   updatedAt: 'updated_at',
   createdAt: 'created_at',
   nameVi: 'name_vi',
+  statusChangedAt: 'status_changed_at',
 } as const;
 
 const content = zPlaceContentInput.shape;
@@ -206,7 +208,7 @@ const qrFields = z.object({
 
 const listFields = z.object({
   page: zPageQuery({
-    sort: ['updatedAt', 'createdAt', 'nameVi'],
+    sort: ['updatedAt', 'createdAt', 'nameVi', 'statusChangedAt'],
     defaultSort: '-updatedAt',
     search: true,
   }),
@@ -216,6 +218,8 @@ const listFields = z.object({
   categoryCode: content.categoryCode.optional(),
   ownerUserId: zUuidV7.optional(),
   includeDeleted: z.boolean(),
+  // Absent arrives as null from the proto loader.
+  processingBefore: zProtoTimestamp.nullish(),
 });
 
 /** A Place locked for the rest of the transaction. */
@@ -395,6 +399,12 @@ export class PlacesService {
     if (fields.ownerUserId !== undefined) {
       conditions.push(Prisma.sql`p.owner_user_id = ${fields.ownerUserId}::uuid`);
     }
+    if (fields.processingBefore != null) {
+      // In PROCESSING since before the instant: the stuck-Places check's first half.
+      conditions.push(
+        Prisma.sql`p.status = ${PlaceStatus.PROCESSING} AND p.status_changed_at < ${fields.processingBefore}`,
+      );
+    }
     const where =
       conditions.length === 0
         ? Prisma.empty
@@ -409,8 +419,9 @@ export class PlacesService {
       this.prisma.$queryRaw<
         { total: number }[]
       >`SELECT count(*)::int AS total FROM places p ${where}`,
-      this.prisma.$queryRaw<{ id: string }[]>`
-        SELECT p.id FROM places p ${where}
+      this.prisma.$queryRaw<{ id: string; lat: number; lng: number }[]>`
+        SELECT p.id, ST_Y(p.location::geometry) AS lat, ST_X(p.location::geometry) AS lng
+        FROM places p ${where}
         ORDER BY ${orderBy}
         LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
     ]);
@@ -420,9 +431,9 @@ export class PlacesService {
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
     return {
-      places: ids.flatMap(({ id }) => {
+      places: ids.flatMap(({ id, lat, lng }) => {
         const row = byId.get(id);
-        return row === undefined ? [] : [toAdminPlaceListItem(row, this.mediaBase)];
+        return row === undefined ? [] : [toAdminPlaceListItem(row, { lat, lng }, this.mediaBase)];
       }),
       page: { page, pageSize, total: counted[0]?.total ?? 0 },
     };

@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { errorText, retryMinutes } from '../client/errors';
+import { EmailAddress } from '../components/email-address';
 import { useConsole } from '../i18n/provider';
 import { relativeTime } from '../notifications/text';
 import { useCan } from '../shell/can';
@@ -276,11 +277,7 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
                 [
                   t('field.email'),
                   <span key="email" className="flex flex-wrap items-center gap-2">
-                    {/* Broken only after the "@", never mid-word. */}
-                    <span>
-                      {data.applicant.email.split('@')[0]}@<wbr />
-                      {data.applicant.email.split('@').slice(1).join('@')}
-                    </span>
+                    <EmailAddress email={data.applicant.email} />
                     {data.applicant.emailVerified ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-xs font-medium text-success-foreground">
                         <CircleCheck aria-hidden className="size-3" />

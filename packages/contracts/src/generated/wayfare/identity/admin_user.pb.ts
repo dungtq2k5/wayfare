@@ -10,8 +10,27 @@ import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "../../google/protobuf/timestamp.pb";
 import { CursorPage, PageNumberMeta, PageNumberRequest, PageRequest } from "../common/page.pb";
+import { OwnerRegistrationStatus } from "./owner.pb";
 
 export const protobufPackage = "wayfare.identity";
+
+/** What an account is, from its roles (rdm-spec I-1). */
+export enum AccountKind {
+  ACCOUNT_KIND_UNSPECIFIED = 0,
+  ACCOUNT_KIND_STAFF = 1,
+  ACCOUNT_KIND_OWNER = 2,
+  ACCOUNT_KIND_TOURIST = 3,
+  UNRECOGNIZED = -1,
+}
+
+/** The users list's owner filter. */
+export enum OwnerStatus {
+  OWNER_STATUS_UNSPECIFIED = 0,
+  OWNER_STATUS_VERIFIED = 1,
+  OWNER_STATUS_PENDING = 2,
+  OWNER_STATUS_NONE = 3,
+  UNRECOGNIZED = -1,
+}
 
 /** A transactional email template (rdm-spec I-13). */
 export enum EmailTemplate {
@@ -54,6 +73,21 @@ export enum EmailBounceType {
   UNRECOGNIZED = -1,
 }
 
+export interface GetUserNamesRequest {
+  userIds: string[];
+}
+
+export interface GetUserNamesResponse {
+  /** One per known id; an unknown id is absent. */
+  users: UserName[];
+}
+
+/** `name` is the full name, else the email; unset for an erased account. */
+export interface UserName {
+  id: string;
+  name?: string | undefined;
+}
+
 export interface ListUsersRequest {
   page: PageNumberRequest | undefined;
   roleId?:
@@ -61,8 +95,8 @@ export interface ListUsersRequest {
     | undefined;
   /** Currently locked: set and not lapsed. */
   isLocked?: boolean | undefined;
-  ownerVerified?: boolean | undefined;
   includeDeleted: boolean;
+  ownerStatus?: OwnerStatus | undefined;
 }
 
 export interface ListUsersResponse {
@@ -97,6 +131,9 @@ export interface AdminUser {
   lastLoginAt: Timestamp | undefined;
   deletedAt: Timestamp | undefined;
   createdAt: Timestamp | undefined;
+  kind: AccountKind;
+  /** The latest registration's status; unset when the account never applied. */
+  ownerRegistrationStatus?: OwnerRegistrationStatus | undefined;
 }
 
 /** An erased account: only its id and when (ADR 0048). */
@@ -125,7 +162,27 @@ export interface AdminUserDetail {
     | SessionSummary
     | undefined;
   /** Staff-only (rdm-spec I-1). */
-  lockReason?: string | undefined;
+  lockReason?:
+    | string
+    | undefined;
+  /** The union of the account's roles' live codes. */
+  permissionCodes: string[];
+  passwordSet: boolean;
+  /** The Google address when it was linked (rdm-spec I-15); unset when not linked. */
+  googleEmail?: string | undefined;
+  preferredLocale: string;
+  /** The latest device's last sighting; unset with no device. */
+  devicesLastSeenAt:
+    | Timestamp
+    | undefined;
+  /** The latest registration; unset when the account never applied. */
+  ownerRegistration: OwnerRegistrationSummary | undefined;
+}
+
+export interface OwnerRegistrationSummary {
+  status: OwnerRegistrationStatus;
+  submittedAt: Timestamp | undefined;
+  reviewedAt: Timestamp | undefined;
 }
 
 /** Live session families, by client. */
@@ -270,6 +327,13 @@ export interface AdminUserServiceClient {
   ): Observable<ListEmailDeliveriesResponse>;
 
   checkEmailDelivery(request: CheckEmailDeliveryRequest, metadata?: Metadata): Observable<CheckEmailDeliveryResponse>;
+
+  /**
+   * Internal: people's names for other services' reads (api-endpoints-plan §0's names rule). The
+   * gateway decides whether the caller may see them.
+   */
+
+  getUserNames(request: GetUserNamesRequest, metadata?: Metadata): Observable<GetUserNamesResponse>;
 }
 
 /**
@@ -337,6 +401,16 @@ export interface AdminUserServiceController {
     request: CheckEmailDeliveryRequest,
     metadata?: Metadata,
   ): Promise<CheckEmailDeliveryResponse> | Observable<CheckEmailDeliveryResponse> | CheckEmailDeliveryResponse;
+
+  /**
+   * Internal: people's names for other services' reads (api-endpoints-plan §0's names rule). The
+   * gateway decides whether the caller may see them.
+   */
+
+  getUserNames(
+    request: GetUserNamesRequest,
+    metadata?: Metadata,
+  ): Promise<GetUserNamesResponse> | Observable<GetUserNamesResponse> | GetUserNamesResponse;
 }
 
 export function AdminUserServiceControllerMethods() {
@@ -354,6 +428,7 @@ export function AdminUserServiceControllerMethods() {
       "revokeUserSessions",
       "listEmailDeliveries",
       "checkEmailDelivery",
+      "getUserNames",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

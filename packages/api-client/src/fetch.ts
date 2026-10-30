@@ -110,8 +110,9 @@ const BEARER_CODES: ReadonlySet<string> = new Set(['UNAUTHENTICATED', 'DEVICE_RE
 
 /**
  * The mutator every generated hook calls (ADR 0028): it adds the client headers and the bearer,
- * returns the documented envelope (`{ data, meta? }`) — `undefined` for a `204` or a `304` — and
- * throws an `ApiError` for anything else.
+ * returns the documented envelope (`{ data, meta? }`) — `undefined` for a `204` or a `304`, and a
+ * `Blob` for a body that isn't JSON (a preview's audio) — and throws an `ApiError` for anything
+ * else.
  * A `401` for the bearer asks the session to recover and retries once.
  */
 export async function apiFetch<T>(url: string, options: ApiRequestInit = {}): Promise<T> {
@@ -132,5 +133,7 @@ export async function apiFetch<T>(url: string, options: ApiRequestInit = {}): Pr
   // A 304 answers an `If-None-Match` the caller sent: unchanged, with nothing to read.
   if (response.status === 304 || response.status === 204) return undefined as T;
   if (!response.ok) throw await toApiError(response);
+  const type = response.headers.get('content-type') ?? 'application/json';
+  if (!type.includes('json')) return (await response.blob()) as T;
   return (await response.json()) as T;
 }

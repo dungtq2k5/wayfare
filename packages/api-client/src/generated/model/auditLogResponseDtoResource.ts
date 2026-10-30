@@ -10,4 +10,6 @@ export type AuditLogResponseDtoResource = {
   type: AuditLogResponseDtoResourceType;
   /** @nullable */
   id: string | null;
+  /** @nullable */
+  label: string | null;
 };

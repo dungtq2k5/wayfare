@@ -104,18 +104,32 @@ export function Field({
           {help}
         </p>
       )}
-      {error === undefined ? null : (
-        <p id={errorId} className="flex items-center gap-1 text-xs text-destructive">
-          <CircleAlert aria-hidden className="size-3 shrink-0" />
-          {error}
-        </p>
-      )}
+      {error === undefined ? null : <FieldError id={errorId}>{error}</FieldError>}
     </div>
   );
 }
 
 /** The one line above a form or a sign-in card (C1b, P3): its failure, said once. */
-export function FormAlert({ children, className }: { children: ReactNode; className?: string }) {
+/** A field's error with its icon, for a group that isn't one `Field` (a checkbox list, a map). */
+export function FieldError({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p id={id} className="flex items-center gap-1 text-xs text-destructive">
+      <CircleAlert aria-hidden className="size-3 shrink-0" />
+      {children}
+    </p>
+  );
+}
+
+export function FormAlert({
+  children,
+  action,
+  className,
+}: {
+  children: ReactNode;
+  /** Buttons: at the alert's right end, under the text at phone width (handoff 35 §14). */
+  action?: ReactNode;
+  className?: string;
+}) {
   return (
     <div
       role="alert"
@@ -125,7 +139,12 @@ export function FormAlert({ children, className }: { children: ReactNode; classN
       )}
     >
       <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-      <div>{children}</div>
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>{children}</div>
+        {action === undefined ? null : (
+          <div className="flex shrink-0 flex-wrap gap-2">{action}</div>
+        )}
+      </div>
     </div>
   );
 }

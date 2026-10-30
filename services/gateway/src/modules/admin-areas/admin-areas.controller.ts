@@ -27,7 +27,7 @@ export class AdminAreasController {
   constructor(private readonly areas: AdminAreasService) {}
 
   @Get()
-  @RequirePermission('catalog.taxonomy.manage')
+  @RequirePermission('catalog.taxonomy.manage', 'map_pack.manage')
   @NoStore()
   @ApiOperation({ summary: 'Every area, active or not, with its Places by status.' })
   @ApiEnvelope(AdminAreaResponseDto, { array: true })
@@ -37,7 +37,7 @@ export class AdminAreasController {
   }
 
   @Get(':id')
-  @RequirePermission('catalog.taxonomy.manage')
+  @RequirePermission('catalog.taxonomy.manage', 'map_pack.manage')
   @NoStore()
   @ApiOperation({ summary: 'One area: its boundary as GeoJSON, with its Places by status.' })
   @ApiEnvelope(AdminAreaResultResponseDto)

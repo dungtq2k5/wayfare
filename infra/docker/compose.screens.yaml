@@ -75,4 +75,6 @@ services:
     environment:
       CORS_ORIGINS: http://localhost:5183
       PUBLIC_QR_BASE_URL: http://localhost:23000
+      # A Place counts as stuck after 15 s, so the stuck spec waits seconds, not an hour.
+      STUCK_PROCESSING_AFTER_MS: '15000'
     ports: !override ['127.0.0.1:23000:3000']

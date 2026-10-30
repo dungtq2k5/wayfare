@@ -11,6 +11,7 @@ import {
   zCorrectionInput,
   zLanguage,
   zLocalizationOverview,
+  zCursorQuery,
   zUuidV7,
 } from '@wayfare/contracts';
 import type { AuditRecordPayload, Correction, LocalizationOverview } from '@wayfare/contracts';
@@ -21,6 +22,8 @@ import {
 } from '@wayfare/contracts/grpc';
 import type { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
 import {
+  decodeCursor,
+  encodeCursor,
   OutboxService,
   parseRpcRequest,
   requireAccountContext,
@@ -29,13 +32,15 @@ import {
 } from '@wayfare/nest-common';
 import type { AccountContext, RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
+import { Prisma } from '../../../generated/prisma/client';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { JobsService } from '../jobs/jobs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TasksService } from '../tasks/tasks.service';
 import type { NarrationTx } from '../tasks/tasks.service';
-import { toCorrection, toProtoCorrection } from './correction.mapper';
-import type { OverrideRow } from './correction.mapper';
+import { fromOverrideColumnsRow, toCorrection, toProtoCorrection } from './correction.mapper';
+import type { OverrideColumnsRow, OverrideRow } from './correction.mapper';
+import { isListed, needsReview } from './domain/review';
 
 const targetFields = z.object({ targetType: z.number(), targetId: zUuidV7 });
 const langField = z.object({ lang: zLanguage });
@@ -73,15 +78,14 @@ export class CorrectionsService {
     const fields = parseRpcRequest(targetFields, request);
     const targetType = this.narratedTarget(fields.targetType);
     const target = await this.target(targetType, fields.targetId);
+    // Each language's latest correction that still counts: in use, or superseded and waiting.
     const held = await this.prisma.localizationOverride.findMany({
-      where: {
-        targetType,
-        targetId: fields.targetId,
-        status: OverrideStatus.ACTIVE,
-      },
-      orderBy: { lang: 'asc' },
+      where: { targetType, targetId: fields.targetId },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     });
-    const byLang = new Map(held.map((row) => [row.lang, row]));
+    const byLang = new Map<string, OverrideRow>();
+    for (const row of held) if (!byLang.has(row.lang)) byLang.set(row.lang, row);
+    for (const [lang, row] of byLang) if (!isListed(row)) byLang.delete(lang);
     const overview: LocalizationOverview = zLocalizationOverview.parse({
       targetType,
       targetId: fields.targetId,
@@ -99,9 +103,89 @@ export class CorrectionsService {
         ),
         audioStatus: requireProtoEnum(audioStatusProto, state.audioStatus, '/audioStatus'),
         correction: this.correctionOf(byLang.get(state.lang), target.contentHash),
+        needsReview: (() => {
+          const row = byLang.get(state.lang);
+          return row !== undefined && needsReview(row, target.contentHash);
+        })(),
       })),
     });
     return { overviewJson: JSON.stringify(overview) };
+  }
+
+  /**
+   * The corrections across targets (api-endpoints-plan §4.5): each language's latest, kept when
+   * in use or needing review, needing review first (or not), then newest. Each target's name and
+   * current hash come from catalog, once per distinct target on the page.
+   */
+  async listCorrections(
+    request: narrationGrpc.ListCorrectionsRequest,
+    context: RequestContext,
+  ): Promise<narrationGrpc.ListCorrectionsResponse> {
+    requireAccountContext(context);
+    const page = parseRpcRequest(zCursorQuery, {
+      cursor: request.page?.cursor,
+      limit: request.page?.limit === 0 ? undefined : request.page?.limit,
+    });
+    const after = page.cursor === undefined ? null : decodeCursor(page.cursor);
+    const position = after?.key === undefined ? null : readPosition(after.key);
+    if (page.cursor !== undefined && (after === null || position === null)) {
+      throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/cursor', code: 'invalid_value' }] });
+    }
+    // rank 0: needing review (superseded by the Vietnamese); 1: in use.
+    const rank = request.reviewFirst
+      ? Prisma.sql`CASE WHEN status = ${OverrideStatus.REVERTED} THEN 0 ELSE 1 END`
+      : Prisma.sql`0`;
+    const resume =
+      after === null || position === null
+        ? Prisma.empty
+        : Prisma.sql`AND (rank > ${position.rank} OR (rank = ${position.rank} AND (updated_at < ${position.updatedAt} OR (updated_at = ${position.updatedAt} AND id < ${after.id}::uuid))))`;
+    const rows = await this.prisma.$queryRaw<(OverrideColumnsRow & { rank: number })[]>`
+      WITH latest AS (
+        SELECT DISTINCT ON (target_type, target_id, lang) *
+        FROM localization_overrides
+        ORDER BY target_type, target_id, lang, updated_at DESC, id DESC
+      ), kept AS (
+        SELECT *, ${rank} AS rank FROM latest
+        WHERE status = ${OverrideStatus.ACTIVE} OR reverted_by_id IS NULL
+      )
+      SELECT * FROM kept WHERE true ${resume}
+      ORDER BY rank ASC, updated_at DESC, id DESC
+      LIMIT ${page.limit + 1}`;
+    const shown = rows.slice(0, page.limit).map(fromOverrideColumnsRow);
+    const targets = new Map<string, Target | null>();
+    for (const row of shown) {
+      const key = `${row.targetType}:${row.targetId}`;
+      if (targets.has(key)) continue;
+      // ponytail: one catalog read per distinct target on a page (≤ 20); a batch RPC if it shows.
+      targets.set(
+        key,
+        await this.target(
+          row.targetType as LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM,
+          row.targetId,
+        ).catch(() => null),
+      );
+    }
+    const last = rows.length > page.limit ? rows[page.limit - 1] : undefined;
+    return {
+      items: shown.map((row) => {
+        const target = targets.get(`${row.targetType}:${row.targetId}`) ?? null;
+        const currentHash = target?.contentHash ?? null;
+        return {
+          correction: toProtoCorrection(toCorrection(row, currentHash ?? row.sourceContentHash)),
+          targetNameVi: target?.nameVi ?? '',
+          needsReview: needsReview(row, currentHash),
+        };
+      }),
+      page:
+        last === undefined
+          ? {}
+          : {
+              nextCursor: encodeCursor({
+                id: last.id,
+                key: `${last.rank}|${last.updated_at.toISOString()}`,
+              }),
+            },
+    };
   }
 
   /**
@@ -309,4 +393,12 @@ export class CorrectionsService {
       ...(actor.origin.userAgent === null ? {} : { userAgent: actor.origin.userAgent }),
     });
   }
+}
+
+/** A list cursor's key: the row's rank and its last change. */
+function readPosition(key: string): { rank: number; updatedAt: Date } | null {
+  const [rank, at] = key.split('|');
+  const updatedAt = new Date(at ?? '');
+  if ((rank !== '0' && rank !== '1') || Number.isNaN(updatedAt.getTime())) return null;
+  return { rank: Number(rank), updatedAt };
 }

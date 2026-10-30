@@ -4,27 +4,14 @@
 // Where the build differs on purpose (no Owner filter on L1, no place search on J1),
 // the order is the build's, pending the designer's review.
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { refuse, reply } from './answers';
 import { actor, findPlace } from './content';
-import { tabsThrough } from './look';
+import { from, tabsThrough } from './look';
 import { as } from './people';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
-
-/** Starts tabbing from a heading: the stops after it. */
-async function from(page: Page, level: 1 | 2 = 1): Promise<void> {
-  await page
-    .getByRole('main')
-    .getByRole('heading', { level })
-    .first()
-    .evaluate((heading: HTMLElement) => {
-      heading.tabIndex = -1;
-      heading.focus();
-    });
-}
 
 test('sign in (C1)', async ({ page }) => {
   await page.goto('/sign-in');

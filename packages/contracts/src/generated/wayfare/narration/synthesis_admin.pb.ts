@@ -238,6 +238,32 @@ export interface Voice {
   gender?: string | undefined;
 }
 
+export interface GetTargetJobStatesRequest {
+  targetType: LocalizationTargetType;
+  targetIds: string[];
+}
+
+export interface GetTargetJobStatesResponse {
+  /** One per target that has a job; a target with none is absent. */
+  states: TargetJobState[];
+}
+
+export interface TargetJobState {
+  targetId: string;
+  /** A job QUEUED, RUNNING or PAUSED: something will move the target. */
+  active: boolean;
+  lastJob: TargetLastJob | undefined;
+}
+
+/** The target's latest job, as the stuck-Places check reads it. */
+export interface TargetLastJob {
+  id: string;
+  status: SynthesisJobStatus;
+  finishedAt: Timestamp | undefined;
+  errorSummary?: string | undefined;
+  cancelledById?: string | undefined;
+}
+
 export const WAYFARE_NARRATION_PACKAGE_NAME = "wayfare.narration";
 
 /** Lists, creates, pauses, resumes, cancels and retries jobs; reports providers and voices. */
@@ -260,6 +286,13 @@ export interface SynthesisAdminServiceClient {
   listProviders(request: ListProvidersRequest, metadata?: Metadata): Observable<ListProvidersResponse>;
 
   listVoices(request: ListVoicesRequest, metadata?: Metadata): Observable<ListVoicesResponse>;
+
+  /**
+   * Internal: whether each target has a job still moving, and its latest job (the stuck-Places
+   * check).
+   */
+
+  getTargetJobStates(request: GetTargetJobStatesRequest, metadata?: Metadata): Observable<GetTargetJobStatesResponse>;
 }
 
 /** Lists, creates, pauses, resumes, cancels and retries jobs; reports providers and voices. */
@@ -309,6 +342,16 @@ export interface SynthesisAdminServiceController {
     request: ListVoicesRequest,
     metadata?: Metadata,
   ): Promise<ListVoicesResponse> | Observable<ListVoicesResponse> | ListVoicesResponse;
+
+  /**
+   * Internal: whether each target has a job still moving, and its latest job (the stuck-Places
+   * check).
+   */
+
+  getTargetJobStates(
+    request: GetTargetJobStatesRequest,
+    metadata?: Metadata,
+  ): Promise<GetTargetJobStatesResponse> | Observable<GetTargetJobStatesResponse> | GetTargetJobStatesResponse;
 }
 
 export function SynthesisAdminServiceControllerMethods() {
@@ -323,6 +366,7 @@ export function SynthesisAdminServiceControllerMethods() {
       "retryFailedTasks",
       "listProviders",
       "listVoices",
+      "getTargetJobStates",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

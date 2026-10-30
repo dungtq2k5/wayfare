@@ -30,6 +30,7 @@ import {
   AdminPlaceDetailResponseDto,
   AdminPlaceListItemResponseDto,
   AdminPlaceResultResponseDto,
+  StuckPlaceResponseDto,
 } from './dto/admin-place-response.dto';
 import {
   AdminPlaceIdParamDto,
@@ -66,6 +67,19 @@ export class AdminPlacesController {
     @Query() query: ListPlacesQueryDto,
   ): Promise<Paged<AdminPlaceListItemResponseDto>> {
     return this.places.list(context, query);
+  }
+
+  // Before `:id`, which would otherwise read "stuck" as an id.
+  @Get('stuck')
+  @RequirePermission('place.read')
+  @NoStore()
+  @ApiOperation({
+    summary: 'Places processing longer than the threshold with no narration job moving them.',
+  })
+  @ApiEnvelope(StuckPlaceResponseDto, { array: true })
+  @ZodSerializerDto([StuckPlaceResponseDto])
+  stuck(@Ctx() context: AccountContext): Promise<StuckPlaceResponseDto[]> {
+    return this.places.stuck(context);
   }
 
   @Get(':id')

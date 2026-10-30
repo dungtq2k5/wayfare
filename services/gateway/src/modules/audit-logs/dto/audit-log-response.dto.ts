@@ -1,4 +1,4 @@
-import { AuditActorType, AuditResourceType, zUuidV7 } from '@wayfare/contracts';
+import { AccountKind, AuditActorType, AuditResourceType, zUuidV7 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -12,10 +12,19 @@ export const auditLogResponseSchema = z.object({
     type: z.enum(AuditActorType),
     userId: z.string().nullable(),
     deviceId: z.string().nullable(),
+    /** A `USER` actor's name; `null` unless the caller may see names (api §0's rule), or erased. */
+    name: z.string().nullable(),
+    /** A `USER` actor's kind (rdm-spec I-1); `null` for any other actor. */
+    kind: z.enum(AccountKind).nullable(),
   }),
   /** A string, not the enum: a stored action may have left the vocabulary (conventions §6.3). */
   action: z.string(),
-  resource: z.object({ type: z.enum(AuditResourceType), id: z.string().nullable() }),
+  resource: z.object({
+    type: z.enum(AuditResourceType),
+    id: z.string().nullable(),
+    /** A `USER` resource's name, by the same rule; other resources carry none. */
+    label: z.string().nullable(),
+  }),
   /** `{ before?, after?, reason? }` — allowlisted fields only. */
   metadata: z.record(z.string(), z.unknown()),
   ip: z.string().nullable(),

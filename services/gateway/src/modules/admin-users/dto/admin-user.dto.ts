@@ -9,6 +9,7 @@ import {
   zEmail,
   zPageQuery,
   zUuidV7,
+  OwnerStatus,
 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
@@ -29,7 +30,8 @@ export const listUsersQuerySchema = zPageQuery({
 }).extend({
   roleId: zUuidV7.optional(),
   isLocked: zBooleanParam,
-  ownerVerified: zBooleanParam,
+  /** Verified, applying (a pending registration) or neither. */
+  ownerStatus: z.enum(OwnerStatus).optional(),
   includeDeleted: zBooleanParam,
 });
 

@@ -626,7 +626,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **support_reference** | VARCHAR(64) | NOT NULL | The ticket in the support channel the request came through. There is no public request form. |
 | **opened_by_id** | UUID | NOT NULL, FK ➔ users.id, RESTRICT | Holds `user.email.recover.open`. |
 | **approved_by_id** | UUID | Nullable, FK ➔ users.id, RESTRICT | Holds `user.email.recover.approve`. `CHECK (approved_by_id IS NULL OR approved_by_id <> opened_by_id)` — nobody approves a case they opened. |
-| **decision_note** | TEXT | Nullable | Required on rejection. |
+| **decision_note** | TEXT | Nullable | Required on rejection; at most 1 000 characters (`MAX_RECOVERY_DECISION_NOTE_LENGTH`). Never shown to the owner. |
 | **hold_until** | TIMESTAMPTZ(3) | Nullable | Approval time + `RECOVERY_HOLD_HOURS` (72). The owner may cancel from any reachable channel until then. |
 | **cancel_token_hash** | CHAR(64) | Nullable, **UNIQUE** | SHA-256 of the token in the "cancel this recovery" link sent with the hold notices, usable without signing in. It lives here, not in I-9, because every notice carries the same token and it must die with the case; the **completion** token is an ordinary I-9 token (`ACCOUNT_RECOVERY`) bound to the requested address. |
 | **expires_at** | TIMESTAMPTZ(3) | NOT NULL | Opening time + `RECOVERY_EXPIRY_DAYS` (14). |
@@ -689,6 +689,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **inactive_reason** | VARCHAR(24) | Nullable | `ADMIN \| OWNER \| ENTITLEMENT_LIMIT`. `CHECK ((status = 'INACTIVE') = (inactive_reason IS NOT NULL))`. Recorded because reactivation rules differ: an owner may undo `OWNER` (for an erased owner nobody can, so it is terminal; erasure moves the owner's `ADMIN` and `ENTITLEMENT_LIMIT` Venues to `OWNER` too, so neither an admin nor a widened grant can bring one back), only an admin may undo `ADMIN`, and `ENTITLEMENT_LIMIT` lifts itself when the plan allows — or the owner lifts it, when the plan has room. |
 | **activation_requested_at** | TIMESTAMPTZ(3) | Nullable | Set when a Place is approved for publication. The activation gate needs it (§1.6); a Place whose localizations become ready without it stays `PROCESSING`. |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | First time the Place became `ACTIVE`. Never cleared. |
+| **status_changed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | When `status` last changed — stamped by the trigger `places_status_changed_at_trg` (`schema-objects.sql`) on every write that changes it, raw SQL included; untouched by any other edit. Says how long a Place has been `PROCESSING` (api-endpoints-plan §3.5's stuck Places). |
 | **sync_version** | BIGINT | NOT NULL, Indexed | From `catalog_sync_version_seq`, re-taken on every tourist-observable change to the Place or its children (§1.7). |
 | **created_by_id** | UUID | NOT NULL, ref ➔ identity.users.id | The admin, or the approving admin for an owner-created Venue. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
@@ -712,7 +713,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | — |
 | **code** | VARCHAR(32) | NOT NULL, **UNIQUE** | `STREET_FOOD`, `RESTAURANT`, `CAFE`, `MARKET`, `TEMPLE`, `CHURCH`, `MUSEUM`, `LANDMARK`, `VIEWPOINT`, `PARK`… The **display name comes from the UI bundle** key `category.<code>`, never from this table — so a category is translated once, with the rest of the UI. |
 | **applies_to** | VARCHAR(16) | NOT NULL | `EDITORIAL \| VENUE \| ANY`. The submission form only offers Venue-applicable codes. |
-| **icon** | VARCHAR(64) | NOT NULL | Sprite name in the map style. |
+| **icon** | VARCHAR(64) | NOT NULL | The lowercased code, by convention. **No client draws from it:** both apps draw a category's icon from its code through `category-icons.json` in `packages/contracts`, and a code missing there draws `map-pin` until a release maps it — as its name waits for `category.<code>`. |
 | **sort_order** | SMALLINT | NOT NULL, 0 | — |
 | **is_active** | BOOLEAN | NOT NULL, true | Inactive categories stay on existing Places and disappear from pickers and filters. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
@@ -1790,6 +1791,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | catalog | `areas_boundary_gist` | GIST | containment checks |
 | catalog | `place_localizations_audio_ready_ck` | CHECK | READY audio has a file |
 | catalog | `places_menu_currency_ck` | CHECK | menu currency is VND or USD (ADR 0046) |
+| catalog | `places_status_changed_at_trg` (with its function) | trigger | stamps `status_changed_at` whenever `status` changes, on every write path (C-1) |
 | catalog | `menu_items_price_ck` | CHECK | non-negative |
 | catalog | `tours_minutes_ck`, `tours_inactive_reason_ck` | CHECK | — |
 | catalog | `place_submissions_one_pending_update` | partial unique | one pending update per Place |

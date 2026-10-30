@@ -96,6 +96,20 @@ export class AdminPronunciationsController {
     return this.pronunciations.preview(context, body);
   }
 
+  @Get(':id')
+  @RequirePermission('pronunciation.manage')
+  @NoStore()
+  @ApiOperation({ summary: 'One entry, for its page.' })
+  @ApiEnvelope(PronunciationResultResponseDto)
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(PronunciationResultResponseDto)
+  get(
+    @Ctx() context: AccountContext,
+    @Param() params: PronunciationIdParamDto,
+  ): Promise<{ entry: PronunciationEntry }> {
+    return this.pronunciations.get(context, params.id);
+  }
+
   @Patch(':id')
   @RequirePermission('pronunciation.manage')
   @NoStore()

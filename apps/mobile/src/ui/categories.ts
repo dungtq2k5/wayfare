@@ -11,10 +11,9 @@ import {
   Trees,
   Utensils,
 } from 'lucide-react-native';
-import icons from './category-icons.json';
-import { categoryKey } from './category-key';
+import { CATEGORY_ICONS, categoryIconName } from '@wayfare/contracts';
 
-/** Lucide components by the icon names `category-icons.json` uses (the marker script reads the same file). */
+/** Lucide components by the icon names contracts' `category-icons.json` uses (the marker script reads the same file). */
 const COMPONENTS: Readonly<Record<string, LucideIcon>> = {
   amphora: Amphora,
   binoculars: Binoculars,
@@ -30,11 +29,11 @@ const COMPONENTS: Readonly<Record<string, LucideIcon>> = {
 
 /** The icon for a category code. */
 export function categoryIcon(code: string): LucideIcon {
-  return COMPONENTS[icons[categoryKey(code)]] ?? MapPin;
+  return COMPONENTS[categoryIconName(code)] ?? MapPin;
 }
 
 /** The category codes in the order the chips show them. */
-export const CATEGORY_CODES = Object.keys(icons).filter((code) => code !== 'OTHER');
+export const CATEGORY_CODES = Object.keys(CATEGORY_ICONS).filter((code) => code !== 'OTHER');
 
 /** An area's icon, chosen in the app by its code (a new area works at once with the pin). */
 export function areaIcon(areaCode: string): LucideIcon {

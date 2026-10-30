@@ -87,7 +87,12 @@ const STAFF: readonly NavGroup[] = [
         icon: 'tags',
         anyOf: ['catalog.taxonomy.manage'],
       },
-      { href: '/areas', label: 'nav.areas', icon: 'layers', anyOf: ['map_pack.manage'] },
+      {
+        href: '/areas',
+        label: 'nav.areas',
+        icon: 'layers',
+        anyOf: ['catalog.taxonomy.manage', 'map_pack.manage'],
+      },
     ],
   },
   {

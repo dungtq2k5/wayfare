@@ -109,6 +109,10 @@ export function liveSourceHash(response: catalogGrpc.GetLocalizationSourceRespon
  * Synthesis jobs (rdm-spec N-1): created from catalog's events, on demand and by staff, superseded
  * by newer text, and paused, resumed, cancelled and retried from the monitor (api-endpoints-plan §4.3).
  */
+/** At most this many targets per `GetTargetJobStates` (the stuck check's cap, with room). */
+const MAX_JOB_STATE_TARGETS = 200;
+const targetIdsField = z.object({ targetIds: z.array(zUuidV7).max(MAX_JOB_STATE_TARGETS) });
+
 @Injectable()
 export class JobsService {
   constructor(
@@ -514,6 +518,58 @@ export class JobsService {
       }
       return { after: { retriedTasks: failed.length } };
     });
+  }
+
+  /**
+   * For the stuck-Places check: per target, whether a job is still moving it (`QUEUED`, `RUNNING`,
+   * or `PAUSED` — a person paused it), and its latest job. A target with no job is absent.
+   */
+  async getTargetJobStates(
+    request: narrationGrpc.GetTargetJobStatesRequest,
+    context: RequestContext,
+  ): Promise<narrationGrpc.GetTargetJobStatesResponse> {
+    requireAccountContext(context);
+    const targetType = requireProtoEnum(
+      localizationTargetTypeProto,
+      request.targetType,
+      '/targetType',
+    );
+    const { targetIds } = parseRpcRequest(targetIdsField, { targetIds: request.targetIds });
+    if (targetIds.length === 0) return { states: [] };
+    const jobs = await this.prisma.synthesisJob.findMany({
+      where: { targetType, targetId: { in: targetIds } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        targetId: true,
+        status: true,
+        finishedAt: true,
+        errorSummary: true,
+        cancelledById: true,
+      },
+    });
+    const states = new Map<string, narrationGrpc.TargetJobState>();
+    for (const job of jobs) {
+      if (job.targetId === null) continue;
+      const moving = LIVE_JOB_STATUSES.includes(job.status as SynthesisJobStatus);
+      const known = states.get(job.targetId);
+      if (known !== undefined) {
+        if (moving) known.active = true;
+        continue;
+      }
+      states.set(job.targetId, {
+        targetId: job.targetId,
+        active: moving,
+        lastJob: {
+          id: job.id,
+          status: synthesisJobStatusProto.toProto(job.status as SynthesisJobStatus),
+          finishedAt: job.finishedAt === null ? undefined : toProtoTimestamp(job.finishedAt),
+          ...(job.errorSummary === null ? {} : { errorSummary: job.errorSummary }),
+          ...(job.cancelledById === null ? {} : { cancelledById: job.cancelledById }),
+        },
+      });
+    }
+    return { states: [...states.values()] };
   }
 
   listProviders(context: RequestContext): narrationGrpc.ListProvidersResponse {

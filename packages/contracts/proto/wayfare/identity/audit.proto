@@ -5,6 +5,7 @@ package wayfare.identity;
 
 import "google/protobuf/timestamp.proto";
 import "wayfare/common/page.proto";
+import "wayfare/identity/admin_user.proto";
 
 // Reads the audit log. The caller travels as metadata.
 //
@@ -48,11 +49,16 @@ message AuditLogActor {
   string type = 1;
   optional string user_id = 2;
   optional string device_id = 3;
+  // A `USER` actor's name (unset when erased) and kind. The gateway shows the name by its rule.
+  optional string name = 4;
+  optional AccountKind kind = 5;
 }
 
 message AuditLogResource {
   string type = 1;
   optional string id = 2;
+  // A `USER` resource's name; other resources carry none.
+  optional string label = 3;
 }
 
 message ListAuditActionsRequest {}

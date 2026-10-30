@@ -17,4 +17,5 @@ export type LocalizationOverviewResponseDtoLanguagesItem = {
   translationSource: LocalizationOverviewResponseDtoLanguagesItemTranslationSource;
   audioStatus: LocalizationOverviewResponseDtoLanguagesItemAudioStatus;
   correction: LocalizationOverviewResponseDtoLanguagesItemCorrection;
+  needsReview: boolean;
 };

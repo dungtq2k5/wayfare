@@ -13,6 +13,7 @@ export interface ExpectedObjects {
   readonly constraints?: readonly string[];
   readonly extensions?: readonly string[];
   readonly sequences?: readonly string[];
+  readonly triggers?: readonly string[];
 }
 
 const KINDS = {
@@ -28,6 +29,10 @@ const KINDS = {
   sequences: {
     label: 'sequence',
     sql: `SELECT sequencename AS name FROM pg_sequences WHERE schemaname = 'public'`,
+  },
+  triggers: {
+    label: 'trigger',
+    sql: `SELECT t.tgname AS name FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND NOT t.tgisinternal`,
   },
 } as const;
 

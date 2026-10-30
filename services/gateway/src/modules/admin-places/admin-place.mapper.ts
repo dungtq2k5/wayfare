@@ -5,15 +5,18 @@ import {
   placeInactiveReasonProto,
   placeKindProto,
   placeStatusProto,
+  synthesisJobStatusProto,
   translationSourceProto,
 } from '@wayfare/contracts/grpc';
-import type { catalogGrpc } from '@wayfare/contracts/grpc';
+import type { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
 import { fromOptionalProtoTimestamp, fromProtoTimestamp } from '@wayfare/nest-common';
 import { toGeoPoint, toOpeningHoursRow, toPhotoView } from '../catalog/catalog.mapper';
+import type { NamedPerson } from '../people-names/people-names.service';
 import type {
   ActivationResultResponseDto,
   AdminPlaceListItemResponseDto,
   AdminPlaceResponseDto,
+  StuckPlaceResponseDto,
 } from './dto/admin-place-response.dto';
 import type {
   CreatePlaceDto,
@@ -146,6 +149,8 @@ export function toAdminPlaceListItemResponseDto(
     cover: row.cover === undefined || row.cover === null ? null : toPhotoView(row.cover),
     updatedAt: fromProtoTimestamp(row.updatedAt, 'updatedAt').toISOString(),
     deletedAt: iso(fromOptionalProtoTimestamp(row.deletedAt, 'deletedAt')),
+    location: toGeoPoint(row.location),
+    statusChangedAt: fromProtoTimestamp(row.statusChangedAt, 'statusChangedAt').toISOString(),
   };
 }
 
@@ -174,6 +179,7 @@ export function toListPlacesRequest(query: ListPlacesQueryDto): catalogGrpc.List
     ...(query.categoryCode === undefined ? {} : { categoryCode: query.categoryCode }),
     ...(query.ownerUserId === undefined ? {} : { ownerUserId: query.ownerUserId }),
     includeDeleted: query.includeDeleted ?? false,
+    processingBefore: undefined,
   };
 }
 
@@ -275,4 +281,26 @@ export function toReplaceOpeningHoursRequest(
   body: ReplaceOpeningHoursDto,
 ): catalogGrpc.ReplaceOpeningHoursRequest {
   return { placeId, rows: body.items.map(toProtoHours) };
+}
+
+/** A stuck Place (product §F7): the row, since when, and its latest job's why. */
+export function toStuckPlaceResponseDto(
+  place: catalogGrpc.AdminPlaceListItem,
+  lastJob: narrationGrpc.TargetLastJob | null | undefined,
+  nameOf: (id: string) => NamedPerson,
+): StuckPlaceResponseDto {
+  return {
+    place: toAdminPlaceListItemResponseDto(place),
+    processingSince: fromProtoTimestamp(place.statusChangedAt, 'statusChangedAt').toISOString(),
+    lastJob:
+      lastJob === undefined || lastJob === null
+        ? null
+        : {
+            id: lastJob.id,
+            status: known(synthesisJobStatusProto, lastJob.status, 'lastJob.status'),
+            finishedAt: iso(fromOptionalProtoTimestamp(lastJob.finishedAt, 'lastJob.finishedAt')),
+            errorSummary: lastJob.errorSummary ?? null,
+            cancelledBy: lastJob.cancelledById === undefined ? null : nameOf(lastJob.cancelledById),
+          },
+  };
 }
