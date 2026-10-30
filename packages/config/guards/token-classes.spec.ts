@@ -11,7 +11,8 @@ interface Tokens {
 }
 
 const tokens = JSON.parse(readRepoFile('packages/design-tokens/tokens.json')) as Tokens;
-const SPACE = new Set(Object.keys(tokens.space));
+// The token `0_5` is the class step `0.5`.
+const SPACE = new Set(Object.keys(tokens.space).map((key) => key.replace('_', '.')));
 const RADIUS = new Set(Object.keys(tokens.radius));
 
 /** Spacing-scale utilities with a number: `p-4`, `min-h-12`, `-mt-2`, `gap-x-3`, `inset-x-0`. */
@@ -56,7 +57,7 @@ describe('mobile class names', () => {
       scanClasses('x.tsx', 'className="rounded rounded-t rounded-sm rounded-lg rounded-b-xl"'),
     ).toEqual(['x.tsx:1: rounded', 'x.tsx:1: rounded-t']);
     expect(
-      scanClasses('x.tsx', 'className="min-h-target rounded-t-2xl gap-x-3 inset-x-0"'),
+      scanClasses('x.tsx', 'className="min-h-target rounded-t-2xl gap-x-3 inset-x-0 py-0.5"'),
     ).toEqual([]);
   });
 });

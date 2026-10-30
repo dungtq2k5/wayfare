@@ -112,7 +112,7 @@ export function NarrationJob({ initial }: { initial: Job }) {
         Math.ceil((new Date(task.nextAttemptAt).getTime() - now.getTime()) / 60_000),
       );
       return (
-        <span className="flex items-start gap-1.5 text-info-foreground">
+        <span className="flex items-start gap-1 text-info-foreground">
           <Clock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
           {t('job.waiting', {
             time: clock(task.providerDownSince ?? task.startedAt ?? data.createdAt),
@@ -126,7 +126,7 @@ export function NarrationJob({ initial }: { initial: Job }) {
     if (task.lastError === null) return '';
     // A failure says how many tries, what went wrong, and what to do.
     return task.status === 'FAILED' ? (
-      <span className="flex items-start gap-1.5 text-destructive">
+      <span className="flex items-start gap-1 text-destructive">
         <CircleX aria-hidden className="mt-0.5 size-3.5 shrink-0" />
         {t(task.stage === 'TRANSLATE' ? 'job.failedTranslation' : 'job.failedAudio', {
           tries: task.attempts,

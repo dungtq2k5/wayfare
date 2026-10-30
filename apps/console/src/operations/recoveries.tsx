@@ -8,6 +8,7 @@ import {
   adminRecoveriesOpenRecovery,
   adminRecoveriesReject,
   ApiError,
+  auditLogsList,
 } from '@wayfare/api-client';
 import type { AdminRecoveriesListParams, RecoveryResponseDto } from '@wayfare/api-client';
 import {
@@ -226,6 +227,8 @@ export function recoverySteps(
   recovery: Recovery,
   translator: Translator,
   who: (person: { id: string; name: string | null }) => string,
+  /** Who rejected it, from the case's audit row (the case records only its approver). */
+  rejectedBy?: { id: string; name: string | null },
 ): Step[] {
   const { t, tDynamic, locale } = translator;
   const checks = recovery.evidenceCodes.map((code) => tDynamic(`recPage.check.${code}`)).join(', ');
@@ -246,7 +249,7 @@ export function recoverySteps(
       note: t('recPage.checks', { checks }),
     },
   ];
-  // Who stopped it, where the case says: the owner who cancelled; a rejection names no one.
+  // Who stopped it: the owner who cancelled; the rejecter, when the audit log was read.
   const stop = (key: string, title: string, note?: string, by?: string): Step[] => [
     ...steps,
     {
@@ -273,7 +276,12 @@ export function recoverySteps(
       recovery.owner.name ?? recovery.owner.email,
     );
   if (recovery.status === 'REJECTED')
-    return stop('rejected', t('recPage.rejected'), t('recPage.rejectedNote'));
+    return stop(
+      'rejected',
+      t('recPage.rejected'),
+      t('recPage.rejectedNote'),
+      rejectedBy === undefined ? undefined : who(rejectedBy),
+    );
   if (recovery.status === 'EXPIRED') return stop('expired', t('recPage.expired'));
   if (recovery.approvedAt === null)
     steps.push({
@@ -333,6 +341,26 @@ export function RecoveryPage({ initial }: { initial: Recovery }) {
     queryFn: async () => (await adminRecoveriesGet(initial.id)).data.recovery,
     initialData: initial,
   }).data;
+  // The Rejected stop's "who", from the case's newest rejection row, as U5b's *Locked by*.
+  const rejection = useQuery({
+    queryKey: ['history', 'ACCOUNT_RECOVERY', recovery.id, 'rejected'],
+    queryFn: async () => {
+      const rows = await auditLogsList({
+        resourceType: 'ACCOUNT_RECOVERY',
+        resourceId: recovery.id,
+        action: 'ACCOUNT_RECOVERY_REJECTED',
+        from: recovery.createdAt,
+        to: new Date().toISOString(),
+        limit: 1,
+      });
+      return rows.data[0] ?? null;
+    },
+    enabled: recovery.status === 'REJECTED' && can('audit.read'),
+    // The audit row is written after the rejection: read again until it is there, ten tries at most.
+    refetchInterval: (query) =>
+      query.state.data === null && query.state.dataUpdateCount < 10 ? 2_000 : false,
+  });
+  const rejecter = rejection.data?.actor;
   const [dialog, setDialog] = useState<'approve' | 'reject' | null>(null);
   const [busy, setBusy] = useState(false);
   const name = recovery.owner.name ?? recovery.owner.email;
@@ -382,7 +410,14 @@ export function RecoveryPage({ initial }: { initial: Recovery }) {
     }, decided);
   };
 
-  const steps = recoverySteps(recovery, translator, who);
+  const steps = recoverySteps(
+    recovery,
+    translator,
+    who,
+    rejecter?.userId === undefined || rejecter.userId === null
+      ? undefined
+      : { id: rejecter.userId, name: rejecter.name },
+  );
   return (
     <>
       <PageHeader

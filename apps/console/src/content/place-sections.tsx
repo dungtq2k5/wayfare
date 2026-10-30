@@ -78,8 +78,9 @@ export function Facts({
     // A table sizes the label column to its longest label.
     return (
       <dl className="table w-full text-sm">
-        {rows.map(([term, value]) => (
-          <div key={term} className="table-row">
+        {/* By position: a label may repeat (two deliveries of one template). */}
+        {rows.map(([term, value], index) => (
+          <div key={index} className="table-row">
             <dt className="table-cell py-1 pr-6 whitespace-nowrap text-muted-foreground">{term}</dt>
             <dd className="table-cell py-1 text-foreground">{value}</dd>
           </div>
@@ -89,8 +90,8 @@ export function Facts({
   }
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-      {rows.map(([term, value]) => (
-        <div key={term} className="contents">
+      {rows.map(([term, value], index) => (
+        <div key={index} className="contents">
           <dt className="text-muted-foreground">{term}</dt>
           <dd className="text-foreground sm:col-span-2">{value}</dd>
         </div>

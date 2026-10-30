@@ -34,6 +34,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <SocketProvider>
+      {/* eslint-disable-next-line no-restricted-syntax -- the sidebar's width (w-64), not a spacing step */}
       <div className="min-h-dvh lg:pl-64">
         <a
           href="#content"

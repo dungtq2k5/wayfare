@@ -191,7 +191,7 @@ export function NotificationBell() {
                       <span
                         aria-hidden
                         className={cn(
-                          'mt-1.5 size-2 shrink-0 rounded-full',
+                          'mt-1 size-2 shrink-0 rounded-full',
                           row.readAt === null ? 'bg-primary' : 'bg-transparent',
                         )}
                       />

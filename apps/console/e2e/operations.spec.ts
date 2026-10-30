@@ -247,7 +247,7 @@ test('8: the audit log on the last 7 days, names resolved; a row’s details; an
   await expect(table.getByRole('row', { name: /Area created/ })).toHaveCount(1);
 });
 
-test('9: a recovery opened by an admin → approved by the super admin → cancelled by the owner (V2, V4, V3b)', async ({
+test('9: a recovery opened by an admin → approved by the super admin → cancelled by the owner; another rejected, its rejecter named (V2, V4, V3b, V4b)', async ({
   page,
 }) => {
   const { owner } = accounts();
@@ -287,6 +287,24 @@ test('9: a recovery opened by an admin → approved by the super admin → cance
   await ownerActor.call('POST', `/account-recoveries/${id}/cancel`, {});
   await page.reload();
   await expect(page.getByText('Cancelled by the owner').first()).toBeVisible();
+
+  // Another case for the same owner, rejected: its stop names who rejected it, from the audit log.
+  const admin = await adminActor();
+  const { data: opened } = await admin.call<{ data: { recovery: { id: string } } }>(
+    'POST',
+    `/admin/users/${ownerId}/email-recoveries`,
+    {
+      requestedEmail: `again-${stamp}@example.com`,
+      evidenceCodes: ['PHONE_CALLBACK', 'BUSINESS_DETAILS_MATCH'],
+      supportReference: `SUP-${stamp}-2`,
+    },
+  );
+  await page.goto(`/recoveries/${opened.recovery.id}`);
+  await page.getByRole('button', { name: 'Reject…' }).click();
+  const why = page.getByRole('dialog', { name: /^Reject the recovery for / });
+  await why.getByRole('textbox', { name: 'Why' }).fill('The call back reached the wrong person.');
+  await why.getByRole('button', { name: 'Reject' }).click();
+  await expect(page.getByText(/^You · /).last()).toBeVisible();
 });
 
 test('10: a Place whose narration fails stays Processing → Home names it → Make narration again → off the list (X1, X2)', async ({

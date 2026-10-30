@@ -317,7 +317,7 @@ export function SearchField({
       />
       <input
         type="search"
-        className="h-9 w-full rounded-md border border-input bg-background pr-3 pl-9 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-9 w-full rounded-md border border-input bg-background pr-3 pl-8 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         {...props}
       />
     </div>

@@ -78,6 +78,10 @@ async function open(page: Page, email: string, viewer: string = PEOPLE.lan): Pro
   await as(page, viewer);
   await page.goto(`/users/${id}`);
   await page.waitForLoadState('networkidle');
+  // The deliveries are read after the page: their rows, or "Nothing sent yet", before a capture.
+  const deliveries = page.getByRole('region', { name: 'Email deliveries' });
+  if ((await deliveries.count()) > 0)
+    await expect(deliveries.locator('dl, p').first()).toBeVisible();
 }
 
 test('U1 the list, U1b including deactivated', async ({ page }) => {

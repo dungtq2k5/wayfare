@@ -182,7 +182,7 @@ export function UserPage({ initial }: { initial: UserView }) {
       {user.isLocked && !deactivated ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
+          className="flex items-start gap-2 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
         >
           <Lock aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span className="flex-1">
@@ -214,7 +214,7 @@ export function UserPage({ initial }: { initial: UserView }) {
                 {shownRoles.map((role) => (
                   <span
                     key={role.id}
-                    className="rounded-full bg-secondary px-2.5 py-0.5 text-sm text-secondary-foreground"
+                    className="rounded-full bg-secondary px-2 py-0.5 text-sm text-secondary-foreground"
                   >
                     {roleName(role)}
                   </span>

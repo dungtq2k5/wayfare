@@ -4,6 +4,7 @@ import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import { OFF_SCALE_SPACING, SPACE_STEPS } from './spacing-scale.mjs';
 
 const PRISMA_CLIENT_PATTERN = {
   group: ['**/generated/prisma', '**/generated/prisma/*'],
@@ -117,6 +118,10 @@ const WEB_TOKENS_ONLY_SELECTORS = [
     message:
       'Colour, font family and size come from token classes, not an inline style (ADR 0061).',
   },
+  ...['Literal[value', 'TemplateElement[value.raw'].map((node) => ({
+    selector: `${node}=/${OFF_SCALE_SPACING}/]`,
+    message: `Spacing stays on the token scale (${SPACE_STEPS.join(', ')}): round an off-scale step down to the one below (ADR 0061).`,
+  })),
 ];
 
 const AUDIO_PATHS = ['expo-audio', 'expo-speech'].map((name) => ({

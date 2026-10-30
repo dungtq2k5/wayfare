@@ -50,7 +50,12 @@ module.exports = {
       current: 'currentColor',
       ...${json(colors)},
     },
-    spacing: ${json(pxMap(model.space))},
+    // The token's 0_5 is the class step 0.5 (py-0.5), as on the web.
+    spacing: ${json(
+      Object.fromEntries(
+        Object.entries(pxMap(model.space)).map(([k, v]) => [k.replace('_', '.'), v]),
+      ),
+    )},
     borderRadius: ${json(pxMap(model.radius))},
     fontSize: ${json(
       Object.fromEntries(

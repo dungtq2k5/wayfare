@@ -106,6 +106,11 @@ test('C11c the account page (owner, Google linked)', async ({ page }) => {
 });
 
 test('C11d the account page (owner, no Google)', async ({ page }) => {
+  // How many of An's notifications are unread depends on how far the run's events got: none, as the
+  // frame's bell.
+  const an = new Actor();
+  await an.signIn(PEOPLE.an, PASSWORD);
+  await an.call('POST', '/notifications/read-all', {}, [200, 201, 204]);
   await as(page, PEOPLE.an);
   await page.goto('/account');
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();

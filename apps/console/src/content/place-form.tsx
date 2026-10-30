@@ -307,7 +307,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
           {stale ? (
             <div
               role="alert"
-              className="flex items-start gap-3 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
+              className="flex items-start gap-2 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
             >
               <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
               <span className="flex-1">

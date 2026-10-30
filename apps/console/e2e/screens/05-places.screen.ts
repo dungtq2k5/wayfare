@@ -63,6 +63,8 @@ async function placePage(page: Page, id: string, email: string = PEOPLE.lan): Pr
   await expect(
     page.getByRole('link', { name: 'Open job' }).or(page.getByText('No job yet')),
   ).toBeVisible();
+  // The Location card's map comes with its style, after the page: drawn (and masked) before a capture.
+  await expect(page.locator('.maplibregl-canvas').first()).toBeVisible();
 }
 
 /**
@@ -161,6 +163,7 @@ test('L2 an Editorial Place, L3 its narration, L6 its editorial controls, L9 its
   await expect(
     page.getByRole('region', { name: 'History' }).getByText('Created', { exact: true }),
   ).toBeVisible();
+  await expect(page.locator('.maplibregl-canvas').first()).toBeVisible();
   await look(page, 'l3-narration', {
     target: page.getByRole('region', { name: 'Narration', exact: true }).first(),
   });

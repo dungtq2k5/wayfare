@@ -545,7 +545,7 @@ function WhoFilter({
             <li>
               <button
                 type="button"
-                className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
+                className="w-full rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
                 onClick={() => pick(null)}
               >
                 {t('auditLog.anyone')}
@@ -558,7 +558,7 @@ function WhoFilter({
                     <li key={person.id}>
                       <button
                         type="button"
-                        className="flex w-full flex-col rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        className="flex w-full flex-col rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
                         onClick={() =>
                           pick({ id: person.id, name: person.fullName ?? person.email })
                         }

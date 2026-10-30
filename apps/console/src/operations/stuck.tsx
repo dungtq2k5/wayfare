@@ -206,7 +206,7 @@ export function StuckAlert({ placeId, name }: { placeId: string; name: string })
   return (
     <div
       role="status"
-      className="flex items-start gap-3 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
+      className="flex items-start gap-2 rounded-md border border-warning-foreground bg-warning px-4 py-3 text-sm text-warning-foreground"
     >
       <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
       {/* Buttons at the right end, under the text at phone width (handoff 35 §14). */}

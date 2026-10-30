@@ -95,16 +95,16 @@ test('T1 the corrections page', async ({ page }) => {
 test('T1b from a Place’s narration', async ({ page }) => {
   await as(page, PEOPLE.lan);
   await page.goto(`/places/${dinh}`);
-  // The row's menu open, then the narration section at the window's top (the page settled first:
-  // photos arriving late move it): what the state proves.
+  // The narration section at the window's top once the page has settled (photos arriving late move
+  // it), then its row's menu open: what the state proves.
   await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'Actions for English' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Correct the translation' })).toBeVisible();
   await page.locator('#narration').evaluate((heading) => {
     heading.scrollIntoView({ block: 'start' });
     // Clear of the sticky top bar.
     window.scrollBy(0, -88);
   });
+  await page.getByRole('button', { name: 'Actions for English' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Correct the translation' })).toBeVisible();
   await look(page, 't1b-from-a-place', {
     viewportOnly: true,
     keepScroll: true,
