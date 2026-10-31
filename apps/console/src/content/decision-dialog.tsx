@@ -39,7 +39,7 @@ export function DecisionDialog({
   children: ReactNode;
   confirm: string;
   reject?: boolean;
-  note: { label: string; help: string };
+  note: { label: string; help: string; placeholder: string };
   busy: boolean;
   alert: ReactNode;
   onConfirm: (notes: DecisionNotes) => void;
@@ -70,6 +70,7 @@ export function DecisionDialog({
             <>
               <Textarea
                 {...control}
+                placeholder={note.placeholder}
                 rows={3}
                 maxLength={MAX_DECISION_NOTE_LENGTH}
                 value={decisionNote}
@@ -85,6 +86,7 @@ export function DecisionDialog({
           {(control) => (
             <Textarea
               {...control}
+              placeholder={t('decision.internalNotePlaceholder')}
               rows={2}
               maxLength={MAX_DECISION_NOTE_LENGTH}
               value={internalNote}

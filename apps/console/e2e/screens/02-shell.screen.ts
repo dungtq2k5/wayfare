@@ -57,6 +57,13 @@ test('C10c a notification arriving', async ({ page }) => {
   const email = 'vy.tran@example.com';
   const applicant = await verifiedUser(email);
   const registration = await apply(applicant, 'Bún Vy');
+  // The arrival's outline fades after 2 s, and the captures (light, dark, axe) take longer: that one
+  // timer is held, so every capture draws the outline.
+  await page.addInitScript(() => {
+    const later = window.setTimeout;
+    window.setTimeout = ((handler: TimerHandler, ms?: number, ...rest: unknown[]) =>
+      ms === 2000 ? 0 : later(handler, ms, ...rest)) as typeof window.setTimeout;
+  });
   await as(page, email);
   await page.getByRole('button', { name: /^Notifications/ }).click();
   const panel = page.getByRole('dialog', { name: 'Notifications' });

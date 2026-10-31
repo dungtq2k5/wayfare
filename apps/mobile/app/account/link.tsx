@@ -2,7 +2,7 @@ import { ApiError } from '@wayfare/api-client';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleCheck, Clock, ShieldCheck, User } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   openLink,
@@ -25,6 +25,7 @@ import { ScreenHeader } from '../../src/ui/screen-header';
 import { SkeletonRows } from '../../src/ui/skeleton';
 import { TextField } from '../../src/ui/text-field';
 import { showToast } from '../../src/ui/toast';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 const expired = (error: unknown) => error instanceof ApiError && error.code === 'TOKEN_EXPIRED';
 
@@ -91,7 +92,7 @@ export default function AccountLinkScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title="" type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">{body()}</ScrollView>
+      <FormScroll>{body()}</FormScroll>
     </SafeAreaView>
   );
 

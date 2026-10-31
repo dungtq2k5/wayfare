@@ -279,7 +279,10 @@ export function recoverySteps(
     return stop(
       'rejected',
       t('recPage.rejected'),
-      t('recPage.rejectedNote'),
+      // Staff read the reason; the owner was told only that it was rejected.
+      recovery.decisionNote === null
+        ? t('recPage.rejectedNote')
+        : t('recPage.rejectedReason', { reason: recovery.decisionNote }),
       rejectedBy === undefined ? undefined : who(rejectedBy),
     );
   if (recovery.status === 'EXPIRED') return stop('expired', t('recPage.expired'));
@@ -654,6 +657,7 @@ export function OpenRecoveryDialog({
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('field.emailPlaceholder')}
                 type="email"
                 autoComplete="off"
                 value={email}
@@ -704,6 +708,7 @@ export function OpenRecoveryDialog({
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('recOpen.referencePlaceholder')}
                 autoComplete="off"
                 maxLength={MAX_SUPPORT_REFERENCE_LENGTH}
                 value={reference}

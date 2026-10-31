@@ -63,6 +63,7 @@ export function DeactivateDialog({
       labels={{ cancel: t('action.cancel'), close: t('action.close') }}
       alert={alert}
       noteLabel={t('deactivate.reason')}
+      placeholder={t('placeDeactivate.reasonPlaceholder')}
       noteHelp={venue ? t('deactivate.reasonHelpVenue', { owner }) : t('deactivate.reasonHelp')}
       // Destructive only for a Venue: an Editorial Place's deactivation has *Undo*.
       tone={venue ? 'destructive' : 'primary'}

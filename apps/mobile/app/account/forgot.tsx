@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff, Mail } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { forgotPassword } from '../../src/account/actions';
 import { ErrorBanner, FormBody, LinkResult } from '../../src/account/components';
@@ -13,6 +13,7 @@ import { Button } from '../../src/ui/button';
 import { InlineNote } from '../../src/ui/inline-note';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /** *Forgot password?* (frames G8, G8b): the same answer whether or not the account exists. */
 export default function ForgotPasswordScreen() {
@@ -42,7 +43,7 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.forgot.title')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         {sent ? (
           <LinkResult
             icon={Mail}
@@ -74,7 +75,7 @@ export default function ForgotPasswordScreen() {
             />
           </FormBody>
         )}
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

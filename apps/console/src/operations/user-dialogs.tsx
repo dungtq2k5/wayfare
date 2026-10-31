@@ -161,6 +161,7 @@ export function StaffAccountDialog({ onOpenChange }: { onOpenChange: (open: bool
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('field.namePlaceholder')}
                 autoComplete="off"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
@@ -171,6 +172,7 @@ export function StaffAccountDialog({ onOpenChange }: { onOpenChange: (open: bool
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('field.emailPlaceholder')}
                 type="email"
                 autoComplete="off"
                 value={email}
@@ -401,6 +403,7 @@ export function LockDialog({
       alert={alert}
       tone="primary"
       noteLabel={t('lock.reason')}
+      placeholder={t('lock.reasonPlaceholder')}
       noteHelp={t('lock.reasonHelp')}
       minLength={1}
       maxLength={MAX_LOCK_REASON_LENGTH}
@@ -487,6 +490,7 @@ export function DeactivateUserDialog({
       labels={LABELS(t)}
       alert={alert}
       noteLabel={t('deactivateUser.reason')}
+      placeholder={t('deactivateUser.reasonPlaceholder')}
       noteHelp={t('deactivateUser.reasonHelp')}
       minLength={1}
       maxLength={MAX_ADMIN_REASON_LENGTH}

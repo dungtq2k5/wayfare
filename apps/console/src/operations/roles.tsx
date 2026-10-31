@@ -565,6 +565,7 @@ function RoleEditor({
               {(control) => (
                 <Input
                   {...control}
+                  placeholder={t('roleForm.namePlaceholder')}
                   maxLength={MAX_ROLE_NAME_LENGTH}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
@@ -578,6 +579,7 @@ function RoleEditor({
               {(control) => (
                 <Input
                   {...control}
+                  placeholder={t('roleForm.descriptionPlaceholder')}
                   maxLength={MAX_ROLE_DESCRIPTION_LENGTH}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}

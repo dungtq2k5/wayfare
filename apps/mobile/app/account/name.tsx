@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { changeName } from '../../src/account/actions';
 import { ErrorBanner, LinkButton } from '../../src/account/components';
 import { useSubmit } from '../../src/account/use-form';
@@ -10,6 +10,7 @@ import { useAccountStore } from '../../src/session/account-store';
 import { BottomSheet } from '../../src/ui/bottom-sheet';
 import { Button } from '../../src/ui/button';
 import { TextField } from '../../src/ui/text-field';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /**
  * The name (frames A2, A2b, K11): a bottom sheet over the Account screen, changed, never removed —
@@ -40,7 +41,7 @@ export default function NameScreen() {
         <Text accessibilityRole="header" className="text-heading text-foreground">
           {t('account.name.title')}
         </Text>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-4">
+        <FormScroll contentContainerClassName="gap-4">
           {failure !== null && <ErrorBanner title={failure} />}
           <TextField
             testID="name-field"
@@ -60,7 +61,7 @@ export default function NameScreen() {
             disabled={empty || offline}
           />
           <LinkButton label={t('account.cancel')} onPress={() => router.back()} />
-        </ScrollView>
+        </FormScroll>
       </BottomSheet>
     </View>
   );

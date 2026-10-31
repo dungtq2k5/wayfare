@@ -117,6 +117,21 @@ export async function look(
         `${name} at ${width} is wider than the viewport: ${widest.join('; ')}`,
       ).toBeLessThanOrEqual(WIDTHS[width].width);
       await accessible(page, options.disabled);
+      // Every text field shows an example of what goes in it (conventions §12.5); a password and a
+      // typed confirmation say they have none (`data-no-example`).
+      const bare = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')]
+          .filter(
+            (field) =>
+              !['checkbox', 'radio', 'range', 'hidden', 'file', 'password'].includes(field.type) &&
+              !field.hasAttribute('data-no-example') &&
+              field.getAttribute('aria-hidden') !== 'true' &&
+              field.getClientRects().length > 0 &&
+              (field.placeholder ?? '').trim() === '',
+          )
+          .map((field) => field.labels?.[0]?.textContent?.trim() || field.name || field.id),
+      );
+      expect(bare, `${name}: text fields without a placeholder`).toEqual([]);
       const narrow: Width[] = [...(options.extra ?? []), ...(options.only ?? [])];
       const drawn = width === '1440' || (scheme === 'light' && narrow.includes(width));
       if (!drawn) continue;

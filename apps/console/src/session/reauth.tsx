@@ -124,6 +124,7 @@ function ReauthDialog({
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('field.emailPlaceholder')}
                 type="email"
                 value={initialEmail}
                 readOnly

@@ -36,7 +36,13 @@ export function PasswordInput({
   const [shown, setShown] = useState(false);
   return (
     <div className="relative">
-      <Input type={shown ? 'text' : 'password'} className={cn('pr-10', className)} {...props} />
+      {/* A password has no example (conventions §12.5). */}
+      <Input
+        type={shown ? 'text' : 'password'}
+        data-no-example
+        className={cn('pr-10', className)}
+        {...props}
+      />
       <button
         type="button"
         onClick={() => setShown((value) => !value)}

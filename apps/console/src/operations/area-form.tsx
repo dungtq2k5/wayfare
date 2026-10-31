@@ -51,6 +51,9 @@ type Refusal =
 
 const NAMED_OUTSIDE = 3;
 const fixed = (value: number) => value.toFixed(4);
+
+/** The pasted boundary's example: GeoJSON reads the same in both languages. */
+const GEOJSON_EXAMPLE = '{ "type": "Polygon", "coordinates": [[ [106.6921, 10.7801], … ]] }';
 const sameRing = (a: readonly Vertex[], b: readonly Vertex[]) =>
   a.length === b.length &&
   a.every((point, index) => point[0] === b[index]![0] && point[1] === b[index]![1]);
@@ -290,6 +293,7 @@ export function AreaForm({ area }: { area: Area | null }) {
                   {(control) => (
                     <Input
                       {...control}
+                      placeholder={t('areaForm.codePlaceholder')}
                       value={code}
                       autoComplete="off"
                       onChange={(event) => setCode(event.target.value.toLowerCase())}
@@ -315,6 +319,7 @@ export function AreaForm({ area }: { area: Area | null }) {
                 {(control) => (
                   <Input
                     {...control}
+                    placeholder={t('areaForm.namePlaceholder')}
                     lang="vi"
                     value={nameVi}
                     onChange={(event) => setNameVi(event.target.value)}
@@ -404,6 +409,7 @@ export function AreaForm({ area }: { area: Area | null }) {
                 {(control) => (
                   <Input
                     {...control}
+                    placeholder={t('areaForm.centrePlaceholder')}
                     inputMode="decimal"
                     value={
                       centreText ??
@@ -525,6 +531,7 @@ function GeoJsonDialog({
             {(control) => (
               <Textarea
                 {...control}
+                placeholder={GEOJSON_EXAMPLE}
                 rows={10}
                 className="font-mono text-xs"
                 value={text}

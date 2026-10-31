@@ -31,6 +31,7 @@ export function SliderField({
   onChange,
   required = true,
   unit,
+  placeholder,
 }: {
   label: string;
   help: string;
@@ -42,6 +43,8 @@ export function SliderField({
   required?: boolean;
   /** The value's unit after the field and at the slider's ends ("m"). */
   unit?: string;
+  /** An example value, shown while the field is empty. */
+  placeholder?: string;
 }) {
   const end = (n: number) => (unit === undefined ? String(n) : `${n} ${unit}`);
   return (
@@ -66,6 +69,7 @@ export function SliderField({
           <span className="flex items-center gap-2">
             <Input
               {...control}
+              placeholder={placeholder}
               type="number"
               min={min}
               max={max}
@@ -175,6 +179,7 @@ export function EditorialSection({
           {alert === null ? null : <FormAlert>{alert}</FormAlert>}
           <SliderField
             label={t('editorial.radius')}
+            placeholder={t('editorial.radiusPlaceholder')}
             help={t('editorial.radiusHelp', { m: radius, comparison: t(radiusComparison(radius)) })}
             error={errors.triggerRadiusM}
             value={radius}
@@ -188,6 +193,7 @@ export function EditorialSection({
           />
           <SliderField
             label={t('editorial.priority')}
+            placeholder={t('editorial.priorityPlaceholder')}
             help={t('editorial.priorityHelp')}
             error={errors.narrationPriority}
             value={prio}

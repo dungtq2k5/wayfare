@@ -157,6 +157,7 @@ export function PronunciationForm({ entry }: { entry: Entry | null }) {
                     {(control) => (
                       <Input
                         {...control}
+                        placeholder={t('pronForm.termPlaceholder')}
                         lang="vi"
                         value={values.term}
                         onChange={(event) => {
@@ -236,6 +237,11 @@ export function PronunciationForm({ entry }: { entry: Entry | null }) {
                   {(control) => (
                     <Input
                       {...control}
+                      placeholder={
+                        values.replacementType === 'SUB'
+                          ? t('pronForm.aliasPlaceholder')
+                          : t('pronForm.phonemePlaceholder')
+                      }
                       value={values.replacement}
                       onChange={(event) => set('replacement', event.target.value)}
                     />
@@ -264,6 +270,7 @@ export function PronunciationForm({ entry }: { entry: Entry | null }) {
                 {(control) => (
                   <Input
                     {...control}
+                    placeholder={t('pronForm.notePlaceholder')}
                     value={values.note}
                     onChange={(event) => set('note', event.target.value)}
                   />
@@ -421,6 +428,10 @@ function PreviewCard({
         {(control) => (
           <Textarea
             {...control}
+            // The sentence it is prefilled with, kept as its example once cleared.
+            placeholder={t('pronForm.sampleText', {
+              term: term.trim() === '' ? t('pronForm.termPlaceholder') : term.trim(),
+            })}
             lang={lang}
             rows={3}
             maxLength={MAX_PREVIEW_CHARS}

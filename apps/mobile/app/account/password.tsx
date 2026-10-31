@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { CloudOff } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { changePassword } from '../../src/account/actions';
 import { ErrorBanner, FormBody } from '../../src/account/components';
@@ -15,6 +15,7 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
 import { showToast } from '../../src/ui/toast';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /** *Change password* (frames A4, A4b, K12): this phone stays signed in; the others are not. */
 export default function ChangePasswordScreen() {
@@ -45,7 +46,7 @@ export default function ChangePasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.changePassword')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         <FormBody>
           {offline && <InlineNote icon={CloudOff} text={t('account.offline.changes')} />}
           {error?.place === 'banner' && <ErrorBanner title={error.title} body={error.body} />}
@@ -77,7 +78,7 @@ export default function ChangePasswordScreen() {
             disabled={offline || current === '' || next === ''}
           />
         </FormBody>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

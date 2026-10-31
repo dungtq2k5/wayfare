@@ -7,6 +7,11 @@ appId: app.wayfare
 - tapOn:
     id: 'sign-in-email'
 - inputText: ${EMAIL}
+# At the largest text the password field sits under the keyboard: closed, then scrolled to.
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'sign-in-password'
 - tapOn:
     id: 'sign-in-password'
 - inputText: ${PASSWORD}

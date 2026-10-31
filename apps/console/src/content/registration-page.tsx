@@ -369,6 +369,7 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
         labels={{ cancel: t('action.cancel'), close: t('action.close') }}
         alert={revealAlert}
         noteLabel={t('reveal.why')}
+        placeholder={t('reveal.whyPlaceholder')}
         noteHelp={t('reveal.whyHelp')}
         tone="primary"
         minLength={MIN_REVEAL_REASON_LENGTH}
@@ -380,7 +381,11 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
         onOpenChange={(open) => !open && setDialog(null)}
         title={t('regApprove.title', { name: data.businessName })}
         confirm={t('approve.confirm')}
-        note={{ label: t('regApprove.note'), help: t('regApprove.noteHelp') }}
+        note={{
+          label: t('regApprove.note'),
+          help: t('regApprove.noteHelp'),
+          placeholder: t('decision.applicantNotePlaceholder'),
+        }}
         busy={busy}
         alert={alert}
         onConfirm={(notes) => void decide('approve', notes)}
@@ -394,7 +399,11 @@ export function RegistrationPage({ initial }: { initial: Detail }) {
         title={t('regReject.title', { name: data.businessName })}
         confirm={t('reject.confirm')}
         reject
-        note={{ label: t('regReject.note'), help: t('regReject.noteHelp') }}
+        note={{
+          label: t('regReject.note'),
+          help: t('regReject.noteHelp'),
+          placeholder: t('decision.applicantNotePlaceholder'),
+        }}
         busy={busy}
         alert={alert}
         onConfirm={(notes) => void decide('reject', notes)}

@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '@wayfare/api-client';
 import { requestEmailChange } from '../../src/account/actions';
@@ -18,6 +18,7 @@ import { Button } from '../../src/ui/button';
 import { InlineNote } from '../../src/ui/inline-note';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /** *Change email* (frame A3, K11): the address changes only when the link is opened (A3b). */
 export default function ChangeEmailScreen() {
@@ -60,7 +61,7 @@ export default function ChangeEmailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.changeEmail')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         <FormBody>
           {offline && <InlineNote icon={CloudOff} text={t('account.offline.changes')} />}
           <Text className="text-body text-muted-foreground">{t('account.email.lead')}</Text>
@@ -107,7 +108,7 @@ export default function ChangeEmailScreen() {
             }
           />
         </FormBody>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

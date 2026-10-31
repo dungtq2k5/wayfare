@@ -138,6 +138,7 @@ export function EmailDeliveries({ user }: { user: UserView }) {
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('field.emailPlaceholder')}
                 type="email"
                 autoComplete="off"
                 value={address}

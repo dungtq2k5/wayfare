@@ -87,6 +87,7 @@ export function PhotosEditor({
                 {(control) => (
                   <Input
                     {...control}
+                    placeholder={t('placeForm.altTextPlaceholder')}
                     value={photo.altTextVi}
                     onChange={(event) =>
                       onChange(
@@ -353,6 +354,7 @@ export function MenuEditor({
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('placeForm.dishPlaceholder')}
                 value={row.nameVi}
                 onChange={(event) => set(row.key, { nameVi: event.target.value })}
               />
@@ -362,6 +364,7 @@ export function MenuEditor({
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('placeForm.pricePlaceholder')}
                 inputMode="numeric"
                 value={row.price}
                 onChange={(event) => set(row.key, { price: event.target.value.replace(/\D/g, '') })}

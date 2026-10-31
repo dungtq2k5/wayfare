@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleCheck, CloudOff } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn } from '../../src/account/actions';
 import { ErrorBanner, FormBody, LinkButton } from '../../src/account/components';
@@ -17,6 +17,7 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
 import { showToast } from '../../src/ui/toast';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /**
  * Sign in (frames G4–G6, K1, K6, K7): errors in one banner, the favourites' count in the toast.
@@ -53,7 +54,7 @@ export default function SignInScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.signIn')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         <FormBody>
           {offline && <InlineNote icon={CloudOff} text={t('account.offline.signIn')} />}
           {params.note === 'reset' ? (
@@ -118,7 +119,7 @@ export default function SignInScreen() {
             onPress={() => router.replace('/account/create')}
           />
         </FormBody>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

@@ -374,6 +374,7 @@ function CategoryDialog({
               {(control) => (
                 <Input
                   {...control}
+                  placeholder={t('categories.codePlaceholder')}
                   value={code}
                   autoComplete="off"
                   onChange={(event) => setCode(event.target.value.toUpperCase())}
@@ -430,6 +431,7 @@ function CategoryDialog({
             {(control) => (
               <Input
                 {...control}
+                placeholder={t('categories.orderPlaceholder')}
                 type="number"
                 inputMode="numeric"
                 min={0}

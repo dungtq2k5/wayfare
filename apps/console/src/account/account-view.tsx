@@ -232,6 +232,7 @@ export function AccountView() {
           {(control) => (
             <Input
               {...control}
+              placeholder={t('field.namePlaceholder')}
               autoComplete="name"
               value={value('fullName')}
               onChange={change('fullName')}

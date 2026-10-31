@@ -453,6 +453,7 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
               {(control) => (
                 <Input
                   {...control}
+                  placeholder={t('editorial.radiusPlaceholder')}
                   inputMode="numeric"
                   value={radius}
                   disabled={readOnly}
@@ -471,6 +472,7 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
               {(control) => (
                 <Input
                   {...control}
+                  placeholder={t('editorial.priorityPlaceholder')}
                   inputMode="numeric"
                   value={priority}
                   disabled={readOnly}
@@ -592,7 +594,11 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
         onOpenChange={(open) => !open && setDialog(null)}
         title={creating ? t('approve.titleNew', { name }) : t('approve.title', { name })}
         confirm={t('approve.confirm')}
-        note={{ label: t('approve.noteOwner'), help: t('approve.noteOwnerHelp', { owner }) }}
+        note={{
+          label: t('approve.noteOwner'),
+          help: t('approve.noteOwnerHelp', { owner }),
+          placeholder: t('decision.ownerNotePlaceholder'),
+        }}
         busy={busy}
         alert={alert}
         onConfirm={(notes) => void approve(notes)}
@@ -613,7 +619,11 @@ export function SubmissionPage({ initial }: { initial: Detail }) {
         title={t('reject.title', { name })}
         confirm={t('reject.confirm')}
         reject
-        note={{ label: t('approve.noteOwner'), help: t('reject.noteHelp', { owner }) }}
+        note={{
+          label: t('approve.noteOwner'),
+          help: t('reject.noteHelp', { owner }),
+          placeholder: t('decision.ownerNotePlaceholder'),
+        }}
         busy={busy}
         alert={alert}
         onConfirm={(notes) => void reject(notes)}

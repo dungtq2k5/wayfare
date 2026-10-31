@@ -301,4 +301,5 @@ export interface ConsoleArguments {
   readonly "pron.cardSays": { "text": string | number; "kind": string | number };
   readonly "pron.cardChanged": { "date": string | number; "who": string | number };
   readonly "auditLog.byWho": { "who": string | number };
+  readonly "recPage.rejectedReason": { "reason": string | number };
 }

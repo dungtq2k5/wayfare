@@ -543,6 +543,8 @@ export function CorrectionEditor({ initial, lang }: { initial: Overview; lang: s
                 <Input
                   {...control}
                   lang={lang}
+                  // The machine's text is the example a correction starts from.
+                  placeholder={row?.name ?? undefined}
                   value={values.name}
                   onChange={(event) => setValues((now) => ({ ...now, name: event.target.value }))}
                 />
@@ -562,6 +564,7 @@ export function CorrectionEditor({ initial, lang }: { initial: Overview; lang: s
                   <Textarea
                     {...control}
                     lang={lang}
+                    placeholder={row?.description ?? undefined}
                     rows={10}
                     value={values.description}
                     onChange={(event) =>

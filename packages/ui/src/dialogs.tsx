@@ -89,6 +89,8 @@ export function DestructiveDialog({
           {(control) => (
             <Input
               {...control}
+              // The name to type is the answer: an example would be copied.
+              data-no-example
               value={typed}
               onChange={(event) => setTyped(event.target.value)}
               autoComplete="off"

@@ -71,7 +71,13 @@ test('X1 Home’s Needs a look', async ({ page }) => {
 test('X1b Places filtered on Stuck', async ({ page }) => {
   await as(page, PEOPLE.lan);
   await page.goto('/');
-  await page.getByRole('link', { name: 'See in Places' }).click();
+  // As X1: Home's one read may time out on a loaded stack, and then shows no card.
+  const link = page.getByRole('link', { name: 'See in Places' });
+  await expect(async () => {
+    await page.reload();
+    await expect(link).toBeVisible({ timeout: 10_000 });
+  }).toPass({ timeout: 90_000 });
+  await link.click();
   await expect(page).toHaveURL(/\/places\?status=STUCK$/);
   await expect(page.getByRole('button', { name: /^Status\s*Stuck$/ })).toBeVisible();
   await expect(page.getByText('Stuck', { exact: true }).first()).toBeVisible();

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, Text } from 'react-native';
+import { Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '@wayfare/api-client';
 import { ErrorBanner, FormBody, LinkButton } from '../../src/account/components';
@@ -15,6 +15,7 @@ import { Button } from '../../src/ui/button';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
 import { showToast } from '../../src/ui/toast';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /**
  * *Remove Google sign-in* (frame U2, ADR 0063): what changes, then the current password. The action
@@ -55,7 +56,7 @@ export default function UnlinkGoogleScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.unlink.row')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         <FormBody>
           <Text className="text-body text-muted-foreground">{t('account.unlink.body')}</Text>
           {error?.place === 'banner' && <ErrorBanner title={error.title} body={error.body} />}
@@ -79,7 +80,7 @@ export default function UnlinkGoogleScreen() {
           />
           <LinkButton label={t('account.cancel')} onPress={() => router.back()} />
         </FormBody>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

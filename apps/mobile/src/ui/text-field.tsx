@@ -7,7 +7,7 @@ import { Icon } from '../theme/icon';
 
 type InputProps = ComponentProps<typeof TextInput>;
 
-interface TextFieldProps {
+interface FieldBase {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
@@ -15,19 +15,31 @@ interface TextFieldProps {
   helper?: string;
   /** Said under the field, with an icon, keeping what was typed (handoff: errors beside fields). */
   error?: string | null;
-  /** A password: hidden, with *Show* / *Hide* (handoff: one field, never typed twice). */
-  secure?: boolean;
   /** `Show password` / `Hide password`, for a secure field. */
   showLabel?: string;
   hideLabel?: string;
   autoComplete?: InputProps['autoComplete'];
   keyboardType?: InputProps['keyboardType'];
   autoCapitalize?: InputProps['autoCapitalize'];
-  placeholder?: string;
   editable?: boolean;
   testID?: string;
   onSubmitEditing?: () => void;
 }
+
+/**
+ * Every text field shows an example of what goes in it, never its label or help (conventions §12.5):
+ * a field names one, or `null` where an example would mislead (a typed confirmation). A password has
+ * none.
+ */
+type TextFieldProps = FieldBase &
+  (
+    | {
+        /** A password: hidden, with *Show* / *Hide* (handoff: one field, never typed twice). */
+        secure: true;
+        placeholder?: undefined;
+      }
+    | { secure?: false; placeholder: string | null }
+  );
 
 /**
  * The text field and the password field (round 31): a label, a 48 dp field, and a helper or an
@@ -78,7 +90,7 @@ export function TextField({
           autoCorrect={false}
           spellCheck={false}
           editable={editable}
-          placeholder={placeholder}
+          placeholder={placeholder ?? undefined}
           placeholderTextColor={theme.colors['muted-foreground']}
           className="min-h-12 flex-1 px-4 text-body text-foreground"
         />

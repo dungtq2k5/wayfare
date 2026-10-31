@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { CloudOff } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createAccount } from '../../src/account/actions';
 import { ErrorBanner, FormBody, LinkButton } from '../../src/account/components';
@@ -17,6 +17,7 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
 import { showToast } from '../../src/ui/toast';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /** Create an account (frames G1–G3, K5): signed in at once, the app fully usable unverified. */
 export default function CreateAccountScreen() {
@@ -55,7 +56,7 @@ export default function CreateAccountScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.create')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         <FormBody>
           {offline && <InlineNote icon={CloudOff} text={t('account.offline.signIn')} />}
           <Text className="text-body text-muted-foreground">{t('account.create.lead')}</Text>
@@ -129,7 +130,7 @@ export default function CreateAccountScreen() {
             onPress={() => router.replace('/account/sign-in')}
           />
         </FormBody>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

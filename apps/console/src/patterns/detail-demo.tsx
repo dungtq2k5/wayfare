@@ -134,6 +134,7 @@ export function DetailDemo({
         confirm={t('dialog.reject')}
         labels={labels}
         noteLabel={t('dialog.note')}
+        placeholder={t('pattern.reasonPlaceholder')}
         noteHelp={t('dialog.noteHelp', { owner: place.owner })}
         minLength={MIN_NOTE_LENGTH}
         maxLength={MAX_DECISION_NOTE_LENGTH}

@@ -123,12 +123,24 @@ export function FormDemo() {
           )}
           <FormSection title={t('form.basics')}>
             <Field label={t('field.name')} required error={errors.name}>
-              {(control) => <Input {...control} {...field('name')} />}
+              {(control) => (
+                <Input
+                  {...control}
+                  placeholder={t('placeForm.namePlaceholder')}
+                  {...field('name')}
+                />
+              )}
             </Field>
           </FormSection>
           <FormSection title={t('form.description')}>
             <Field label={t('form.description')} required error={errors.description}>
-              {(control) => <Textarea {...control} {...field('description')} />}
+              {(control) => (
+                <Textarea
+                  {...control}
+                  placeholder={t('placeForm.descriptionPlaceholder')}
+                  {...field('description')}
+                />
+              )}
             </Field>
           </FormSection>
           <FormSection title={t('form.location')}>
@@ -138,10 +150,23 @@ export function FormDemo() {
               help={t('form.addressHelp')}
               error={errors.address}
             >
-              {(control) => <Input {...control} {...field('address')} />}
+              {(control) => (
+                <Input
+                  {...control}
+                  placeholder={t('placeForm.addressPlaceholder')}
+                  {...field('address')}
+                />
+              )}
             </Field>
             <Field label={t('form.phone')} error={errors.phone}>
-              {(control) => <Input {...control} type="tel" {...field('phone')} />}
+              {(control) => (
+                <Input
+                  {...control}
+                  type="tel"
+                  placeholder={t('placeForm.phonePlaceholder')}
+                  {...field('phone')}
+                />
+              )}
             </Field>
           </FormSection>
         </div>

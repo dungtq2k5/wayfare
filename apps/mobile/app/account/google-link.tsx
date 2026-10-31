@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError } from '@wayfare/api-client';
 import { ErrorBanner, FormBody, LinkButton } from '../../src/account/components';
@@ -17,6 +17,7 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
 import { showToast } from '../../src/ui/toast';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 /**
  * *Link Google* (frame K9, ADR 0064): the address Google picked already has a Wayfare account and
@@ -56,7 +57,7 @@ export default function GoogleLinkScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.googleLink.title')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         <FormBody>
           {offline && <InlineNote icon={CloudOff} text={t('account.offline.signIn')} />}
           <Text className="text-body text-muted-foreground">{t('account.googleLink.lead')}</Text>
@@ -78,6 +79,7 @@ export default function GoogleLinkScreen() {
           <TextField
             testID="google-link-email"
             label={t('account.field.email')}
+            placeholder={t('account.field.emailPlaceholder')}
             value={email}
             onChangeText={() => undefined}
             editable={false}
@@ -105,7 +107,7 @@ export default function GoogleLinkScreen() {
             onPress={() => router.push({ pathname: '/account/forgot', params: { email } })}
           />
         </FormBody>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

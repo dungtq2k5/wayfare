@@ -70,7 +70,7 @@ test.beforeAll(async () => {
   ids.rejected = await open(lan, OWNER(3), 'chu.quan.3@gmail.com', 'SUP-2026-0998');
   if ((await cases(lan)).find((row) => row.id === ids.rejected)?.status === 'PENDING_APPROVAL')
     await mai.call('POST', `/admin/email-recoveries/${ids.rejected}/reject`, {
-      decisionNote: 'Call back failed twice',
+      decisionNote: 'The call back reached someone who didn’t know the business.',
     });
   // One's own (V4c): Mai opened it.
   ids.own = await open(mai, OWNER(2), 'chu.quan.2@gmail.com', 'SUP-2026-1051');
@@ -146,6 +146,14 @@ test('V3 a case’s page, V3b cancelled by the owner', async ({ page }) => {
   await page.goto(`/recoveries/${ids.cancelled}`);
   await expect(page.getByText('Cancelled by the owner').first()).toBeVisible();
   await look(page, 'v3b-cancelled');
+});
+
+test('V3c rejected, its rejecter named', async ({ page }) => {
+  await page_(page, ids.rejected!, PEOPLE.lan);
+  // Who rejected it is read from the audit log after the page.
+  await expect(page.getByText(/^Mai Anh · /)).toBeVisible();
+  await expect(page.getByText(/^Reason: /)).toBeVisible();
+  await look(page, 'v3c-rejected');
 });
 
 test('V4 approve, V4b reject', async ({ page }) => {

@@ -2,7 +2,7 @@ import { formatPublicCode } from '@wayfare/contracts';
 import { useLocalSearchParams } from 'expo-router';
 import { Headphones, QrCode } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { showMap } from '../src/codes/opener';
 import { setPending } from '../src/codes/store';
@@ -13,10 +13,13 @@ import { useTheme } from '../src/theme/appearance';
 import { Icon } from '../src/theme/icon';
 import { Button } from '../src/ui/button';
 import { ScreenHeader } from '../src/ui/screen-header';
+import { FormScroll } from '../src/ui/form-scroll';
 
 /** A drawing of a printed Wayfare sticker with its code ringed: always light, it is paper. */
 /** The drawn QR's size in the sticker illustration (handoff Q8). */
 const STICKER_QR = 72;
+/** The code entry's example: a sticker's code as printed (4 + 4), the same in every language. */
+const CODE_EXAMPLE = 'K7M2 9QXA';
 
 function Sticker() {
   const { t } = useTourist();
@@ -68,7 +71,7 @@ export default function ScanCodeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('code.type.title')} type="back" />
-      <ScrollView contentContainerClassName="gap-4 px-4" keyboardShouldPersistTaps="handled">
+      <FormScroll contentContainerClassName="gap-4 px-4">
         <View className="flex-row items-center gap-4">
           <Sticker />
           <Text className="flex-1 text-body text-foreground">{t('code.type.where')}</Text>
@@ -94,6 +97,7 @@ export default function ScanCodeScreen() {
             keyboardType="visible-password"
             returnKeyType="go"
             maxLength={16}
+            placeholder={CODE_EXAMPLE}
             placeholderTextColor={theme.colors['muted-foreground']}
             className={`min-h-12 rounded-lg border-2 bg-card px-4 text-body text-foreground ${
               problem === null ? 'border-primary' : 'border-destructive'
@@ -107,7 +111,7 @@ export default function ScanCodeScreen() {
           </Text>
         </View>
         <Button label={t('code.type.open')} disabled={problem !== null} onPress={open} />
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import { CloudOff, Heart, ShieldCheck, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SemanticColor } from '@wayfare/design-tokens/tokens';
 import { ApiError } from '@wayfare/api-client';
@@ -23,6 +23,7 @@ import { InlineNote } from '../../src/ui/inline-note';
 import { ScreenHeader } from '../../src/ui/screen-header';
 import { TextField } from '../../src/ui/text-field';
 import { showToast } from '../../src/ui/toast';
+import { FormScroll } from '../../src/ui/form-scroll';
 
 function Line({
   icon,
@@ -88,7 +89,7 @@ export default function DeleteAccountScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScreenHeader title={t('account.delete')} type="back" />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <FormScroll>
         <FormBody>
           {offline && <InlineNote icon={CloudOff} text={t('account.offline.changes')} />}
           <View className="gap-4 rounded-xl bg-card p-4">
@@ -141,7 +142,8 @@ export default function DeleteAccountScreen() {
             value={typed}
             onChangeText={setTyped}
             autoCapitalize="characters"
-            placeholder={word}
+            // The word itself is the answer: an example would be copied.
+            placeholder={null}
             error={
               typed.trim() !== '' && !deleteWordMatches(typed, word)
                 ? t('account.error.word', { word })
@@ -159,7 +161,7 @@ export default function DeleteAccountScreen() {
           />
           <LinkButton label={t('account.cancel')} onPress={() => router.back()} />
         </FormBody>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

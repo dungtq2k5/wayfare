@@ -352,6 +352,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
               {(control) => (
                 <Input
                   {...control}
+                  placeholder={t('placeForm.namePlaceholder')}
                   lang="vi"
                   value={values.nameVi}
                   onChange={(event) => set('nameVi', event.target.value)}
@@ -390,6 +391,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
               {(control) => (
                 <Textarea
                   {...control}
+                  placeholder={t('placeForm.descriptionPlaceholder')}
                   lang="vi"
                   rows={6}
                   value={values.descriptionVi}
@@ -434,6 +436,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
               {(control) => (
                 <Input
                   {...control}
+                  placeholder={t('placeForm.addressPlaceholder')}
                   lang="vi"
                   value={values.addressVi}
                   onChange={(event) => set('addressVi', event.target.value)}
@@ -445,6 +448,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
                 {(control) => (
                   <Input
                     {...control}
+                    placeholder={t('placeForm.latitudePlaceholder')}
                     inputMode="decimal"
                     value={values.lat}
                     onChange={(event) => set('lat', event.target.value)}
@@ -455,6 +459,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
                 {(control) => (
                   <Input
                     {...control}
+                    placeholder={t('placeForm.longitudePlaceholder')}
                     inputMode="decimal"
                     value={values.lng}
                     onChange={(event) => set('lng', event.target.value)}
@@ -493,6 +498,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
               <p className="text-sm text-muted-foreground">{t('placeForm.editorialLead')}</p>
               <SliderField
                 label={t('editorial.radius')}
+                placeholder={t('editorial.radiusPlaceholder')}
                 help={t('editorial.radiusHelp', {
                   m: values.radius,
                   comparison: t(radiusComparison(values.radius)),
@@ -506,6 +512,7 @@ export function PlaceForm({ place }: { place: PlaceDetail | null }) {
               />
               <SliderField
                 label={t('editorial.priority')}
+                placeholder={t('editorial.priorityPlaceholder')}
                 help={t('editorial.priorityHelp')}
                 error={errors.narrationPriority}
                 value={values.priority}
