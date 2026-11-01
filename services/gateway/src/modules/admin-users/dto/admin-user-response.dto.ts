@@ -1,10 +1,11 @@
 import {
   AccountKind,
-  OwnerRegistrationStatus,
   EmailBounceType,
   EmailDeliveryStatus,
   EmailTemplate,
+  OwnerRegistrationStatus,
   SessionClient,
+  zUserBilling,
   zUuidV7,
 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -95,6 +96,11 @@ export const adminUserDetailResponseSchema = adminUserResponseSchema.extend({
       reviewedAt: zInstant.nullable(),
     })
     .nullable(),
+  /**
+   * An owner's billing account, plan and status, for a viewer holding `billing.account.read`;
+   * `null` otherwise, and when billing doesn't answer (`meta.degraded`).
+   */
+  billing: zUserBilling.nullable(),
 });
 
 /** What `GET /admin/users/:id` returns — discriminated on `erased`. */

@@ -93,6 +93,8 @@ export function toAdminUserViewResponse(
   const sessions = detail.sessions;
   return {
     ...toAdminUserResponseDto(detail.user),
+    // billing's, composed by the service for a viewer who may read it.
+    billing: null,
     devicesCount: detail.devicesCount,
     sessions: {
       live: sessions?.live ?? 0,

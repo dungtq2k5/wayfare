@@ -163,3 +163,24 @@ export enum StaffMembershipStatus {
 
 /** Every `StaffMembershipStatus` value. */
 export const STAFF_MEMBERSHIP_STATUSES = Object.values(StaffMembershipStatus);
+
+/**
+ * Why an account's grants changed, on `billing.entitlements.changed`: a staff override or unpin on
+ * the one account, a plan applied to its subscribers, or the subscription (a purchase, a renewal,
+ * a cancellation, the account's first grants).
+ */
+export enum EntitlementsChangeCause {
+  OVERRIDE = 'OVERRIDE',
+  UNPIN = 'UNPIN',
+  PLAN = 'PLAN',
+  SUBSCRIPTION = 'SUBSCRIPTION',
+}
+
+/**
+ * Why billing recorded a Stripe event and acted on nothing, kept in an `IGNORED` row's `error_log`:
+ * its `livemode` isn't the deployment's, or it is a type (or a checkout mode) this build doesn't act on.
+ */
+export enum IgnoredReason {
+  LIVEMODE_MISMATCH = 'LIVEMODE_MISMATCH',
+  UNHANDLED_TYPE = 'UNHANDLED_TYPE',
+}

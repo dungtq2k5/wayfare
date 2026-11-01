@@ -37,4 +37,11 @@ export class AccountsGrpcController implements billingGrpc.AccountAdminServiceCo
   ): Promise<billingGrpc.UnpinEntitlementsResponse> {
     return this.accounts.unpinEntitlements(request, unpackCallerContext(metadata));
   }
+
+  previewUnpin(
+    request: billingGrpc.PreviewUnpinRequest,
+    metadata?: Metadata,
+  ): Promise<billingGrpc.PreviewUnpinResponse> {
+    return this.accounts.previewUnpin(request, unpackCallerContext(metadata));
+  }
 }

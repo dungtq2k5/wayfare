@@ -26,6 +26,7 @@ const ICONS: Partial<Record<NotificationType, LucideIcon>> = {
   [NotificationType.SUBSCRIPTION_ACTIVATED]: CreditCard,
   [NotificationType.SUBSCRIPTION_PAYMENT_FAILED]: CreditCard,
   [NotificationType.ENTITLEMENTS_REDUCED]: CreditCard,
+  [NotificationType.ENTITLEMENTS_RAISED]: CreditCard,
   [NotificationType.PAYOUT_ACCOUNT_ACTION_REQUIRED]: CreditCard,
   [NotificationType.VOUCHER_OFFER_APPROVED]: Ticket,
   [NotificationType.VOUCHER_OFFER_REJECTED]: Ticket,

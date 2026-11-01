@@ -1,12 +1,20 @@
-import type { BillingAccountDetail, BillingAccountSummary, BillingEvent } from '@wayfare/contracts';
+import type {
+  BillingAccountDetail,
+  BillingAccountSummary,
+  BillingEvent,
+  UnpinPreview,
+} from '@wayfare/contracts';
+import { CurrencyCode } from '@wayfare/contracts';
 import {
   billingEventStatusProto,
+  billingIntervalProto,
   stripeEndpointProto,
   subscriptionStatusProto,
 } from '@wayfare/contracts/grpc';
 import type { billingGrpc } from '@wayfare/contracts/grpc';
 import { fromOptionalProtoTimestamp, fromProtoTimestamp } from '@wayfare/nest-common';
 import { toEntitlements } from '../billing/billing.mapper';
+import type { OwnerOf } from '../people-names/people-names.service';
 
 /** An enum this build cannot read is a server fault, never a client's. */
 function known<T>(value: T | null, what: string): T {
@@ -14,14 +22,16 @@ function known<T>(value: T | null, what: string): T {
   return value;
 }
 
-/** An account row; an absent optional becomes `null` (conventions §6.3). */
+/** An account row, its owner named; an absent optional becomes `null` (conventions §6.3). */
 export function toBillingAccountSummary(
   account: billingGrpc.BillingAccountSummary | undefined,
+  ownerOf: OwnerOf,
 ): BillingAccountSummary {
   if (account === undefined) throw new Error('billing sent no account');
   return {
     id: account.id,
     ownerUserId: account.ownerUserId,
+    owner: ownerOf(account.ownerUserId),
     planCode: account.planCode,
     subscriptionStatus: known(
       subscriptionStatusProto.fromProto(account.subscriptionStatus),
@@ -38,8 +48,11 @@ export function toBillingAccountSummary(
   };
 }
 
-/** A recorded event, its payload decoded. */
-export function toBillingEvent(event: billingGrpc.BillingEvent | undefined): BillingEvent {
+/** A recorded event, its owner named, its payload decoded when it came (the single read). */
+export function toBillingEvent(
+  event: billingGrpc.BillingEvent | undefined,
+  ownerOf: OwnerOf,
+): BillingEvent {
   if (event === undefined) throw new Error('billing sent no event');
   return {
     id: event.id,
@@ -54,25 +67,48 @@ export function toBillingEvent(event: billingGrpc.BillingEvent | undefined): Bil
     receivedAt: fromProtoTimestamp(event.receivedAt, 'receivedAt').toISOString(),
     processedAt:
       fromOptionalProtoTimestamp(event.processedAt, 'processedAt')?.toISOString() ?? null,
-    payload: JSON.parse(event.payloadJson) as Record<string, unknown>,
+    owner: event.ownerUserId === undefined ? null : ownerOf(event.ownerUserId),
+    payload:
+      event.payloadJson === '' ? null : (JSON.parse(event.payloadJson) as Record<string, unknown>),
   };
 }
 
 /** An account's detail. Boosts and the payout account are empty until Phase 3. */
 export function toBillingAccountDetail(
   account: billingGrpc.BillingAccountDetail | undefined,
+  ownerOf: OwnerOf,
 ): BillingAccountDetail {
   if (account === undefined) throw new Error('billing sent no account');
+  const price = account.subscribedPrice;
   return {
-    ...toBillingAccountSummary(account.summary),
+    ...toBillingAccountSummary(account.summary, ownerOf),
     stripeCustomerId: account.stripeCustomerId ?? null,
     stripeSubscriptionId: account.stripeSubscriptionId ?? null,
     subscribedPlanCode: account.subscribedPlanCode ?? null,
+    subscribedPrice:
+      price === undefined
+        ? null
+        : {
+            // A registered price is USD (rdm-spec B-2), as every plan price the gateway reads.
+            amount: { amountMinor: price.amountMinor, currency: CurrencyCode.USD },
+            billingInterval: known(
+              billingIntervalProto.fromProto(price.billingInterval),
+              'billing interval',
+            ),
+          },
     cancelAtPeriodEnd: account.cancelAtPeriodEnd,
     entitlements: toEntitlements(account.entitlements),
     planGrants: toEntitlements(account.planGrants),
     boosts: [],
     payoutAccount: null,
-    recentEvents: account.recentEvents.map(toBillingEvent),
+    recentEvents: account.recentEvents.map((event) => toBillingEvent(event, ownerOf)),
+  };
+}
+
+/** What unpinning would do; an absent count becomes `null`. */
+export function toUnpinPreview(preview: billingGrpc.PreviewUnpinResponse): UnpinPreview {
+  return {
+    grants: toEntitlements(preview.grants),
+    wouldUnpublishPlaces: preview.wouldUnpublishPlaces ?? null,
   };
 }

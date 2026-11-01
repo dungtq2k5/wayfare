@@ -4,6 +4,7 @@ import {
   AuditAction,
   AuditResourceType,
   BILLING_ENTITLEMENTS_CHANGED,
+  EntitlementsChangeCause,
   FREE_PLAN_CODE,
   grantsFor,
   parseEnum,
@@ -120,20 +121,22 @@ export class EntitlementsService {
       entitlementsVersion: 1,
       entitlements: grants,
       previous: null,
+      cause: EntitlementsChangeCause.SUBSCRIPTION,
     });
     return true;
   }
 
   /**
    * Writes a grant set onto a locked account: the version bump and `billing.entitlements.changed`
-   * when it differs, nothing when it does not. `pin` sets or clears the pin in the same write.
+   * when it differs, nothing when it does not. `pin` sets or clears the pin in the same write;
+   * `cause` travels on the event.
    */
   async writeGrants(
     tx: Prisma.TransactionClient,
     account: BillingAccountRow,
     next: Entitlements,
     now: Date,
-    options: { readonly pin?: boolean } = {},
+    options: { readonly pin?: boolean; readonly cause: EntitlementsChangeCause },
   ): Promise<GrantsWrite> {
     const current = grantsOf(account);
     const planned = plannedGrantsWrite(current, Number(account.entitlementsVersion), next);
@@ -150,6 +153,7 @@ export class EntitlementsService {
         entitlementsVersion: planned.version,
         entitlements: next,
         previous: current,
+        cause: options.cause,
       });
     } else if (options.pin !== undefined && options.pin !== account.entitlementsPinned) {
       await tx.billingAccount.update({
@@ -201,6 +205,7 @@ export class EntitlementsService {
     account: BillingAccountRow,
     now: Date,
     actor: BillingAuditActor,
+    cause: EntitlementsChangeCause,
   ): Promise<GrantsWrite | null> {
     const { effectivePlanId, next } = await this.derive(tx, account);
     if (effectivePlanId !== account.planId) {
@@ -211,7 +216,7 @@ export class EntitlementsService {
       });
     }
     if (account.entitlementsPinned) return null;
-    const written = await this.writeGrants(tx, account, next, now);
+    const written = await this.writeGrants(tx, account, next, now, { cause });
     if (written.changed) {
       await this.outbox.add(
         tx,

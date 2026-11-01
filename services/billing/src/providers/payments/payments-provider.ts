@@ -9,6 +9,14 @@ export class PaymentsUnavailableError extends Error {
   }
 }
 
+/** Stripe has no such object (its `resource_missing`): an id typed wrong, or from another account. */
+export class PaymentsNotFoundError extends Error {
+  constructor(readonly resource: 'PRICE') {
+    super(`payments object not found: ${resource}`);
+    this.name = 'PaymentsNotFoundError';
+  }
+}
+
 /** A Stripe Price, as a registration reads it. */
 export interface ProviderPrice {
   readonly id: string;
@@ -73,6 +81,7 @@ export abstract class PaymentsProvider {
 
   abstract listInvoices(customerId: string): Promise<ProviderInvoice[]>;
 
+  /** Rejects with `PaymentsNotFoundError` for an id Stripe doesn't have. */
   abstract retrievePrice(priceId: string): Promise<ProviderPrice>;
 
   /** The subscription as Stripe holds it now: the same object shape an event carries. */

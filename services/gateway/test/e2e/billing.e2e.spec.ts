@@ -254,6 +254,10 @@ describe('/admin/plans and /admin/billing', () => {
           grants,
           prices: [],
           subscriberCount: 0,
+          subscribers: { active: 0, pastDue: 0, cancelling: 0, pinned: 0 },
+          createdAt: toProtoTimestamp(new Date('2026-09-18T00:00:00Z')),
+          updatedAt: toProtoTimestamp(new Date('2026-09-18T00:00:00Z')),
+          retiredAt: undefined,
         },
       });
     gateway.billing.plans.handlers.applyPlan = () =>
@@ -273,7 +277,12 @@ describe('/admin/plans and /admin/billing', () => {
       grants: FREE_PLAN_GRANTS,
     });
     expect(created.status).toBe(201);
-    expect(created.body.data.plan).toMatchObject({ code: 'GROWTH', stripeProductId: null });
+    expect(created.body.data.plan).toMatchObject({
+      code: 'GROWTH',
+      stripeProductId: null,
+      subscribers: { total: 0, active: 0, pastDue: 0, cancelling: 0, pinned: 0 },
+      retiredAt: null,
+    });
     const planId = newId();
     const dry = await console_('post', `/admin/plans/${planId}/apply?dryRun=true`, manage);
     expect(dry.status).toBe(200);
@@ -287,6 +296,11 @@ describe('/admin/plans and /admin/billing', () => {
     });
     expect(tooWide.status).toBe(400);
     expect((await console_('get', '/admin/plans', staff([]))).status).toBe(403);
+    // An admin reading accounts reads the plans too, and writes none.
+    const reader = staff(['billing.account.read']);
+    gateway.billing.plans.handlers.listPlans = () => Promise.resolve({ plans: [] });
+    expect((await console_('get', '/admin/plans', reader)).status).toBe(200);
+    expect((await console_('post', '/admin/plans', reader).send({})).status).toBe(403);
   });
 
   it('overrides an account and lists events, under their permissions', async () => {
@@ -325,11 +339,14 @@ describe('/admin/plans and /admin/billing', () => {
             status: billingGrpc.BillingEventStatus.BILLING_EVENT_STATUS_PROCESSED,
             receivedAt: toProtoTimestamp(new Date('2026-09-18T00:00:01Z')),
             processedAt: toProtoTimestamp(new Date('2026-09-18T00:00:02Z')),
-            payloadJson: '{"id":"evt_1"}',
+            payloadJson: '',
+            ownerUserId: ownerId,
           },
         ],
         page: { page: 1, pageSize: 20, total: 1 },
       });
+    gateway.identity.adminUsers.handlers.getUserNames = () =>
+      Promise.resolve({ users: [{ id: ownerId, name: 'Minh Tran', email: 'minh@example.com' }] });
     const override = await console_(
       'patch',
       `/admin/billing/accounts/${accountId}/entitlements`,
@@ -340,19 +357,167 @@ describe('/admin/plans and /admin/billing', () => {
       id: accountId,
       pinned: true,
       entitlementsVersion: 4,
+      owner: { name: 'Minh Tran', email: 'minh@example.com' },
+      subscribedPrice: null,
       boosts: [],
       payoutAccount: null,
     });
     const events = await console_('get', '/admin/billing/events', staff(['billing.event.read']));
     expect(events.status).toBe(200);
+    // The list leaves the payload out; one identity call names every owner on the page.
     expect(events.body.data[0]).toMatchObject({
       stripeEventId: 'evt_1',
       status: 'PROCESSED',
-      payload: { id: 'evt_1' },
+      owner: { name: 'Minh Tran', email: 'minh@example.com' },
+      payload: null,
+    });
+    expect(gateway.identity.adminUsers.calls.map((call) => call.request)).toContainEqual({
+      userIds: [ownerId],
     });
     expect(
       (await console_('get', '/admin/billing/events', staff(['billing.account.read']))).status,
     ).toBe(403);
+  });
+});
+
+describe('the round-35a reads (api-endpoints-plan §6.1, §6.2)', () => {
+  const manage = () => staff(['billing.plan.manage']);
+  const plan = (over: Partial<billingGrpc.AdminPlan> = {}): billingGrpc.AdminPlan => ({
+    id: newId(),
+    code: 'GROWTH',
+    name: 'Growth',
+    isActive: true,
+    sortOrder: 10,
+    grants,
+    prices: [],
+    subscriberCount: 5,
+    subscribers: { active: 3, pastDue: 1, cancelling: 1, pinned: 2 },
+    createdAt: toProtoTimestamp(new Date('2026-09-18T00:00:00Z')),
+    updatedAt: toProtoTimestamp(new Date('2026-09-19T00:00:00Z')),
+    retiredAt: undefined,
+    ...over,
+  });
+
+  it('lists plans with retired ones on request, and reads one', async () => {
+    gateway.billing.plans.handlers.listPlans = () => Promise.resolve({ plans: [plan()] });
+    const all = await console_('get', '/admin/plans?includeRetired=true', manage());
+    expect(all.status).toBe(200);
+    expect(all.body.data[0].subscribers).toEqual({
+      total: 5,
+      active: 3,
+      pastDue: 1,
+      cancelling: 1,
+      pinned: 2,
+    });
+    expect(gateway.billing.plans.calls.at(-1)!.request).toEqual({ includeRetired: true });
+    gateway.billing.plans.handlers.getPlan = () => Promise.resolve({ plan: plan() });
+    const one = await console_('get', `/admin/plans/${newId()}`, manage());
+    expect(one.status).toBe(200);
+    expect(one.body.data).toMatchObject({ code: 'GROWTH', retiredAt: null });
+  });
+
+  it("looks a price up: Stripe's amount and the price it replaces, nothing written", async () => {
+    const replaced: billingGrpc.PlanPrice = {
+      id: newId(),
+      stripePriceId: 'price_dev_growth_month',
+      billingInterval: billingGrpc.BillingInterval.BILLING_INTERVAL_MONTH,
+      amountMinor: 900,
+      currency: 'USD',
+      isActive: true,
+      createdAt: toProtoTimestamp(new Date('2026-09-02T00:00:00Z')),
+    };
+    gateway.billing.plans.handlers.lookupPrice = () =>
+      Promise.resolve({
+        amountMinor: 1200,
+        currency: 'USD',
+        billingInterval: billingGrpc.BillingInterval.BILLING_INTERVAL_MONTH,
+        productId: 'prod_dev_growth',
+        replaces: replaced,
+      });
+    const planId = newId();
+    const looked = await console_(
+      'get',
+      `/admin/plans/${planId}/prices/lookup?stripePriceId=price_testGrowthMonthly2&billingInterval=MONTH`,
+      manage(),
+    );
+    expect(looked.status).toBe(200);
+    expect(looked.body.data).toMatchObject({
+      amount: { amountMinor: 1200, currency: 'USD' },
+      interval: 'MONTH',
+      productId: 'prod_dev_growth',
+      replaces: { stripePriceId: 'price_dev_growth_month' },
+    });
+    expect(gateway.billing.plans.calls.at(-1)!.request).toEqual({
+      planId,
+      stripePriceId: 'price_testGrowthMonthly2',
+      billingInterval: billingGrpc.BillingInterval.BILLING_INTERVAL_MONTH,
+    });
+    gateway.billing.plans.handlers.lookupPrice = () =>
+      Promise.reject(
+        serviceError(status.INVALID_ARGUMENT, {
+          'wf-error-code': 'VALIDATION_FAILED',
+          'wf-error-details': JSON.stringify({
+            issues: [{ path: '/stripePriceId', code: 'not_found' }],
+          }),
+        }),
+      );
+    const missing = await console_(
+      'get',
+      `/admin/plans/${planId}/prices/lookup?stripePriceId=price_nope&billingInterval=MONTH`,
+      manage(),
+    );
+    expect(missing.status).toBe(400);
+  });
+
+  it('previews an unpin, and reads one event with its payload and owner', async () => {
+    gateway.billing.accounts.handlers.previewUnpin = () =>
+      Promise.resolve({ grants, wouldUnpublishPlaces: 2 });
+    const preview = await console_(
+      'get',
+      `/admin/billing/accounts/${newId()}/unpin-preview`,
+      staff(['billing.entitlement.override']),
+    );
+    expect(preview.status).toBe(200);
+    expect(preview.body.data).toMatchObject({ wouldUnpublishPlaces: 2 });
+    expect(
+      (
+        await console_(
+          'get',
+          `/admin/billing/accounts/${newId()}/unpin-preview`,
+          staff(['billing.account.read']),
+        )
+      ).status,
+    ).toBe(403);
+    gateway.billing.events.handlers.getBillingEvent = () =>
+      Promise.resolve({
+        event: {
+          id: newId(),
+          stripeEventId: 'evt_2',
+          endpoint: billingGrpc.StripeEndpoint.STRIPE_ENDPOINT_PLATFORM,
+          livemode: false,
+          eventType: 'invoice.payment_failed',
+          stripeCreatedAt: toProtoTimestamp(new Date('2026-09-18T00:00:00Z')),
+          status: billingGrpc.BillingEventStatus.BILLING_EVENT_STATUS_FAILED,
+          errorLog: 'no billing account for the subscription',
+          receivedAt: toProtoTimestamp(new Date('2026-09-18T00:00:01Z')),
+          processedAt: undefined,
+          payloadJson: '{"id":"evt_2"}',
+          ownerUserId: ownerId,
+        },
+      });
+    gateway.identity.adminUsers.handlers.getUserNames = () =>
+      Promise.resolve({ users: [{ id: ownerId, name: 'Minh Tran', email: 'minh@example.com' }] });
+    const event = await console_(
+      'get',
+      `/admin/billing/events/${newId()}`,
+      staff(['billing.event.read']),
+    );
+    expect(event.status).toBe(200);
+    expect(event.body.data).toMatchObject({
+      status: 'FAILED',
+      payload: { id: 'evt_2' },
+      owner: { name: 'Minh Tran' },
+    });
   });
 });
 

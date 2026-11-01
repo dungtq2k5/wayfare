@@ -71,6 +71,12 @@ export type AdminUserViewResponseDto = {
   submittedAt: string;
   reviewedAt: string | null;
 } | null;
+  billing: {
+  /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
+  accountId: string;
+  planCode: string;
+  subscriptionStatus: 'NONE' | 'INCOMPLETE' | 'INCOMPLETE_EXPIRED' | 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'UNPAID' | 'CANCELED' | 'PAUSED';
+} | null;
 } | {
   erased: true;
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */

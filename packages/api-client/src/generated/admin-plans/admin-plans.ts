@@ -27,7 +27,11 @@ import type {
   AdminPlansApply200,
   AdminPlansApplyParams,
   AdminPlansCreate201,
+  AdminPlansGet200,
   AdminPlansList200,
+  AdminPlansListParams,
+  AdminPlansLookupPrice200,
+  AdminPlansLookupPriceParams,
   AdminPlansRegisterPrice201,
   AdminPlansUpdate200,
   CreatePlanDto,
@@ -61,20 +65,27 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getAdminPlansListUrl = () => {
+export const getAdminPlansListUrl = (params?: AdminPlansListParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/admin/plans`
+  return stringifiedParams.length > 0 ? `/admin/plans?${stringifiedParams}` : `/admin/plans`
 }
 
 /**
- * @summary Every plan, with its prices and subscriber count.
+ * @summary Every plan with its prices and subscribers; retired ones with `includeRetired`.
  */
-export const adminPlansList = async ( options?: Parameters<typeof apiFetch>[1]): Promise<AdminPlansList200> => {
+export const adminPlansList = async (params?: AdminPlansListParams, options?: Parameters<typeof apiFetch>[1]): Promise<AdminPlansList200> => {
 
-  return apiFetch<AdminPlansList200>(getAdminPlansListUrl(),
+  return apiFetch<AdminPlansList200>(getAdminPlansListUrl(params),
   {
     ...options,
     method: 'GET'
@@ -87,23 +98,23 @@ export const adminPlansList = async ( options?: Parameters<typeof apiFetch>[1]):
 
 
 
-export const getAdminPlansListQueryKey = () => {
+export const getAdminPlansListQueryKey = (params?: AdminPlansListParams,) => {
     return [
-    `/admin/plans`
+    `/admin/plans`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getAdminPlansListQueryOptions = <TData = Awaited<ReturnType<typeof adminPlansList>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export const getAdminPlansListQueryOptions = <TData = Awaited<ReturnType<typeof adminPlansList>>, TError = unknown>(params?: AdminPlansListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getAdminPlansListQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getAdminPlansListQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminPlansList>>> = ({ signal }) => adminPlansList({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminPlansList>>> = ({ signal }) => adminPlansList(params, { signal, ...requestOptions });
 
 
 
@@ -117,7 +128,7 @@ export type AdminPlansListQueryError = unknown
 
 
 export function useAdminPlansList<TData = Awaited<ReturnType<typeof adminPlansList>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>> & Pick<
+ params: undefined |  AdminPlansListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof adminPlansList>>,
           TError,
@@ -127,7 +138,7 @@ export function useAdminPlansList<TData = Awaited<ReturnType<typeof adminPlansLi
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useAdminPlansList<TData = Awaited<ReturnType<typeof adminPlansList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>> & Pick<
+ params?: AdminPlansListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof adminPlansList>>,
           TError,
@@ -137,19 +148,19 @@ export function useAdminPlansList<TData = Awaited<ReturnType<typeof adminPlansLi
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useAdminPlansList<TData = Awaited<ReturnType<typeof adminPlansList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ params?: AdminPlansListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Every plan, with its prices and subscriber count.
+ * @summary Every plan with its prices and subscribers; retired ones with `includeRetired`.
  */
 
 export function useAdminPlansList<TData = Awaited<ReturnType<typeof adminPlansList>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ params?: AdminPlansListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansList>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getAdminPlansListQueryOptions(options)
+  const queryOptions = getAdminPlansListQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -248,7 +259,107 @@ export const useAdminPlansCreate = <TError = unknown,
       > => {
       return useMutation(getAdminPlansCreateMutationOptions(options), queryClient);
     }
-    export const getAdminPlansUpdateUrl = (id: string,) => {
+    export const getAdminPlansGetUrl = (id: string,) => {
+
+
+
+
+  return `/admin/plans/${id}`
+}
+
+/**
+ * @summary One live plan; a retired plan has no page and is not found.
+ */
+export const adminPlansGet = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<AdminPlansGet200> => {
+
+  return apiFetch<AdminPlansGet200>(getAdminPlansGetUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminPlansGetQueryKey = (id: string,) => {
+    return [
+    `/admin/plans/${id}`
+    ] as const;
+    }
+
+
+export const getAdminPlansGetQueryOptions = <TData = Awaited<ReturnType<typeof adminPlansGet>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminPlansGetQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminPlansGet>>> = ({ signal }) => adminPlansGet(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminPlansGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminPlansGetQueryResult = NonNullable<Awaited<ReturnType<typeof adminPlansGet>>>
+export type AdminPlansGetQueryError = unknown
+
+
+export function useAdminPlansGet<TData = Awaited<ReturnType<typeof adminPlansGet>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPlansGet>>,
+          TError,
+          Awaited<ReturnType<typeof adminPlansGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPlansGet<TData = Awaited<ReturnType<typeof adminPlansGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPlansGet>>,
+          TError,
+          Awaited<ReturnType<typeof adminPlansGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPlansGet<TData = Awaited<ReturnType<typeof adminPlansGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary One live plan; a retired plan has no page and is not found.
+ */
+
+export function useAdminPlansGet<TData = Awaited<ReturnType<typeof adminPlansGet>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansGet>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminPlansGetQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getAdminPlansUpdateUrl = (id: string,) => {
 
 
 
@@ -409,7 +520,122 @@ export const useAdminPlansRetire = <TError = unknown,
       > => {
       return useMutation(getAdminPlansRetireMutationOptions(options), queryClient);
     }
-    export const getAdminPlansRegisterPriceUrl = (id: string,) => {
+    export const getAdminPlansLookupPriceUrl = (id: string,
+    params: AdminPlansLookupPriceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/admin/plans/${id}/prices/lookup?${stringifiedParams}` : `/admin/plans/${id}/prices/lookup`
+}
+
+/**
+ * @summary What registering a Stripe Price would do: Stripe's amount, the price it replaces.
+ */
+export const adminPlansLookupPrice = async (id: string,
+    params: AdminPlansLookupPriceParams, options?: Parameters<typeof apiFetch>[1]): Promise<AdminPlansLookupPrice200> => {
+
+  return apiFetch<AdminPlansLookupPrice200>(getAdminPlansLookupPriceUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminPlansLookupPriceQueryKey = (id: string,
+    params?: AdminPlansLookupPriceParams,) => {
+    return [
+    `/admin/plans/${id}/prices/lookup`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getAdminPlansLookupPriceQueryOptions = <TData = Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError = unknown>(id: string,
+    params: AdminPlansLookupPriceParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminPlansLookupPriceQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminPlansLookupPrice>>> = ({ signal }) => adminPlansLookupPrice(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminPlansLookupPriceQueryResult = NonNullable<Awaited<ReturnType<typeof adminPlansLookupPrice>>>
+export type AdminPlansLookupPriceQueryError = unknown
+
+
+export function useAdminPlansLookupPrice<TData = Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError = unknown>(
+ id: string,
+    params: AdminPlansLookupPriceParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPlansLookupPrice>>,
+          TError,
+          Awaited<ReturnType<typeof adminPlansLookupPrice>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPlansLookupPrice<TData = Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError = unknown>(
+ id: string,
+    params: AdminPlansLookupPriceParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminPlansLookupPrice>>,
+          TError,
+          Awaited<ReturnType<typeof adminPlansLookupPrice>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminPlansLookupPrice<TData = Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError = unknown>(
+ id: string,
+    params: AdminPlansLookupPriceParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary What registering a Stripe Price would do: Stripe's amount, the price it replaces.
+ */
+
+export function useAdminPlansLookupPrice<TData = Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError = unknown>(
+ id: string,
+    params: AdminPlansLookupPriceParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminPlansLookupPrice>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminPlansLookupPriceQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getAdminPlansRegisterPriceUrl = (id: string,) => {
 
 
 

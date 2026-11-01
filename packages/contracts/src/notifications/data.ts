@@ -40,6 +40,22 @@ export const entitlementsReducedData = z
 /** What an `ENTITLEMENTS_REDUCED` notification or email carries. */
 export type EntitlementsReducedData = z.output<typeof entitlementsReducedData>;
 
+/** `ENTITLEMENTS_REDUCED`'s mirror: what a staff action on the one account gave (bell only). */
+export const entitlementsRaisedData = z
+  .object({
+    entitlementsVersion: z.number().int().min(1),
+    raised: z.array(zLimitDimension).max(LIMIT_DIMENSION_COUNT),
+    autoNarrationGained: z.boolean().optional(),
+    vouchersGained: z.boolean().optional(),
+    /** A wider narration language scope. */
+    languagesWidened: z.boolean().optional(),
+    /** A higher analytics level. */
+    analyticsRaised: z.boolean().optional(),
+  })
+  .strict();
+/** What an `ENTITLEMENTS_RAISED` notification carries. */
+export type EntitlementsRaisedData = z.output<typeof entitlementsRaisedData>;
+
 const registrationDecision = z
   .object({ registrationId: zUuidV7, decisionNote: zDecisionNote.optional() })
   .strict();
@@ -75,6 +91,7 @@ export const NOTIFICATION_DATA = {
     .object({ attemptCount: z.number().int().min(1), nextAttemptAt: zInstant.optional() })
     .strict(),
   [NotificationType.ENTITLEMENTS_REDUCED]: entitlementsReducedData,
+  [NotificationType.ENTITLEMENTS_RAISED]: entitlementsRaisedData,
   [NotificationType.VOUCHER_OFFER_APPROVED]: offerDecision,
   [NotificationType.VOUCHER_OFFER_REJECTED]: offerDecision,
   // No amount: staff never see sales, and the owner's console reads the order (api-endpoints-plan §5.7).

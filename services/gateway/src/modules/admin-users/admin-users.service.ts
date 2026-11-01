@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { subscriptionStatusProto } from '@wayfare/contracts/grpc';
 import type { AccountContext } from '@wayfare/nest-common';
-import { Paged, toPageMetaOrThrow } from '@wayfare/nest-common';
+import { Paged, toPageMetaOrThrow, WithMeta } from '@wayfare/nest-common';
+import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import { IdentityServiceGrpcClient } from '../identity/identity-service-grpc.client';
 import {
   toAdminUserListItemResponse,
@@ -32,7 +34,12 @@ import type {
 /** `/admin/users` routes, backed by `identity.AdminUserService`. */
 @Injectable()
 export class AdminUsersService {
-  constructor(private readonly identity: IdentityServiceGrpcClient) {}
+  private readonly logger = new Logger(AdminUsersService.name);
+
+  constructor(
+    private readonly identity: IdentityServiceGrpcClient,
+    private readonly billing: BillingServiceGrpcClient,
+  ) {}
 
   async list(
     context: AccountContext,
@@ -52,10 +59,45 @@ export class AdminUsersService {
     );
   }
 
-  async get(context: AccountContext, userId: string): Promise<AdminUserViewResponse> {
-    return toAdminUserViewResponse(
+  /**
+   * One account; an owner's billing row for a viewer holding `billing.account.read`. billing is the
+   * secondary service: when it can't answer, `billing` is `null` and `meta.degraded` says so, and
+   * the page still loads (api-endpoints-plan §12.1).
+   */
+  async get(
+    context: AccountContext,
+    userId: string,
+  ): Promise<AdminUserViewResponse | WithMeta<AdminUserViewResponse>> {
+    const view = toAdminUserViewResponse(
       await this.identity.adminUsers.call('getUser', { userId }, context),
     );
+    if (view.erased) return view;
+    if (!view.ownerVerified || !context.permissions.includes('billing.account.read')) {
+      return { ...view, billing: null };
+    }
+    try {
+      const summary = await this.billing.billing.call(
+        'getBillingSummary',
+        { ownerUserId: view.id },
+        context,
+      );
+      const status = subscriptionStatusProto.fromProto(summary.subscriptionStatus);
+      if (status === null) throw new Error('billing sent an unknown subscription status');
+      return {
+        ...view,
+        billing: {
+          accountId: summary.billingAccountId,
+          planCode: summary.planCode,
+          subscriptionStatus: status,
+        },
+      };
+    } catch (error) {
+      this.logger.warn(
+        { kind: error instanceof Error ? error.name : 'unknown' },
+        "billing summary unavailable; a user's page degraded",
+      );
+      return WithMeta.of({ ...view, billing: null }, { degraded: ['billing'] });
+    }
   }
 
   async create(

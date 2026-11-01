@@ -113,7 +113,7 @@ export function DrawerContent({
       />
       <DialogPrimitive.Content
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col bg-card shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left motion-reduce:animate-none',
+          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col overflow-y-auto bg-card shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left motion-reduce:animate-none',
           className,
         )}
         {...props}

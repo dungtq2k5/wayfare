@@ -1,6 +1,11 @@
 import { Logger } from '@nestjs/common';
 import Stripe from 'stripe';
-import { PaymentsProvider, PaymentsUnavailableError, STRIPE_TIMEOUT_MS } from './payments-provider';
+import {
+  PaymentsNotFoundError,
+  PaymentsProvider,
+  PaymentsUnavailableError,
+  STRIPE_TIMEOUT_MS,
+} from './payments-provider';
 import type {
   ProviderInvoice,
   ProviderPrice,
@@ -106,7 +111,14 @@ export class StripePaymentsProvider extends PaymentsProvider {
   }
 
   async retrievePrice(priceId: string): Promise<ProviderPrice> {
-    const price = await this.call('retrievePrice', (stripe) => stripe.prices.retrieve(priceId));
+    const price = await this.call('retrievePrice', async (stripe) => {
+      try {
+        return await stripe.prices.retrieve(priceId);
+      } catch (error) {
+        if (isMissing(error)) throw new PaymentsNotFoundError('PRICE');
+        throw error;
+      }
+    });
     return {
       id: price.id,
       active: price.active,
@@ -144,6 +156,8 @@ export class StripePaymentsProvider extends PaymentsProvider {
     try {
       return await run(this.stripe);
     } catch (error) {
+      // An answer, not an outage: the caller says which object.
+      if (error instanceof PaymentsNotFoundError) throw error;
       this.logger.warn(
         { operation, kind: error instanceof Error ? error.name : 'unknown' },
         'Stripe call failed',

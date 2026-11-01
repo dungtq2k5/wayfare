@@ -44,6 +44,12 @@ export interface PlanPrice {
   amountMinor: number;
   currency: string;
   isActive: boolean;
+  /** When it was registered. */
+  createdAt:
+    | Timestamp
+    | undefined;
+  /** When a later price of its interval replaced it; unset while it is in force. */
+  replacedAt?: Timestamp | undefined;
 }
 
 /** A plan an owner may buy. */
@@ -134,6 +140,7 @@ export interface GetBillingSummaryResponse {
   planCode: string;
   subscriptionStatus: SubscriptionStatus;
   dunningSince: Timestamp | undefined;
+  billingAccountId: string;
 }
 
 export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";

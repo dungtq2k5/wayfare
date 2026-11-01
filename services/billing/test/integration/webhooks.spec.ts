@@ -7,15 +7,21 @@ import {
   BILLING_ENTITLEMENTS_CHANGED,
   BILLING_SUBSCRIPTION_PAYMENT_FAILED,
   BillingEventStatus,
+  EntitlementsChangeCause,
   FREE_PLAN_GRANTS,
+  newId,
   NOTIFICATION_CREATE,
   NotificationType,
   SubscriptionStatus,
+  IgnoredReason,
 } from '@wayfare/contracts';
 import { billingGrpc } from '@wayfare/contracts/grpc';
 import { buildAccountContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { WEBHOOK_MAX_ATTEMPTS } from '../../src/modules/webhooks/webhooks.service';
+import {
+  FAKE_FAILURE_MARKER,
+  WEBHOOK_MAX_ATTEMPTS,
+} from '../../src/modules/webhooks/webhooks.service';
 import { outboxPayloads, testPrisma, truncateAll } from '../setup/database';
 import {
   checkoutSession,
@@ -126,16 +132,20 @@ describe('receiving', () => {
     expect((await eventRow(event.id as string)).status).toBe(BillingEventStatus.RECEIVED);
   });
 
-  it('ignores an unhandled type and an event in the other mode', async () => {
+  it('ignores an unhandled type and an event in the other mode, saying which', async () => {
     const refund = stripeEvent('charge.refunded', { id: 'ch_1' });
     const live = subscriptionEvent('customer.subscription.created', 'active', T0 + 5);
     (live as { livemode: boolean }).livemode = true;
     await deliver(services, refund);
     await deliver(services, live);
-    for (const event of [refund, live]) {
+    for (const [event, reason] of [
+      [refund, IgnoredReason.UNHANDLED_TYPE],
+      [live, IgnoredReason.LIVEMODE_MISMATCH],
+    ] as const) {
       const row = await eventRow(event.id as string);
       expect(row.status).toBe(BillingEventStatus.IGNORED);
       expect(row.processedAt).not.toBeNull();
+      expect(row.errorLog).toBe(reason);
     }
     expect((await stateOf()).subscriptionStatus).toBe(SubscriptionStatus.NONE);
   });
@@ -322,6 +332,75 @@ describe('failures', () => {
   });
 });
 
+describe('the round-35a reads', () => {
+  it('keeps the subscribed price after a cancellation; events carry their owner', async () => {
+    await subscribed();
+    const admin = buildAccountContext();
+    const read = async () =>
+      (await services.accounts.getAccount({ billingAccountId: account.accountId }, admin)).account;
+    expect((await read())?.subscribedPrice).toEqual({
+      amountMinor: 900,
+      currency: 'USD',
+      billingInterval: billingGrpc.BillingInterval.BILLING_INTERVAL_MONTH,
+    });
+    await deliver(
+      services,
+      subscriptionEvent('customer.subscription.deleted', 'canceled', T0 + 400),
+    );
+    const cancelled = await read();
+    expect(cancelled?.summary?.planCode).toBe('FREE');
+    expect(cancelled?.subscribedPrice?.amountMinor).toBe(900);
+    expect(cancelled?.recentEvents[0]).toMatchObject({
+      ownerUserId: account.ownerUserId,
+      payloadJson: '',
+    });
+
+    const { events } = await services.events.listBillingEvents(
+      { page: { page: 1, pageSize: 20, sort: '' }, status: 0 },
+      admin,
+    );
+    expect(events.every((event) => event.payloadJson === '')).toBe(true);
+    expect(events.every((event) => event.ownerUserId === account.ownerUserId)).toBe(true);
+    const { event } = await services.events.getBillingEvent(
+      { billingEventId: events[0]!.id },
+      admin,
+    );
+    expect(JSON.parse(event!.payloadJson)).toMatchObject({ object: 'event' });
+    expect(
+      (await errorOf(services.events.getBillingEvent({ billingEventId: newId() }, admin))).code,
+    ).toBe('RESOURCE_NOT_FOUND');
+  });
+
+  it('has no subscribed price for an account that never subscribed', async () => {
+    const { account: never } = await services.accounts.getAccount(
+      { billingAccountId: account.accountId },
+      buildAccountContext(),
+    );
+    expect(never?.subscribedPrice).toBeUndefined();
+  });
+
+  it('fails an event carrying the fake failure marker on every try, until replayed', async () => {
+    await linked();
+    const marked = stripeEvent(
+      'customer.subscription.updated',
+      {
+        ...subscription({
+          id: SUB,
+          customer: CUSTOMER,
+          price: growth.stripePriceId,
+          status: 'active',
+        }),
+        metadata: { [FAKE_FAILURE_MARKER]: '1' },
+      },
+      { created: T0 + 50 },
+    );
+    await deliver(services, marked);
+    const row = await eventRow(marked.id as string);
+    expect(row.status).toBe(BillingEventStatus.FAILED);
+    expect(row.errorLog).toContain('fake failure marker');
+  });
+});
+
 describe('dunning', () => {
   it('starts on a failed payment, keeps the grants while past due, and ends on payment', async () => {
     await subscribed();
@@ -424,6 +503,46 @@ describe('pins', () => {
     expect(audits[0]).toMatchObject({
       metadata: { reason: 'A negotiated deal for a market stall cooperative.' },
     });
+    // Each publish says why: the purchase, the override, then the unpin.
+    const causes = (await outboxPayloads(prisma, BILLING_ENTITLEMENTS_CHANGED.subject)).map(
+      (payload) => payload.cause,
+    );
+    expect(causes.slice(-3)).toEqual([
+      EntitlementsChangeCause.SUBSCRIPTION,
+      EntitlementsChangeCause.OVERRIDE,
+      EntitlementsChangeCause.UNPIN,
+    ]);
+  });
+
+  it("previews an unpin: today's grants and the Places they'd take off, nothing written", async () => {
+    await subscribed();
+    const admin = buildAccountContext();
+    await services.accounts.overrideEntitlements(
+      {
+        billingAccountId: account.accountId,
+        grants: {
+          ...GROWTH_GRANTS,
+          maxPlaces: 15,
+          narrationLanguageScope: 2,
+          analyticsLevel: 2,
+          voucherCommissionBps: 1500,
+        },
+        reason: 'A pilot partner.',
+      },
+      admin,
+    );
+    services.catalog.counts.set(account.ownerUserId, 12);
+    const preview = await services.accounts.previewUnpin(
+      { billingAccountId: account.accountId },
+      admin,
+    );
+    expect(preview).toMatchObject({ grants: { maxPlaces: 10 }, wouldUnpublishPlaces: 2 });
+    expect(await stateOf()).toMatchObject({ entitlementsPinned: true, maxPlaces: 15 });
+    services.catalog.down = true;
+    expect(
+      (await services.accounts.previewUnpin({ billingAccountId: account.accountId }, admin))
+        .wouldUnpublishPlaces,
+    ).toBeUndefined();
   });
 
   it('refuses an override above a ceiling', async () => {

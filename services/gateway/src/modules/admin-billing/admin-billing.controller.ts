@@ -10,7 +10,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { BillingAccountDetail, BillingAccountSummary, BillingEvent } from '@wayfare/contracts';
+import type {
+  BillingAccountDetail,
+  BillingAccountSummary,
+  BillingEvent,
+  UnpinPreview,
+} from '@wayfare/contracts';
 import {
   ApiEnvelope,
   ApiErrors,
@@ -28,6 +33,7 @@ import {
   BillingAccountSummaryResponseDto,
   BillingEventResponseDto,
   BillingEventResultResponseDto,
+  UnpinPreviewResponseDto,
 } from './dto/admin-billing-response.dto';
 import {
   BillingAccountsQueryDto,
@@ -89,6 +95,22 @@ export class AdminBillingController {
     return this.billing.override(context, params.id, body);
   }
 
+  @Get('accounts/:id/unpin-preview')
+  @RequirePermission('billing.entitlement.override')
+  @NoStore()
+  @ApiOperation({
+    summary: 'What unpinning would do: the grants it returns to, Places off the map.',
+  })
+  @ApiEnvelope(UnpinPreviewResponseDto)
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(UnpinPreviewResponseDto)
+  unpinPreview(
+    @Ctx() context: AccountContext,
+    @Param() params: BillingIdParamDto,
+  ): Promise<UnpinPreview> {
+    return this.billing.unpinPreview(context, params.id);
+  }
+
   @Post('accounts/:id/unpin')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('billing.entitlement.override')
@@ -108,7 +130,7 @@ export class AdminBillingController {
   @Get('events')
   @RequirePermission('billing.event.read')
   @NoStore()
-  @ApiOperation({ summary: "Stripe's recorded events, payloads included; page style." })
+  @ApiOperation({ summary: "Stripe's recorded events, without payloads; page style." })
   @ApiEnvelope(BillingEventResponseDto, { list: 'page' })
   @ZodSerializerDto(BillingEventResponseDto)
   events(
@@ -116,6 +138,17 @@ export class AdminBillingController {
     @Query() query: BillingEventsQueryDto,
   ): Promise<Paged<BillingEvent>> {
     return this.billing.events(context, query);
+  }
+
+  @Get('events/:id')
+  @RequirePermission('billing.event.read')
+  @NoStore()
+  @ApiOperation({ summary: 'One recorded event, its payload included.' })
+  @ApiEnvelope(BillingEventResponseDto)
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(BillingEventResponseDto)
+  event(@Ctx() context: AccountContext, @Param() params: BillingIdParamDto): Promise<BillingEvent> {
+    return this.billing.event(context, params.id);
   }
 
   @Post('events/:id/replay')

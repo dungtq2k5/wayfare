@@ -38,8 +38,12 @@ up() {
   "${compose[@]}" --profile apps up -d --build --wait "${apps[@]}"
   # turbo.json's order for `pnpm seed:dev`: identity's owners open their billing accounts (by event),
   # billing's plans go on those accounts, and catalog's Venues ask billing for them.
+  # Billing seeds the fake Stripe's `price_dev_*` prices, never a developer's sandbox ones: the
+  # baselines draw the same catalogue on every machine and in CI.
   for s in identity billing narration catalog; do
-    on "$s" pnpm --silent --filter "@wayfare/$s" seed:dev
+    on "$s" env STRIPE_SECRET_KEY= STRIPE_PRICE_GROWTH_MONTHLY= STRIPE_PRICE_GROWTH_ANNUAL= \
+      STRIPE_PRICE_PRO_MONTHLY= STRIPE_PRICE_PRO_ANNUAL= \
+      pnpm --silent --filter "@wayfare/$s" seed:dev
   done
   # The suite's super admin (e2e/support/people.ts), unless the environment names another.
   on identity env \

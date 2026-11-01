@@ -21,7 +21,7 @@ import {
   RequirePermission,
   UsesUpstream,
 } from '@wayfare/nest-common';
-import type { AccountContext, Paged } from '@wayfare/nest-common';
+import type { AccountContext, Paged, WithMeta } from '@wayfare/nest-common';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { AdminUsersService } from './admin-users.service';
 import type {
@@ -80,7 +80,7 @@ export class AdminUsersController {
   get(
     @Ctx() context: AccountContext,
     @Param() params: UserIdParamDto,
-  ): Promise<AdminUserViewResponse> {
+  ): Promise<AdminUserViewResponse | WithMeta<AdminUserViewResponse>> {
     return this.users.get(context, params.id);
   }
 

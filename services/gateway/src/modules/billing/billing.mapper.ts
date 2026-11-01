@@ -50,6 +50,8 @@ export function toPlanPrice(price: billingGrpc.PlanPrice): PlanPrice {
     billingInterval: known(billingIntervalProto.fromProto(price.billingInterval), 'interval'),
     amount: { amountMinor: price.amountMinor, currency: CurrencyCode.USD },
     isActive: price.isActive,
+    createdAt: fromProtoTimestamp(price.createdAt, 'createdAt').toISOString(),
+    replacedAt: fromOptionalProtoTimestamp(price.replacedAt, 'replacedAt')?.toISOString() ?? null,
   };
 }
 

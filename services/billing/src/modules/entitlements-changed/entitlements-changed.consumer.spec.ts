@@ -1,4 +1,9 @@
-import { BILLING_ENTITLEMENTS_CHANGED, FREE_PLAN_GRANTS, newId } from '@wayfare/contracts';
+import {
+  BILLING_ENTITLEMENTS_CHANGED,
+  EntitlementsChangeCause,
+  FREE_PLAN_GRANTS,
+  newId,
+} from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import { EntitlementsChangedConsumer } from './entitlements-changed.consumer';
 
@@ -19,6 +24,7 @@ describe('EntitlementsChangedConsumer', () => {
         entitlementsVersion: 3,
         entitlements: FREE_PLAN_GRANTS,
         previous: null,
+        cause: EntitlementsChangeCause.SUBSCRIPTION,
       }),
     );
     expect(sent).toEqual([

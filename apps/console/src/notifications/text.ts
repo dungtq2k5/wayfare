@@ -58,6 +58,7 @@ export function notificationTarget(notification: Pick<FeedNotification, 'type' |
     case NotificationType.SUBSCRIPTION_ACTIVATED:
     case NotificationType.SUBSCRIPTION_PAYMENT_FAILED:
     case NotificationType.ENTITLEMENTS_REDUCED:
+    case NotificationType.ENTITLEMENTS_RAISED:
     case NotificationType.PAYOUT_ACCOUNT_ACTION_REQUIRED:
     case NotificationType.VOUCHER_CODE_GUESSING_SUSPECTED:
       return '/owner/billing';

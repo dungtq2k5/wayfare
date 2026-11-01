@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { normalizeText } from './normalize';
 
 describe('what varies, normalised', () => {
+  it("fixes Stripe's moments, with their seconds, and a September date", () => {
+    expect(normalizeText('25 Oct 2026, 09:40:02')).toBe('2 Oct 2026, 08:12:30');
+    expect(normalizeText('19 Sept 2026')).toBe('2 Oct 2026');
+  });
+
   it('fixes a date with its time, and a time alone', () => {
     expect(normalizeText('Delivered · 25 Oct 2026, 16:02')).toBe('Delivered · 2 Oct 2026, 08:12');
     expect(normalizeText('23:26')).toBe('08:30');

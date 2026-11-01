@@ -38,6 +38,11 @@ export const envSchema = z
       (value) => (value === '' || value === undefined ? 'test' : value),
       z.enum(STRIPE_MODES),
     ),
+    // `fake`: an in-memory Stripe with fixed test prices, for the local and CI stacks (never production).
+    PAYMENTS_PROVIDER: z.preprocess(
+      (value) => (value === '' || value === undefined ? 'stripe' : value),
+      z.enum(['stripe', 'fake']),
+    ),
     STRIPE_SECRET_KEY: optional(z.string().min(1)),
     STRIPE_WEBHOOK_SECRET: z
       .string()
@@ -45,6 +50,13 @@ export const envSchema = z
       .startsWith('whsec_'),
   })
   .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PAYMENTS_PROVIDER'],
+        message: 'The fake payments provider is refused in production',
+      });
+    }
     const key = env.STRIPE_SECRET_KEY;
     if (key === undefined) {
       // Without a key the service runs; the Stripe-backed owner routes answer 503. Never in live mode.

@@ -108,6 +108,11 @@ describe('plans', () => {
       ['price_b', true, 1000],
       ['price_a', false, 900],
     ]);
+    // Each says when it was registered; the replaced one when it was replaced.
+    const [current, replaced] = after!.prices;
+    expect(current!.createdAt).toBeDefined();
+    expect(current!.replacedAt).toBeUndefined();
+    expect(replaced!.replacedAt).toBeDefined();
     expect(
       (
         await errorOf(
@@ -250,10 +255,168 @@ describe('plans', () => {
       (await errorOf(services.plans.retirePlan({ planId: await freePlanId() }, admin))).code,
     ).toBe('INVALID_STATE');
     await services.plans.retirePlan({ planId: pro.planId }, admin);
-    const { plans } = await services.plans.listPlans(admin);
+    const { plans } = await services.plans.listPlans({}, admin);
     expect(plans.map((plan) => [plan.code, plan.subscriberCount])).toEqual([
       ['FREE', 0],
       ['GROWTH', 1],
     ]);
+  });
+
+  it("counts a plan's subscribers by state, lists retired plans on request, reads one", async () => {
+    const growth = await paidPlan(prisma, 'GROWTH');
+    const states: {
+      subscriptionStatus: SubscriptionStatus;
+      cancelAtPeriodEnd?: boolean;
+      entitlementsPinned?: boolean;
+    }[] = [
+      { subscriptionStatus: SubscriptionStatus.ACTIVE },
+      { subscriptionStatus: SubscriptionStatus.TRIALING, entitlementsPinned: true },
+      { subscriptionStatus: SubscriptionStatus.PAST_DUE },
+      { subscriptionStatus: SubscriptionStatus.ACTIVE, cancelAtPeriodEnd: true },
+      // A deactivated owner's account still counts in the total (billing can't tell).
+      { subscriptionStatus: SubscriptionStatus.CANCELED },
+    ];
+    for (const state of states) {
+      const { accountId } = await owner(services, prisma);
+      await prisma.billingAccount.update({
+        where: { id: accountId },
+        data: { planId: growth.planId, ...state },
+        select: { id: true },
+      });
+    }
+    const { plan } = await services.plans.getPlan({ planId: growth.planId }, admin);
+    expect(plan).toMatchObject({
+      subscriberCount: 5,
+      subscribers: { active: 3, pastDue: 1, cancelling: 1, pinned: 1 },
+    });
+    expect(plan?.createdAt).toBeDefined();
+    expect(plan?.retiredAt).toBeUndefined();
+
+    const { plan: unused } = await services.plans.createPlan(
+      { code: 'OLD', name: 'Old', sortOrder: 30, grants: wireGrants() },
+      admin,
+    );
+    await services.plans.retirePlan({ planId: unused!.id }, admin);
+    expect((await services.plans.listPlans({}, admin)).plans.map((row) => row.code)).not.toContain(
+      'OLD',
+    );
+    const withRetired = await services.plans.listPlans({ includeRetired: true }, admin);
+    expect(withRetired.plans.find((row) => row.code === 'OLD')?.retiredAt).toBeDefined();
+    // A retired plan has no page.
+    expect((await errorOf(services.plans.getPlan({ planId: unused!.id }, admin))).code).toBe(
+      'RESOURCE_NOT_FOUND',
+    );
+  });
+
+  it("looks a price up with registering's checks, writing nothing", async () => {
+    const { plan } = await services.plans.createPlan(
+      { code: 'GROWTH', name: 'Growth', sortOrder: 10, grants: wireGrants() },
+      admin,
+    );
+    const other = await paidPlan(prisma, 'PRO');
+    const price = (id: string, over: Record<string, unknown> = {}) => ({
+      id,
+      active: true,
+      currency: 'usd',
+      unitAmount: 900,
+      recurringInterval: 'month',
+      productId: 'prod_growth',
+      ...over,
+    });
+    services.payments.prices.set('price_first', price('price_first'));
+    services.payments.prices.set('price_next', price('price_next', { unitAmount: 1200 }));
+    services.payments.prices.set(
+      'price_theirs',
+      price('price_theirs', {
+        productId: (
+          await prisma.plan.findUniqueOrThrow({
+            where: { id: other.planId },
+            select: { stripeProductId: true },
+          })
+        ).stripeProductId!,
+      }),
+    );
+    const month = billingGrpc.BillingInterval.BILLING_INTERVAL_MONTH;
+    const lookup = (stripePriceId: string) =>
+      services.plans.lookupPrice(
+        { planId: plan!.id, stripePriceId, billingInterval: month },
+        admin,
+      );
+
+    expect(await lookup('price_first')).toEqual({
+      amountMinor: 900,
+      currency: 'USD',
+      billingInterval: month,
+      productId: 'prod_growth',
+    });
+    expect(await prisma.planPrice.count({ where: { planId: plan!.id } })).toBe(0);
+    expect(
+      (await outboxPayloads(prisma, AUDIT_RECORD.subject)).filter(
+        (payload) => payload.action === AuditAction.PLAN_PRICE_REGISTERED,
+      ),
+    ).toEqual([]);
+
+    await services.plans.registerPrice(
+      { planId: plan!.id, stripePriceId: 'price_first', billingInterval: month },
+      admin,
+    );
+    expect(await lookup('price_next')).toMatchObject({
+      amountMinor: 1200,
+      replaces: { stripePriceId: 'price_first', amountMinor: 900, isActive: true },
+    });
+    const refusal = async (stripePriceId: string) => (await errorOf(lookup(stripePriceId))).details;
+    expect(await refusal('price_unknown')).toEqual({
+      issues: [{ path: '/stripePriceId', code: 'not_found' }],
+    });
+    // Already registered; another plan's product. Both checked before any write.
+    expect(await refusal('price_first')).toEqual({
+      issues: [{ path: '/stripePriceId', code: 'taken' }],
+    });
+    expect(await refusal('price_theirs')).toEqual({
+      issues: [{ path: '/stripePriceId', code: 'product_mismatch' }],
+    });
+    expect(
+      (
+        await errorOf(
+          services.plans.registerPrice(
+            { planId: plan!.id, stripePriceId: 'price_unknown', billingInterval: month },
+            admin,
+          ),
+        )
+      ).details,
+    ).toEqual({ issues: [{ path: '/stripePriceId', code: 'not_found' }] });
+  });
+
+  it('takes a price whose product another plan holds as taken, while this plan has none', async () => {
+    const { plan } = await services.plans.createPlan(
+      { code: 'NEW', name: 'New', sortOrder: 40, grants: wireGrants() },
+      admin,
+    );
+    const other = await paidPlan(prisma, 'PRO');
+    const product = (
+      await prisma.plan.findUniqueOrThrow({
+        where: { id: other.planId },
+        select: { stripeProductId: true },
+      })
+    ).stripeProductId!;
+    services.payments.prices.set('price_borrowed', {
+      id: 'price_borrowed',
+      active: true,
+      currency: 'usd',
+      unitAmount: 500,
+      recurringInterval: 'month',
+      productId: product,
+    });
+    const refused = await errorOf(
+      services.plans.lookupPrice(
+        {
+          planId: plan!.id,
+          stripePriceId: 'price_borrowed',
+          billingInterval: billingGrpc.BillingInterval.BILLING_INTERVAL_MONTH,
+        },
+        admin,
+      ),
+    );
+    expect(refused.details).toEqual({ issues: [{ path: '/stripePriceId', code: 'taken' }] });
   });
 });

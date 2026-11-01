@@ -4,6 +4,7 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { BillingAccountSummaryResponseDtoOwner } from './billingAccountSummaryResponseDtoOwner.js';
 import type { BillingAccountSummaryResponseDtoSubscriptionStatus } from './billingAccountSummaryResponseDtoSubscriptionStatus.js';
 
 export interface BillingAccountSummaryResponseDto {
@@ -11,6 +12,7 @@ export interface BillingAccountSummaryResponseDto {
   id: string;
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
   ownerUserId: string;
+  owner: BillingAccountSummaryResponseDtoOwner;
   planCode: string;
   subscriptionStatus: BillingAccountSummaryResponseDtoSubscriptionStatus;
   pinned: boolean;

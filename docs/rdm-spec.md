@@ -531,7 +531,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **recipient_user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE | — |
-| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN \| PLACE_NARRATION_FAILED` |
+| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ENTITLEMENTS_RAISED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN \| PLACE_NARRATION_FAILED` |
 | **data** | JSONB | NOT NULL | Typed by `type` (`NotificationData` union). Ids and short values only — e.g. `{ placeId, placeName, decisionNote }`. |
 | **event_id** | UUID | NOT NULL | The producer's outbox event id. |
 | **read_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -1324,7 +1324,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **billing_account_id** | UUID | Nullable, FK ➔ billing_accounts.id, SET NULL, Indexed | Resolved from customer, subscription or connected account. NULL when unresolvable — **stored, not dropped**: a checkout completing before the account row exists must still be replayable. |
 | **payload** | JSONB | NOT NULL | The raw event. Kept because a mapping bug is only diagnosable against what Stripe actually sent. Contains customer email — access is `billing.event.read` only. |
 | **status** | VARCHAR(24) | NOT NULL | `RECEIVED \| PROCESSED \| SKIPPED_STALE \| SKIPPED_DUPLICATE \| IGNORED \| FAILED`. `SKIPPED_STALE` firing regularly is information, not noise. |
-| **error_log** | TEXT | Nullable | — |
+| **error_log** | TEXT | Nullable | The failure, for a `FAILED` row; for an `IGNORED` one, why — `LIVEMODE_MISMATCH` or `UNHANDLED_TYPE` (`IgnoredReason` in `packages/contracts`). |
 | **received_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **processed_at** | TIMESTAMPTZ(3) | Nullable | — |
 

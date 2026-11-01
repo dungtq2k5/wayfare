@@ -325,7 +325,15 @@ export class AdminUsersService {
       where: { id: { in: [...new Set(userIds)] } },
       select: { id: true, fullName: true, email: true, erasedAt: true },
     });
-    return { users: rows.map((row) => ({ id: row.id, ...nameOf(row) })) };
+    // The email too, for an account the page names as its owner (a billing account's); never for an
+    // erased account, which keeps none.
+    return {
+      users: rows.map((row) => ({
+        id: row.id,
+        ...nameOf(row),
+        ...(row.erasedAt === null ? { email: row.email } : {}),
+      })),
+    };
   }
 
   /**

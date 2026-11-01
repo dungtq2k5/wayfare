@@ -1,5 +1,6 @@
 import { status } from '@grpc/grpc-js';
 import { newId } from '@wayfare/contracts';
+import { billingGrpc } from '@wayfare/contracts/grpc';
 import {
   adminUserDetailFixture,
   adminUserFixture,
@@ -197,6 +198,38 @@ describe('/admin/users', () => {
     });
     const bad = await call('get', '/admin/users/not-a-uuid');
     expect(bad.status).toBe(400);
+  });
+
+  it("adds an owner's billing row for a viewer holding billing.account.read, degraded when down", async () => {
+    gateway.identity.adminUsers.handlers.getUser = () =>
+      Promise.resolve({
+        user: adminUserDetailFixture({ user: adminUserFixture({ ownerVerified: true }) }),
+      });
+    const accountId = newId();
+    gateway.billing.billing.handlers.getBillingSummary = () =>
+      Promise.resolve({
+        billingAccountId: accountId,
+        planCode: 'GROWTH',
+        subscriptionStatus: billingGrpc.SubscriptionStatus.SUBSCRIPTION_STATUS_ACTIVE,
+        dunningSince: undefined,
+      });
+    const withBilling = await call('get', `/admin/users/${id}`, [
+      'user.read',
+      'billing.account.read',
+    ]);
+    expect(withBilling.body.data.billing).toEqual({
+      accountId,
+      planCode: 'GROWTH',
+      subscriptionStatus: 'ACTIVE',
+    });
+    const without = await call('get', `/admin/users/${id}`, ['user.read']);
+    expect(without.body.data.billing).toBeNull();
+    gateway.billing.billing.handlers.getBillingSummary = () =>
+      Promise.reject(serviceError(status.UNAVAILABLE));
+    const down = await call('get', `/admin/users/${id}`, ['user.read', 'billing.account.read']);
+    expect(down.status).toBe(200);
+    expect(down.body.data.billing).toBeNull();
+    expect(down.body.meta).toMatchObject({ degraded: ['billing'] });
   });
 
   it('creates staff with a de-duplicated role set, and refuses an empty one', async () => {

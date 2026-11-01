@@ -61,6 +61,8 @@ test('the shell, desktop (C6)', async ({ page }) => {
     /^Users and roles$/,
     /^Recoveries$/,
     /^Audit log$/,
+    /^Billing accounts$/,
+    /^Stripe events$/,
     /^Notifications/,
     /^Account menu/,
   ]);

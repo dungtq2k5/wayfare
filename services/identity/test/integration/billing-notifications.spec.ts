@@ -4,6 +4,7 @@
 import {
   AnalyticsLevel,
   BILLING_ENTITLEMENTS_CHANGED,
+  EntitlementsChangeCause,
   BILLING_SUBSCRIPTION_PAYMENT_FAILED,
   EmailTemplate,
   FREE_PLAN_GRANTS,
@@ -93,7 +94,12 @@ describe('billing.entitlements.changed', () => {
       services.dispatcher,
     );
 
-  const changed = (entitlements: Entitlements, previous: Entitlements | null, version = 3) =>
+  const changed = (
+    entitlements: Entitlements,
+    previous: Entitlements | null,
+    version = 3,
+    cause = EntitlementsChangeCause.SUBSCRIPTION,
+  ) =>
     BILLING_ENTITLEMENTS_CHANGED.schema.parse({
       eventId: newId(),
       occurredAt: new Date().toISOString(),
@@ -101,6 +107,7 @@ describe('billing.entitlements.changed', () => {
       entitlementsVersion: version,
       entitlements,
       previous,
+      cause,
     });
 
   it('says what a cancellation took away, with a console link to the plan page', async () => {
@@ -128,6 +135,52 @@ describe('billing.entitlements.changed', () => {
     ]);
     await services.dispatcher.idle();
     expect(services.mailbox.sent[0]!.text).toContain('http://console.localhost/owner/billing');
+  });
+
+  it('tells the owner in the bell when a staff override or unpin raises a grant', async () => {
+    await consumer().handle(
+      changed({ ...GROWTH, maxPlaces: 25 }, GROWTH, 4, EntitlementsChangeCause.OVERRIDE),
+    );
+    await consumer().handle(changed(GROWTH, FREE_PLAN_GRANTS, 5, EntitlementsChangeCause.UNPIN));
+    const rows = await prisma.notification.findMany({
+      where: { recipientUserId: ownerId },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(rows.map((row) => [row.type, row.data])).toEqual([
+      [NotificationType.ENTITLEMENTS_RAISED, { entitlementsVersion: 4, raised: ['maxPlaces'] }],
+      [
+        NotificationType.ENTITLEMENTS_RAISED,
+        expect.objectContaining({ entitlementsVersion: 5, autoNarrationGained: true }),
+      ],
+    ]);
+    // The bell only: no email template.
+    expect(await deliveries()).toEqual([]);
+  });
+
+  it('tells nobody of a raise by an applied plan or a purchase', async () => {
+    await consumer().handle(changed(GROWTH, FREE_PLAN_GRANTS, 4, EntitlementsChangeCause.PLAN));
+    await consumer().handle(
+      changed(GROWTH, FREE_PLAN_GRANTS, 5, EntitlementsChangeCause.SUBSCRIPTION),
+    );
+    expect(await prisma.notification.count()).toBe(0);
+  });
+
+  it('inserts both when one override raises one grant and lowers another, once each', async () => {
+    const event = changed(
+      { ...GROWTH, maxPlaces: 25, maxPhotosPerPlace: 4 },
+      GROWTH,
+      6,
+      EntitlementsChangeCause.OVERRIDE,
+    );
+    await consumer().handle(event);
+    await consumer().handle(event);
+    const types = (await prisma.notification.findMany({ where: { recipientUserId: ownerId } })).map(
+      (row) => row.type,
+    );
+    expect(types.toSorted((a, b) => a.localeCompare(b))).toEqual([
+      NotificationType.ENTITLEMENTS_RAISED,
+      NotificationType.ENTITLEMENTS_REDUCED,
+    ]);
   });
 
   it('tells nobody of a widening or of the first grants', async () => {

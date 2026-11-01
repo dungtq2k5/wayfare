@@ -5,14 +5,15 @@ import {
   AuditActorType,
   AuditResourceType,
   BillingInterval,
+  EntitlementsChangeCause,
   FREE_PLAN_CODE,
   sameGrants,
+  SubscriptionStatus,
   zPlanInput,
   zPlanUpdateInput,
   zRegisterPriceInput,
   zUuidV7,
 } from '@wayfare/contracts';
-import type { Entitlements } from '@wayfare/contracts';
 import { billingIntervalProto } from '@wayfare/contracts/grpc';
 import type { billingGrpc } from '@wayfare/contracts/grpc';
 import {
@@ -26,18 +27,23 @@ import type { AccountContext, RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import type { Prisma } from '../../../generated/prisma/client';
 import {
+  PaymentsNotFoundError,
   PaymentsProvider,
   PaymentsUnavailableError,
 } from '../../providers/payments/payments-provider';
+import type { ProviderPrice } from '../../providers/payments/payments-provider';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { billingAuditRecord } from '../entitlements/domain/billing-audit';
 import type { BillingAuditOrigin } from '../entitlements/domain/billing-audit';
 import { grantColumns, grantsOf } from '../entitlements/domain/grants-write';
+import { wouldUnpublish } from '../entitlements/domain/would-unpublish';
 import { BILLING_ACCOUNT_SELECT, fromProtoEntitlements } from '../entitlements/entitlement.mapper';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ADMIN_PLAN_SELECT, toAdminPlan } from './plan.mapper';
-import type { AdminPlanRow } from './plan.mapper';
+import { NO_SUBSCRIBERS } from './domain/plan-subscribers';
+import type { PlanSubscriberCounts } from './domain/plan-subscribers';
+import { ADMIN_PLAN_SELECT, toAdminPlan, toPlanPrice } from './plan.mapper';
+import type { AdminPlanRow, PlanPriceRow } from './plan.mapper';
 
 const planIdField = z.object({ planId: zUuidV7 });
 
@@ -46,6 +52,12 @@ const STRIPE_INTERVAL: Readonly<Record<BillingInterval, string>> = {
   [BillingInterval.MONTH]: 'month',
   [BillingInterval.YEAR]: 'year',
 };
+
+/** The statuses a plan's *Subscribers* card counts as active. */
+const ACTIVE_STATUSES: ReadonlySet<SubscriptionStatus> = new Set([
+  SubscriptionStatus.ACTIVE,
+  SubscriptionStatus.TRIALING,
+]);
 
 /** A refusal of a registration, named by the field that caused it. */
 const invalid = (path: string, code: string) =>
@@ -75,16 +87,33 @@ export class PlansService {
     private readonly catalog: CatalogServiceGrpcClient,
   ) {}
 
-  /** Every live plan, with every price and its subscriber count (deactivated owners included). */
-  async listPlans(context: RequestContext): Promise<billingGrpc.ListPlansResponse> {
+  /**
+   * Every live plan — and retired ones with `includeRetired` — with every price and its
+   * subscribers (deactivated owners included).
+   */
+  async listPlans(
+    request: billingGrpc.ListPlansRequest,
+    context: RequestContext,
+  ): Promise<billingGrpc.ListPlansResponse> {
     requireAccountContext(context);
     const rows = await this.prisma.plan.findMany({
-      where: { deletedAt: null },
+      where: request.includeRetired === true ? {} : { deletedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
       select: ADMIN_PLAN_SELECT,
     });
     const counts = await this.subscriberCounts(rows.map((row) => row.id));
-    return { plans: rows.map((row) => toAdminPlan(row, counts.get(row.id) ?? 0)) };
+    return { plans: rows.map((row) => toAdminPlan(row, counts.get(row.id) ?? NO_SUBSCRIBERS)) };
+  }
+
+  /** One live plan; a retired plan has no page, so it is not found. */
+  async getPlan(
+    request: billingGrpc.GetPlanRequest,
+    context: RequestContext,
+  ): Promise<billingGrpc.GetPlanResponse> {
+    requireAccountContext(context);
+    const { planId } = parseRpcRequest(planIdField, request);
+    const row = await this.livePlan(this.prisma, planId);
+    return { plan: await this.withSubscribers(row) };
   }
 
   /** A new plan: every grant stated, each within its ceiling (rdm-spec B-1). */
@@ -119,7 +148,7 @@ export class PlansService {
         });
         return created;
       });
-      return { plan: toAdminPlan(row, 0) };
+      return { plan: toAdminPlan(row, NO_SUBSCRIBERS) };
     } catch (error) {
       if (isUniqueConstraintViolation(error)) throw invalid('/code', 'taken');
       throw error;
@@ -158,8 +187,37 @@ export class PlansService {
       });
       return updated;
     });
-    const counts = await this.subscriberCounts([row.id]);
-    return { plan: toAdminPlan(row, counts.get(row.id) ?? 0) };
+    return { plan: await this.withSubscribers(row) };
+  }
+
+  /**
+   * What registering would do, writing nothing (api-endpoints-plan §6.1): Stripe's amount,
+   * interval and product, and the interval's price in force it would replace. The same checks as
+   * `register`, from the same code.
+   */
+  async lookupPrice(
+    request: billingGrpc.LookupPriceRequest,
+    context: RequestContext,
+  ): Promise<billingGrpc.LookupPriceResponse> {
+    requireAccountContext(context);
+    const { planId } = parseRpcRequest(planIdField, request);
+    const input = parseRpcRequest(zRegisterPriceInput, {
+      stripePriceId: request.stripePriceId,
+      billingInterval: billingIntervalProto.fromProto(request.billingInterval),
+    });
+    const plan = await this.livePlan(this.prisma, planId);
+    const { price, replaces } = await this.checkPrice(
+      plan,
+      input.stripePriceId,
+      input.billingInterval,
+    );
+    return {
+      amountMinor: price.unitAmount!,
+      currency: price.currency.toUpperCase(),
+      billingInterval: billingIntervalProto.toProto(input.billingInterval),
+      productId: price.productId,
+      ...(replaces === null ? {} : { replaces: toPlanPrice(replaces) }),
+    };
   }
 
   /** Registers a Stripe Price: the route's handler, and the development seed's. */
@@ -177,8 +235,7 @@ export class PlansService {
       actor: { type: AuditActorType.USER, userId: actor.userId },
       origin: actor.origin,
     });
-    const counts = await this.subscriberCounts([row.id]);
-    return { plan: toAdminPlan(row, counts.get(row.id) ?? 0) };
+    return { plan: await this.withSubscribers(row) };
   }
 
   /**
@@ -193,27 +250,8 @@ export class PlansService {
     by: PriceRegistrar,
   ): Promise<AdminPlanRow> {
     const plan = await this.livePlan(this.prisma, planId);
-    if (plan.code === FREE_PLAN_CODE)
-      throw rpcError('INVALID_STATE', { status: 'ASSIGNED_NOT_SOLD' });
-    let price;
-    try {
-      price = await this.payments.retrievePrice(stripePriceId);
-    } catch (error) {
-      if (error instanceof PaymentsUnavailableError) throw rpcError('UPSTREAM_UNAVAILABLE');
-      throw error;
-    }
-    if (!price.active) throw invalid('/stripePriceId', 'inactive');
-    if (price.recurringInterval !== STRIPE_INTERVAL[interval]) {
-      throw invalid('/billingInterval', 'interval_mismatch');
-    }
-    if (price.currency.toLowerCase() !== 'usd') throw invalid('/stripePriceId', 'currency');
-    if (price.unitAmount === null || price.unitAmount <= 0) {
-      throw invalid('/stripePriceId', 'amount');
-    }
-    if (plan.stripeProductId !== null && plan.stripeProductId !== price.productId) {
-      throw invalid('/stripePriceId', 'product_mismatch');
-    }
-    const amountMinor = price.unitAmount;
+    const { price } = await this.checkPrice(plan, stripePriceId, interval);
+    const amountMinor = price.unitAmount!;
     const now = new Date();
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -287,9 +325,9 @@ export class PlansService {
       }
       const { next } = await this.entitlements.derive(this.prisma, account);
       const changed = !sameGrants(grantsOf(account), next);
-      const wouldUnpublish = await this.wouldUnpublish(account.ownerUserId, next);
+      const unpublishes = await wouldUnpublish(this.catalog, account.ownerUserId, next);
       unpublishSum =
-        unpublishSum === null || wouldUnpublish === null ? null : unpublishSum + wouldUnpublish;
+        unpublishSum === null || unpublishes === null ? null : unpublishSum + unpublishes;
       let failed = false;
       if (!dryRun && changed) {
         failed = await this.applyOne(account.id, now, actor);
@@ -298,7 +336,7 @@ export class PlansService {
         billingAccountId: account.id,
         ownerUserId: account.ownerUserId,
         changed,
-        ...(wouldUnpublish === null ? {} : { wouldUnpublishPlaces: wouldUnpublish }),
+        ...(unpublishes === null ? {} : { wouldUnpublishPlaces: unpublishes }),
         failed,
       });
     }
@@ -359,10 +397,13 @@ export class PlansService {
       await this.prisma.$transaction(async (tx) => {
         const account = await this.entitlements.lockAccount(tx, { id: billingAccountId });
         if (account === null) return;
-        await this.entitlements.rederive(tx, account, now, {
-          type: AuditActorType.USER,
-          userId: actor.userId,
-        });
+        await this.entitlements.rederive(
+          tx,
+          account,
+          now,
+          { type: AuditActorType.USER, userId: actor.userId },
+          EntitlementsChangeCause.PLAN,
+        );
       });
       return false;
     } catch (error) {
@@ -374,10 +415,55 @@ export class PlansService {
     }
   }
 
-  /** Venues a new `max_places` would unpublish; null when catalog cannot count. */
-  private async wouldUnpublish(ownerUserId: string, next: Entitlements): Promise<number | null> {
-    const places = await this.catalog.countOwnerPlaces(ownerUserId);
-    return places === null ? null : Math.max(0, places - next.maxPlaces);
+  /**
+   * A registration's checks: an assigned plan sells nothing; Stripe has the price, active, recurring
+   * at the interval, in USD, a fixed positive amount, on the plan's product; and nobody holds it —
+   * the price already registered, or its product another plan's. Checked before any write, so
+   * the look-up can say it.
+   */
+  private async checkPrice(
+    plan: AdminPlanRow,
+    stripePriceId: string,
+    interval: BillingInterval,
+  ): Promise<{ readonly price: ProviderPrice; readonly replaces: PlanPriceRow | null }> {
+    if (plan.code === FREE_PLAN_CODE)
+      throw rpcError('INVALID_STATE', { status: 'ASSIGNED_NOT_SOLD' });
+    let price: ProviderPrice;
+    try {
+      price = await this.payments.retrievePrice(stripePriceId);
+    } catch (error) {
+      if (error instanceof PaymentsNotFoundError) throw invalid('/stripePriceId', 'not_found');
+      if (error instanceof PaymentsUnavailableError) throw rpcError('UPSTREAM_UNAVAILABLE');
+      throw error;
+    }
+    if (!price.active) throw invalid('/stripePriceId', 'inactive');
+    if (price.recurringInterval !== STRIPE_INTERVAL[interval]) {
+      throw invalid('/billingInterval', 'interval_mismatch');
+    }
+    if (price.currency.toLowerCase() !== 'usd') throw invalid('/stripePriceId', 'currency');
+    if (price.unitAmount === null || price.unitAmount <= 0) {
+      throw invalid('/stripePriceId', 'amount');
+    }
+    if (plan.stripeProductId !== null && plan.stripeProductId !== price.productId) {
+      throw invalid('/stripePriceId', 'product_mismatch');
+    }
+    const [registered, otherPlan] = await Promise.all([
+      this.prisma.planPrice.findUnique({ where: { stripePriceId }, select: { id: true } }),
+      this.prisma.plan.findFirst({
+        where: { stripeProductId: price.productId, id: { not: plan.id } },
+        select: { id: true },
+      }),
+    ]);
+    if (registered !== null || otherPlan !== null) throw invalid('/stripePriceId', 'taken');
+    const replaces =
+      plan.prices.find((row) => row.isActive && row.billingInterval === String(interval)) ?? null;
+    return { price, replaces };
+  }
+
+  /** A plan with its subscribers counted. */
+  private async withSubscribers(row: AdminPlanRow): Promise<billingGrpc.AdminPlan> {
+    const counts = await this.subscriberCounts([row.id]);
+    return toAdminPlan(row, counts.get(row.id) ?? NO_SUBSCRIBERS);
   }
 
   private async livePlan(db: Prisma.TransactionClient, planId: string): Promise<AdminPlanRow> {
@@ -389,13 +475,33 @@ export class PlansService {
     return plan;
   }
 
-  private async subscriberCounts(planIds: readonly string[]): Promise<Map<string, number>> {
+  /**
+   * Each plan's accounts — every one on it, deactivated owners included (billing can't tell them
+   * apart) — and by state: active (`ACTIVE`, `TRIALING`), past due, cancelling at the period's end,
+   * pinned. A state can overlap another (a pinned account is also active).
+   */
+  private async subscriberCounts(
+    planIds: readonly string[],
+  ): Promise<Map<string, PlanSubscriberCounts>> {
     const groups = await this.prisma.billingAccount.groupBy({
-      by: ['planId'],
+      by: ['planId', 'subscriptionStatus', 'cancelAtPeriodEnd', 'entitlementsPinned'],
       where: { planId: { in: [...planIds] } },
       _count: { _all: true },
     });
-    return new Map(groups.map((group) => [group.planId, group._count._all]));
+    const counts = new Map<string, PlanSubscriberCounts>();
+    for (const group of groups) {
+      const n = group._count._all;
+      const now = counts.get(group.planId) ?? NO_SUBSCRIBERS;
+      const status = group.subscriptionStatus as SubscriptionStatus;
+      counts.set(group.planId, {
+        total: now.total + n,
+        active: now.active + (ACTIVE_STATUSES.has(status) ? n : 0),
+        pastDue: now.pastDue + (status === SubscriptionStatus.PAST_DUE ? n : 0),
+        cancelling: now.cancelling + (group.cancelAtPeriodEnd ? n : 0),
+        pinned: now.pinned + (group.entitlementsPinned ? n : 0),
+      });
+    }
+    return counts;
   }
 
   private async audit(

@@ -1,4 +1,9 @@
-import { zBillingAccountDetail, zBillingAccountSummary, zBillingEvent } from '@wayfare/contracts';
+import {
+  zBillingAccountDetail,
+  zBillingAccountSummary,
+  zBillingEvent,
+  zUnpinPreview,
+} from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -18,7 +23,7 @@ export class BillingAccountResultResponseDto extends createZodDto(
   billingAccountResultResponseSchema,
 ) {}
 
-/** A recorded Stripe event, its payload included. */
+/** A recorded Stripe event; its payload only in the single read. */
 export class BillingEventResponseDto extends createZodDto(zBillingEvent) {}
 
 /** `{ event }`, as a replay returns it. */
@@ -26,3 +31,6 @@ export const billingEventResultResponseSchema = z.object({ event: zBillingEvent 
 
 /** What a replay returns under `data`. */
 export class BillingEventResultResponseDto extends createZodDto(billingEventResultResponseSchema) {}
+
+/** What unpinning would do. */
+export class UnpinPreviewResponseDto extends createZodDto(zUnpinPreview) {}

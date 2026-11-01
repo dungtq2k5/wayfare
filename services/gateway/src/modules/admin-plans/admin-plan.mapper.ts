@@ -1,10 +1,12 @@
-import type { AdminPlan, ApplyResult, Entitlements } from '@wayfare/contracts';
+import type { AdminPlan, ApplyResult, Entitlements, PriceLookup } from '@wayfare/contracts';
+import { CurrencyCode } from '@wayfare/contracts';
 import {
   analyticsLevelProto,
   billingIntervalProto,
   narrationLanguageScopeProto,
 } from '@wayfare/contracts/grpc';
 import type { billingGrpc } from '@wayfare/contracts/grpc';
+import { fromOptionalProtoTimestamp, fromProtoTimestamp } from '@wayfare/nest-common';
 import { toEntitlements as toGrants, toPlanPrice } from '../billing/billing.mapper';
 import type { CreatePlanDto, RegisterPriceDto, UpdatePlanDto } from './dto/admin-plan.dto';
 
@@ -38,7 +40,29 @@ export function toAdminPlan(plan: billingGrpc.AdminPlan | undefined): AdminPlan 
     sortOrder: plan.sortOrder,
     grants: toGrants(plan.grants),
     prices: plan.prices.map(toPlanPrice),
-    subscriberCount: plan.subscriberCount,
+    subscribers: {
+      total: plan.subscriberCount,
+      active: plan.subscribers?.active ?? 0,
+      pastDue: plan.subscribers?.pastDue ?? 0,
+      cancelling: plan.subscribers?.cancelling ?? 0,
+      pinned: plan.subscribers?.pinned ?? 0,
+    },
+    createdAt: fromProtoTimestamp(plan.createdAt, 'createdAt').toISOString(),
+    updatedAt: fromProtoTimestamp(plan.updatedAt, 'updatedAt').toISOString(),
+    retiredAt: fromOptionalProtoTimestamp(plan.retiredAt, 'retiredAt')?.toISOString() ?? null,
+  };
+}
+
+/** A price looked up: Stripe's answer, nothing written. */
+export function toPriceLookup(lookup: billingGrpc.LookupPriceResponse): PriceLookup {
+  const interval = billingIntervalProto.fromProto(lookup.billingInterval);
+  if (interval === null) throw new Error('billing sent an unknown billing interval');
+  return {
+    // Only a USD price passes the look-up (rdm-spec B-2).
+    amount: { amountMinor: lookup.amountMinor, currency: CurrencyCode.USD },
+    interval,
+    productId: lookup.productId,
+    replaces: lookup.replaces === undefined ? null : toPlanPrice(lookup.replaces),
   };
 }
 

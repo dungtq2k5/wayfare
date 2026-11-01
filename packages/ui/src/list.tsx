@@ -140,10 +140,13 @@ export function ListCard({
   facts,
   time,
   children,
+  wrapFacts = false,
 }: {
   name: ReactNode;
   status?: ReactNode;
   facts?: ReactNode;
+  /** The facts wrap rather than end in an ellipsis: a line that must never hide a part (a price). */
+  wrapFacts?: boolean;
   time: ReactNode;
   children?: ReactNode;
 }) {
@@ -154,7 +157,9 @@ export function ListCard({
         {status}
       </div>
       {facts === undefined ? null : (
-        <p className="truncate text-xs text-muted-foreground">{facts}</p>
+        <p className={cn('text-xs text-muted-foreground', wrapFacts ? 'break-words' : 'truncate')}>
+          {facts}
+        </p>
       )}
       {children}
       <p className="text-xs text-muted-foreground">{time}</p>
@@ -350,8 +355,12 @@ export function PageHeader({
   action,
   breadcrumb,
   badges,
+  titleClassName,
 }: {
-  title: string;
+  /** Text, or text with its own break opportunities (an event type's dots). */
+  title: ReactNode;
+  /** The title's own face: an event type in the code face. */
+  titleClassName?: string;
   description?: string;
   action?: ReactNode;
   breadcrumb?: ReactNode;
@@ -364,7 +373,7 @@ export function PageHeader({
       <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1">
         {breadcrumb}
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+          <h1 className={cn('text-2xl font-semibold text-foreground', titleClassName)}>{title}</h1>
           {badges}
         </div>
         {description === undefined ? null : (

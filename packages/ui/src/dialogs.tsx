@@ -128,6 +128,7 @@ export function ReasonDialog({
   tone = 'destructive',
   onConfirm,
   children,
+  before,
   placeholder,
 }: BaseProps & {
   noteLabel: string;
@@ -139,6 +140,8 @@ export function ReasonDialog({
   onConfirm: (note: string) => void;
   /** What the decision also needs, after the note: a date, a line, a box to tick. */
   children?: ReactNode;
+  /** What to read before the note: what the decision will do (an unpin's preview). */
+  before?: ReactNode;
 }) {
   const [note, setNote] = useState('');
   const counterId = useId();
@@ -153,6 +156,7 @@ export function ReasonDialog({
     >
       <DialogContent closeLabel={labels.close}>
         <DialogHeader title={title} description={description} />
+        {before}
         <Field label={noteLabel} required help={noteHelp}>
           {(control) => (
             <>

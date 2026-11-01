@@ -11,7 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { AdminPlan, ApplyResult } from '@wayfare/contracts';
+import type { AdminPlan, ApplyResult, PriceLookup } from '@wayfare/contracts';
 import {
   ApiEnvelope,
   ApiErrors,
@@ -27,11 +27,14 @@ import {
   AdminPlanResponseDto,
   AdminPlanResultResponseDto,
   ApplyResultResponseDto,
+  PriceLookupResponseDto,
 } from './dto/admin-plan-response.dto';
 import {
+  AdminPlansQueryDto,
   ApplyPlanQueryDto,
   CreatePlanDto,
   PlanIdParamDto,
+  PriceLookupQueryDto,
   RegisterPriceDto,
   UpdatePlanDto,
 } from './dto/admin-plan.dto';
@@ -47,13 +50,44 @@ export class AdminPlansController {
   constructor(private readonly plans: AdminPlansService) {}
 
   @Get()
-  @RequirePermission('billing.plan.manage')
+  // Reads only: an admin reading billing accounts names their plans; the writes keep manage.
+  @RequirePermission('billing.plan.manage', 'billing.account.read')
   @NoStore()
-  @ApiOperation({ summary: 'Every plan, with its prices and subscriber count.' })
+  @ApiOperation({
+    summary: 'Every plan with its prices and subscribers; retired ones with `includeRetired`.',
+  })
   @ApiEnvelope(AdminPlanResponseDto, { array: true })
   @ZodSerializerDto([AdminPlanResponseDto])
-  list(@Ctx() context: AccountContext): Promise<AdminPlan[]> {
-    return this.plans.list(context);
+  list(@Ctx() context: AccountContext, @Query() query: AdminPlansQueryDto): Promise<AdminPlan[]> {
+    return this.plans.list(context, query.includeRetired ?? false);
+  }
+
+  @Get(':id')
+  @RequirePermission('billing.plan.manage', 'billing.account.read')
+  @NoStore()
+  @ApiOperation({ summary: 'One live plan; a retired plan has no page and is not found.' })
+  @ApiEnvelope(AdminPlanResponseDto)
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(AdminPlanResponseDto)
+  get(@Ctx() context: AccountContext, @Param() params: PlanIdParamDto): Promise<AdminPlan> {
+    return this.plans.get(context, params.id);
+  }
+
+  @Get(':id/prices/lookup')
+  @RequirePermission('billing.plan.manage')
+  @NoStore()
+  @ApiOperation({
+    summary: "What registering a Stripe Price would do: Stripe's amount, the price it replaces.",
+  })
+  @ApiEnvelope(PriceLookupResponseDto)
+  @ApiErrors('RESOURCE_NOT_FOUND', 'INVALID_STATE')
+  @ZodSerializerDto(PriceLookupResponseDto)
+  lookupPrice(
+    @Ctx() context: AccountContext,
+    @Param() params: PlanIdParamDto,
+    @Query() query: PriceLookupQueryDto,
+  ): Promise<PriceLookup> {
+    return this.plans.lookupPrice(context, params.id, query);
   }
 
   @Post()

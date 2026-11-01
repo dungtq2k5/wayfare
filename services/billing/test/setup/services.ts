@@ -131,7 +131,7 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
     ),
     subscriptions: new SubscriptionsService(prisma, outbox, payments, catalogClient, redis, config),
     plans: new PlansService(prisma, outbox, payments, entitlements, catalogClient),
-    accounts: new AccountsService(prisma, outbox, entitlements),
+    accounts: new AccountsService(prisma, outbox, entitlements, catalogClient),
     events: new BillingEventsService(prisma, outbox, webhooks),
     seller: new SellerService(prisma),
     userErased: new UserErasedConsumer(prisma, payments),

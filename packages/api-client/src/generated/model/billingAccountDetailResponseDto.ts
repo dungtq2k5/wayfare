@@ -5,8 +5,10 @@
  * OpenAPI spec version: 0.0.0-dev
  */
 import type { BillingAccountDetailResponseDtoEntitlements } from './billingAccountDetailResponseDtoEntitlements.js';
+import type { BillingAccountDetailResponseDtoOwner } from './billingAccountDetailResponseDtoOwner.js';
 import type { BillingAccountDetailResponseDtoPlanGrants } from './billingAccountDetailResponseDtoPlanGrants.js';
 import type { BillingAccountDetailResponseDtoRecentEventsItem } from './billingAccountDetailResponseDtoRecentEventsItem.js';
+import type { BillingAccountDetailResponseDtoSubscribedPrice } from './billingAccountDetailResponseDtoSubscribedPrice.js';
 import type { BillingAccountDetailResponseDtoSubscriptionStatus } from './billingAccountDetailResponseDtoSubscriptionStatus.js';
 
 export interface BillingAccountDetailResponseDto {
@@ -14,6 +16,7 @@ export interface BillingAccountDetailResponseDto {
   id: string;
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
   ownerUserId: string;
+  owner: BillingAccountDetailResponseDtoOwner;
   planCode: string;
   subscriptionStatus: BillingAccountDetailResponseDtoSubscriptionStatus;
   pinned: boolean;
@@ -32,6 +35,7 @@ export interface BillingAccountDetailResponseDto {
   stripeSubscriptionId: string | null;
   /** @nullable */
   subscribedPlanCode: string | null;
+  subscribedPrice: BillingAccountDetailResponseDtoSubscribedPrice;
   cancelAtPeriodEnd: boolean;
   entitlements: BillingAccountDetailResponseDtoEntitlements;
   planGrants: BillingAccountDetailResponseDtoPlanGrants;

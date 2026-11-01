@@ -1,8 +1,8 @@
-import { zAdminPlan, zApplyResult } from '@wayfare/contracts';
+import { zAdminPlan, zApplyResult, zPriceLookup } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-/** A catalogue plan with every price and its subscriber count. */
+/** A catalogue plan with every price and its subscribers. */
 export class AdminPlanResponseDto extends createZodDto(zAdminPlan) {}
 
 /** `{ plan }`, as the plan writes return it. */
@@ -13,3 +13,6 @@ export class AdminPlanResultResponseDto extends createZodDto(adminPlanResultResp
 
 /** An apply, or its dry run. */
 export class ApplyResultResponseDto extends createZodDto(zApplyResult) {}
+
+/** A price looked up before registering it. */
+export class PriceLookupResponseDto extends createZodDto(zPriceLookup) {}

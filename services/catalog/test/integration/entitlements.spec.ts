@@ -8,6 +8,7 @@ import {
   BILLING_ENTITLEMENTS_CHANGED,
   CATALOG_PLACE_CONTENT_CHANGED,
   CATALOG_PLACE_STATUS_CHANGED,
+  EntitlementsChangeCause,
   FREE_PLAN_GRANTS,
   NarrationLanguageScope,
   newId,
@@ -65,6 +66,7 @@ const changed = (
     occurredAt: new Date().toISOString(),
     ownerUserId,
     entitlementsVersion: version,
+    cause: EntitlementsChangeCause.SUBSCRIPTION,
     entitlements,
     previous,
   });

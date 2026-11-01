@@ -1,5 +1,9 @@
 import { newId } from '@wayfare/contracts';
-import { PaymentsProvider, PaymentsUnavailableError } from './payments-provider';
+import {
+  PaymentsNotFoundError,
+  PaymentsProvider,
+  PaymentsUnavailableError,
+} from './payments-provider';
 import type {
   ProviderInvoice,
   ProviderPrice,
@@ -58,7 +62,7 @@ export class FakePaymentsProvider extends PaymentsProvider {
   retrievePrice(priceId: string): Promise<ProviderPrice> {
     return this.answer('retrievePrice', () => {
       const price = this.prices.get(priceId);
-      if (price === undefined) throw new PaymentsUnavailableError('PROVIDER');
+      if (price === undefined) throw new PaymentsNotFoundError('PRICE');
       return price;
     });
   }

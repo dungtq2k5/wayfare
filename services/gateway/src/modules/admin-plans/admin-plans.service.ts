@@ -1,24 +1,48 @@
 import { Injectable } from '@nestjs/common';
-import type { AdminPlan, ApplyResult } from '@wayfare/contracts';
+import type { AdminPlan, ApplyResult, PriceLookup } from '@wayfare/contracts';
 import type { AccountContext } from '@wayfare/nest-common';
 import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import {
   toAdminPlan,
   toApplyResult,
+  toPriceLookup,
   toCreatePlanRequest,
   toRegisterPriceRequest,
   toUpdatePlanRequest,
 } from './admin-plan.mapper';
-import type { CreatePlanDto, RegisterPriceDto, UpdatePlanDto } from './dto/admin-plan.dto';
+import type {
+  CreatePlanDto,
+  PriceLookupQueryDto,
+  RegisterPriceDto,
+  UpdatePlanDto,
+} from './dto/admin-plan.dto';
 
 /** `/admin/plans`, backed by `billing.PlanAdminService`. */
 @Injectable()
 export class AdminPlansService {
   constructor(private readonly billing: BillingServiceGrpcClient) {}
 
-  async list(context: AccountContext): Promise<AdminPlan[]> {
-    const response = await this.billing.plans.call('listPlans', {}, context);
+  async list(context: AccountContext, includeRetired: boolean): Promise<AdminPlan[]> {
+    const response = await this.billing.plans.call(
+      'listPlans',
+      includeRetired ? { includeRetired } : {},
+      context,
+    );
     return response.plans.map(toAdminPlan);
+  }
+
+  async get(context: AccountContext, planId: string): Promise<AdminPlan> {
+    return toAdminPlan((await this.billing.plans.call('getPlan', { planId }, context)).plan);
+  }
+
+  async lookupPrice(
+    context: AccountContext,
+    planId: string,
+    query: PriceLookupQueryDto,
+  ): Promise<PriceLookup> {
+    return toPriceLookup(
+      await this.billing.plans.call('lookupPrice', toRegisterPriceRequest(planId, query), context),
+    );
   }
 
   async create(context: AccountContext, body: CreatePlanDto): Promise<{ plan: AdminPlan }> {

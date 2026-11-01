@@ -17,6 +17,13 @@ export class BillingEventsGrpcController implements billingGrpc.BillingEventAdmi
     return this.events.listBillingEvents(request, unpackCallerContext(metadata));
   }
 
+  getBillingEvent(
+    request: billingGrpc.GetBillingEventRequest,
+    metadata?: Metadata,
+  ): Promise<billingGrpc.GetBillingEventResponse> {
+    return this.events.getBillingEvent(request, unpackCallerContext(metadata));
+  }
+
   replayBillingEvent(
     request: billingGrpc.ReplayBillingEventRequest,
     metadata?: Metadata,

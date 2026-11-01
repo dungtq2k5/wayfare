@@ -46,6 +46,10 @@ message PlanPrice {
   int32 amount_minor = 4;
   string currency = 5;
   bool is_active = 6;
+  // When it was registered.
+  google.protobuf.Timestamp created_at = 7;
+  // When a later price of its interval replaced it; unset while it is in force.
+  optional google.protobuf.Timestamp replaced_at = 8;
 }
 
 // A plan an owner may buy.
@@ -130,4 +134,5 @@ message GetBillingSummaryResponse {
   string plan_code = 1;
   SubscriptionStatus subscription_status = 2;
   google.protobuf.Timestamp dunning_since = 3;
+  string billing_account_id = 4;
 }

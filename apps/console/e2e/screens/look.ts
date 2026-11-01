@@ -15,9 +15,10 @@ const SCHEMES = ['light', 'dark'] as const;
 /**
  * What still varies and is covered by a solid box (Playwright's mask), so the box keeps its size and
  * nothing beside it moves: the maps' canvases (WebGL draws by machine, tiles arrive at their own
- * pace), the QR sticker's image, the nav's waiting counts and the bell's count. A spec adds its own.
+ * pace), the QR sticker's image, the nav's waiting counts and the bell's count, and a Stripe event's
+ * payload (its ids and times are the run's). A spec adds its own.
  */
-const VARIABLE = ['.maplibregl-canvas', 'img[alt^="QR sticker"]', '[data-count]'];
+const VARIABLE = ['.maplibregl-canvas', 'img[alt^="QR sticker"]', '[data-count]', '[data-payload]'];
 
 /**
  * What varies, masked. Under an open dialog's overlay only the dialog's own: a mask is painted on

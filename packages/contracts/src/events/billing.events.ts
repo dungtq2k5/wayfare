@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RefundReason } from '../billing/enums';
+import { EntitlementsChangeCause, RefundReason } from '../billing/enums';
 import { MAX_OFFER_TITLE_LENGTH, MAX_VOUCHERS_PER_ORDER } from '../billing/limits';
 import { DISCOVERY_BOOST_MAX, DISCOVERY_BOOST_MIN } from '../catalog/limits';
 import { zUuidV7 } from '../common/ids';
@@ -19,6 +19,8 @@ export const BILLING_ENTITLEMENTS_CHANGED = defineEvent({
     entitlementsVersion: z.number().int().min(1),
     entitlements: zEntitlements,
     previous: zEntitlements.nullable(),
+    /** Why: identity tells the owner of a raise only for a staff action on this account. */
+    cause: z.enum(EntitlementsChangeCause),
   }),
   aggregateId: (payload) => payload.ownerUserId,
 });

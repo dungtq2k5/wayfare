@@ -52,6 +52,10 @@ export const zPlanPrice = z
     billingInterval: z.enum(BillingInterval),
     amount: zMoney,
     isActive: z.boolean(),
+    /** Registered. */
+    createdAt: zInstant,
+    /** Replaced by a later price of its interval; null while in force. */
+    replacedAt: zInstant.nullable(),
   })
   .strict();
 /** A registered price. */
@@ -70,7 +74,25 @@ export const zPlan = z
 /** A purchasable plan. */
 export type Plan = z.output<typeof zPlan>;
 
-/** A plan as the admin catalogue shows it, with every price and its subscriber count. */
+/**
+ * A plan's accounts (api-endpoints-plan §6.1): `total` is every account on it, deactivated owners
+ * included — the number that decides retiring — and the rest count by state, which can overlap.
+ */
+export const zPlanSubscribers = z
+  .object({
+    total: z.number().int().min(0),
+    /** `ACTIVE` or `TRIALING`. */
+    active: z.number().int().min(0),
+    pastDue: z.number().int().min(0),
+    /** Cancelling at the period's end. */
+    cancelling: z.number().int().min(0),
+    pinned: z.number().int().min(0),
+  })
+  .strict();
+/** A plan's subscribers. */
+export type PlanSubscribers = z.output<typeof zPlanSubscribers>;
+
+/** A plan as the admin catalogue shows it, with every price and its subscribers. */
 export const zAdminPlan = z
   .object({
     id: zUuidV7,
@@ -81,8 +103,12 @@ export const zAdminPlan = z
     sortOrder: z.number().int(),
     grants: zEntitlements,
     prices: z.array(zPlanPrice),
-    /** Accounts whose effective plan this is, deactivated owners included (api-endpoints-plan §6.1). */
-    subscriberCount: z.number().int().min(0),
+    /** Accounts whose effective plan this is (api-endpoints-plan §6.1). */
+    subscribers: zPlanSubscribers,
+    createdAt: zInstant,
+    updatedAt: zInstant,
+    /** Set once retired; only `includeRetired` lists a retired plan, and it has no page. */
+    retiredAt: zInstant.nullable(),
   })
   .strict();
 /** A catalogue plan. */
@@ -117,6 +143,25 @@ export type PlanUpdateInput = z.output<typeof zPlanUpdateInput>;
 export const zRegisterPriceInput = z
   .object({ stripePriceId: zStripePriceId, billingInterval: z.enum(BillingInterval) })
   .strict();
+
+/** `GET /admin/plans` query. */
+export const zAdminPlansQuery = z.object({ includeRetired: zBooleanParam }).strict();
+
+/** `GET /admin/plans/:id/prices/lookup` query: the registration's body, as a query. */
+export const zPriceLookupQuery = zRegisterPriceInput;
+
+/** What registering a price would do (api-endpoints-plan §6.1): Stripe's answer, nothing written. */
+export const zPriceLookup = z
+  .object({
+    amount: zMoney,
+    interval: z.enum(BillingInterval),
+    productId: z.string(),
+    /** The interval's price in force it would replace. */
+    replaces: zPlanPrice.nullable(),
+  })
+  .strict();
+/** A price looked up. */
+export type PriceLookup = z.output<typeof zPriceLookup>;
 
 /** `POST /admin/plans/:id/apply` query. */
 export const zApplyPlanQuery = z.object({ dryRun: zBooleanParam }).strict();
@@ -194,6 +239,17 @@ export const zBillingOverview = z
 /** The owner's billing page. */
 export type BillingOverview = z.output<typeof zBillingOverview>;
 
+/** The admin user read's `billing` (api-endpoints-plan §1.6): the owner's account, plan and status. */
+export const zUserBilling = z
+  .object({
+    accountId: zUuidV7,
+    planCode: z.string(),
+    subscriptionStatus: z.enum(SubscriptionStatus),
+  })
+  .strict();
+/** A user's billing row. */
+export type UserBilling = z.output<typeof zUserBilling>;
+
 /** `/users/me`'s `owner.billingSummary` (api-endpoints-plan §12.1). */
 export const zBillingSummary = z
   .object({
@@ -205,11 +261,22 @@ export const zBillingSummary = z
 /** The owner summary. */
 export type BillingSummary = z.output<typeof zBillingSummary>;
 
+/**
+ * A billing account's owner, always shown on the billing pages (the account is theirs, not under
+ * the names rule); both null for an erased account.
+ */
+export const zBillingOwner = z
+  .object({ name: z.string().nullable(), email: z.string().nullable() })
+  .strict();
+/** A billing account's owner. */
+export type BillingOwner = z.output<typeof zBillingOwner>;
+
 /** One account in the admin list (api-endpoints-plan §6.2). */
 export const zBillingAccountSummary = z
   .object({
     id: zUuidV7,
     ownerUserId: zUuidV7,
+    owner: zBillingOwner,
     planCode: z.string(),
     subscriptionStatus: z.enum(SubscriptionStatus),
     pinned: z.boolean(),
@@ -236,8 +303,13 @@ export const zBillingEvent = z
     errorLog: z.string().nullable(),
     receivedAt: zInstant,
     processedAt: zInstant.nullable(),
-    /** The raw event: every event route requires `billing.event.read`. */
-    payload: z.record(z.string(), z.unknown()),
+    /** The resolved account's owner; null while the event resolves to no account. */
+    owner: zBillingOwner.nullable(),
+    /**
+     * The raw event, only in the single read (every event route requires `billing.event.read`);
+     * null in a list.
+     */
+    payload: z.record(z.string(), z.unknown()).nullable(),
   })
   .strict();
 /** A recorded event. */
@@ -253,6 +325,11 @@ export const zBillingAccountDetail = zBillingAccountSummary
     stripeSubscriptionId: z.string().nullable(),
     /** The plan being paid for, when there is a subscribed price. */
     subscribedPlanCode: z.string().nullable(),
+    /** That price, as of the subscription's last event; kept after a cancellation. */
+    subscribedPrice: z
+      .object({ amount: zMoney, billingInterval: z.enum(BillingInterval) })
+      .strict()
+      .nullable(),
     cancelAtPeriodEnd: z.boolean(),
     entitlements: zEntitlements,
     planGrants: zEntitlements,
@@ -300,3 +377,15 @@ export const zEntitlementOverrideInput = z
 
 /** `POST /admin/billing/accounts/:id/unpin` body. */
 export const zUnpinInput = z.object({ reason: zReason }).strict();
+
+/** `GET /admin/billing/accounts/:id/unpin-preview`: what unpinning would do, nothing written. */
+export const zUnpinPreview = z
+  .object({
+    /** The grants the account returns to by today's plan and status. */
+    grants: zEntitlements,
+    /** The Places they would take off the map; null when catalog could not count. */
+    wouldUnpublishPlaces: z.number().int().min(0).nullable(),
+  })
+  .strict();
+/** An unpin's preview. */
+export type UnpinPreview = z.output<typeof zUnpinPreview>;

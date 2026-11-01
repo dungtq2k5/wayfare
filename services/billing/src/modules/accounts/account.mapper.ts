@@ -1,6 +1,6 @@
-import { parseEnum, SubscriptionStatus } from '@wayfare/contracts';
+import { BillingInterval, CurrencyCode, parseEnum, SubscriptionStatus } from '@wayfare/contracts';
 import type { Entitlements } from '@wayfare/contracts';
-import { subscriptionStatusProto } from '@wayfare/contracts/grpc';
+import { billingIntervalProto, subscriptionStatusProto } from '@wayfare/contracts/grpc';
 import type { billingGrpc } from '@wayfare/contracts/grpc';
 import { toProtoTimestamp } from '@wayfare/nest-common';
 import { toBillingEvent } from '../billing-events/billing-event.mapper';
@@ -28,11 +28,22 @@ export function toBillingAccountSummary(row: BillingAccountRow): billingGrpc.Bil
   };
 }
 
-/** The detail: effective grants beside the plan's own, the subscribed plan, recent events. */
+/** The subscription's price, as the account keeps it (after a cancellation too). */
+export interface SubscribedPriceRow {
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly billingInterval: string;
+  readonly plan: { readonly code: string };
+}
+
+/**
+ * The detail: effective grants beside the plan's own, the subscribed plan and its price, recent
+ * events (the account's owner on each).
+ */
 export function toBillingAccountDetail(
   row: BillingAccountRow,
   planGrants: Entitlements,
-  subscribedPlanCode: string | null,
+  subscribed: SubscribedPriceRow | null,
   recentEvents: readonly BillingEventRow[],
 ): billingGrpc.BillingAccountDetail {
   return {
@@ -41,10 +52,21 @@ export function toBillingAccountDetail(
     ...(row.stripeSubscriptionId === null
       ? {}
       : { stripeSubscriptionId: row.stripeSubscriptionId }),
-    ...(subscribedPlanCode === null ? {} : { subscribedPlanCode }),
+    ...(subscribed === null
+      ? {}
+      : {
+          subscribedPlanCode: subscribed.plan.code,
+          subscribedPrice: {
+            amountMinor: subscribed.amountMinor,
+            currency: parseEnum(CurrencyCode, subscribed.currency),
+            billingInterval: billingIntervalProto.toProto(
+              parseEnum(BillingInterval, subscribed.billingInterval),
+            ),
+          },
+        }),
     cancelAtPeriodEnd: row.cancelAtPeriodEnd,
     entitlements: toEntitlements(grantsOf(row)),
     planGrants: toEntitlements(planGrants),
-    recentEvents: recentEvents.map(toBillingEvent),
+    recentEvents: recentEvents.map((event) => toBillingEvent(event, row.ownerUserId)),
   };
 }

@@ -217,6 +217,7 @@ describe('the owner routes', () => {
     expect(
       await services.subscriptions.getBillingSummary({ ownerUserId: account.ownerUserId }),
     ).toEqual({
+      billingAccountId: account.accountId,
       planCode: 'FREE',
       subscriptionStatus: billingGrpc.SubscriptionStatus.SUBSCRIPTION_STATUS_NONE,
       dunningSince: undefined,

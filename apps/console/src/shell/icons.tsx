@@ -7,6 +7,7 @@ import {
   Layers,
   LifeBuoy,
   MapPin,
+  Package,
   ScrollText,
   Speech,
   Store,
@@ -14,6 +15,7 @@ import {
   UserCheck,
   Users,
   Wallet,
+  Webhook,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { NavIcon } from '../nav';
@@ -35,4 +37,6 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   store: Store,
   wallet: Wallet,
   bell: Bell,
+  package: Package,
+  webhook: Webhook,
 };

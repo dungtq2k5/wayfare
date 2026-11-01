@@ -20,6 +20,7 @@ import { formatDate, formatTime } from '../i18n/format';
 import { languageName } from '../i18n/language-names';
 import type { ConsoleLocale } from '../i18n/messages';
 import { useConsole } from '../i18n/provider';
+import { usePlans } from '../billing/words';
 import { useCan } from '../shell/can';
 import { useMe } from '../shell/me';
 import { lackedCodes } from './level';
@@ -48,6 +49,7 @@ export function UserPage({ initial }: { initial: UserView }) {
   const translator = useConsole();
   const { t, tDynamic, locale } = translator;
   const can = useCan();
+  const { name: planName } = usePlans();
   const me = useMe();
   const roleName = useRoleName();
   const user =
@@ -333,6 +335,25 @@ export function UserPage({ initial }: { initial: UserView }) {
                         ] as const,
                       ]
                     : []),
+                  // The owner's billing account (K8): present only for a reader holding
+                  // `billing.account.read`, and only while billing answered.
+                  ...(user.billing === null
+                    ? []
+                    : [
+                        [
+                          t('user.billing'),
+                          <Link
+                            key="billing"
+                            href={`/billing/accounts/${user.billing.accountId}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {t('user.billingLine', {
+                              plan: planName(user.billing.planCode),
+                              status: tDynamic(`subscription.${user.billing.subscriptionStatus}`),
+                            })}
+                          </Link>,
+                        ] as const,
+                      ]),
                 ]}
               />
             </Card>

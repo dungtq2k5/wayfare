@@ -2,6 +2,7 @@
 // slice of the corpus: one owner per plan, and the two items left in the review queue.
 import {
   BILLING_ENTITLEMENTS_CHANGED,
+  EntitlementsChangeCause,
   FREE_PLAN_GRANTS,
   newId,
   PlaceStatus,
@@ -56,6 +57,7 @@ async function granted(): Promise<void> {
         occurredAt: new Date().toISOString(),
         ownerUserId,
         entitlementsVersion: 1,
+        cause: EntitlementsChangeCause.SUBSCRIPTION,
         entitlements,
         previous: null,
       }),

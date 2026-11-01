@@ -1,5 +1,7 @@
 import {
+  zAdminPlansQuery,
   zApplyPlanQuery,
+  zPriceLookupQuery,
   zPlanInput,
   zPlanUpdateInput,
   zRegisterPriceInput,
@@ -25,3 +27,9 @@ export class RegisterPriceDto extends createZodDto(zRegisterPriceInput) {}
 
 /** Validated `POST /admin/plans/:id/apply` query. */
 export class ApplyPlanQueryDto extends createZodDto(zApplyPlanQuery) {}
+
+/** Validated `GET /admin/plans` query. */
+export class AdminPlansQueryDto extends createZodDto(zAdminPlansQuery) {}
+
+/** Validated `GET /admin/plans/:id/prices/lookup` query. */
+export class PriceLookupQueryDto extends createZodDto(zPriceLookupQuery) {}

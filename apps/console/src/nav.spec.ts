@@ -16,6 +16,14 @@ describe('the navigation (K5)', () => {
       ['nav.group.catalog', ['nav.places', 'nav.categories', 'nav.areas']],
       ['nav.group.narration', ['nav.narrationJobs', 'nav.pronunciation', 'nav.corrections']],
       ['nav.group.people', ['nav.users', 'nav.recoveries', 'nav.audit']],
+      ['nav.group.billing', ['nav.billingAccounts', 'nav.stripeEvents']],
+    ]);
+  });
+
+  it('gives a super admin *Plans* too, last group (K11)', () => {
+    expect(labels(SYSTEM_ROLE_GRANTS[SystemRole.SUPER_ADMIN]).at(-1)).toEqual([
+      'nav.group.billing',
+      ['nav.plans', 'nav.billingAccounts', 'nav.stripeEvents'],
     ]);
   });
 

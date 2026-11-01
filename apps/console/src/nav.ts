@@ -17,7 +17,9 @@ export type NavIcon =
   | 'scroll-text'
   | 'store'
   | 'wallet'
-  | 'bell';
+  | 'bell'
+  | 'package'
+  | 'webhook';
 
 /** One navigation item: its route, its label, and the read permission that shows it (K5). */
 export interface NavItem {
@@ -129,6 +131,29 @@ const STAFF: readonly NavGroup[] = [
         anyOf: ['user.email.recover.open', 'user.email.recover.approve'],
       },
       { href: '/audit', label: 'nav.audit', icon: 'scroll-text', anyOf: ['audit.read'] },
+    ],
+  },
+  {
+    label: 'nav.group.billing',
+    items: [
+      {
+        href: '/billing/plans',
+        label: 'nav.plans',
+        icon: 'package',
+        anyOf: ['billing.plan.manage'],
+      },
+      {
+        href: '/billing/accounts',
+        label: 'nav.billingAccounts',
+        icon: 'wallet',
+        anyOf: ['billing.account.read'],
+      },
+      {
+        href: '/billing/events',
+        label: 'nav.stripeEvents',
+        icon: 'webhook',
+        anyOf: ['billing.event.read'],
+      },
     ],
   },
 ];

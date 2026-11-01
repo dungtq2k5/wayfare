@@ -30,10 +30,12 @@ export const RULES: readonly Rule[] = [
   ['\\b\\d{1,2}/\\d{1,2}/\\d{4}\\b', 'g', '10/24/2026'],
   ['\\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{1,2}, \\d{4}\\b', 'g', 'Oct 24, 2026'],
   // The console's own form: day, short month, year.
-  ['\\b\\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{4}\\b', 'g', '2 Oct 2026'],
+  ['\\b\\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept?|Oct|Nov|Dec) \\d{4}\\b', 'g', '2 Oct 2026'],
   // A clock time the run sets (a provider resting, a task's next try) and the minutes to it.
   ['\\b(since|at|until) \\d{1,2}:\\d{2}\\b', 'g', '$1 14:05'],
   ['\\(in \\d+ min\\)', 'g', '(in 4 min)'],
+  // A date with its time and seconds, as Stripe's moments are ("25 Oct 2026, 09:40:02").
+  ['(\\d{4}, )\\d{1,2}:\\d{2}:\\d{2}\\b', 'g', '$108:12:30'],
   // A date with its time ("25 Oct 2026, 08:12"), and a time alone in a cell (the audit log's).
   ['(\\d{4}, )\\d{1,2}:\\d{2}\\b', 'g', '$108:12'],
   ['^\\d{1,2}:\\d{2}$', 'g', '08:30'],

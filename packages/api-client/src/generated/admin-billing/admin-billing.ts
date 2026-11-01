@@ -27,11 +27,13 @@ import type {
   AdminBillingAccount200,
   AdminBillingAccounts200,
   AdminBillingAccountsParams,
+  AdminBillingEvent200,
   AdminBillingEvents200,
   AdminBillingEventsParams,
   AdminBillingOverride200,
   AdminBillingReplay200,
   AdminBillingUnpin200,
+  AdminBillingUnpinPreview200,
   OverrideEntitlementsDto,
   UnpinDto
 } from '../model';
@@ -357,7 +359,107 @@ export const useAdminBillingOverride = <TError = unknown,
       > => {
       return useMutation(getAdminBillingOverrideMutationOptions(options), queryClient);
     }
-    export const getAdminBillingUnpinUrl = (id: string,) => {
+    export const getAdminBillingUnpinPreviewUrl = (id: string,) => {
+
+
+
+
+  return `/admin/billing/accounts/${id}/unpin-preview`
+}
+
+/**
+ * @summary What unpinning would do: the grants it returns to, Places off the map.
+ */
+export const adminBillingUnpinPreview = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<AdminBillingUnpinPreview200> => {
+
+  return apiFetch<AdminBillingUnpinPreview200>(getAdminBillingUnpinPreviewUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminBillingUnpinPreviewQueryKey = (id: string,) => {
+    return [
+    `/admin/billing/accounts/${id}/unpin-preview`
+    ] as const;
+    }
+
+
+export const getAdminBillingUnpinPreviewQueryOptions = <TData = Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminBillingUnpinPreviewQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminBillingUnpinPreview>>> = ({ signal }) => adminBillingUnpinPreview(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminBillingUnpinPreviewQueryResult = NonNullable<Awaited<ReturnType<typeof adminBillingUnpinPreview>>>
+export type AdminBillingUnpinPreviewQueryError = unknown
+
+
+export function useAdminBillingUnpinPreview<TData = Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminBillingUnpinPreview>>,
+          TError,
+          Awaited<ReturnType<typeof adminBillingUnpinPreview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminBillingUnpinPreview<TData = Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminBillingUnpinPreview>>,
+          TError,
+          Awaited<ReturnType<typeof adminBillingUnpinPreview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminBillingUnpinPreview<TData = Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary What unpinning would do: the grants it returns to, Places off the map.
+ */
+
+export function useAdminBillingUnpinPreview<TData = Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingUnpinPreview>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminBillingUnpinPreviewQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getAdminBillingUnpinUrl = (id: string,) => {
 
 
 
@@ -461,7 +563,7 @@ export const useAdminBillingUnpin = <TError = unknown,
 }
 
 /**
- * @summary Stripe's recorded events, payloads included; page style.
+ * @summary Stripe's recorded events, without payloads; page style.
  */
 export const adminBillingEvents = async (params?: AdminBillingEventsParams, options?: Parameters<typeof apiFetch>[1]): Promise<AdminBillingEvents200> => {
 
@@ -532,7 +634,7 @@ export function useAdminBillingEvents<TData = Awaited<ReturnType<typeof adminBil
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Stripe's recorded events, payloads included; page style.
+ * @summary Stripe's recorded events, without payloads; page style.
  */
 
 export function useAdminBillingEvents<TData = Awaited<ReturnType<typeof adminBillingEvents>>, TError = unknown>(
@@ -541,6 +643,106 @@ export function useAdminBillingEvents<TData = Awaited<ReturnType<typeof adminBil
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getAdminBillingEventsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getAdminBillingEventUrl = (id: string,) => {
+
+
+
+
+  return `/admin/billing/events/${id}`
+}
+
+/**
+ * @summary One recorded event, its payload included.
+ */
+export const adminBillingEvent = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<AdminBillingEvent200> => {
+
+  return apiFetch<AdminBillingEvent200>(getAdminBillingEventUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminBillingEventQueryKey = (id: string,) => {
+    return [
+    `/admin/billing/events/${id}`
+    ] as const;
+    }
+
+
+export const getAdminBillingEventQueryOptions = <TData = Awaited<ReturnType<typeof adminBillingEvent>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingEvent>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminBillingEventQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminBillingEvent>>> = ({ signal }) => adminBillingEvent(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminBillingEvent>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminBillingEventQueryResult = NonNullable<Awaited<ReturnType<typeof adminBillingEvent>>>
+export type AdminBillingEventQueryError = unknown
+
+
+export function useAdminBillingEvent<TData = Awaited<ReturnType<typeof adminBillingEvent>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingEvent>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminBillingEvent>>,
+          TError,
+          Awaited<ReturnType<typeof adminBillingEvent>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminBillingEvent<TData = Awaited<ReturnType<typeof adminBillingEvent>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingEvent>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminBillingEvent>>,
+          TError,
+          Awaited<ReturnType<typeof adminBillingEvent>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminBillingEvent<TData = Awaited<ReturnType<typeof adminBillingEvent>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingEvent>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary One recorded event, its payload included.
+ */
+
+export function useAdminBillingEvent<TData = Awaited<ReturnType<typeof adminBillingEvent>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminBillingEvent>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAdminBillingEventQueryOptions(id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

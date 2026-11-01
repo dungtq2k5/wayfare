@@ -52,10 +52,11 @@ message GetUserNamesResponse {
   repeated UserName users = 1;
 }
 
-// `name` is the full name, else the email; unset for an erased account.
+// `name` is the full name, else the email; unset for an erased account, as `email` is.
 message UserName {
   string id = 1;
   optional string name = 2;
+  optional string email = 3;
 }
 
 // A transactional email template (rdm-spec I-13).

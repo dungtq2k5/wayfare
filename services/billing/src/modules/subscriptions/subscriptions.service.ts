@@ -232,6 +232,7 @@ export class SubscriptionsService {
     });
     if (account === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'BILLING_ACCOUNT' });
     return {
+      billingAccountId: account.id,
       planCode: account.plan.code,
       subscriptionStatus: subscriptionStatusProto.toProto(
         parseEnum(SubscriptionStatus, account.subscriptionStatus),

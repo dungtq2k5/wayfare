@@ -22,7 +22,11 @@ import type { Prisma } from '../../../generated/prisma/client';
 import { billingAuditRecord } from '../entitlements/domain/billing-audit';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
-import { BILLING_EVENT_SELECT, toBillingEvent } from './billing-event.mapper';
+import {
+  BILLING_EVENT_FULL_SELECT,
+  BILLING_EVENT_WITH_OWNER_SELECT,
+  toBillingEvent,
+} from './billing-event.mapper';
 
 const eventIdField = z.object({ billingEventId: zUuidV7 });
 
@@ -66,13 +70,28 @@ export class BillingEventsService {
         orderBy: [{ receivedAt: direction }, { id: direction }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
-        select: BILLING_EVENT_SELECT,
+        select: BILLING_EVENT_WITH_OWNER_SELECT,
       }),
     ]);
     return {
-      events: rows.map(toBillingEvent),
+      events: rows.map((row) => toBillingEvent(row)),
       page: { page: query.page, pageSize: query.pageSize, total },
     };
+  }
+
+  /** One event with its payload: the event's page, and the read a replay polls. */
+  async getBillingEvent(
+    request: billingGrpc.GetBillingEventRequest,
+    context: RequestContext,
+  ): Promise<billingGrpc.GetBillingEventResponse> {
+    requireAccountContext(context);
+    const { billingEventId } = parseRpcRequest(eventIdField, request);
+    const row = await this.prisma.billingEvent.findUnique({
+      where: { id: billingEventId },
+      select: BILLING_EVENT_FULL_SELECT,
+    });
+    if (row === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'BILLING_EVENT' });
+    return { event: toBillingEvent(row) };
   }
 
   /** `FAILED` → `RECEIVED`, its error kept, queued at attempt 1. Anything else is `INVALID_STATE`. */
@@ -108,7 +127,7 @@ export class BillingEventsService {
       );
       return tx.billingEvent.findUniqueOrThrow({
         where: { id: billingEventId },
-        select: BILLING_EVENT_SELECT,
+        select: BILLING_EVENT_FULL_SELECT,
       });
     });
     await this.webhooks.enqueue({ billingEventId, attempt: 1 });

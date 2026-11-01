@@ -14,6 +14,9 @@ import "wayfare/common/page.proto";
 // The plan catalogue (api-endpoints-plan §6.1).
 service PlanAdminService {
   rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+  rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
+  // The registration's checks against Stripe, writing nothing.
+  rpc LookupPrice(LookupPriceRequest) returns (LookupPriceResponse);
   rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
   rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
   rpc RegisterPrice(RegisterPriceRequest) returns (RegisterPriceResponse);
@@ -27,11 +30,14 @@ service AccountAdminService {
   rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
   rpc OverrideEntitlements(OverrideEntitlementsRequest) returns (OverrideEntitlementsResponse);
   rpc UnpinEntitlements(UnpinEntitlementsRequest) returns (UnpinEntitlementsResponse);
+  // What unpinning would do, writing nothing.
+  rpc PreviewUnpin(PreviewUnpinRequest) returns (PreviewUnpinResponse);
 }
 
 // Recorded Stripe events (api-endpoints-plan §6.2).
 service BillingEventAdminService {
   rpc ListBillingEvents(ListBillingEventsRequest) returns (ListBillingEventsResponse);
+  rpc GetBillingEvent(GetBillingEventRequest) returns (GetBillingEventResponse);
   rpc ReplayBillingEvent(ReplayBillingEventRequest) returns (ReplayBillingEventResponse);
 }
 
@@ -45,10 +51,51 @@ message AdminPlan {
   int32 sort_order = 6;
   Entitlements grants = 7;
   repeated PlanPrice prices = 8;
+  // Every account on the plan, deactivated owners included: the count that decides retiring.
   int32 subscriber_count = 9;
+  PlanSubscribers subscribers = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  // Set once retired (the plan's deleted_at).
+  google.protobuf.Timestamp retired_at = 13;
 }
 
-message ListPlansRequest {}
+// A plan's accounts by state; `subscriber_count` is their total.
+message PlanSubscribers {
+  // ACTIVE or TRIALING.
+  int32 active = 1;
+  int32 past_due = 2;
+  // Cancelling at the period's end.
+  int32 cancelling = 3;
+  int32 pinned = 4;
+}
+
+message ListPlansRequest {
+  optional bool include_retired = 1;
+}
+
+message GetPlanRequest {
+  string plan_id = 1;
+}
+
+message GetPlanResponse {
+  AdminPlan plan = 1;
+}
+
+message LookupPriceRequest {
+  string plan_id = 1;
+  string stripe_price_id = 2;
+  BillingInterval billing_interval = 3;
+}
+
+message LookupPriceResponse {
+  int32 amount_minor = 1;
+  string currency = 2;
+  BillingInterval billing_interval = 3;
+  string product_id = 4;
+  // The interval's price in force that it would replace.
+  optional PlanPrice replaces = 5;
+}
 
 message ListPlansResponse {
   repeated AdminPlan plans = 1;
@@ -144,6 +191,14 @@ message BillingAccountDetail {
   Entitlements entitlements = 6;
   Entitlements plan_grants = 7;
   repeated BillingEvent recent_events = 8;
+  // The price of the subscription's last event, kept after a cancellation.
+  optional SubscribedPrice subscribed_price = 9;
+}
+
+message SubscribedPrice {
+  int32 amount_minor = 1;
+  string currency = 2;
+  BillingInterval billing_interval = 3;
 }
 
 message ListAccountsRequest {
@@ -187,6 +242,17 @@ message UnpinEntitlementsResponse {
   BillingAccountDetail account = 1;
 }
 
+message PreviewUnpinRequest {
+  string billing_account_id = 1;
+}
+
+message PreviewUnpinResponse {
+  // The grants the account returns to by today's status.
+  Entitlements grants = 1;
+  // Absent when catalog could not count.
+  optional int32 would_unpublish_places = 2;
+}
+
 // One recorded Stripe event.
 message BillingEvent {
   string id = 1;
@@ -200,8 +266,10 @@ message BillingEvent {
   optional string error_log = 9;
   google.protobuf.Timestamp received_at = 10;
   google.protobuf.Timestamp processed_at = 11;
-  // The raw event, JSON-encoded.
+  // The raw event, JSON-encoded; empty in a list (only the single read carries it).
   string payload_json = 12;
+  // The resolved account's owner.
+  optional string owner_user_id = 13;
 }
 
 message ListBillingEventsRequest {
@@ -215,6 +283,14 @@ message ListBillingEventsRequest {
 message ListBillingEventsResponse {
   repeated BillingEvent events = 1;
   wayfare.common.PageNumberMeta page = 2;
+}
+
+message GetBillingEventRequest {
+  string billing_event_id = 1;
+}
+
+message GetBillingEventResponse {
+  BillingEvent event = 1;
 }
 
 message ReplayBillingEventRequest {

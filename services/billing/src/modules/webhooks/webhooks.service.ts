@@ -8,13 +8,15 @@ import {
   AuditResourceType,
   BILLING_SUBSCRIPTION_PAYMENT_FAILED,
   BillingEventStatus,
+  EntitlementsChangeCause,
   NOTIFICATION_CREATE,
   NotificationType,
   parseEnum,
   StripeEndpoint,
-  SubscriptionStatus,
   subscribedPlanApplies,
+  SubscriptionStatus,
   UUID_V7_PATTERN,
+  IgnoredReason,
 } from '@wayfare/contracts';
 import { stripeEndpointProto } from '@wayfare/contracts/grpc';
 import type { billingGrpc } from '@wayfare/contracts/grpc';
@@ -44,6 +46,19 @@ import type { WebhookItem } from '../webhook-queue/webhook-queue.module';
 
 /** Attempts before an event is `FAILED` (api-endpoints-plan §6.3). */
 export const WEBHOOK_MAX_ATTEMPTS = 3;
+
+/**
+ * In development builds, an event whose object's metadata holds this key fails processing on every
+ * try, so it ends `FAILED`: the tests' way to a failed event (the console's replay). Never honoured
+ * in production.
+ */
+export const FAKE_FAILURE_MARKER = 'wayfare_fake_failure';
+
+/** Whether a Stripe object's metadata carries `FAKE_FAILURE_MARKER`. */
+export function hasFakeFailureMarker(object: unknown): boolean {
+  const metadata = (object as { metadata?: unknown } | null | undefined)?.metadata;
+  return typeof metadata === 'object' && metadata !== null && FAKE_FAILURE_MARKER in metadata;
+}
 
 /** The wait before attempt 2 and attempt 3. */
 export const WEBHOOK_RETRY_DELAYS_MS: readonly number[] = [10_000, 60_000];
@@ -78,6 +93,8 @@ interface EventRow {
 export class WebhooksService implements OnApplicationBootstrap {
   private readonly logger = new Logger(WebhooksService.name);
   private readonly liveMode: boolean;
+  /** Development builds honour the failing marker (`FAKE_FAILURE_MARKER`); production never. */
+  private readonly fakeFailures: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -90,6 +107,7 @@ export class WebhooksService implements OnApplicationBootstrap {
   ) {
     // The mode comes from the key's side of the configuration (architecture §5).
     this.liveMode = config.get('STRIPE_MODE', { infer: true }) === 'live';
+    this.fakeFailures = config.get('NODE_ENV', { infer: true }) !== 'production';
   }
 
   onApplicationBootstrap(): void {
@@ -187,10 +205,28 @@ export class WebhooksService implements OnApplicationBootstrap {
   private async handle(event: EventRow): Promise<Outcome> {
     const route = eventRoute(event.eventType);
     // `livemode` must match the key's mode (architecture §5): a test event on a live deployment, or the reverse.
-    if (route === 'IGNORED' || event.livemode !== this.liveMode) {
-      return this.settle(this.prisma, event.id, BillingEventStatus.IGNORED);
+    if (event.livemode !== this.liveMode) {
+      return this.settle(
+        this.prisma,
+        event.id,
+        BillingEventStatus.IGNORED,
+        undefined,
+        IgnoredReason.LIVEMODE_MISMATCH,
+      );
+    }
+    if (route === 'IGNORED') {
+      return this.settle(
+        this.prisma,
+        event.id,
+        BillingEventStatus.IGNORED,
+        undefined,
+        IgnoredReason.UNHANDLED_TYPE,
+      );
     }
     const object = (event.payload as { data?: { object?: unknown } } | null)?.data?.object;
+    if (this.fakeFailures && hasFakeFailureMarker(object)) {
+      throw new WebhookProcessingError('the event carries the fake failure marker');
+    }
     switch (route) {
       case 'CHECKOUT':
         return this.checkoutCompleted(event, object);
@@ -207,7 +243,13 @@ export class WebhooksService implements OnApplicationBootstrap {
     const facts = checkoutFacts(object);
     if (!facts.subscriptionMode) {
       // A payment-mode session is a voucher order: Phase 3.
-      return this.settle(this.prisma, event.id, BillingEventStatus.IGNORED);
+      return this.settle(
+        this.prisma,
+        event.id,
+        BillingEventStatus.IGNORED,
+        undefined,
+        IgnoredReason.UNHANDLED_TYPE,
+      );
     }
     const accountId =
       facts.clientReferenceId !== null && UUID_V7_PATTERN.test(facts.clientReferenceId)
@@ -292,7 +334,13 @@ export class WebhooksService implements OnApplicationBootstrap {
         select: { id: true },
       });
       const updated = await this.entitlements.lockAccount(tx, { id: account.id });
-      await this.entitlements.rederive(tx, updated!, now, STRIPE);
+      await this.entitlements.rederive(
+        tx,
+        updated!,
+        now,
+        STRIPE,
+        EntitlementsChangeCause.SUBSCRIPTION,
+      );
       const after = await tx.billingAccount.findUniqueOrThrow({
         where: { id: account.id },
         select: { plan: { select: { code: true } } },
@@ -410,13 +458,15 @@ export class WebhooksService implements OnApplicationBootstrap {
     billingEventId: string,
     status: Outcome,
     billingAccountId?: string,
+    /** Why an event was ignored, kept where a failure's error goes (rdm-spec B-4's `error_log`). */
+    reason: IgnoredReason | null = null,
   ): Promise<Outcome> {
     await db.billingEvent.update({
       where: { id: billingEventId },
       data: {
         status,
         processedAt: new Date(),
-        errorLog: null,
+        errorLog: reason,
         ...(billingAccountId === undefined ? {} : { billingAccountId }),
       },
       select: { id: true },

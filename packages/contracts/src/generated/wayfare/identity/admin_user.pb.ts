@@ -82,10 +82,11 @@ export interface GetUserNamesResponse {
   users: UserName[];
 }
 
-/** `name` is the full name, else the email; unset for an erased account. */
+/** `name` is the full name, else the email; unset for an erased account, as `email` is. */
 export interface UserName {
   id: string;
   name?: string | undefined;
+  email?: string | undefined;
 }
 
 export interface ListUsersRequest {

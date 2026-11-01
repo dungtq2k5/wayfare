@@ -5,4 +5,4 @@
  * OpenAPI spec version: 0.0.0-dev
  */
 
-export type BillingAccountResultResponseDtoAccountRecentEventsItemPayload = {[key: string]: unknown};
+export type BillingAccountResultResponseDtoAccountRecentEventsItemPayload = {[key: string]: unknown} | null;

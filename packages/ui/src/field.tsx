@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleAlert, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, CircleAlert, Eye, EyeOff } from 'lucide-react';
 import { Label as LabelPrimitive } from 'radix-ui';
 import { useId, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
@@ -15,6 +15,21 @@ export function Input({ className, ...props }: ComponentProps<'input'>) {
 
 export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
   return <textarea className={cn(control, 'min-h-24 py-2', className)} {...props} />;
+}
+
+/** Round 33's select: the field's own face with `chevron-down`, never the browser's arrow. */
+export function Select({ className, children, ...props }: ComponentProps<'select'>) {
+  return (
+    <div className="relative">
+      <select className={cn(control, 'h-9 appearance-none pr-10', className)} {...props}>
+        {children}
+      </select>
+      <ChevronDown
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+    </div>
+  );
 }
 
 export function Label({ className, ...props }: ComponentProps<typeof LabelPrimitive.Root>) {

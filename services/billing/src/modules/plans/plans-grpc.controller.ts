@@ -11,10 +11,24 @@ export class PlansGrpcController implements billingGrpc.PlanAdminServiceControll
   constructor(private readonly plans: PlansService) {}
 
   listPlans(
-    _request: billingGrpc.ListPlansRequest,
+    request: billingGrpc.ListPlansRequest,
     metadata?: Metadata,
   ): Promise<billingGrpc.ListPlansResponse> {
-    return this.plans.listPlans(unpackCallerContext(metadata));
+    return this.plans.listPlans(request, unpackCallerContext(metadata));
+  }
+
+  getPlan(
+    request: billingGrpc.GetPlanRequest,
+    metadata?: Metadata,
+  ): Promise<billingGrpc.GetPlanResponse> {
+    return this.plans.getPlan(request, unpackCallerContext(metadata));
+  }
+
+  lookupPrice(
+    request: billingGrpc.LookupPriceRequest,
+    metadata?: Metadata,
+  ): Promise<billingGrpc.LookupPriceResponse> {
+    return this.plans.lookupPrice(request, unpackCallerContext(metadata));
   }
 
   createPlan(

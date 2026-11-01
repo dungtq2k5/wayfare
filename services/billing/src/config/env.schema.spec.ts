@@ -43,4 +43,16 @@ describe('billing env schema', () => {
     expect(() => parse({ STRIPE_WEBHOOK_SECRET: '' })).toThrow(/STRIPE_WEBHOOK_SECRET/);
     expect(() => parse({ STRIPE_WEBHOOK_SECRET: 'not-a-secret' })).toThrow(/STRIPE_WEBHOOK_SECRET/);
   });
+
+  it('talks to Stripe unless told fake, and refuses the fake in production', () => {
+    expect(parse({}).PAYMENTS_PROVIDER).toBe('stripe');
+    expect(parse({ PAYMENTS_PROVIDER: 'fake' }).PAYMENTS_PROVIDER).toBe('fake');
+    expect(() => parse({ NODE_ENV: 'production', PAYMENTS_PROVIDER: 'fake' })).toThrow(
+      /refused in production/,
+    );
+    // Stripe without a key keeps today's behaviour: the Stripe-backed owner routes answer 503.
+    expect(parse({ PAYMENTS_PROVIDER: 'stripe', STRIPE_SECRET_KEY: '' }).STRIPE_SECRET_KEY).toBe(
+      undefined,
+    );
+  });
 });

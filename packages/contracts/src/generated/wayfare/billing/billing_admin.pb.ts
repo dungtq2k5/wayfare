@@ -26,10 +26,52 @@ export interface AdminPlan {
   sortOrder: number;
   grants: Entitlements | undefined;
   prices: PlanPrice[];
+  /** Every account on the plan, deactivated owners included: the count that decides retiring. */
   subscriberCount: number;
+  subscribers: PlanSubscribers | undefined;
+  createdAt: Timestamp | undefined;
+  updatedAt:
+    | Timestamp
+    | undefined;
+  /** Set once retired (the plan's deleted_at). */
+  retiredAt: Timestamp | undefined;
+}
+
+/** A plan's accounts by state; `subscriber_count` is their total. */
+export interface PlanSubscribers {
+  /** ACTIVE or TRIALING. */
+  active: number;
+  pastDue: number;
+  /** Cancelling at the period's end. */
+  cancelling: number;
+  pinned: number;
 }
 
 export interface ListPlansRequest {
+  includeRetired?: boolean | undefined;
+}
+
+export interface GetPlanRequest {
+  planId: string;
+}
+
+export interface GetPlanResponse {
+  plan: AdminPlan | undefined;
+}
+
+export interface LookupPriceRequest {
+  planId: string;
+  stripePriceId: string;
+  billingInterval: BillingInterval;
+}
+
+export interface LookupPriceResponse {
+  amountMinor: number;
+  currency: string;
+  billingInterval: BillingInterval;
+  productId: string;
+  /** The interval's price in force that it would replace. */
+  replaces?: PlanPrice | undefined;
 }
 
 export interface ListPlansResponse {
@@ -129,6 +171,14 @@ export interface BillingAccountDetail {
   entitlements: Entitlements | undefined;
   planGrants: Entitlements | undefined;
   recentEvents: BillingEvent[];
+  /** The price of the subscription's last event, kept after a cancellation. */
+  subscribedPrice?: SubscribedPrice | undefined;
+}
+
+export interface SubscribedPrice {
+  amountMinor: number;
+  currency: string;
+  billingInterval: BillingInterval;
 }
 
 export interface ListAccountsRequest {
@@ -174,6 +224,19 @@ export interface UnpinEntitlementsResponse {
   account: BillingAccountDetail | undefined;
 }
 
+export interface PreviewUnpinRequest {
+  billingAccountId: string;
+}
+
+export interface PreviewUnpinResponse {
+  /** The grants the account returns to by today's status. */
+  grants:
+    | Entitlements
+    | undefined;
+  /** Absent when catalog could not count. */
+  wouldUnpublishPlaces?: number | undefined;
+}
+
 /** One recorded Stripe event. */
 export interface BillingEvent {
   id: string;
@@ -189,8 +252,10 @@ export interface BillingEvent {
   processedAt:
     | Timestamp
     | undefined;
-  /** The raw event, JSON-encoded. */
+  /** The raw event, JSON-encoded; empty in a list (only the single read carries it). */
   payloadJson: string;
+  /** The resolved account's owner. */
+  ownerUserId?: string | undefined;
 }
 
 export interface ListBillingEventsRequest {
@@ -208,6 +273,14 @@ export interface ListBillingEventsResponse {
   page: PageNumberMeta | undefined;
 }
 
+export interface GetBillingEventRequest {
+  billingEventId: string;
+}
+
+export interface GetBillingEventResponse {
+  event: BillingEvent | undefined;
+}
+
 export interface ReplayBillingEventRequest {
   billingEventId: string;
 }
@@ -222,6 +295,12 @@ export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";
 
 export interface PlanAdminServiceClient {
   listPlans(request: ListPlansRequest, metadata?: Metadata): Observable<ListPlansResponse>;
+
+  getPlan(request: GetPlanRequest, metadata?: Metadata): Observable<GetPlanResponse>;
+
+  /** The registration's checks against Stripe, writing nothing. */
+
+  lookupPrice(request: LookupPriceRequest, metadata?: Metadata): Observable<LookupPriceResponse>;
 
   createPlan(request: CreatePlanRequest, metadata?: Metadata): Observable<CreatePlanResponse>;
 
@@ -241,6 +320,18 @@ export interface PlanAdminServiceController {
     request: ListPlansRequest,
     metadata?: Metadata,
   ): Promise<ListPlansResponse> | Observable<ListPlansResponse> | ListPlansResponse;
+
+  getPlan(
+    request: GetPlanRequest,
+    metadata?: Metadata,
+  ): Promise<GetPlanResponse> | Observable<GetPlanResponse> | GetPlanResponse;
+
+  /** The registration's checks against Stripe, writing nothing. */
+
+  lookupPrice(
+    request: LookupPriceRequest,
+    metadata?: Metadata,
+  ): Promise<LookupPriceResponse> | Observable<LookupPriceResponse> | LookupPriceResponse;
 
   createPlan(
     request: CreatePlanRequest,
@@ -270,7 +361,16 @@ export interface PlanAdminServiceController {
 
 export function PlanAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listPlans", "createPlan", "updatePlan", "registerPrice", "applyPlan", "retirePlan"];
+    const grpcMethods: string[] = [
+      "listPlans",
+      "getPlan",
+      "lookupPrice",
+      "createPlan",
+      "updatePlan",
+      "registerPrice",
+      "applyPlan",
+      "retirePlan",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("PlanAdminService", method)(constructor.prototype[method], method, descriptor);
@@ -300,6 +400,10 @@ export interface AccountAdminServiceClient {
   ): Observable<OverrideEntitlementsResponse>;
 
   unpinEntitlements(request: UnpinEntitlementsRequest, metadata?: Metadata): Observable<UnpinEntitlementsResponse>;
+
+  /** What unpinning would do, writing nothing. */
+
+  previewUnpin(request: PreviewUnpinRequest, metadata?: Metadata): Observable<PreviewUnpinResponse>;
 }
 
 /** Billing accounts and their pinned grants (api-endpoints-plan §6.2). */
@@ -324,11 +428,24 @@ export interface AccountAdminServiceController {
     request: UnpinEntitlementsRequest,
     metadata?: Metadata,
   ): Promise<UnpinEntitlementsResponse> | Observable<UnpinEntitlementsResponse> | UnpinEntitlementsResponse;
+
+  /** What unpinning would do, writing nothing. */
+
+  previewUnpin(
+    request: PreviewUnpinRequest,
+    metadata?: Metadata,
+  ): Promise<PreviewUnpinResponse> | Observable<PreviewUnpinResponse> | PreviewUnpinResponse;
 }
 
 export function AccountAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listAccounts", "getAccount", "overrideEntitlements", "unpinEntitlements"];
+    const grpcMethods: string[] = [
+      "listAccounts",
+      "getAccount",
+      "overrideEntitlements",
+      "unpinEntitlements",
+      "previewUnpin",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("AccountAdminService", method)(constructor.prototype[method], method, descriptor);
@@ -350,6 +467,8 @@ export const ACCOUNT_ADMIN_SERVICE_NAME = "AccountAdminService";
 export interface BillingEventAdminServiceClient {
   listBillingEvents(request: ListBillingEventsRequest, metadata?: Metadata): Observable<ListBillingEventsResponse>;
 
+  getBillingEvent(request: GetBillingEventRequest, metadata?: Metadata): Observable<GetBillingEventResponse>;
+
   replayBillingEvent(request: ReplayBillingEventRequest, metadata?: Metadata): Observable<ReplayBillingEventResponse>;
 }
 
@@ -361,6 +480,11 @@ export interface BillingEventAdminServiceController {
     metadata?: Metadata,
   ): Promise<ListBillingEventsResponse> | Observable<ListBillingEventsResponse> | ListBillingEventsResponse;
 
+  getBillingEvent(
+    request: GetBillingEventRequest,
+    metadata?: Metadata,
+  ): Promise<GetBillingEventResponse> | Observable<GetBillingEventResponse> | GetBillingEventResponse;
+
   replayBillingEvent(
     request: ReplayBillingEventRequest,
     metadata?: Metadata,
@@ -369,7 +493,7 @@ export interface BillingEventAdminServiceController {
 
 export function BillingEventAdminServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["listBillingEvents", "replayBillingEvent"];
+    const grpcMethods: string[] = ["listBillingEvents", "getBillingEvent", "replayBillingEvent"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("BillingEventAdminService", method)(constructor.prototype[method], method, descriptor);

@@ -1,5 +1,5 @@
 import type { SubscriptionStatus } from '../billing/enums';
-import type { EntitlementsReducedData } from '../notifications/data';
+import type { EntitlementsRaisedData, EntitlementsReducedData } from '../notifications/data';
 import { PLATFORM_CEILINGS } from './ceilings';
 import type { LimitDimension } from './ceilings';
 import { AnalyticsLevel, NarrationLanguageScope, subscribedPlanApplies } from './entitlements';
@@ -81,6 +81,39 @@ export function narrowedDimensions(
     ...(vouchersLost ? { vouchersLost } : {}),
     ...(languagesReduced ? { languagesReduced } : {}),
     ...(analyticsReduced ? { analyticsReduced } : {}),
+  };
+}
+
+/** What a change of grants gave, as `ENTITLEMENTS_RAISED` says it — without the version. */
+export type EntitlementsWidening = Omit<EntitlementsRaisedData, 'entitlementsVersion'>;
+
+/** What widened from `previous` to `next`: `narrowedDimensions`' mirror. Null when nothing did. */
+export function widenedDimensions(
+  previous: Entitlements,
+  next: Entitlements,
+): EntitlementsWidening | null {
+  const raised = DIMENSIONS.filter((dimension) => next[dimension] > previous[dimension]);
+  const autoNarrationGained = !previous.autoNarration && next.autoNarration;
+  const vouchersGained = !previous.canSellVouchers && next.canSellVouchers;
+  const languagesWidened =
+    SCOPE_RANK[next.narrationLanguageScope] > SCOPE_RANK[previous.narrationLanguageScope];
+  const analyticsRaised =
+    ANALYTICS_RANK[next.analyticsLevel] > ANALYTICS_RANK[previous.analyticsLevel];
+  if (
+    raised.length === 0 &&
+    !autoNarrationGained &&
+    !vouchersGained &&
+    !languagesWidened &&
+    !analyticsRaised
+  ) {
+    return null;
+  }
+  return {
+    raised,
+    ...(autoNarrationGained ? { autoNarrationGained } : {}),
+    ...(vouchersGained ? { vouchersGained } : {}),
+    ...(languagesWidened ? { languagesWidened } : {}),
+    ...(analyticsRaised ? { analyticsRaised } : {}),
   };
 }
 

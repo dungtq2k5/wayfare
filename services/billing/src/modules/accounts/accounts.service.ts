@@ -4,6 +4,7 @@ import {
   AuditAction,
   AuditActorType,
   AuditResourceType,
+  EntitlementsChangeCause,
   zBillingAccountsQuery,
   zEntitlementOverrideInput,
   zUnpinInput,
@@ -26,12 +27,15 @@ import { grantsOf } from '../entitlements/domain/grants-write';
 import {
   BILLING_ACCOUNT_SELECT,
   fromProtoEntitlements,
+  toEntitlements,
   PLAN_WITH_GRANTS_SELECT,
 } from '../entitlements/entitlement.mapper';
 import type { BillingAccountRow } from '../entitlements/entitlement.mapper';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toBillingAccountDetail, toBillingAccountSummary } from './account.mapper';
+import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
+import { wouldUnpublish } from '../entitlements/domain/would-unpublish';
 
 const accountIdField = z.object({ billingAccountId: zUuidV7 });
 
@@ -49,6 +53,7 @@ export class AccountsService {
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
     private readonly entitlements: EntitlementsService,
+    private readonly catalog: CatalogServiceGrpcClient,
   ) {}
 
   /** A page of accounts, newest first, filtered by plan, status, pin and dunning. */
@@ -116,7 +121,10 @@ export class AccountsService {
     const now = new Date();
     const account = await this.prisma.$transaction(async (tx) => {
       const current = await this.locked(tx, billingAccountId);
-      await this.entitlements.writeGrants(tx, current, input.grants, now, { pin: true });
+      await this.entitlements.writeGrants(tx, current, input.grants, now, {
+        pin: true,
+        cause: EntitlementsChangeCause.OVERRIDE,
+      });
       await this.audit(tx, actor, AuditAction.ENTITLEMENTS_OVERRIDDEN, current.id, now, {
         before: { grants: grantsOf(current) },
         after: { grants: input.grants },
@@ -125,6 +133,29 @@ export class AccountsService {
       return this.detail(tx, current.id);
     });
     return { account };
+  }
+
+  /**
+   * What unpinning would do, writing nothing: the grants the account returns to by today's plan and
+   * status, and the Places they would take off the map — apply's projection for one account.
+   */
+  async previewUnpin(
+    request: billingGrpc.PreviewUnpinRequest,
+    context: RequestContext,
+  ): Promise<billingGrpc.PreviewUnpinResponse> {
+    requireAccountContext(context);
+    const { billingAccountId } = parseRpcRequest(accountIdField, request);
+    const account = await this.prisma.billingAccount.findUnique({
+      where: { id: billingAccountId },
+      select: BILLING_ACCOUNT_SELECT,
+    });
+    if (account === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'BILLING_ACCOUNT' });
+    const { next } = await this.entitlements.derive(this.prisma, account);
+    const places = await wouldUnpublish(this.catalog, account.ownerUserId, next);
+    return {
+      grants: toEntitlements(next),
+      ...(places === null ? {} : { wouldUnpublishPlaces: places }),
+    };
   }
 
   /** Clears the pin and re-derives the grants from the plan and status now. */
@@ -144,10 +175,13 @@ export class AccountsService {
         select: { id: true },
       });
       const unpinned = await this.locked(tx, current.id);
-      await this.entitlements.rederive(tx, unpinned, now, {
-        type: AuditActorType.USER,
-        userId: actor.userId,
-      });
+      await this.entitlements.rederive(
+        tx,
+        unpinned,
+        now,
+        { type: AuditActorType.USER, userId: actor.userId },
+        EntitlementsChangeCause.UNPIN,
+      );
       await this.audit(tx, actor, AuditAction.ENTITLEMENTS_UNPINNED, current.id, now, { reason });
       return this.detail(tx, current.id);
     });
@@ -176,7 +210,16 @@ export class AccountsService {
     });
     const { planPrice } = await db.billingAccount.findUniqueOrThrow({
       where,
-      select: { planPrice: { select: { plan: { select: { code: true } } } } },
+      select: {
+        planPrice: {
+          select: {
+            amountMinor: true,
+            currency: true,
+            billingInterval: true,
+            plan: { select: { code: true } },
+          },
+        },
+      },
     });
     const { events } = await db.billingAccount.findUniqueOrThrow({
       where,
@@ -189,12 +232,7 @@ export class AccountsService {
       },
     });
     const row = { ...columns, plan, planPrice, events };
-    return toBillingAccountDetail(
-      row,
-      grantsOf(row.plan),
-      row.planPrice?.plan.code ?? null,
-      row.events,
-    );
+    return toBillingAccountDetail(row, grantsOf(row.plan), row.planPrice, row.events);
   }
 
   private async audit(

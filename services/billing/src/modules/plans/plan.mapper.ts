@@ -1,9 +1,11 @@
 import { BillingInterval, CurrencyCode, parseEnum } from '@wayfare/contracts';
 import { billingIntervalProto } from '@wayfare/contracts/grpc';
 import type { billingGrpc } from '@wayfare/contracts/grpc';
+import { toProtoTimestamp } from '@wayfare/nest-common';
 import type { Prisma } from '../../../generated/prisma/client';
 import { grantsOf } from '../entitlements/domain/grants-write';
 import { PLAN_GRANTS_SELECT, toEntitlements } from '../entitlements/entitlement.mapper';
+import type { PlanSubscriberCounts } from './domain/plan-subscribers';
 
 /** A registered price's columns (rdm-spec B-2). */
 export const PLAN_PRICE_SELECT = {
@@ -13,6 +15,8 @@ export const PLAN_PRICE_SELECT = {
   amountMinor: true,
   currency: true,
   isActive: true,
+  createdAt: true,
+  updatedAt: true,
 } as const satisfies Prisma.PlanPriceSelect;
 
 /** A price as `PLAN_PRICE_SELECT` loads it. */
@@ -26,6 +30,9 @@ export const ADMIN_PLAN_SELECT = {
   stripeProductId: true,
   isActive: true,
   sortOrder: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
   ...PLAN_GRANTS_SELECT,
   prices: { select: PLAN_PRICE_SELECT, orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }] },
 } as const satisfies Prisma.PlanSelect;
@@ -42,6 +49,9 @@ export function toPlanPrice(row: PlanPriceRow): billingGrpc.PlanPrice {
     amountMinor: row.amountMinor,
     currency: parseEnum(CurrencyCode, row.currency),
     isActive: row.isActive,
+    createdAt: toProtoTimestamp(row.createdAt),
+    // A price row changes once, when a later one replaces it: then its update is the replacement.
+    ...(row.isActive ? {} : { replacedAt: toProtoTimestamp(row.updatedAt) }),
   };
 }
 
@@ -56,8 +66,11 @@ export function toPlan(row: AdminPlanRow): billingGrpc.Plan {
   };
 }
 
-/** A catalogue plan with every price and its subscriber count. */
-export function toAdminPlan(row: AdminPlanRow, subscriberCount: number): billingGrpc.AdminPlan {
+/** A catalogue plan with every price and its subscribers. */
+export function toAdminPlan(
+  row: AdminPlanRow,
+  { total, ...subscribers }: PlanSubscriberCounts,
+): billingGrpc.AdminPlan {
   return {
     id: row.id,
     code: row.code,
@@ -67,6 +80,10 @@ export function toAdminPlan(row: AdminPlanRow, subscriberCount: number): billing
     sortOrder: row.sortOrder,
     grants: toEntitlements(grantsOf(row)),
     prices: row.prices.map(toPlanPrice),
-    subscriberCount,
+    subscriberCount: total,
+    subscribers,
+    createdAt: toProtoTimestamp(row.createdAt),
+    updatedAt: toProtoTimestamp(row.updatedAt),
+    retiredAt: row.deletedAt === null ? undefined : toProtoTimestamp(row.deletedAt),
   };
 }

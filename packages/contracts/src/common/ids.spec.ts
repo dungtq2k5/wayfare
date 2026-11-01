@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuidV7, newId, zUuidV7 } from './ids';
+import { derivedEventKey, isUuidV7, newId, zUuidV7 } from './ids';
 import { compareStrings } from './sorting';
 
 describe('newId', () => {
@@ -26,5 +26,16 @@ describe('zUuidV7', () => {
   it('refuses a malformed id', () => {
     expect(zUuidV7.safeParse('not-a-uuid').success).toBe(false);
     expect(zUuidV7.safeParse('01a0aa38-2bcd-72f6-c123-59fc3ac9d03f').success).toBe(false); // bad variant
+  });
+});
+
+describe('derivedEventKey', () => {
+  it('gives one fixed key per event and name, apart from the event id', () => {
+    const event = newId();
+    const key = derivedEventKey(event, 'ENTITLEMENTS_RAISED');
+    expect(key).toBe(derivedEventKey(event, 'ENTITLEMENTS_RAISED'));
+    expect(key).not.toBe(event);
+    expect(key).not.toBe(derivedEventKey(event, 'OTHER'));
+    expect(key).not.toBe(derivedEventKey(newId(), 'ENTITLEMENTS_RAISED'));
   });
 });

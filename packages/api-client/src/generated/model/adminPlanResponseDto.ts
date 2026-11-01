@@ -6,6 +6,7 @@
  */
 import type { AdminPlanResponseDtoGrants } from './adminPlanResponseDtoGrants.js';
 import type { AdminPlanResponseDtoPricesItem } from './adminPlanResponseDtoPricesItem.js';
+import type { AdminPlanResponseDtoSubscribers } from './adminPlanResponseDtoSubscribers.js';
 
 export interface AdminPlanResponseDto {
   /** @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ */
@@ -22,9 +23,10 @@ export interface AdminPlanResponseDto {
   sortOrder: number;
   grants: AdminPlanResponseDtoGrants;
   prices: AdminPlanResponseDtoPricesItem[];
-  /**
-     * @minimum 0
-     * @maximum 9007199254740991
-     */
-  subscriberCount: number;
+  subscribers: AdminPlanResponseDtoSubscribers;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
+  createdAt: string;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
+  updatedAt: string;
+  retiredAt: string | null;
 }
