@@ -111,6 +111,8 @@ message AdminPlace {
   repeated OpeningHoursRow opening_hours = 34;
   // What the activation gate still waits for: `en.text`, `en.audio`, `activation`.
   repeated string activation_missing = 35;
+  // When the status last changed (rdm-spec C-1): "since" on a venue's page.
+  google.protobuf.Timestamp status_changed_at = 36;
 }
 
 // One language's readiness (api-endpoints-plan §3.5).

@@ -1,6 +1,6 @@
 import { SYSTEM_ROLE_GRANTS, SystemRole } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
-import { mayOpen, navItemFor, navigationFor } from './nav';
+import { mayOpen, navItemFor, navigationFor, ownershipOf } from './nav';
 import type { Ownership } from './nav';
 
 const labels = (permissions: readonly string[], ownership: Ownership = null) =>
@@ -37,9 +37,7 @@ describe('the navigation (K5)', () => {
   });
 
   it('gives an applicant their registration in its place, and an admin no business', () => {
-    expect(labels(SYSTEM_ROLE_GRANTS[SystemRole.VENUE_OWNER], 'applicant')).toEqual([
-      ['nav.group.business', ['registration.soonTitle']],
-    ]);
+    expect(labels([], 'applicant')).toEqual([['nav.group.business', ['nav.yourRegistration']]]);
     expect(labels(SYSTEM_ROLE_GRANTS[SystemRole.ADMIN]).map(([group]) => group)).not.toContain(
       'nav.group.business',
     );
@@ -67,5 +65,35 @@ describe('the navigation (K5)', () => {
     expect(mayOpen(places!, ['submission.read'])).toBe(false);
     expect(mayOpen(places!, ['place.read'])).toBe(true);
     expect(navItemFor('/account')).toBeUndefined();
+  });
+});
+
+describe("an account's ownership (K1)", () => {
+  const owner = { status: 'PENDING' };
+  it('makes an applicant of any account without staff permissions, applied or not', () => {
+    expect(ownershipOf({ owner: null, ownerVerified: false, permissions: [] })).toBe('applicant');
+    expect(ownershipOf({ owner, ownerVerified: false, permissions: [] })).toBe('applicant');
+    expect(ownershipOf({ owner, ownerVerified: false, permissions: ['submission.read'] })).toBe(
+      'applicant',
+    );
+  });
+
+  it('keeps a verified owner and staff who never applied apart', () => {
+    expect(
+      ownershipOf({ owner, ownerVerified: true, permissions: ['owner.access', 'place.read'] }),
+    ).toBe('verified');
+    expect(ownershipOf({ owner: null, ownerVerified: false, permissions: ['place.read'] })).toBe(
+      null,
+    );
+  });
+
+  it('shows an applicant Home and *Your registration*, a verified owner *Your business*', () => {
+    expect(labels([], ownershipOf({ owner: null, ownerVerified: false, permissions: [] }))).toEqual(
+      [['nav.group.business', ['nav.yourRegistration']]],
+    );
+    expect(labels(['owner.access', 'place.read'], 'verified').map(([group]) => group)).toEqual([
+      'nav.group.business',
+      'nav.group.catalog',
+    ]);
   });
 });

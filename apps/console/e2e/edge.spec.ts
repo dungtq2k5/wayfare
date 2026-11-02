@@ -75,7 +75,8 @@ test('2: Google refuses staff (C1c) and signs an owner in', async ({ page }) => 
   await expectAccessible(page);
   // The refused try spent its nonce; the page asked for a new one.
   await continueWithGoogle(page, owner, 'example.com');
-  await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
+  // An owner with no venue and no submission is welcomed (round 36's K19).
+  await expect(page.getByRole('heading', { name: 'Welcome to Wayfare', level: 1 })).toBeVisible();
   await page.goto('/account');
   await expect(page.getByText(`Linked as ${owner}`)).toBeVisible();
 });
@@ -174,7 +175,7 @@ test('5: a notification pushed while the panel is open comes first, the panel st
     decisionNote: 'Please add the stall’s address.',
   });
   await expect(panel.getByRole('listitem').first()).toContainText(
-    "Your venue registration wasn't approved.",
+    "Your registration wasn't approved.",
   );
   await expect(panel).toBeVisible();
   await expect(page.getByRole('button', { name: 'Notifications, 1 unread' })).toBeVisible();

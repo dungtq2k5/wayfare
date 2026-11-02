@@ -27,3 +27,4 @@ graphify-out/
 .mcp.json
 .sonar-config.json
 .claude/
+.playwright-mcp/

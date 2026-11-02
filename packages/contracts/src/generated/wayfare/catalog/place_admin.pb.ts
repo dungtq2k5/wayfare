@@ -112,6 +112,8 @@ export interface AdminPlace {
   openingHours: OpeningHoursRow[];
   /** What the activation gate still waits for: `en.text`, `en.audio`, `activation`. */
   activationMissing: string[];
+  /** When the status last changed (rdm-spec C-1): "since" on a venue's page. */
+  statusChangedAt: Timestamp | undefined;
 }
 
 /** One language's readiness (api-endpoints-plan §3.5). */

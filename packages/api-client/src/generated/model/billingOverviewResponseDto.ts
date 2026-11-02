@@ -7,6 +7,7 @@
 import type { BillingOverviewResponseDtoDunning } from './billingOverviewResponseDtoDunning.js';
 import type { BillingOverviewResponseDtoEntitlements } from './billingOverviewResponseDtoEntitlements.js';
 import type { BillingOverviewResponseDtoPlan } from './billingOverviewResponseDtoPlan.js';
+import type { BillingOverviewResponseDtoPlanGrants } from './billingOverviewResponseDtoPlanGrants.js';
 import type { BillingOverviewResponseDtoPrice } from './billingOverviewResponseDtoPrice.js';
 import type { BillingOverviewResponseDtoSubscriptionStatus } from './billingOverviewResponseDtoSubscriptionStatus.js';
 import type { BillingOverviewResponseDtoUsage } from './billingOverviewResponseDtoUsage.js';
@@ -21,4 +22,5 @@ export interface BillingOverviewResponseDto {
   entitlements: BillingOverviewResponseDtoEntitlements;
   usage: BillingOverviewResponseDtoUsage;
   pinned: boolean;
+  planGrants: BillingOverviewResponseDtoPlanGrants;
 }

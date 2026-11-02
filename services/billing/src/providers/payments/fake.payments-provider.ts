@@ -26,6 +26,19 @@ export class FakePaymentsProvider extends PaymentsProvider {
   readonly redacted: string[] = [];
   readonly calls: string[] = [];
 
+  /**
+   * On a stack, the console's base: a Checkout and the portal open the console's fake pages
+   * (`/dev/fake-stripe/…`), as Stripe's hosted pages would; unset, the placeholder URLs tests read.
+   */
+  constructor(private readonly pageBase?: string) {
+    super();
+  }
+
+  /** A recorded Checkout by its session id (the route's idempotency key). */
+  checkoutSession(sessionId: string): SubscriptionCheckoutInput | undefined {
+    return this.checkouts.find((checkout) => checkout.idempotencyKey === sessionId);
+  }
+
   createCustomer(input: {
     readonly billingAccountId: string;
     readonly ownerUserId: string;
@@ -42,7 +55,13 @@ export class FakePaymentsProvider extends PaymentsProvider {
   createSubscriptionCheckout(input: SubscriptionCheckoutInput): Promise<{ url: string }> {
     return this.answer('createSubscriptionCheckout', () => {
       this.checkouts.push(input);
-      return { url: `https://checkout.stripe.test/c/${input.idempotencyKey}` };
+      const id = encodeURIComponent(input.idempotencyKey);
+      return {
+        url:
+          this.pageBase === undefined
+            ? `https://checkout.stripe.test/c/${id}`
+            : `${this.pageBase}/dev/fake-stripe/checkout/${id}`,
+      };
     });
   }
 
@@ -51,7 +70,10 @@ export class FakePaymentsProvider extends PaymentsProvider {
     readonly returnUrl: string;
   }): Promise<{ url: string }> {
     return this.answer('createPortalSession', () => ({
-      url: `https://billing.stripe.test/p/${input.customerId}`,
+      url:
+        this.pageBase === undefined
+          ? `https://billing.stripe.test/p/${input.customerId}`
+          : `${this.pageBase}/dev/fake-stripe/portal?return=${encodeURIComponent(input.returnUrl)}`,
     }));
   }
 

@@ -161,10 +161,13 @@ export function History({ place }: { place: PlaceDetail }) {
 /** The audit log's widest read (api §1.8): a history older than this starts here. */
 const MAX_HISTORY_DAYS = 93;
 
+/** How many rows a History card shows; the rest are a click away in the log (conventions §12.8). */
+const HISTORY_ROWS = 10;
+
 /**
  * A record's History, for a reader holding `audit.read`: what happened to it, newest first, from
- * the audit log since it was created; people by name for a reader holding `user.read` (K1). It ends
- * in *See all in the audit log*, the log filtered on the record (K22, H3).
+ * the audit log since it was created, its latest ten; people by name for a reader holding
+ * `user.read` (K1). It ends in *See all in the audit log*, the log filtered on the record (K22, H3).
  */
 export function RecordHistory({
   resourceType,
@@ -193,7 +196,7 @@ export function RecordHistory({
         resourceId,
         from: new Date(from).toISOString(),
         to: new Date(now).toISOString(),
-        limit: 50,
+        limit: HISTORY_ROWS,
       });
     },
   });

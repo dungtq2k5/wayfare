@@ -1,5 +1,6 @@
 // Billing (round 35a's B1–B6b, W1–W5, E1–E3c): the plans and their dialogs as a super admin, the
-// accounts in each subscription state, an off-catalogue grant and unpinning, the admin's read-only
+// accounts in each subscription state, an off-catalogue grant and unpinning (on An's account: Minh
+// stays plain Growth for round 36's owner frames), the admin's read-only
 // page, and the Stripe events with a replay's two outcomes. Accounts and events come from signed
 // webhooks (K15) on the seed's owners; a replay's polled reads and the apply's numbers are answered
 // by `page.route` (the stack's subscribers already hold their plans' grants).
@@ -47,6 +48,8 @@ const GRANTS = {
 const EVENTS = {
   minhCheckout: 'evt_screensMinhCheckout',
   minhCreated: 'evt_screensMinhCreated',
+  anCheckout: 'evt_screensAnCheckout',
+  anCreated: 'evt_screensAnCreated',
   pastDue: 'evt_screensOwner2PastDue',
   invoiceFailed: 'evt_screensOwner2InvoiceFailed',
   cancelled: 'evt_screensOwner3Deleted',
@@ -113,6 +116,7 @@ test.beforeAll(async () => {
   ids.owner3 = (await accountOf(mai, OWNER(3))).id;
   ids.owner4 = (await accountOf(mai, OWNER(4))).id;
   ids.minh = (await accountOf(mai, PEOPLE.minh)).id;
+  ids.an = (await accountOf(mai, PEOPLE.an)).id;
   const month = 30 * 86_400;
   await sendOnce(
     mai,
@@ -157,7 +161,7 @@ test.beforeAll(async () => {
     },
     ['PROCESSED'],
   );
-  // W2e: Minh subscribes to Growth, then Mai gives him more Places and pins it.
+  // Minh subscribes to Growth and stays on it as it is (round 36's K17: his venues are drawn there).
   await sendOnce(mai, {
     id: EVENTS.minhCheckout,
     type: 'checkout.session.completed',
@@ -180,13 +184,36 @@ test.beforeAll(async () => {
     },
     ['PROCESSED'],
   );
-  const minh = await mai.call<{ data: { pinned: boolean; entitlements: Record<string, unknown> } }>(
-    'GET',
-    `/admin/billing/accounts/${ids.minh}`,
+  // W2e: An subscribes to Growth, then Mai gives her more Places and pins it.
+  await sendOnce(mai, {
+    id: EVENTS.anCheckout,
+    type: 'checkout.session.completed',
+    created: seconds(-6),
+    object: checkout(ids.an, 'cus_screensAn', 'sub_screensAn'),
+  });
+  await sendOnce(
+    mai,
+    {
+      id: EVENTS.anCreated,
+      type: 'customer.subscription.created',
+      created: seconds(-5),
+      object: subscription({
+        id: 'sub_screensAn',
+        customer: 'cus_screensAn',
+        status: 'active',
+        price: 'price_dev_growth_month',
+        periodEnd: seconds(month),
+      }),
+    },
+    ['PROCESSED'],
   );
-  if (!minh.data.pinned)
-    await mai.call('PATCH', `/admin/billing/accounts/${ids.minh}/entitlements`, {
-      grants: { ...minh.data.entitlements, maxPlaces: 15, aiCreditsPerDay: 20 },
+  const an = await mai.call<{ data: { pinned: boolean; entitlements: Record<string, unknown> } }>(
+    'GET',
+    `/admin/billing/accounts/${ids.an}`,
+  );
+  if (!an.data.pinned)
+    await mai.call('PATCH', `/admin/billing/accounts/${ids.an}/entitlements`, {
+      grants: { ...an.data.entitlements, maxPlaces: 15, aiCreditsPerDay: 20 },
       reason:
         'Pilot partner for the Vĩnh Khánh food tour: 15 Places and more AI credits until March.',
     });
@@ -454,7 +481,7 @@ test('W2d never subscribed', async ({ page }) => {
 });
 
 test('W2e pinned, W4 unpin', async ({ page }) => {
-  await open(page, PEOPLE.mai, `/billing/accounts/${ids.minh}`);
+  await open(page, PEOPLE.mai, `/billing/accounts/${ids.an}`);
   await expect(page.getByText(/^Pinned by /)).toBeVisible();
   await expect(page.getByText('Override').first()).toBeVisible();
   await look(page, 'w2e-pinned');

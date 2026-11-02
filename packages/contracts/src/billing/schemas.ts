@@ -234,6 +234,8 @@ export const zBillingOverview = z
       })
       .strict(),
     pinned: z.boolean(),
+    /** The plan's own grants: beside `entitlements`, what a pin set by hand. */
+    planGrants: zEntitlements,
   })
   .strict();
 /** The owner's billing page. */

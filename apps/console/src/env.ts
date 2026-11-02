@@ -20,6 +20,12 @@ export const GATEWAY_INTERNAL_URL = process.env.GATEWAY_INTERNAL_URL ?? 'http://
  */
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
+/**
+ * Where the legal texts live — the tourist web app's pages (`/terms`, `/owner-agreement`): the
+ * console links to them and renders none.
+ */
+export const LEGAL_BASE_URL = process.env.NEXT_PUBLIC_LEGAL_BASE_URL ?? 'https://wayfare.app';
+
 /** Development-only aids (the fake Google hook, `/dev/patterns`); dead code in a production build. */
 export const DEVELOPMENT = process.env.NODE_ENV !== 'production';
 

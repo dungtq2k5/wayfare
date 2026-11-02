@@ -3,16 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { AppHttpException } from '@wayfare/nest-common';
 import type { RequestContext } from '@wayfare/nest-common';
 import type { Env } from '../../config/env.schema';
+import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import { IdentityServiceGrpcClient } from '../identity/identity-service-grpc.client';
 import type { FakeGoogleTokenDto } from './dto/dev.dto';
 
-/** Development only: identity's fake Google issuer, for the tests and the app's Diagnostics. */
+/**
+ * Development only: identity's fake Google issuer, for the tests and the app's Diagnostics; and
+ * billing's fake Checkout, for the console's dev page.
+ */
 @Injectable()
 export class DevService {
   private readonly fake: boolean;
 
   constructor(
     private readonly identity: IdentityServiceGrpcClient,
+    private readonly billing: BillingServiceGrpcClient,
     config: ConfigService<Env, true>,
   ) {
     this.fake = config.get('GOOGLE_ISSUER', { infer: true }) === 'fake';
@@ -36,5 +41,10 @@ export class DevService {
       },
       context,
     );
+  }
+
+  /** Billing refuses it (`404`) unless it runs the fake provider outside production. */
+  payFakeCheckout(context: RequestContext, sessionId: string): Promise<{ successUrl: string }> {
+    return this.billing.webhooks.call('payFakeCheckout', { sessionId }, context);
   }
 }

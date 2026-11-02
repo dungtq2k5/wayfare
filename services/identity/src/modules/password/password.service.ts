@@ -25,7 +25,7 @@ import { z } from 'zod';
 import { AccountLinksService } from '../account-links/account-links.service';
 import { auditRecord } from '../audit/domain/audit-record';
 import { EmailDispatcher } from '../email/email.module';
-import { EmailService } from '../email/email.service';
+import { EmailService, linkAppOf } from '../email/email.service';
 import { linkAnswer } from '../email-change/email-change.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionsService } from '../sessions/sessions.service';
@@ -100,6 +100,9 @@ export class PasswordService {
                   recipient: { userId: user.id },
                   data: {},
                   links: { action: { path: 'resetPassword', token: link.token } },
+                  ...(linkAppOf(request.client) === undefined
+                    ? {}
+                    : { linkApp: 'console' as const }),
                 }),
               );
       await this.outbox.add(

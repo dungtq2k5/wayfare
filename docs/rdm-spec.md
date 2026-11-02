@@ -681,7 +681,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **narration_priority** | SMALLINT | NOT NULL, 50 | `CHECK (narration_priority BETWEEN 0 AND 100)`. Higher wins. **Admin-only** (§1.4). |
 | **auto_narration_enabled** | BOOLEAN | NOT NULL | Whether GPS may trigger this Place's narration. `CHECK (kind = 'VENUE' OR auto_narration_enabled)`. Editorial: always true. Venue: **written only by the `billing.entitlements.changed` consumer.** Tap-to-play is unaffected either way. |
 | **discovery_boost** | SMALLINT | NOT NULL, 0 | `CHECK (discovery_boost BETWEEN 0 AND 100)`, `CHECK (kind = 'VENUE' OR discovery_boost = 0)`. Visual ranking weight. **Written only by the `billing.boosts.changed` consumer.** Never read by anything that decides narration. |
-| **price_band** | SMALLINT | Nullable | `CHECK (price_band BETWEEN 1 AND 4)` — `$` to `$$$$`. Relative, currency-free, never computed from menu prices. |
+| **price_band** | SMALLINT | Nullable | `CHECK (price_band BETWEEN 1 AND 4)` — `$` to `$$$$`. Relative, currency-free, never computed from menu prices. The console explains each band to whoever picks it, per person and meal: 1 under 50.000 ₫, 2 50.000–150.000 ₫, 3 150.000–500.000 ₫, 4 over 500.000 ₫ (the product owner) — guidance only, never stored. |
 | **menu_currency** | CHAR(3) | NOT NULL, `'VND'` | `CHECK (menu_currency IN ('VND','USD'))`. The one currency of this Place's whole menu ([ADR 0046](./decisions/0046-display-only-prices-use-the-venues-own-currency.md)). Held once here, so a mixed-currency menu cannot exist. Display-only: never charged, never converted. |
 | **phone** | VARCHAR(20) | Nullable | E.164. |
 | **website_url** | VARCHAR(512) | Nullable | `https` only, validated at the edge. |

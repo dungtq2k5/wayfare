@@ -91,6 +91,7 @@ export function toAdminPlaceResponseDto(
     createdById: place.createdById,
     createdAt: fromProtoTimestamp(place.createdAt, 'createdAt').toISOString(),
     updatedAt: fromProtoTimestamp(place.updatedAt, 'updatedAt').toISOString(),
+    statusChangedAt: fromProtoTimestamp(place.statusChangedAt, 'statusChangedAt').toISOString(),
     deletedAt: iso(fromOptionalProtoTimestamp(place.deletedAt, 'deletedAt')),
     deletedById: place.deletedById ?? null,
     localizations: place.localizations.map((localization) => ({

@@ -83,6 +83,8 @@ message GetOverviewResponse {
   optional int32 usage_places = 8;
   int32 usage_boosts_live = 9;
   bool pinned = 10;
+  // The plan's own grants: beside `entitlements`, what a pin set by hand.
+  Entitlements plan_grants = 11;
 }
 
 message ListPurchasablePlansRequest {}

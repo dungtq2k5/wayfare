@@ -32,7 +32,11 @@ import type { ProviderInvoice } from '../../providers/payments/payments-provider
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { billingAuditRecord } from '../entitlements/domain/billing-audit';
 import { grantsOf } from '../entitlements/domain/grants-write';
-import { BILLING_ACCOUNT_SELECT, toEntitlements } from '../entitlements/entitlement.mapper';
+import {
+  BILLING_ACCOUNT_SELECT,
+  PLAN_WITH_GRANTS_SELECT,
+  toEntitlements,
+} from '../entitlements/entitlement.mapper';
 import type { BillingAccountRow } from '../entitlements/entitlement.mapper';
 import { ADMIN_PLAN_SELECT, PLAN_PRICE_SELECT, toPlan, toPlanPrice } from '../plans/plan.mapper';
 import { PrismaService } from '../prisma/prisma.service';
@@ -76,7 +80,7 @@ export class SubscriptionsService {
   /** `GET /owner/billing` — Postgres only, and catalog's count of the owner's Venues. */
   async getOverview(context: RequestContext): Promise<billingGrpc.GetOverviewResponse> {
     const account = await this.accountOf(requireAccountContext(context));
-    const [price, places] = await Promise.all([
+    const [price, places, { plan }] = await Promise.all([
       account.planPriceId === null
         ? null
         : this.prisma.planPrice.findUnique({
@@ -84,6 +88,10 @@ export class SubscriptionsService {
             select: PLAN_PRICE_SELECT,
           }),
       this.catalog.countOwnerPlaces(account.ownerUserId),
+      this.prisma.billingAccount.findUniqueOrThrow({
+        where: { id: account.id },
+        select: { plan: { select: PLAN_WITH_GRANTS_SELECT } },
+      }),
     ]);
     return {
       plan: account.plan,
@@ -101,6 +109,7 @@ export class SubscriptionsService {
       // Boosts arrive with Phase 3.
       usageBoostsLive: 0,
       pinned: account.entitlementsPinned,
+      planGrants: toEntitlements(grantsOf(plan)),
     };
   }
 

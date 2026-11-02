@@ -40,12 +40,28 @@ export interface ReceiveStripeEventRequest {
 export interface ReceiveStripeEventResponse {
 }
 
+export interface PayFakeCheckoutRequest {
+  sessionId: string;
+}
+
+export interface PayFakeCheckoutResponse {
+  /** Where Checkout returns after paying (`/owner/billing?checkout=success`). */
+  successUrl: string;
+}
+
 export const WAYFARE_BILLING_PACKAGE_NAME = "wayfare.billing";
 
 /** The gateway never parses the body: billing verifies the signature over the exact bytes. */
 
 export interface BillingWebhookServiceClient {
   receiveStripeEvent(request: ReceiveStripeEventRequest, metadata?: Metadata): Observable<ReceiveStripeEventResponse>;
+
+  /**
+   * Development only (`PAYMENTS_PROVIDER=fake`, never production): pays a fake Checkout session —
+   * the events a paid Checkout sends, recorded and queued as Stripe's would be.
+   */
+
+  payFakeCheckout(request: PayFakeCheckoutRequest, metadata?: Metadata): Observable<PayFakeCheckoutResponse>;
 }
 
 /** The gateway never parses the body: billing verifies the signature over the exact bytes. */
@@ -55,11 +71,21 @@ export interface BillingWebhookServiceController {
     request: ReceiveStripeEventRequest,
     metadata?: Metadata,
   ): Promise<ReceiveStripeEventResponse> | Observable<ReceiveStripeEventResponse> | ReceiveStripeEventResponse;
+
+  /**
+   * Development only (`PAYMENTS_PROVIDER=fake`, never production): pays a fake Checkout session —
+   * the events a paid Checkout sends, recorded and queued as Stripe's would be.
+   */
+
+  payFakeCheckout(
+    request: PayFakeCheckoutRequest,
+    metadata?: Metadata,
+  ): Promise<PayFakeCheckoutResponse> | Observable<PayFakeCheckoutResponse> | PayFakeCheckoutResponse;
 }
 
 export function BillingWebhookServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["receiveStripeEvent"];
+    const grpcMethods: string[] = ["receiveStripeEvent", "payFakeCheckout"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("BillingWebhookService", method)(constructor.prototype[method], method, descriptor);

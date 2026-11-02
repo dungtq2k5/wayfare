@@ -32,6 +32,7 @@ import {
   changedFields,
   snapshotOfPayload,
   snapshotOfPlace,
+  storedBase,
   submissionDiff,
 } from '../places/domain/submission-diff';
 import type { EditableSnapshot } from '../places/domain/submission-diff';
@@ -45,10 +46,6 @@ import type { CatalogTx } from '../sync/sync.service';
 import { REVIEW_SELECT, toSubmissionAdmin } from './submission-review.mapper';
 
 const submissionIdField = z.object({ submissionId: zUuidV7 });
-
-/** A stored base, as `EditableSnapshot` wrote it. */
-const baseOf = (value: unknown): EditableSnapshot | null =>
-  value === null || value === undefined ? null : (value as EditableSnapshot);
 
 /** The owner-editable fields someone else changed since a pending submission was sent. */
 const conflictOf = (
@@ -129,7 +126,7 @@ export class SubmissionReviewService {
       ids.flatMap(({ id }) => {
         const row = byId.get(id);
         if (row === undefined) return [];
-        const base = baseOf(row.baseSnapshot);
+        const base = storedBase(row.baseSnapshot);
         return [
           this.liveOf(row).then((live) => ({
             submission: toSubmission(row),
@@ -171,7 +168,7 @@ export class SubmissionReviewService {
     });
     if (row === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'SUBMISSION' });
     const payload = readPayload(row);
-    const base = baseOf(row.baseSnapshot);
+    const base = storedBase(row.baseSnapshot);
     const live = await this.liveOf(row);
     let grants: Entitlements | null = null;
     try {
@@ -288,7 +285,7 @@ export class SubmissionReviewService {
         fixed,
       );
     } else {
-      const base = baseOf(row.baseSnapshot);
+      const base = storedBase(row.baseSnapshot);
       if (base === null || row.placeId === null) {
         throw new Error(`UPDATE submission ${submissionId} without its base`);
       }

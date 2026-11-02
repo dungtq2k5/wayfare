@@ -1,9 +1,11 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Res } from '@nestjs/common';
+import type { WayfareClient } from '@wayfare/contracts';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ApiEnvelope,
   ApiErrors,
   Auth,
+  ClientKind,
   Ctx,
   NoStore,
   RateLimit,
@@ -34,8 +36,11 @@ export class EmailChangeController {
   @NoStore()
   @ApiOperation({ summary: 'Re-send the verification link. Already verified: nothing is sent.' })
   @ApiEnvelope(null, { status: HttpStatus.ACCEPTED })
-  async requestVerification(@Ctx() context: AccountContext): Promise<void> {
-    await this.emails.requestVerification(context);
+  async requestVerification(
+    @Ctx() context: AccountContext,
+    @ClientKind() client: WayfareClient,
+  ): Promise<void> {
+    await this.emails.requestVerification(context, client);
   }
 
   @Post('verify')

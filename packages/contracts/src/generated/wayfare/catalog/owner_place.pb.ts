@@ -34,7 +34,11 @@ export interface OwnerPlace {
   cover: PhotoView | undefined;
   localizations: LocalizationReadiness[];
   pendingSubmission: PendingSubmissionRef | undefined;
-  updatedAt: Timestamp | undefined;
+  updatedAt:
+    | Timestamp
+    | undefined;
+  /** The status's last change: "since" on the list. */
+  statusChangedAt: Timestamp | undefined;
 }
 
 export interface ListMyPlacesRequest {

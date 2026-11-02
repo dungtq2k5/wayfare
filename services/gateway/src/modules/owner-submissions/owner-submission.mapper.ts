@@ -1,4 +1,5 @@
-import { zPlaceSubmissionPayload } from '@wayfare/contracts';
+import { zPlaceSubmissionPayload, zSubmissionDiffEntry } from '@wayfare/contracts';
+import { z } from 'zod';
 import { submissionKindProto, submissionStatusProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { fromOptionalProtoTimestamp, fromProtoTimestamp } from '@wayfare/nest-common';
@@ -29,6 +30,10 @@ export function toSubmissionResponseDto(
     submittedAt: fromProtoTimestamp(submission.submittedAt, 'submittedAt').toISOString(),
     reviewedAt:
       fromOptionalProtoTimestamp(submission.reviewedAt, 'reviewedAt')?.toISOString() ?? null,
+    diff:
+      submission.diffJson == null
+        ? null
+        : z.array(zSubmissionDiffEntry).parse(JSON.parse(submission.diffJson)),
   };
 }
 

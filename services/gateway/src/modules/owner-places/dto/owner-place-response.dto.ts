@@ -23,6 +23,8 @@ export const ownerPlaceResponseSchema = z.object({
   status: z.enum(PlaceStatus),
   inactiveReason: z.enum(PlaceInactiveReason).nullable(),
   autoNarration: z.boolean(),
+  /** The status's last change: "since" (rdm-spec C-1). */
+  statusChangedAt: zInstant,
   /** Discovery boosts arrive with their own doc; until then, none. */
   boosted: z.null(),
   cover: zPhotoView.nullable(),

@@ -33,6 +33,8 @@ test('C1 → C6: the admin signs in to every staff section, in order', async ({ 
     'Users and roles',
     'Recoveries',
     'Audit log',
+    'Billing accounts',
+    'Stripe events',
   ]);
   await expect(navLinks(page).first()).toHaveAttribute('aria-current', 'page');
   await expectAccessible(page);
@@ -45,11 +47,9 @@ test('C10a: the owner’s two notifications, read all at once', async ({ page })
   await expect(bell).toBeVisible();
   await bell.click();
   const panel = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(panel.getByText('Your registration is approved.')).toBeVisible();
   await expect(
-    panel.getByText('Your venue registration was approved. Welcome to Wayfare.'),
-  ).toBeVisible();
-  await expect(
-    panel.getByText("Your venue registration wasn't approved.", { exact: false }),
+    panel.getByText("Your registration wasn't approved.", { exact: false }),
   ).toBeVisible();
   await expectAccessible(page);
   await panel.getByRole('button', { name: 'Mark all read' }).click();
@@ -94,7 +94,7 @@ test('C7, C11d: the owner’s business, and Google not linked', async ({ page })
     'Home',
     'My venues',
     'My submissions',
-    'Billing',
+    'Plan and billing',
     'Notifications',
   ]);
   await page.goto('/account');

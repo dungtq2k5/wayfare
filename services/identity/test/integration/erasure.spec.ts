@@ -1,5 +1,6 @@
 // Erasure (api-endpoints-plan §1.3, rdm-spec I-1): the refusals, everything one transaction changes,
 // what it keeps, and the address freed for a new account.
+import { identityGrpc } from '@wayfare/contracts/grpc';
 import {
   AUDIT_RECORD,
   AuditAction,
@@ -149,7 +150,10 @@ describe('the erasure', () => {
       where: { id: userId },
       data: { fullName: 'Ann Lee', emailBouncedAt: new Date() },
     });
-    await services.passwords.requestPasswordReset({ email }, buildAnonymousContext());
+    await services.passwords.requestPasswordReset(
+      { email, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      buildAnonymousContext(),
+    );
     await services.dispatcher.idle();
     await prisma.notification.create({
       data: {

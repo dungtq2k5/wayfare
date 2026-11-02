@@ -1,14 +1,15 @@
 'use client';
 
 import { loginBodySchema } from '@wayfare/contracts';
-import { authGoogleSignIn, authLogin } from '@wayfare/api-client';
+import { authLogin } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { Field, FormAlert, Input, PasswordInput } from '@wayfare/ui/field';
 import { Card } from '@wayfare/ui/surfaces';
 import { Info } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { completeSignIn } from '../../../auth/complete-sign-in';
+import { GoogleLinkStep, useGoogleContinue } from '../../../auth/google-link';
 import { GoogleSignIn } from '../../../auth/google-sign-in';
 import { clearPageCookie, SIGNED_IN_MARKER } from '../../../client/cookies';
 import { errorText } from '../../../client/errors';
@@ -26,12 +27,13 @@ export type SignInNotice = 'signedOut' | 'reset' | 'recovered' | null;
 
 export function SignInForm({ next, notice }: { next: string | null; notice: SignInNotice }) {
   const translator = useConsole();
-  const { t, locale } = translator;
+  const { t } = translator;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fields, setFields] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
-  const [busy, setBusy] = useState<'password' | 'google' | null>(null);
+  const [busy, setBusy] = useState<'password' | null>(null);
+  const google = useGoogleContinue(next);
   // A second press before the first re-renders must not send again (edge flow 1).
   const sending = useRef(false);
 
@@ -57,23 +59,9 @@ export function SignInForm({ next, notice }: { next: string | null; notice: Sign
     }
   };
 
-  const google = useCallback(
-    async (idToken: string) => {
-      setBusy('google');
-      setAlert(null);
-      try {
-        const { data } = await authGoogleSignIn(
-          { idToken, preferredLocale: locale },
-          { anonymous: true },
-        );
-        completeSignIn(data.user, next);
-      } catch (error) {
-        setAlert(errorText(error, translator));
-        setBusy(null);
-      }
-    },
-    [locale, next, translator],
-  );
+  if (google.ticket !== null) {
+    return <GoogleLinkStep ticket={google.ticket} next={next} onExpired={google.expire} />;
+  }
 
   return (
     <Card className="flex flex-col gap-4">
@@ -94,7 +82,7 @@ export function SignInForm({ next, notice }: { next: string | null; notice: Sign
               : t('recovery.done')}
         </p>
       )}
-      {alert === null ? null : <FormAlert>{alert}</FormAlert>}
+      {(alert ?? google.alert) === null ? null : <FormAlert>{alert ?? google.alert}</FormAlert>}
       <form
         noValidate
         className="flex flex-col gap-4"
@@ -130,7 +118,7 @@ export function SignInForm({ next, notice }: { next: string | null; notice: Sign
         <Button
           type="submit"
           busy={busy === 'password' ? t('signIn.busy') : undefined}
-          disabled={busy !== null}
+          disabled={busy !== null || google.busy}
         >
           {t('signIn.submit')}
         </Button>
@@ -146,7 +134,7 @@ export function SignInForm({ next, notice }: { next: string | null; notice: Sign
         {t('signIn.or')}
         <span aria-hidden className="flex-1 border-t border-border" />
       </div>
-      <GoogleSignIn onCredential={google} disabled={busy !== null} />
+      <GoogleSignIn onCredential={google.onCredential} disabled={busy !== null || google.busy} />
       <p className="text-xs text-muted-foreground">{t('signIn.googleNote')}</p>
       <p className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-4 text-sm text-foreground">
         {t('signIn.registerLead')}

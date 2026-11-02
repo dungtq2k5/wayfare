@@ -3,6 +3,8 @@ syntax = "proto3";
 // Address verification and change, with the revert — api-endpoints-plan §1.2, ADR 0052.
 package wayfare.identity;
 
+import "wayfare/identity/auth.proto";
+
 // The caller travels as metadata; link routes carry only their token.
 service EmailChangeService {
   rpc RequestEmailVerification(RequestEmailVerificationRequest) returns (RequestEmailVerificationResponse);
@@ -12,7 +14,10 @@ service EmailChangeService {
   rpc RevertEmailChange(RevertEmailChangeRequest) returns (RevertEmailChangeResponse);
 }
 
-message RequestEmailVerificationRequest {}
+message RequestEmailVerificationRequest {
+  // Where the request was made: a console request's link opens the console (api-endpoints-plan §1.2).
+  SessionClient client = 1;
+}
 
 message RequestEmailVerificationResponse {}
 

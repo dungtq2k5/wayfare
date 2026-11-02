@@ -31,9 +31,12 @@ export const STACK_PRICES: readonly ProviderPrice[] = [
   price({ id: 'price_testOtherProduct', productId: 'prod_test_other' }),
 ];
 
-/** The fake Stripe of a local or CI stack (`PAYMENTS_PROVIDER=fake`), its prices seeded. */
-export function stackFakePayments(): FakePaymentsProvider {
-  const fake = new FakePaymentsProvider();
+/**
+ * The fake Stripe of a local or CI stack (`PAYMENTS_PROVIDER=fake`), its prices seeded; its
+ * Checkout and portal open the console's fake pages under `consoleUrl`.
+ */
+export function stackFakePayments(consoleUrl?: string): FakePaymentsProvider {
+  const fake = new FakePaymentsProvider(consoleUrl);
   for (const row of STACK_PRICES) fake.prices.set(row.id, row);
   return fake;
 }

@@ -59,6 +59,7 @@ export function FieldCard({
   photoSource,
   mapStyle,
   note,
+  changesOnly = false,
 }: {
   field: SubmissionEditableField;
   columns: readonly DiffColumn[];
@@ -66,6 +67,8 @@ export function FieldCard({
   photoSource: PhotoSource;
   mapStyle: string | null;
   note?: ReactNode;
+  /** Only what changes: an owner's proposal lists no dish it leaves as it is. */
+  changesOnly?: boolean;
 }) {
   const { t, tDynamic } = useConsole();
   const heading = tDynamic(`field.${field}`);
@@ -87,7 +90,13 @@ export function FieldCard({
           <ChangeChip change="changed">{t('change.changed')}</ChangeChip>
         ) : null}
       </div>
-      <FieldBody field={field} columns={columns} photoSource={photoSource} mapStyle={mapStyle} />
+      <FieldBody
+        field={field}
+        columns={columns}
+        photoSource={photoSource}
+        mapStyle={mapStyle}
+        changesOnly={changesOnly}
+      />
       {note === undefined ? null : <p className="text-xs text-muted-foreground">{note}</p>}
     </Card>
   );
@@ -98,11 +107,13 @@ function FieldBody({
   columns,
   photoSource,
   mapStyle,
+  changesOnly,
 }: {
   field: SubmissionEditableField;
   columns: readonly DiffColumn[];
   photoSource: PhotoSource;
   mapStyle: string | null;
+  changesOnly: boolean;
 }) {
   switch (field) {
     case 'openingHours':
@@ -113,7 +124,7 @@ function FieldBody({
         <HoursDiff columns={columns} />
       );
     case 'menu':
-      return <MenuDiff columns={columns} />;
+      return <MenuDiff columns={columns} changesOnly={changesOnly} />;
     case 'photos':
       return <PhotosDiff columns={columns} photoSource={photoSource} />;
     case 'location':
@@ -364,7 +375,13 @@ function HoursDiff({ columns }: { columns: readonly DiffColumn[] }) {
   );
 }
 
-function MenuDiff({ columns }: { columns: readonly DiffColumn[] }) {
+function MenuDiff({
+  columns,
+  changesOnly,
+}: {
+  columns: readonly DiffColumn[];
+  changesOnly: boolean;
+}) {
   const { t } = useConsole();
   const dishes = (value: unknown) =>
     new Map(((value as { items?: Dish[] } | null)?.items ?? []).map((dish) => [dish.nameVi, dish]));
@@ -382,6 +399,14 @@ function MenuDiff({ columns }: { columns: readonly DiffColumn[] }) {
       {names.map((name) => {
         const was = before.get(name);
         const now = after.get(name);
+        if (
+          changesOnly &&
+          columns.length > 1 &&
+          was !== undefined &&
+          now !== undefined &&
+          was.priceMinor === now.priceMinor
+        )
+          return null;
         const change =
           columns.length === 1
             ? null

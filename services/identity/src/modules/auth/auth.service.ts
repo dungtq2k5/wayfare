@@ -39,6 +39,7 @@ import { AccessService } from '../access/access.service';
 import { auditRecord } from '../audit/domain/audit-record';
 import { AccountLinksService } from '../account-links/account-links.service';
 import { DevicesService } from '../devices/devices.service';
+import { linkAppOf } from '../email/email.service';
 import { EmailChangeService } from '../email-change/email-change.service';
 import { EmailDispatcher } from '../email/email.module';
 import { LegalService } from '../legal/legal.service';
@@ -164,6 +165,7 @@ export class AuthService {
           user,
           context.origin,
           now,
+          linkAppOf(request.client),
         );
         return {
           session: (await this.signIn(tx, user, client, context, now)).session,

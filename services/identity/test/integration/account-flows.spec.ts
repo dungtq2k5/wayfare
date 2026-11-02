@@ -62,7 +62,8 @@ describe('verification', () => {
     const { email, userId } = await account();
     const { mail, token } = await lastMail(email);
     expect(mail.subject).toBe('Confirm your email address');
-    expect(mail.text).toContain('http://web.localhost/verify-email#token=');
+    // Asked for in the console, so it opens the console — a new account isn't an owner yet.
+    expect(mail.text).toContain('http://console.localhost/verify-email#token=');
     await prisma.user.update({ where: { id: userId }, data: { emailBouncedAt: new Date() } });
     // Opened where that account is signed in: the answer says so, and names the address masked.
     expect(await emailChange.verifyEmail({ token }, buildAccountContext({ userId }))).toEqual({
@@ -78,10 +79,35 @@ describe('verification', () => {
     );
   });
 
+  it('a mail asked for elsewhere follows the recipient: a new account opens the web app', async () => {
+    const { email, session } = await registerAccount(services, { client: CLIENT.web });
+    expect((await lastMail(email)).mail.text).toContain('http://web.localhost/verify-email#token=');
+    const userId = session.user!.id;
+    const context = buildAccountContext({
+      userId,
+      sessionId: claimsOf(session.accessToken).sid as string,
+    });
+    await emailChange.requestEmailVerification({ client: CLIENT.console }, context);
+    expect((await lastMail(email)).mail.text).toContain(
+      'http://console.localhost/verify-email#token=',
+    );
+    await passwords.requestPasswordReset({ email, client: CLIENT.console }, anonymous);
+    expect((await lastMail(email)).mail.text).toContain(
+      'http://console.localhost/reset-password#token=',
+    );
+    await passwords.requestPasswordReset({ email, client: CLIENT.web }, anonymous);
+    expect((await lastMail(email)).mail.text).toContain(
+      'http://web.localhost/reset-password#token=',
+    );
+  });
+
   it('a re-send supersedes the first link; a verified account gets nothing', async () => {
     const { email, context } = await account();
     const first = await lastMail(email);
-    await emailChange.requestEmailVerification(context);
+    await emailChange.requestEmailVerification(
+      { client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      context,
+    );
     const second = await lastMail(email);
     expect(second.token).not.toBe(first.token);
     expect((await errorOf(emailChange.verifyEmail({ token: first.token }, anonymous))).code).toBe(
@@ -89,7 +115,10 @@ describe('verification', () => {
     );
     await emailChange.verifyEmail({ token: second.token }, anonymous);
     const before = mailbox.sent.length;
-    await emailChange.requestEmailVerification(context);
+    await emailChange.requestEmailVerification(
+      { client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      context,
+    );
     await dispatcher.idle();
     expect(mailbox.sent).toHaveLength(before);
   });
@@ -99,11 +128,17 @@ describe('password reset', () => {
   it('forgot answers the same for a known and an unknown address, and mails only the known one', async () => {
     const { email } = await account();
     mailbox.reset();
-    expect(await passwords.requestPasswordReset({ email: email.toUpperCase() }, anonymous)).toEqual(
-      {},
-    );
     expect(
-      await passwords.requestPasswordReset({ email: 'nobody@example.com' }, anonymous),
+      await passwords.requestPasswordReset(
+        { email: email.toUpperCase(), client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+        anonymous,
+      ),
+    ).toEqual({});
+    expect(
+      await passwords.requestPasswordReset(
+        { email: 'nobody@example.com', client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+        anonymous,
+      ),
     ).toEqual({});
     await dispatcher.idle();
     expect(mailbox.sent.map((mail) => mail.to)).toEqual([email]);
@@ -119,7 +154,10 @@ describe('password reset', () => {
 
   it('validates, resets once, revokes every session and stamps the credentials', async () => {
     const { email, userId } = await account();
-    await passwords.requestPasswordReset({ email }, anonymous);
+    await passwords.requestPasswordReset(
+      { email, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      anonymous,
+    );
     const { token } = await lastMail(email, /Reset/);
     expect(await passwords.validateResetToken({ token }, anonymous)).toEqual({
       purpose: identityGrpc.ActionTokenPurpose.ACTION_TOKEN_PURPOSE_PASSWORD_RESET,
@@ -161,14 +199,20 @@ describe('password reset', () => {
 
   it("a deactivated account's reset link is dead, and forgot sends it nothing", async () => {
     const { email, userId } = await account();
-    await passwords.requestPasswordReset({ email }, anonymous);
+    await passwords.requestPasswordReset(
+      { email, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      anonymous,
+    );
     const { token } = await lastMail(email, /Reset/);
     await prisma.user.update({ where: { id: userId }, data: { deletedAt: new Date() } });
     expect((await errorOf(passwords.validateResetToken({ token }, anonymous))).code).toBe(
       'TOKEN_EXPIRED',
     );
     mailbox.reset();
-    await passwords.requestPasswordReset({ email }, anonymous);
+    await passwords.requestPasswordReset(
+      { email, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      anonymous,
+    );
     await dispatcher.idle();
     expect(mailbox.sent).toHaveLength(0);
   });
@@ -206,7 +250,10 @@ describe('staff setup', () => {
 
   it("a reset never changes the account's language", async () => {
     const { email, userId } = await account();
-    await passwords.requestPasswordReset({ email }, anonymous);
+    await passwords.requestPasswordReset(
+      { email, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      anonymous,
+    );
     const { token } = await lastMail(email, /Reset/);
     await passwords.completePasswordReset(
       { token, newPassword: NEW_PASSWORD, preferredLocale: 'vi' },
@@ -236,7 +283,10 @@ describe('password change', () => {
   it('needs the current password, keeps this session, ends the others and kills reset links', async () => {
     const { email, userId, familyId, context } = await account();
     await login(email, PASSWORD); // a second family
-    await passwords.requestPasswordReset({ email }, anonymous);
+    await passwords.requestPasswordReset(
+      { email, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      anonymous,
+    );
     const reset = await lastMail(email, /Reset/);
     expect(
       (
@@ -267,7 +317,10 @@ describe('password change', () => {
 describe('address change and revert', () => {
   it('confirms, kills the old inbox links, notices the old address, and reverts', async () => {
     const { email: oldAddress, userId, context } = await account();
-    await passwords.requestPasswordReset({ email: oldAddress }, anonymous);
+    await passwords.requestPasswordReset(
+      { email: oldAddress, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      anonymous,
+    );
     const staleReset = await lastMail(oldAddress, /Reset/);
     const newAddress = freshEmail();
 
@@ -399,7 +452,10 @@ describe('address change and revert', () => {
 describe('delivery history', () => {
   it('lists an account’s mail newest first, and checks a claimed address with an audit row', async () => {
     const { email, userId } = await account();
-    await passwords.requestPasswordReset({ email }, anonymous);
+    await passwords.requestPasswordReset(
+      { email, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      anonymous,
+    );
     await dispatcher.idle();
     const admin = await staffAccount(prisma, [SystemRole.ADMIN]);
     const { deliveries, page } = await adminUsers.listEmailDeliveries(

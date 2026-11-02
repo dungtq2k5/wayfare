@@ -19,7 +19,7 @@ import { StripeWebhookVerifier } from '../../providers/payments/stripe-webhook.v
       inject: [ConfigService],
       useFactory: (config: BillingConfig) =>
         config.get('PAYMENTS_PROVIDER', { infer: true }) === 'fake'
-          ? stackFakePayments()
+          ? stackFakePayments(config.get('CONSOLE_URL', { infer: true }))
           : new StripePaymentsProvider(config.get('STRIPE_SECRET_KEY', { infer: true })),
     },
     StripeWebhookVerifier,

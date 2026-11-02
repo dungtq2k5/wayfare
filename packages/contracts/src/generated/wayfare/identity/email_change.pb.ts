@@ -8,10 +8,13 @@
 import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
+import { SessionClient } from "./auth.pb";
 
 export const protobufPackage = "wayfare.identity";
 
 export interface RequestEmailVerificationRequest {
+  /** Where the request was made: a console request's link opens the console (api-endpoints-plan §1.2). */
+  client: SessionClient;
 }
 
 export interface RequestEmailVerificationResponse {

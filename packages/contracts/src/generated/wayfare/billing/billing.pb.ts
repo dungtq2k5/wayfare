@@ -86,6 +86,8 @@ export interface GetOverviewResponse {
   usagePlaces?: number | undefined;
   usageBoostsLive: number;
   pinned: boolean;
+  /** The plan's own grants: beside `entitlements`, what a pin set by hand. */
+  planGrants: Entitlements | undefined;
 }
 
 export interface ListPurchasablePlansRequest {

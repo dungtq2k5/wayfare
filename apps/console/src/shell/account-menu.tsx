@@ -26,10 +26,10 @@ import { THEMES, themeOf } from '../theme';
 import { initialOf, useMe } from './me';
 
 /** Signs this browser out (C11a): the session's cookies go, and so does the marker. */
-export async function signOut(): Promise<void> {
+export async function signOut(to = '/sign-in'): Promise<void> {
   await authLogout({}, { anonymous: true }).catch(() => undefined);
   clearPageCookie(SIGNED_IN_MARKER);
-  window.location.assign('/sign-in');
+  window.location.assign(to);
 }
 
 /**

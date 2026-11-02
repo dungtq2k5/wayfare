@@ -1,9 +1,11 @@
 import { Body, Controller, HttpCode, HttpStatus, Patch, Post, Res } from '@nestjs/common';
+import type { WayfareClient } from '@wayfare/contracts';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ApiEnvelope,
   ApiErrors,
   Auth,
+  ClientKind,
   Ctx,
   NoStore,
   RateLimit,
@@ -38,8 +40,12 @@ export class PasswordController {
   @NoStore()
   @ApiOperation({ summary: 'Email a reset link when the account exists. Always 202.' })
   @ApiEnvelope(null, { status: HttpStatus.ACCEPTED })
-  async forgot(@Ctx() context: RequestContext, @Body() body: ForgotPasswordDto): Promise<void> {
-    await this.passwords.forgot(context, body);
+  async forgot(
+    @Ctx() context: RequestContext,
+    @ClientKind() client: WayfareClient,
+    @Body() body: ForgotPasswordDto,
+  ): Promise<void> {
+    await this.passwords.forgot(context, client, body);
   }
 
   @Post('reset/validate')

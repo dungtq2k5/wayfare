@@ -46,7 +46,14 @@ export interface Submission {
   categoryCodeOverride?: string | undefined;
   decisionNote?: string | undefined;
   submittedAt: Timestamp | undefined;
-  reviewedAt: Timestamp | undefined;
+  reviewedAt:
+    | Timestamp
+    | undefined;
+  /**
+   * `SubmissionDiff` — its base against the payload, as JSON — on the owner's single reads; unset
+   * on the list's rows.
+   */
+  diffJson?: string | undefined;
 }
 
 /** A submission as a reviewer sees it. */

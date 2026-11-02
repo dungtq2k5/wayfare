@@ -158,17 +158,13 @@ const STAFF: readonly NavGroup[] = [
   },
 ];
 
-/** Where an applicant's *Your business* stands until their registration is approved (round 36). */
+/**
+ * Where an applicant's *Your business* stands until their registration is approved: no permission
+ * gates it, since an applicant holds none — the ownership shows it (K1).
+ */
 const REGISTRATION: NavGroup = {
   label: 'nav.group.business',
-  items: [
-    {
-      href: '/owner/registration',
-      label: 'registration.soonTitle',
-      icon: 'store',
-      anyOf: ['owner.access'],
-    },
-  ],
+  items: [{ href: '/owner/registration', label: 'nav.yourRegistration', icon: 'store', anyOf: [] }],
 };
 
 /** *Home*, always there. */
@@ -183,6 +179,21 @@ export const NAV_ITEMS: readonly NavItem[] = [
 
 /** Whether the account is a venue owner: verified, applying, or neither (`/users/me`'s `owner`). */
 export type Ownership = 'verified' | 'applicant' | null;
+
+/**
+ * An account's ownership in the console (K1): a verified owner; an *applicant* — one that has
+ * applied, or holds no staff permission at all (a new account, a tourist), whose console is Home
+ * and its registration; else staff, who never applied.
+ */
+export function ownershipOf(me: {
+  readonly owner: unknown;
+  readonly ownerVerified: boolean;
+  readonly permissions: readonly string[];
+}): Ownership {
+  if (me.ownerVerified) return 'verified';
+  const staff = me.permissions.some((code) => code !== 'owner.access');
+  return me.owner !== null || !staff ? 'applicant' : null;
+}
 
 /**
  * The navigation a permission set shows (K5): an item without its permission is absent, not greyed
@@ -200,7 +211,9 @@ export function navigationFor(
   return [...business, ...STAFF]
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => item.anyOf.some((code) => held.has(code))),
+      items: group.items.filter(
+        (item) => item.anyOf.length === 0 || item.anyOf.some((code) => held.has(code)),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 }

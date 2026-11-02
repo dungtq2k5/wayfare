@@ -57,6 +57,7 @@ export const ADMIN_PLACE_SELECT = {
   phone: true,
   websiteUrl: true,
   status: true,
+  statusChangedAt: true,
   inactiveReason: true,
   activationRequestedAt: true,
   publishedAt: true,
@@ -213,6 +214,7 @@ export function toAdminPlace(
     createdById: row.createdById,
     createdAt: toProtoTimestamp(row.createdAt),
     updatedAt: toProtoTimestamp(row.updatedAt),
+    statusChangedAt: toProtoTimestamp(row.statusChangedAt),
     deletedAt: row.deletedAt === null ? undefined : toProtoTimestamp(row.deletedAt),
     ...(row.deletedById === null ? {} : { deletedById: row.deletedById }),
     localizations: row.localizations.map((localization) => ({

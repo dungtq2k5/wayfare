@@ -503,3 +503,103 @@ export const useOwnerPlacesReactivate = <TError = unknown,
       > => {
       return useMutation(getOwnerPlacesReactivateMutationOptions(options), queryClient);
     }
+    export const getOwnerPlacesQrUrl = (id: string,) => {
+
+
+
+
+  return `/owner/places/${id}/qr`
+}
+
+/**
+ * @summary A print-ready SVG of the owner's own Venue's QR sticker.
+ */
+export const ownerPlacesQr = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<Blob> => {
+
+  return apiFetch<Blob>(getOwnerPlacesQrUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getOwnerPlacesQrQueryKey = (id: string,) => {
+    return [
+    `/owner/places/${id}/qr`
+    ] as const;
+    }
+
+
+export const getOwnerPlacesQrQueryOptions = <TData = Awaited<ReturnType<typeof ownerPlacesQr>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof ownerPlacesQr>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getOwnerPlacesQrQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof ownerPlacesQr>>> = ({ signal }) => ownerPlacesQr(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof ownerPlacesQr>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OwnerPlacesQrQueryResult = NonNullable<Awaited<ReturnType<typeof ownerPlacesQr>>>
+export type OwnerPlacesQrQueryError = unknown
+
+
+export function useOwnerPlacesQr<TData = Awaited<ReturnType<typeof ownerPlacesQr>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof ownerPlacesQr>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof ownerPlacesQr>>,
+          TError,
+          Awaited<ReturnType<typeof ownerPlacesQr>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOwnerPlacesQr<TData = Awaited<ReturnType<typeof ownerPlacesQr>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof ownerPlacesQr>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof ownerPlacesQr>>,
+          TError,
+          Awaited<ReturnType<typeof ownerPlacesQr>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOwnerPlacesQr<TData = Awaited<ReturnType<typeof ownerPlacesQr>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof ownerPlacesQr>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary A print-ready SVG of the owner's own Venue's QR sticker.
+ */
+
+export function useOwnerPlacesQr<TData = Awaited<ReturnType<typeof ownerPlacesQr>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof ownerPlacesQr>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getOwnerPlacesQrQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+

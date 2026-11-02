@@ -5,10 +5,26 @@ import type { ReactNode } from 'react';
 import { Card, CardTitle } from './surfaces';
 
 /** One of a form page's sections: a card with its title (P3). */
-export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+export function FormSection({
+  title,
+  badge,
+  children,
+}: {
+  title: string;
+  /** Beside the title: round 34's *Changed* chip on an owner's edit. */
+  badge?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <Card className="flex flex-col gap-4">
-      <CardTitle>{title}</CardTitle>
+      {badge === undefined || badge === null ? (
+        <CardTitle>{title}</CardTitle>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>{title}</CardTitle>
+          {badge}
+        </div>
+      )}
       {children}
     </Card>
   );

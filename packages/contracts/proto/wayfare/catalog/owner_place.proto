@@ -37,6 +37,8 @@ message OwnerPlace {
   repeated LocalizationReadiness localizations = 9;
   PendingSubmissionRef pending_submission = 10;
   google.protobuf.Timestamp updated_at = 11;
+  // The status's last change: "since" on the list.
+  google.protobuf.Timestamp status_changed_at = 12;
 }
 
 message ListMyPlacesRequest {}

@@ -269,4 +269,25 @@ describe('/owner/places', () => {
     const res = await call('post', `/owner/places/${place.id}/reactivate`, owner());
     expect(res.status).toBe(409);
   });
+
+  it("prints the owner's own Venue's QR sticker, and no one else's", async () => {
+    const place = adminPlaceFixture();
+    gateway.catalog.ownerPlaces.handlers.getMyPlace = () =>
+      Promise.resolve({ place, editableHash: 'b'.repeat(64), pendingSubmission: undefined });
+    gateway.catalog.placeAdmin.handlers.getPlaceQr = () =>
+      Promise.resolve({ svg: '<svg xmlns="http://www.w3.org/2000/svg"/>', publicCode: 'K7M2Q9XA' });
+    const qr = await call('get', `/owner/places/${place.id}/qr`, owner());
+    expect(qr.status).toBe(200);
+    expect(qr.headers['content-type']).toContain('image/svg+xml');
+    gateway.catalog.ownerPlaces.handlers.getMyPlace = () =>
+      Promise.reject(
+        serviceError(status.NOT_FOUND, {
+          'wf-error-code': 'RESOURCE_NOT_FOUND',
+          'wf-error-details': JSON.stringify({ resource: 'PLACE' }),
+        }),
+      );
+    gateway.catalog.placeAdmin.calls.length = 0;
+    expect((await call('get', `/owner/places/${place.id}/qr`, owner())).status).toBe(404);
+    expect(gateway.catalog.placeAdmin.calls).toHaveLength(0);
+  });
 });

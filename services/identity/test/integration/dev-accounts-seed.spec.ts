@@ -1,4 +1,5 @@
 // identity's development seed (ADR 0002): idempotent, and its seed editor unreachable.
+import { identityGrpc } from '@wayfare/contracts/grpc';
 import { compareStrings, SystemRole } from '@wayfare/contracts';
 import { SEED_EDITOR_EMAIL, SEED_EDITOR_USER_ID } from '@wayfare/contracts/testing';
 import { buildAnonymousContext } from '@wayfare/nest-common/testing';
@@ -66,7 +67,10 @@ describe('seed:dev (identity)', () => {
   it('a password reset for the seed editor mints nothing and sends nothing', async () => {
     await seedDevAccounts(prisma, { password: null });
     mailbox.reset();
-    await passwords.requestPasswordReset({ email: SEED_EDITOR_EMAIL }, buildAnonymousContext());
+    await passwords.requestPasswordReset(
+      { email: SEED_EDITOR_EMAIL, client: identityGrpc.SessionClient.SESSION_CLIENT_WEB },
+      buildAnonymousContext(),
+    );
     await dispatcher.idle();
     expect(mailbox.sent).toHaveLength(0);
     expect(await prisma.actionToken.count({ where: { userId: SEED_EDITOR_USER_ID } })).toBe(0);

@@ -4,6 +4,7 @@ import { zEmail } from './email';
 import {
   MAX_FULL_NAME_LENGTH,
   MAX_PASSWORD_LENGTH,
+  MAX_POLICY_VERSION_LENGTH,
   MAX_REFRESH_TOKEN_LENGTH,
   MIN_PASSWORD_LENGTH,
 } from './limits';
@@ -18,6 +19,17 @@ export const zNewPassword = z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD
 
 /** A name the person types; blank is not a name. */
 export const zFullName = z.string().trim().min(1).max(MAX_FULL_NAME_LENGTH);
+
+/** `POST /auth/register` (api-endpoints-plan §1.2). */
+export const registerBodySchema = z
+  .object({
+    email: zEmail,
+    password: zNewPassword,
+    fullName: zFullName.optional(),
+    preferredLocale: zLanguage,
+    termsVersion: z.string().trim().min(1).max(MAX_POLICY_VERSION_LENGTH),
+  })
+  .strict();
 
 /** `POST /auth/login`. A short password is simply wrong — only the upper bound is checked. */
 export const loginBodySchema = z

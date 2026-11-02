@@ -223,6 +223,7 @@ export function adminPlaceFixture(overrides: Partial<AdminPlace> = {}): AdminPla
     createdById: FIXTURE_IDS.user,
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
+    statusChangedAt: FIXTURE_TIMESTAMP,
     deletedAt: undefined,
     deletedById: undefined,
     localizations: [],

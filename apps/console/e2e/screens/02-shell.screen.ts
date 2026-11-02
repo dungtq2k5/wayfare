@@ -1,7 +1,7 @@
 // The shell and Home (round 33's C6–C11): each person's navigation, the drawer, the bell's panel,
 // the account menu and the account page.
 import { expect, test } from '@playwright/test';
-import { Actor, resetRateLimits } from '../support/stack';
+import { Actor, mailTo, resetRateLimits } from '../support/stack';
 import { apply, PASSWORD, verifiedUser } from '../support/people';
 import { look } from './look';
 import { as, continueWithGoogle } from './people';
@@ -55,8 +55,23 @@ test('C10b notifications, empty', async ({ page }) => {
 
 test('C10c a notification arriving', async ({ page }) => {
   const email = 'vy.tran@example.com';
-  const applicant = await verifiedUser(email);
-  const registration = await apply(applicant, 'Bún Vy');
+  // A sign-up that timed out on a loaded machine may still have made the account: it is verified
+  // from its mail instead, and an application it already sent is the one used.
+  const applicant = await verifiedUser(email).catch(async () => {
+    const signedIn = new Actor();
+    await signedIn.signIn(email, PASSWORD);
+    await signedIn.call('POST', '/auth/email/verify/request', {});
+    const { token } = await mailTo(email, /Confirm your email/);
+    await signedIn.call('POST', '/auth/email/verify', { token }, [200, 201, 202, 204, 401, 409]);
+    await signedIn.call('POST', '/auth/refresh', {});
+    return signedIn;
+  });
+  const { data: sent } = await applicant.call<{ data: { id: string; status: string }[] }>(
+    'GET',
+    '/owner/registration',
+  );
+  const registration =
+    sent.find((row) => row.status === 'PENDING')?.id ?? (await apply(applicant, 'Bún Vy'));
   // The arrival's outline fades after 2 s, and the captures (light, dark, axe) take longer: that one
   // timer is held, so every capture draws the outline.
   await page.addInitScript(() => {

@@ -166,6 +166,17 @@ describe('the other Google routes', () => {
     expect(gateway.identity.auth.calls.at(-1)?.request).toEqual({ linkTicket: 't' });
   });
 
+  it('link in a console session, which has no device: identity matches the ticket to it', async () => {
+    gateway.identity.auth.handlers.googleLink = () => Promise.resolve({});
+    const res = await request(server())
+      .post('/api/v1/auth/google/link')
+      .set('X-Wayfare-Client', 'console')
+      .set('Cookie', `wf_at=${accountToken()}`)
+      .send({ linkTicket: 't' });
+    expect(res.status).toBe(204);
+    expect(gateway.identity.auth.calls.at(-1)?.request).toEqual({ linkTicket: 't' });
+  });
+
   it('take exactly one of the password and a confirmation where a password is asked', async () => {
     gateway.identity.auth.handlers.unlinkGoogle = () => Promise.resolve({});
     const phone = accountToken({ deviceId: newId() });

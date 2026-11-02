@@ -86,6 +86,7 @@ export function toBillingOverview(overview: billingGrpc.GetOverviewResponse): Bi
     entitlements: toEntitlements(overview.entitlements),
     usage: { places: overview.usagePlaces ?? null, boostsLive: overview.usageBoostsLive },
     pinned: overview.pinned,
+    planGrants: toEntitlements(overview.planGrants),
   };
 }
 

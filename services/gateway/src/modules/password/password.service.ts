@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { SessionResponder } from '@wayfare/nest-common';
 import type { AccountContext, RequestContext } from '@wayfare/nest-common';
 import type { Response } from 'express';
+import type { WayfareClient } from '@wayfare/contracts';
+import { toSessionClient } from '../auth/session.mapper';
 import { IdentityServiceGrpcClient } from '../identity/identity-service-grpc.client';
 import type { ResetLinkResponseDto } from './dto/password-response.dto';
 import type {
@@ -20,8 +22,17 @@ export class PasswordService {
     private readonly responder: SessionResponder,
   ) {}
 
-  async forgot(context: RequestContext, body: ForgotPasswordDto): Promise<void> {
-    await this.identity.passwords.call('requestPasswordReset', { email: body.email }, context);
+  /** A console request's link opens the console (api-endpoints-plan §1.2). */
+  async forgot(
+    context: RequestContext,
+    client: WayfareClient,
+    body: ForgotPasswordDto,
+  ): Promise<void> {
+    await this.identity.passwords.call(
+      'requestPasswordReset',
+      { email: body.email, client: toSessionClient(client) },
+      context,
+    );
   }
 
   async validate(context: RequestContext, body: LinkTokenDto): Promise<ResetLinkResponseDto> {

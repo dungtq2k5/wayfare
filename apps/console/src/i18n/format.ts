@@ -37,6 +37,15 @@ export function formatPhone(e164: string): string {
   return parts.join(' ');
 }
 
+/**
+ * A phone number as typed — "090 812 3456", "028.3940.1234", "+84 90…" — in E.164, as the API
+ * stores it: a leading 0 is Vietnam's. Anything else is left for the schema to refuse.
+ */
+export function toE164(typed: string): string {
+  const compact = typed.replace(/[\s.()-]/g, '');
+  return compact.startsWith('0') ? `+84${compact.slice(1)}` : compact;
+}
+
 /** A narration's length: "2:14". */
 export function formatDuration(ms: number): string {
   const seconds = Math.round(ms / 1000);

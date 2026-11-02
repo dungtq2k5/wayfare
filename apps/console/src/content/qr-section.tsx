@@ -9,8 +9,8 @@ import { Section } from './place-sections';
 import { printedCode } from './words';
 
 /** The sticker's SVG, as the API prints it; the route answers an image, not JSON. */
-async function stickerSvg(placeId: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/admin/places/${placeId}/qr`, {
+async function stickerSvg(path: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: 'include',
     headers: { 'x-wayfare-client': 'console' },
   });
@@ -26,15 +26,18 @@ export function QrSection({
   placeId,
   name,
   code,
+  src = `/admin/places/${placeId}/qr`,
 }: {
   placeId: string;
   name: string;
   code: string;
+  /** The sticker's route: the admin's, or the owner's own (round 36). */
+  src?: string;
 }) {
   const { t } = useConsole();
   const svg = useQuery({
     queryKey: ['place-qr', placeId],
-    queryFn: () => stickerSvg(placeId),
+    queryFn: () => stickerSvg(src),
     staleTime: Infinity,
   });
   const printed = printedCode(code);

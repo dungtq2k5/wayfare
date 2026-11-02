@@ -18,6 +18,7 @@ import type {
   WebhookItem,
   WebhookQueue,
 } from '../../src/modules/webhook-queue/webhook-queue.module';
+import { FakeCheckoutService } from '../../src/modules/fake-checkout/fake-checkout.service';
 import { WebhooksService } from '../../src/modules/webhooks/webhooks.service';
 import { FakePaymentsProvider } from '../../src/providers/payments/fake.payments-provider';
 import { StripeWebhookVerifier } from '../../src/providers/payments/stripe-webhook.verifier';
@@ -123,6 +124,7 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
     redis,
     entitlements,
     webhooks,
+    fakeCheckout: new FakeCheckoutService(prisma, payments, webhooks, config),
     reconcile: new BillingAccountsReconcileJob(
       prisma,
       identityClient,

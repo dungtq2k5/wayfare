@@ -35,6 +35,7 @@ export function toOwnerPlaceResponseDto(place: catalogGrpc.OwnerPlace): OwnerPla
         ? null
         : known(placeInactiveReasonProto, place.inactiveReason, 'inactiveReason'),
     autoNarration: place.autoNarration,
+    statusChangedAt: fromProtoTimestamp(place.statusChangedAt, 'statusChangedAt').toISOString(),
     boosted: null,
     cover: place.cover == null ? null : toPhotoView(place.cover),
     localizations: place.localizations.map((localization) => ({

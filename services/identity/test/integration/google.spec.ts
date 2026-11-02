@@ -230,6 +230,42 @@ describe('continuing with Google', () => {
     expect(outcome(again.answer.outcome)).toBe('GOOGLE_OUTCOME_SIGNED_IN');
   });
 
+  it('links from the console: its ticket binds to no device, and its session spends it', async () => {
+    const email = freshEmail();
+    const { session } = await registerAccount(services, { email });
+    const { nonce } = await google.nonce({ binding: 'this-browser' }, anonymous);
+    const { idToken } = google.mintFake({
+      email,
+      sub: 'g-console',
+      emailVerified: true,
+      nonce,
+    });
+    const refused = await errorOf(
+      google.signIn(
+        { idToken, preferredLocale: 'en', client: CLIENT.console, binding: 'this-browser' },
+        anonymous,
+      ),
+    );
+    expect(refused.code).toBe('GOOGLE_LINK_NEEDS_PASSWORD');
+    const ticket = (refused.details as { linkTicket: string }).linkTicket;
+    // The password through the console's sign-in, then the link from that session (no device).
+    const signedIn = await auth.login(
+      { email, password: PASSWORD, client: CLIENT.console },
+      anonymous,
+    );
+    const context = buildAccountContext({
+      userId: session.user!.id,
+      sessionId: claimsOf(signedIn.session!.accessToken).sid as string,
+    });
+    // A phone can't spend a console ticket.
+    expect(
+      (await errorOf(google.link({ linkTicket: ticket }, { ...context, deviceId: 'a-phone' })))
+        .code,
+    ).toBe('CONFIRMATION_EXPIRED');
+    await google.link({ linkTicket: ticket }, context);
+    expect(await linkOf(session.user!.id)).toMatchObject({ subject: 'g-console' });
+  });
+
   it('refuses closed, locked, reserved, already-linked and staff accounts', async () => {
     const closed = await staffAccount(prisma, [SystemRole.USER], { deletedAt: new Date() });
     const closedEmail = (await prisma.user.findUniqueOrThrow({ where: { id: closed.id } })).email;

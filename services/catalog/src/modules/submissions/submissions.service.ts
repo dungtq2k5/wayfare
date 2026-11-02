@@ -30,7 +30,12 @@ import type { Prisma } from '../../../generated/prisma/client';
 import { BillingPortService } from '../billing-port/billing-port.service';
 import { editableHash } from '../places/domain/editable-hash';
 import { submissionAuditRecord } from '../places/domain/place-audit';
-import { snapshotOfPlace } from '../places/domain/submission-diff';
+import {
+  snapshotOfPayload,
+  snapshotOfPlace,
+  storedBase,
+  submissionDiff,
+} from '../places/domain/submission-diff';
 import type { EditableSnapshot } from '../places/domain/submission-diff';
 import { PlacesService } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -191,7 +196,8 @@ export class SubmissionsService {
   ): Promise<catalogGrpc.GetMySubmissionResponse> {
     const owner = requireAccountContext(context);
     const { submissionId } = parseRpcRequest(submissionIdField, request);
-    return { submission: toSubmission(await this.owned(this.prisma, submissionId, owner.userId)) };
+    await this.owned(this.prisma, submissionId, owner.userId);
+    return { submission: await this.withDiff(this.prisma, submissionId) };
   }
 
   /** `POST /owner/submissions/:id/withdraw`: `PENDING` → `WITHDRAWN`, releasing a reserved slot. */
@@ -227,9 +233,22 @@ export class SubmissionsService {
   ): Promise<catalogGrpc.Submission | undefined> {
     const row = await db.placeSubmission.findFirst({
       where: { placeId, kind: SubmissionKind.UPDATE, status: SubmissionStatus.PENDING },
-      select: SUBMISSION_SELECT,
+      select: { id: true },
     });
-    return row === null ? undefined : toSubmission(row);
+    return row === null ? undefined : this.withDiff(db, row.id);
+  }
+
+  /**
+   * A submission with the reviewer's field diff — its base against the payload, one code path with
+   * the admin review (api-endpoints-plan §3.3): what the owner's single reads show as "waiting".
+   */
+  private async withDiff(db: CatalogTx, submissionId: string): Promise<catalogGrpc.Submission> {
+    const row = await db.placeSubmission.findUniqueOrThrow({
+      where: { id: submissionId },
+      select: { ...SUBMISSION_SELECT, baseSnapshot: true },
+    });
+    const diff = submissionDiff(storedBase(row.baseSnapshot), snapshotOfPayload(readPayload(row)));
+    return { ...toSubmission(row), diffJson: JSON.stringify(diff) };
   }
 
   /** A submission of this owner; another owner's is not found. */

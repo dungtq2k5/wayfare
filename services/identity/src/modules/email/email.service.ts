@@ -6,6 +6,7 @@ import {
   EmailDeliveryStatus,
   maskEmail,
   newId,
+  SessionClient,
   SystemRole,
 } from '@wayfare/contracts';
 import type {
@@ -15,6 +16,8 @@ import type {
   EmailTemplateData,
   EmailTemplateLinkSlot,
 } from '@wayfare/contracts';
+import { sessionClientProto } from '@wayfare/contracts/grpc';
+import type { identityGrpc } from '@wayfare/contracts/grpc';
 import { renderEmail, resolveLocale } from '@wayfare/i18n';
 import type { BundleLocale } from '@wayfare/i18n';
 import { keyedHash } from '@wayfare/nest-common';
@@ -69,6 +72,18 @@ export interface PendingEmail {
 
 /** A client that can run the delivery-row statements: a transaction or the service itself. */
 type EmailDb = Prisma.TransactionClient;
+
+/**
+ * Where a mail's links open for an action the caller took: a console request's links open the
+ * console (api-endpoints-plan §1.2), whoever the recipient is — a new owner isn't one yet; any
+ * other client leaves the recipient's own rule.
+ */
+export const linkAppOf = (client: identityGrpc.SessionClient | undefined): 'console' | undefined =>
+  client === undefined
+    ? undefined
+    : sessionClientProto.fromProto(client) === SessionClient.CONSOLE
+      ? 'console'
+      : undefined;
 
 /**
  * Transactional email (conventions §11.4): the delivery row is written in the triggering

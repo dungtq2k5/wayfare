@@ -11,10 +11,10 @@ export class EmailChangeGrpcController implements identityGrpc.EmailChangeServic
   constructor(private readonly emails: EmailChangeService) {}
 
   requestEmailVerification(
-    _request: identityGrpc.RequestEmailVerificationRequest,
+    request: identityGrpc.RequestEmailVerificationRequest,
     metadata?: Metadata,
   ): Promise<identityGrpc.RequestEmailVerificationResponse> {
-    return this.emails.requestEmailVerification(unpackCallerContext(metadata));
+    return this.emails.requestEmailVerification(request, unpackCallerContext(metadata));
   }
 
   verifyEmail(

@@ -210,10 +210,12 @@ export class AuthController {
 
   @Post('google/link')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Auth('USER', { alsoDevice: true })
+  // No device needed: identity matches the ticket to the session's device — or, for the console's
+  // ticket, to a session with none.
+  @Auth('USER')
   @ApiOperation({
     summary:
-      'Link the ticket’s Google account to the caller, signed in with its password (ADR 0064).',
+      'Link the ticket’s Google account to the caller, signed in with its password (ADR 0064): on the device that asked, or in a console session for the console’s ticket.',
   })
   @ApiEnvelope(null)
   @ApiErrors('CONFIRMATION_EXPIRED', 'GOOGLE_ACCOUNT_MISMATCH', 'GOOGLE_ACCOUNT_ALREADY_LINKED')

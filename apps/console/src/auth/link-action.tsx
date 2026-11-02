@@ -2,6 +2,7 @@
 
 import {
   accountRecoveriesCancel,
+  authRefresh,
   emailChangeConfirmChange,
   emailChangeRevertChange,
   emailChangeVerify,
@@ -73,6 +74,10 @@ export function LinkAction({ kind }: { kind: LinkKind }) {
         const answer = await act(kind, token, fragment.id);
         // An undone change signs every device out, this one included.
         if (kind === 'revert') clearPageCookie(SIGNED_IN_MARKER);
+        // This browser's own account just verified: a fresh session carries it (an applicant can
+        // apply at once).
+        if (kind === 'verify' && answer?.sameAccount === true)
+          await authRefresh({}).catch(() => undefined);
         const email =
           answer !== null && !answer.sameAccount && kind !== 'revert'
             ? await signedInEmail()

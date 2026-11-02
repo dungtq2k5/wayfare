@@ -76,6 +76,8 @@ export const adminPlaceResponseSchema = z.object({
   createdById: zUuidV7,
   createdAt: zInstant,
   updatedAt: zInstant,
+  /** When the status last changed (rdm-spec C-1): "since" on a venue's page. */
+  statusChangedAt: zInstant,
   deletedAt: zInstant.nullable(),
   deletedById: zUuidV7.nullable(),
   /** Readiness and staleness per language. */

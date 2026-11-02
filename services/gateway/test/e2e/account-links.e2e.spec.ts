@@ -106,10 +106,13 @@ describe('link routes', () => {
     },
   );
 
-  it('forgot counts against the AUTH buckets, keyed by IP and address', async () => {
+  it('forgot counts against the AUTH buckets, keyed by IP and address, and names the console', async () => {
     await consoleRequest('post', '/auth/password/forgot').send({ email: 'Ann@Example.com' });
     expect(rateKeys('AUTH').length).toBe(2);
-    expect(gateway.identity.passwords.calls[0]?.request).toEqual({ email: 'ann@example.com' });
+    expect(gateway.identity.passwords.calls[0]?.request).toEqual({
+      email: 'ann@example.com',
+      client: identityGrpc.SessionClient.SESSION_CLIENT_CONSOLE,
+    });
   });
 
   it("reset passes the page's language on, for a setup link to save", async () => {

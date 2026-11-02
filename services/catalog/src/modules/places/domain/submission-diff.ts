@@ -148,6 +148,10 @@ export function baseValuesOf(
   return Object.fromEntries(fields.map((field) => [field, base[field]]));
 }
 
+/** A stored base (a submission's `base_snapshot`), as `EditableSnapshot` wrote it; none for a creation. */
+export const storedBase = (value: unknown): EditableSnapshot | null =>
+  value === null || value === undefined ? null : (value as EditableSnapshot);
+
 /**
  * The reviewer's field-by-field diff (api-endpoints-plan §3.4): each field the submission changes,
  * from its base (nothing, for a creation) to what it asks for.

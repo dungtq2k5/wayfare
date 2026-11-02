@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { AccountContext } from '@wayfare/nest-common';
+import type { Env } from '../../config/env.schema';
 import { toAdminPlaceResponseDto } from '../admin-places/admin-place.mapper';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { toSubmissionResponseDto } from '../owner-submissions/owner-submission.mapper';
@@ -14,7 +16,14 @@ import { toOwnerLimitsResponseDto, toOwnerPlaceResponseDto } from './owner-place
 /** `/owner/places`, backed by `catalog.OwnerPlaceService` (api-endpoints-plan §3.1). */
 @Injectable()
 export class OwnerPlacesService {
-  constructor(private readonly catalog: CatalogServiceGrpcClient) {}
+  private readonly qrBaseUrl: string;
+
+  constructor(
+    private readonly catalog: CatalogServiceGrpcClient,
+    config: ConfigService<Env, true>,
+  ) {
+    this.qrBaseUrl = config.get('PUBLIC_QR_BASE_URL', { infer: true });
+  }
 
   async list(context: AccountContext): Promise<OwnerPlaceResponseDto[]> {
     const response = await this.catalog.ownerPlaces.call('listMyPlaces', {}, context);
@@ -47,5 +56,16 @@ export class OwnerPlacesService {
   async reactivate(context: AccountContext, placeId: string): Promise<OwnerPlaceResultResponseDto> {
     const response = await this.catalog.ownerPlaces.call('reactivateMyPlace', { placeId }, context);
     return { place: toAdminPlaceResponseDto(response.place) };
+  }
+
+  /** The sticker, once catalog has said the Venue is the caller's (another's is not found). */
+  async qr(context: AccountContext, placeId: string): Promise<string> {
+    await this.catalog.ownerPlaces.call('getMyPlace', { placeId }, context);
+    const response = await this.catalog.placeAdmin.call(
+      'getPlaceQr',
+      { placeId, qrBaseUrl: this.qrBaseUrl },
+      context,
+    );
+    return response.svg;
   }
 }

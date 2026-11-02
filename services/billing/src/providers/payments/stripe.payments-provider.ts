@@ -71,6 +71,9 @@ export class StripePaymentsProvider extends PaymentsProvider {
           success_url: input.successUrl,
           cancel_url: input.cancelUrl,
           integration_identifier: CHECKOUT_INTEGRATION,
+          // In US dollars, always: Adaptive Pricing would show a local currency, so Checkout's
+          // amount would differ from the pricing page's and the invoices' (api-endpoints-plan §5.1).
+          adaptive_pricing: { enabled: false },
           expires_at: Math.floor(input.expiresAt.getTime() / 1000),
         },
         { idempotencyKey: input.idempotencyKey },

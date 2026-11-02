@@ -13,15 +13,14 @@ import { LoadMore } from '@wayfare/ui/list';
 import { Popover, PopoverContent, PopoverTrigger } from '@wayfare/ui/menu';
 import { mergeCursorPages } from '@wayfare/ui/paging';
 import { EmptyState } from '@wayfare/ui/states';
-import { cn } from '@wayfare/ui/cn';
 import { Bell, CheckCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { failureOf } from '../client/errors';
 import { useConsole } from '../i18n/provider';
-import { notificationIcon } from '../notifications/icons';
-import { notificationTarget, notificationText, relativeTime } from '../notifications/text';
+import { NotificationRow } from '../notifications/row';
+import { notificationTarget, notificationText } from '../notifications/text';
 import type { FeedNotification } from '../notifications/text';
 import { ErrorView } from '../states/states';
 import { useMe } from './me';
@@ -114,7 +113,7 @@ export function NotificationBell() {
                 data-count
                 className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-xs leading-none font-medium text-destructive-foreground"
               >
-                {count > 9 ? '9+' : count}
+                {count > 99 ? '99+' : count}
               </span>
             ) : null}
           </Button>
@@ -167,35 +166,13 @@ export function NotificationBell() {
               <ul className="flex flex-col">
                 {rows.map((row) => (
                   <li key={row.id}>
-                    <button
-                      type="button"
-                      onClick={() => openRow(row)}
-                      className={cn(
-                        'flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-foreground outline-none transition-shadow duration-(--duration-slow) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset motion-reduce:transition-none motion-safe:animate-in motion-safe:slide-in-from-top-2',
-                        row.readAt === null && 'bg-accent',
-                        outlined === row.id && 'ring-2 ring-ring ring-inset',
-                      )}
-                    >
-                      <TypeIcon type={row.type} />
-                      <span className="flex min-w-0 flex-1 flex-col gap-1">
-                        <span className={row.readAt === null ? 'font-medium' : undefined}>
-                          {row.readAt === null ? (
-                            <span className="sr-only">{t('notifications.unread')}: </span>
-                          ) : null}
-                          {notificationText(row, context, translator)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {relativeTime(row.createdAt, now, translator)}
-                        </span>
-                      </span>
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'mt-1 size-2 shrink-0 rounded-full',
-                          row.readAt === null ? 'bg-primary' : 'bg-transparent',
-                        )}
-                      />
-                    </button>
+                    <NotificationRow
+                      row={row}
+                      text={notificationText(row, context, translator)}
+                      now={now}
+                      outlined={outlined === row.id}
+                      onOpen={() => openRow(row)}
+                    />
                   </li>
                 ))}
               </ul>
@@ -224,18 +201,5 @@ export function NotificationBell() {
         </PopoverContent>
       </Popover>
     </>
-  );
-}
-
-/** The *Notification item*'s type icon, in a muted circle. */
-function TypeIcon({ type }: { type: string }) {
-  const Icon = notificationIcon(type);
-  return (
-    <span
-      aria-hidden
-      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-    >
-      <Icon className="size-4" />
-    </span>
   );
 }

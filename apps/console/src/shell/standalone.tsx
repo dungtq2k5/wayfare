@@ -11,12 +11,13 @@ import { ServerOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Failure } from '../client/errors';
+import { LEGAL_BASE_URL } from '../env';
 import { useConsole } from '../i18n/provider';
 import { ErrorView } from '../states/states';
 import { signOut } from './account-menu';
 
-const TERMS_URL = 'https://wayfare.app/terms';
-const PRIVACY_URL = 'https://wayfare.app/privacy';
+const TERMS_URL = `${LEGAL_BASE_URL}/terms`;
+const PRIVACY_URL = `${LEGAL_BASE_URL}/privacy`;
 
 function Standalone({ children }: { children: ReactNode }) {
   return (

@@ -2,31 +2,66 @@
 
 import { MAX_PHOTOS_PER_PLACE } from '@wayfare/contracts';
 import { Button } from '@wayfare/ui/button';
-import { Field, Input } from '@wayfare/ui/field';
+import { Progress } from '@wayfare/ui/content';
+import { Field, FieldError, Input, Select } from '@wayfare/ui/field';
 import { ArrowDown, ArrowUp, Plus, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { DayInput } from '../forms/day-input';
 import { useConsole } from '../i18n/provider';
 import { UploadRefused, uploadPhoto } from './uploads';
 import type { FormPhoto } from './uploads';
 
+/** A file on its way, or refused (F4): its row until it lands or is removed. */
+interface FileRow {
+  readonly key: string;
+  readonly name: string;
+  readonly percent: number;
+  readonly failure: string | null;
+}
+
 /**
  * Photos (L4): up to 8 with their alt text, ordered — the first is the cover. Each file is
- * uploaded and confirmed as it is added; a refusal is said under the section.
+ * uploaded and confirmed as it is added; a refusal is said under the section. For an owner (F3,
+ * F4): the plan's own number, a box in the uploader's place once it is reached, and one row per
+ * file with its progress or why it was refused.
  */
 export function PhotosEditor({
   photos,
   onChange,
   error,
+  max = MAX_PHOTOS_PER_PLACE,
+  atMax,
+  help,
+  altPlaceholder,
+  fileRows = false,
 }: {
   photos: readonly FormPhoto[];
   onChange: (photos: FormPhoto[]) => void;
   error?: string | undefined;
+  max?: number;
+  /** What shows instead of the uploader once `max` is reached. */
+  atMax?: ReactNode;
+  help?: string;
+  /** An owner's example for the alt text. */
+  altPlaceholder?: string;
+  fileRows?: boolean;
 }) {
   const { t, tDynamic } = useConsole();
   const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(0);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [rows, setRows] = useState<FileRow[]>([]);
+  const patchRow = (key: string, patch: Partial<FileRow>) =>
+    setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  const failureText = (failure: unknown) =>
+    failure instanceof UploadRefused
+      ? tDynamic(
+          `upload.${failure.code}`,
+          failure.details,
+          tDynamic(`error.${failure.code}`, failure.details),
+        )
+      : t('upload.UPLOAD_NOT_READY');
   // Refs, not state: a batch of files is added one await after another, before React re-renders.
   const latest = useRef(photos);
   latest.current = photos;
@@ -36,22 +71,29 @@ export function PhotosEditor({
     if (files === null) return;
     setRefusal(null);
     const chosen = Array.from(files);
-    const room = Math.max(0, MAX_PHOTOS_PER_PLACE - latest.current.length - inFlight.current);
-    if (chosen.length > room) setRefusal(t('placeForm.tooManyPhotos'));
+    const room = Math.max(0, max - latest.current.length - inFlight.current);
+    // An owner's plan says its own number in the box that replaces the uploader (F3).
+    if (chosen.length > room && atMax === undefined) setRefusal(t('placeForm.tooManyPhotos'));
     for (const file of chosen.slice(0, room)) {
       inFlight.current += 1;
       setUploading(inFlight.current);
+      const key = rowKey();
+      if (fileRows)
+        setRows((current) => [...current, { key, name: file.name, percent: 0, failure: null }]);
       try {
-        const photo = await uploadPhoto(file);
+        const photo = await uploadPhoto(file, (percent) => fileRows && patchRow(key, { percent }));
         const next = [...latest.current, photo];
         latest.current = next;
         onChange(next);
+        if (fileRows) setRows((current) => current.filter((row) => row.key !== key));
       } catch (failure) {
-        setRefusal(
-          failure instanceof UploadRefused
-            ? tDynamic(`error.${failure.code}`, failure.details)
-            : t('error.UPLOAD_NOT_READY'),
-        );
+        if (fileRows) patchRow(key, { failure: failureText(failure) });
+        else
+          setRefusal(
+            failure instanceof UploadRefused
+              ? tDynamic(`error.${failure.code}`, failure.details)
+              : t('error.UPLOAD_NOT_READY'),
+          );
       } finally {
         inFlight.current -= 1;
         setUploading(inFlight.current);
@@ -87,7 +129,7 @@ export function PhotosEditor({
                 {(control) => (
                   <Input
                     {...control}
-                    placeholder={t('placeForm.altTextPlaceholder')}
+                    placeholder={altPlaceholder ?? t('placeForm.altTextPlaceholder')}
                     value={photo.altTextVi}
                     onChange={(event) =>
                       onChange(
@@ -136,33 +178,79 @@ export function PhotosEditor({
           ))}
         </ol>
       )}
-      <button
-        type="button"
-        onClick={() => input.current?.click()}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault();
-          void add(event.dataTransfer.files);
-        }}
-        className="flex flex-col items-center gap-2 rounded-md border-2 border-dashed border-input px-4 py-8 text-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Upload aria-hidden className="size-5" />
-        {uploading > 0 ? t('placeForm.uploading') : t('placeForm.dropPhoto')}
-      </button>
-      <input
-        ref={input}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        multiple
-        className="sr-only"
-        aria-label={t('placeForm.addPhoto')}
-        onChange={(event) => {
-          void add(event.target.files);
-          event.target.value = '';
-        }}
-      />
+      {rows.length === 0 ? null : (
+        <ul className="flex flex-col gap-2">
+          {rows.map((row) => (
+            <li
+              key={row.key}
+              className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${
+                row.failure === null ? 'border-border' : 'border-destructive'
+              }`}
+            >
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="truncate font-medium text-foreground">{row.name}</span>
+                {row.failure === null ? (
+                  <span role="status">
+                    <Progress
+                      value={row.percent}
+                      max={100}
+                      label={t('upload.uploading', { n: row.percent })}
+                    />
+                  </span>
+                ) : (
+                  <FieldError>{row.failure}</FieldError>
+                )}
+              </span>
+              {row.failure === null ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t('upload.remove', { name: row.name })}
+                  onClick={() =>
+                    setRows((current) => current.filter((item) => item.key !== row.key))
+                  }
+                >
+                  <X aria-hidden />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {atMax !== undefined && photos.length >= max ? (
+        atMax
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => input.current?.click()}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              void add(event.dataTransfer.files);
+            }}
+            className="flex flex-col items-center gap-2 rounded-md border-2 border-dashed border-input px-4 py-8 text-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Upload aria-hidden className="size-5" />
+            {uploading > 0 ? t('placeForm.uploading') : t('placeForm.dropPhoto')}
+          </button>
+          <input
+            ref={input}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            className="sr-only"
+            aria-label={t('placeForm.addPhoto')}
+            onChange={(event) => {
+              void add(event.target.files);
+              event.target.value = '';
+            }}
+          />
+        </>
+      )}
       <p className="text-xs text-muted-foreground">
-        {t('placeForm.photoHelp', { count: photos.length })}
+        {help ?? t('placeForm.photoHelp', { count: photos.length })}
       </p>
       {(refusal ?? error) ? (
         <p role="alert" className="text-sm text-destructive">
@@ -204,18 +292,17 @@ export function HoursEditor({
           {row.date === null ? (
             <Field label={t('placeForm.days')} className="w-40">
               {(control) => (
-                <select
+                <Select
                   {...control}
                   value={row.weekday ?? 1}
                   onChange={(event) => set(row.key, { weekday: Number(event.target.value) })}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
                 >
                   {[1, 2, 3, 4, 5, 6, 7].map((day) => (
                     <option key={day} value={day}>
                       {t('place.weekday', { day: String(day) })}
                     </option>
                   ))}
-                </select>
+                </Select>
               )}
             </Field>
           ) : (
@@ -333,16 +420,27 @@ export interface DishRow {
   nameVi: string;
   price: string;
   isAvailable: boolean;
+  /** The dish's description, kept as it is: the form doesn't edit it. */
+  descriptionVi?: string | null;
 }
 
 /** The menu (L5, Venues only): dishes in Vietnamese with their prices. */
 export function MenuEditor({
   rows,
   onChange,
+  max,
+  atMax,
+  copy,
 }: {
   rows: readonly DishRow[];
   onChange: (rows: DishRow[]) => void;
+  /** The plan's dish limit (F3): *Add a dish* is disabled at it, with `atMax` said. */
+  max?: number;
+  atMax?: string;
+  /** An owner's labels: the price in the menu's own currency, with their examples. */
+  copy?: { price: string; dishPlaceholder: string; pricePlaceholder: string };
 }) {
+  const full = max !== undefined && rows.length >= max;
   const { t } = useConsole();
   const set = (key: string, patch: Partial<DishRow>) =>
     onChange(rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -354,17 +452,17 @@ export function MenuEditor({
             {(control) => (
               <Input
                 {...control}
-                placeholder={t('placeForm.dishPlaceholder')}
+                placeholder={copy?.dishPlaceholder ?? t('placeForm.dishPlaceholder')}
                 value={row.nameVi}
                 onChange={(event) => set(row.key, { nameVi: event.target.value })}
               />
             )}
           </Field>
-          <Field label={t('placeForm.dishPrice')} required className="w-32">
+          <Field label={copy?.price ?? t('placeForm.dishPrice')} required className="w-32">
             {(control) => (
               <Input
                 {...control}
-                placeholder={t('placeForm.pricePlaceholder')}
+                placeholder={copy?.pricePlaceholder ?? t('placeForm.pricePlaceholder')}
                 inputMode="numeric"
                 value={row.price}
                 onChange={(event) => set(row.key, { price: event.target.value.replace(/\D/g, '') })}
@@ -396,6 +494,7 @@ export function MenuEditor({
         variant="ghost"
         size="sm"
         className="self-start"
+        disabled={full}
         onClick={() =>
           onChange([...rows, { key: rowKey(), nameVi: '', price: '', isAvailable: true }])
         }
@@ -403,6 +502,9 @@ export function MenuEditor({
         <Plus aria-hidden />
         {t('placeForm.addDish')}
       </Button>
+      {full && atMax !== undefined ? (
+        <p className="text-xs text-muted-foreground">{atMax}</p>
+      ) : null}
     </div>
   );
 }

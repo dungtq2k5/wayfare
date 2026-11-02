@@ -1,7 +1,7 @@
 import { NotificationType } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '../i18n/messages';
-import { notificationTarget, notificationText, relativeTime } from './text';
+import { notificationTarget, notificationText, relativeTime, splitNotification } from './text';
 
 const en = createTranslator('en');
 const vi = createTranslator('vi');
@@ -38,7 +38,7 @@ describe('the notification text (K10)', () => {
         context,
         en,
       ),
-    ).toBe('Your changes to your venue were approved.');
+    ).toBe('your venue is approved. It goes live once its audio is ready.');
   });
 
   it('opens what it is about', () => {
@@ -49,6 +49,12 @@ describe('the notification text (K10)', () => {
       '/owner/billing',
     );
     expect(notificationTarget({ type: 'ACCOUNT_RECOVERY_PENDING', data: {} })).toBe('/account');
+    expect(notificationTarget({ type: 'SUBMISSION_REJECTED', data: { submissionId: PLACE } })).toBe(
+      `/owner/submissions/${PLACE}`,
+    );
+    expect(notificationTarget({ type: 'OWNER_REGISTRATION_REJECTED', data: {} })).toBe(
+      '/owner/registration',
+    );
   });
 
   it('says when, relatively', () => {
@@ -58,5 +64,17 @@ describe('the notification text (K10)', () => {
     expect(relativeTime('2026-10-23T09:00:00Z', now, en)).toBe('3 hours ago');
     expect(relativeTime('2026-10-22T09:00:00Z', now, en)).toBe('Yesterday');
     expect(relativeTime('2026-10-19T09:00:00Z', now, vi)).toBe('4 ngày trước');
+  });
+});
+
+describe('a notification in two lines', () => {
+  it('is what happened, then what to do', () => {
+    expect(
+      splitNotification("Your change to Ốc Oanh wasn't approved. See the note from our team."),
+    ).toEqual(["Your change to Ốc Oanh wasn't approved.", 'See the note from our team.']);
+    expect(splitNotification('Ốc Oanh is live for tourists.')).toEqual([
+      'Ốc Oanh is live for tourists.',
+      '',
+    ]);
   });
 });

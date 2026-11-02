@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { SessionResponder } from '@wayfare/nest-common';
 import type { AccountContext, RequestContext } from '@wayfare/nest-common';
 import type { Response } from 'express';
+import type { WayfareClient } from '@wayfare/contracts';
+import { toSessionClient } from '../auth/session.mapper';
 import { IdentityServiceGrpcClient } from '../identity/identity-service-grpc.client';
 import type { LinkAnswerResponseDto } from './dto/link-answer-response.dto';
 import type { LinkTokenDto } from '../password/dto/password.dto';
@@ -15,8 +17,13 @@ export class EmailChangeService {
     private readonly responder: SessionResponder,
   ) {}
 
-  async requestVerification(context: AccountContext): Promise<void> {
-    await this.identity.emailChange.call('requestEmailVerification', {}, context);
+  /** A console request's link opens the console (api-endpoints-plan §1.2). */
+  async requestVerification(context: AccountContext, client: WayfareClient): Promise<void> {
+    await this.identity.emailChange.call(
+      'requestEmailVerification',
+      { client: toSessionClient(client) },
+      context,
+    );
   }
 
   async verify(context: RequestContext, body: LinkTokenDto): Promise<LinkAnswerResponseDto> {

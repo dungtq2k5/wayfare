@@ -59,5 +59,8 @@ export async function continueWithGoogle(page: Page, email: string): Promise<voi
     },
     { api: API, address: email },
   );
-  await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
+  // An owner with no venue and no submission is welcomed instead (round 36's K19).
+  await expect(
+    page.getByRole('heading', { name: /^(Home|Welcome to Wayfare)$/, level: 1 }),
+  ).toBeVisible();
 }

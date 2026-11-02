@@ -2,6 +2,7 @@ import { ApiError, usersAcceptances } from '@wayfare/api-client';
 import type { ReactNode } from 'react';
 import { failureOf, isUnreachable } from '../../client/errors';
 import { accountLocale } from '../../i18n/language';
+import { ownershipOf } from '../../nav';
 import { I18nProvider } from '../../i18n/provider';
 import { currentUser, serverCall } from '../../server/api';
 import type { Me } from '../../server/api';
@@ -22,7 +23,8 @@ function shellMe(me: Me): ShellMe {
       emailBounced: me.user.emailBounced,
     },
     permissions: me.permissions,
-    ownership: me.owner === null ? null : me.ownerVerified ? 'verified' : 'applicant',
+    ownership: ownershipOf(me),
+    dunningSince: me.owner?.billingSummary?.dunningSince ?? null,
     signIn: me.signIn,
   };
 }

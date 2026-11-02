@@ -29,6 +29,7 @@ import {
   submissionStatusProto,
 } from '@wayfare/contracts/grpc';
 import { FIXTURE_INSIDE, FIXTURE_OUTSIDE } from '@wayfare/contracts/testing';
+import { toProtoTimestamp } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import { buildAccountContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -415,6 +416,12 @@ describe('an UPDATE', () => {
       { field: 'descriptionVi', before: 'Bún chả Hà Nội.', after: 'Hai.' },
     ]);
     expect(detail.submission!.conflictChangedFields).toEqual([]);
+    // The owner reads the same diff, on the venue's pending submission and on the submission itself.
+    expect(JSON.parse(mine.pendingSubmission!.diffJson!)).toEqual(
+      JSON.parse(detail.submission!.diffJson),
+    );
+    const own = await services.submissions.getMySubmission({ submissionId: second!.id }, owner);
+    expect(own.submission!.diffJson).toBe(mine.pendingSubmission!.diffJson);
 
     // Narration finishing moves sync_version, not an owner-editable field: no conflict.
     await insertLocalization(prisma, placeId, 'en', 'a'.repeat(64));
@@ -493,6 +500,14 @@ describe('the owner’s Venues', () => {
     expect(services.frames.sent.at(-1)).toMatchObject({
       payload: { placeId: active, status: PlaceStatus.INACTIVE, inactiveReason: 'OWNER' },
     });
+    const closed = (await services.ownerPlaces.listMyPlaces(owner)).places.find(
+      (row) => row.id === active,
+    );
+    expect(closed?.statusChangedAt).toEqual(
+      toProtoTimestamp(
+        (await prisma.place.findUniqueOrThrow({ where: { id: active } })).statusChangedAt,
+      ),
+    );
     // No English audio yet: back to PROCESSING, waiting on the gate.
     const { place: back } = await services.ownerPlaces.reactivateMyPlace(
       { placeId: active },

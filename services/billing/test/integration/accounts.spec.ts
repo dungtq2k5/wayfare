@@ -94,6 +94,17 @@ describe('the owner routes', () => {
     });
     expect(overview.price).toBeUndefined();
     expect(overview.dunningSince).toBeUndefined();
+    // Pinned by hand: the grants in force beside the plan's own.
+    await prisma.billingAccount.update({
+      where: { ownerUserId: account.ownerUserId },
+      data: { entitlementsPinned: true, maxPlaces: 5 },
+    });
+    const pinned = await services.subscriptions.getOverview(account.context);
+    expect(pinned).toMatchObject({
+      pinned: true,
+      entitlements: { maxPlaces: 5 },
+      planGrants: { maxPlaces: 1 },
+    });
     services.catalog.down = true;
     expect((await services.subscriptions.getOverview(account.context)).usagePlaces).toBeUndefined();
     expect(services.payments.calls).toEqual([]);
@@ -158,6 +169,45 @@ describe('the owner routes', () => {
         )
       ).code,
     ).toBe('SUBSCRIPTION_EXISTS');
+  });
+
+  it("pays a fake Checkout on a stack: the paid Checkout's three events, queued a second apart", async () => {
+    const account = await owner(services, prisma);
+    const growth = await paidPlan(prisma, 'GROWTH');
+    services.payments.prices.set(growth.stripePriceId, {
+      id: growth.stripePriceId,
+      active: true,
+      currency: 'usd',
+      unitAmount: 900,
+      recurringInterval: 'month',
+      productId: 'prod_growth',
+    });
+    const key = newId();
+    await services.subscriptions.createCheckoutSession(
+      { planPriceId: growth.priceId, idempotencyKey: key },
+      account.context,
+    );
+    const { successUrl } = await services.fakeCheckout.pay({ sessionId: key });
+    expect(successUrl).toMatch(/\/owner\/billing\?checkout=success$/);
+    const rows = await prisma.billingEvent.findMany({ orderBy: { stripeCreatedAt: 'asc' } });
+    expect(rows.map((row) => [row.eventType, row.status])).toEqual([
+      ['checkout.session.completed', 'RECEIVED'],
+      ['customer.subscription.created', 'RECEIVED'],
+      ['invoice.paid', 'RECEIVED'],
+    ]);
+    expect(rows[1]!.stripeCreatedAt.getTime() - rows[0]!.stripeCreatedAt.getTime()).toBe(1000);
+    // Queued, as Stripe's own would be: the return races them; processed, the plan applies.
+    expect(services.queue.items).toHaveLength(3);
+    for (const row of rows) await services.webhooks.process({ billingEventId: row.id, attempt: 1 });
+    const after = await prisma.billingAccount.findUniqueOrThrow({
+      where: { id: account.accountId },
+      select: { subscriptionStatus: true, plan: { select: { code: true } } },
+    });
+    expect(after).toEqual({ subscriptionStatus: 'ACTIVE', plan: { code: 'GROWTH' } });
+    // An unknown session is not found.
+    expect((await errorOf(services.fakeCheckout.pay({ sessionId: 'nope' }))).code).toBe(
+      'RESOURCE_NOT_FOUND',
+    );
   });
 
   it('answers 503 when Stripe cannot, and NO_STRIPE_CUSTOMER before any checkout', async () => {

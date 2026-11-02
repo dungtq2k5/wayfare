@@ -1,6 +1,14 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Controller, Get, Header, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiEnvelope, ApiErrors, Auth, Ctx, NoStore, UsesUpstream } from '@wayfare/nest-common';
+import {
+  ApiEnvelope,
+  ApiErrors,
+  Auth,
+  Ctx,
+  NoStore,
+  SkipEnvelope,
+  UsesUpstream,
+} from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import { ZodSerializerDto } from 'nestjs-zod';
 import {
@@ -91,5 +99,17 @@ export class OwnerPlacesController {
     @Param() params: OwnerPlaceIdParamDto,
   ): Promise<OwnerPlaceResultResponseDto> {
     return this.places.reactivate(context, params.id);
+  }
+
+  @Get(':id/qr')
+  @Auth('OWNER')
+  @NoStore()
+  @SkipEnvelope()
+  @Header('Content-Type', 'image/svg+xml')
+  @ApiOperation({ summary: "A print-ready SVG of the owner's own Venue's QR sticker." })
+  @ApiEnvelope(null, { status: 200, mediaType: 'image/svg+xml' })
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  qr(@Ctx() context: AccountContext, @Param() params: OwnerPlaceIdParamDto): Promise<string> {
+    return this.places.qr(context, params.id);
   }
 }

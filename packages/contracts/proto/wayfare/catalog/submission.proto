@@ -54,6 +54,9 @@ message Submission {
   optional string decision_note = 9;
   google.protobuf.Timestamp submitted_at = 10;
   google.protobuf.Timestamp reviewed_at = 11;
+  // `SubmissionDiff` — its base against the payload, as JSON — on the owner's single reads; unset
+  // on the list's rows.
+  optional string diff_json = 12;
 }
 
 // A submission as a reviewer sees it.

@@ -77,7 +77,8 @@ describe('/owner/billing', () => {
         entitlements: grants,
         usagePlaces: 1,
         usageBoostsLive: 0,
-        pinned: false,
+        pinned: true,
+        planGrants: { ...grants, maxPlaces: 0 },
       });
     const res = await console_('get', '/owner/billing');
     expect(res.status).toBe(200);
@@ -89,6 +90,9 @@ describe('/owner/billing', () => {
       dunning: null,
       entitlements: FREE_PLAN_GRANTS,
       usage: { places: 1, boostsLive: 0 },
+      // A pin: the plan's own grants beside the ones in force.
+      pinned: true,
+      planGrants: { ...FREE_PLAN_GRANTS, maxPlaces: 0 },
     });
     const notOwner = await console_('get', '/owner/billing', ownerCookie({ ov: false }));
     expect(notOwner.status).toBe(403);
@@ -238,6 +242,35 @@ describe('POST /api/webhooks/stripe', () => {
       .set('stripe-signature', 'forged')
       .send('{}');
     expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /dev/fake-stripe/checkout/:sessionId/pay', () => {
+  it('asks billing to pay the fake session, and answers where Stripe would return', async () => {
+    gateway.billing.webhooks.handlers.payFakeCheckout = () =>
+      Promise.resolve({ successUrl: 'http://console.localhost/owner/billing?checkout=success' });
+    const res = await request(gateway.app.getHttpServer())
+      .post('/api/v1/dev/fake-stripe/checkout/session-1/pay')
+      .set('X-Wayfare-Client', 'console');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({
+      successUrl: 'http://console.localhost/owner/billing?checkout=success',
+    });
+    expect(gateway.billing.webhooks.calls.at(-1)?.request).toEqual({ sessionId: 'session-1' });
+  });
+
+  it("answers billing's refusal off the fake provider with 404", async () => {
+    gateway.billing.webhooks.handlers.payFakeCheckout = () =>
+      Promise.reject(
+        serviceError(status.NOT_FOUND, {
+          'wf-error-code': 'RESOURCE_NOT_FOUND',
+          'wf-error-details': JSON.stringify({ resource: 'CHECKOUT_SESSION' }),
+        }),
+      );
+    const res = await request(gateway.app.getHttpServer())
+      .post('/api/v1/dev/fake-stripe/checkout/session-1/pay')
+      .set('X-Wayfare-Client', 'console');
+    expect(res.status).toBe(404);
   });
 });
 

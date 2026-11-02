@@ -24,6 +24,9 @@ enum BillingEventStatus {
 // The gateway never parses the body: billing verifies the signature over the exact bytes.
 service BillingWebhookService {
   rpc ReceiveStripeEvent(ReceiveStripeEventRequest) returns (ReceiveStripeEventResponse);
+  // Development only (`PAYMENTS_PROVIDER=fake`, never production): pays a fake Checkout session —
+  // the events a paid Checkout sends, recorded and queued as Stripe's would be.
+  rpc PayFakeCheckout(PayFakeCheckoutRequest) returns (PayFakeCheckoutResponse);
 }
 
 message ReceiveStripeEventRequest {
@@ -33,3 +36,12 @@ message ReceiveStripeEventRequest {
 }
 
 message ReceiveStripeEventResponse {}
+
+message PayFakeCheckoutRequest {
+  string session_id = 1;
+}
+
+message PayFakeCheckoutResponse {
+  // Where Checkout returns after paying (`/owner/billing?checkout=success`).
+  string success_url = 1;
+}

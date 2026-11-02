@@ -104,6 +104,7 @@ const ACCEPTED_WITH_DATA = new Set(['POST /api/v1/narration/prefetch']);
 /** Bodies that are not the JSON envelope, with their media type. */
 const NON_JSON = new Map([
   ['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml'],
+  ['GET /api/v1/owner/places/{id}/qr', 'image/svg+xml'],
   ['POST /api/v1/admin/narration/pronunciations/preview', 'audio/mpeg'],
   ['GET /api/v1/narration/tts/stream', 'audio/mpeg'],
 ]);
@@ -113,8 +114,9 @@ describe('OpenAPI contract', () => {
     const names = operations().map(([name]) => name);
     // 152, Continue with Google's five, and round 35's four reads (a recovery, a dictionary
     // entry, the corrections and the stuck Places), round 35a's four billing reads (a plan, a price
-    // look-up, an unpin preview, an event); the dev route stays out of the document.
-    expect(names).toHaveLength(165);
+    // look-up, an unpin preview, an event), round 36's owner QR sticker; the dev routes stay out
+    // of the document.
+    expect(names).toHaveLength(166);
     expect(names.some((name) => name.includes('/dev/'))).toBe(false);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDuration, formatPhone, formatTime } from './format';
+import { formatDate, formatDuration, formatPhone, formatTime, toE164 } from './format';
 
 describe('the console’s formats', () => {
   it('writes a date as day, short month, year in both languages', () => {
@@ -16,6 +16,13 @@ describe('the console’s formats', () => {
     expect(formatPhone('+842839401234')).toBe('028 3940 1234');
     expect(formatPhone('+84908123456')).toBe('090 812 3456');
     expect(formatPhone('+14155550100')).toBe('+14155550100');
+  });
+
+  it('reads a typed phone number as E.164, a leading 0 as Vietnam', () => {
+    expect(toE164('090 812 3456')).toBe('+84908123456');
+    expect(toE164('028.3940.1234')).toBe('+842839401234');
+    expect(toE164('+84 90-812-3456')).toBe('+84908123456');
+    expect(toE164('hello')).toBe('hello');
   });
 
   it('writes a narration’s length in minutes and seconds', () => {

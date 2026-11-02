@@ -344,7 +344,7 @@ It also holds identity's **revocation state** — each user's token cutoff and t
   - **One site with the gateway:** deployed, the console's own host serves the gateway at `/api/*` and `/ws`, routed at the edge, so the session cookies are first-party, the socket's `Origin` is the console's and the server receives the cookies. Locally the browser calls `http://localhost:13000` directly with `credentials: 'include'` (an `ApiClientConfig` option), which CORS allows.
   - **Server rendering with the caller's session:** the server configures the api-client once (`GATEWAY_INTERNAL_URL`, no session) and passes each request's `cookie` and its `x-forwarded-for`, unchanged, through one server-only helper — never one visitor's cookie on another's call. A server-side `401` redirects to `/session?next=<same-site path>`, a client page that refreshes once and returns.
   - **Refreshing:** single-flight within a tab; a `409 INVALID_STATE` with `status: ROTATED` (another tab won the race) counts as success and the call is retried.
-  - **Navigation by permission**, each item behind its read permission and every route checking its own; *Your business* shows from `/users/me`'s `owner`, not from `owner.access`, which admins also hold.
+  - **Navigation by permission**, each item behind its read permission and every route checking its own; **an account that is neither a verified owner nor staff** — a tourist or a new applicant — sees Home and *Your registration* only, so anyone may register a venue from the console; *Your business* shows from `/users/me`'s `owner`, not from `owner.access`, which admins also hold.
   - **Development server:** `devIndicators: false` (Next's corner indicator would draw itself into every screen baseline), and the build folder from `NEXT_DIST_DIR` (default `.next`), so the screens' development server runs beside the developer's own without sharing one.
   - **Google** through Google Identity Services' own button, its nonce bound to a `wf_gn` cookie since the console has no device. A development build uses the stack's fake issuer whenever the stack runs it, through a test hook that is absent from a production build.
 - **Maps:** **MapLibre GL JS** 📌 [ADR 0024](./decisions/0024-maplibre-on-both-platforms.md) — hardware-accelerated vector maps, no vendor lock-in, free.
@@ -727,6 +727,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `VOUCHER_CODE_HASH_KEY` | billing | HMAC key for voucher short codes |
 | `RESEND_API_KEY` | identity | transactional email — a **sending-only** key; **unset locally**, where Nodemailer → Mailpit is used |
 | `NEXT_PUBLIC_API_ORIGIN` | console | the gateway's origin for the browser — **empty when deployed** (same origin, the edge routes `/api` and `/ws`); `http://localhost:13000` locally. The api-client's `baseUrl` is it plus `/api/v1` |
+| `NEXT_PUBLIC_LEGAL_BASE_URL` | console | where the terms and the owner agreement are read (`/terms`, `/owner-agreement` under it); `https://wayfare.app` by default — pages of the tourist web app, as the privacy policy is |
 | `GATEWAY_INTERNAL_URL` | console (server only) | the gateway as the Next.js server reaches it |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | console | the Google OAuth Web client's id, for Google Identity Services; the console's origin is one of the client's authorised JavaScript origins |
 | `GOOGLE_ISSUER` | identity, gateway | `google` or `fake` — **`fake` locally and in CI**, where identity trusts tokens it signs itself and `POST /dev/google-token` mints them; **both services refuse `fake` at start-up in production** |
@@ -742,7 +743,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `EMAIL_NONPROD_ALLOWLIST` | identity | with `restricted`: addresses (or `*@domain`) that may receive mail |
 | `EMAIL_NONPROD_CATCHALL` | identity | with `restricted`: where every other mail goes |
 | `RESEND_DOMAIN_ID` | identity's `email:check-domain` deploy step only | the sending domain whose tracking settings the deploy checks |
-| `CONSOLE_URL`, `WEB_URL` | identity; billing reads `CONSOLE_URL` | bases for emailed links — the console for staff and owners, the web app for everyone else; billing's Checkout success and cancel pages and the Customer Portal's return page |
+| `CONSOLE_URL`, `WEB_URL` | identity; billing reads `CONSOLE_URL` | bases for emailed links — the console for staff and owners, and for any mail sent for an action taken in the console (registering, resending the verification, forgetting the password from `X-Wayfare-Client: console`); the web app for everyone else; billing's Checkout success and cancel pages and the Customer Portal's return page |
 | `SMTP_URL` | identity | local only: the Mailpit container |
 | `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing's `seed:dev` only | Price IDs, never hardcoded; the seed registers them as the admin price route would. The running service reads prices from `plan_prices` |
 | `GEMINI_API_KEY` | ai | never reaches a client |

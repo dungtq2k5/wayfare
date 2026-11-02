@@ -52,9 +52,14 @@ export function notificationTarget(notification: Pick<FeedNotification, 'type' |
     case NotificationType.OWNER_REGISTRATION_APPROVED:
     case NotificationType.OWNER_REGISTRATION_REJECTED:
       return '/owner/registration';
+    // Each opens the record it is about, which carries the note and what to do (round 36's K18).
     case NotificationType.SUBMISSION_APPROVED:
-    case NotificationType.SUBMISSION_REJECTED:
-      return '/owner/submissions';
+    case NotificationType.SUBMISSION_REJECTED: {
+      const submissionId = text(notification.data.submissionId);
+      return submissionId === undefined
+        ? '/owner/submissions'
+        : `/owner/submissions/${submissionId}`;
+    }
     case NotificationType.SUBSCRIPTION_ACTIVATED:
     case NotificationType.SUBSCRIPTION_PAYMENT_FAILED:
     case NotificationType.ENTITLEMENTS_REDUCED:
@@ -79,4 +84,12 @@ export function relativeTime(createdAt: string, now: Date, { t }: Translator): s
   if (hours < 24) return t('time.hoursAgo', { count: hours });
   const days = Math.floor(hours / 24);
   return days === 1 ? t('time.yesterday') : t('time.daysAgo', { count: days });
+}
+
+/** A notification's text as its two lines: its first sentence, and the rest. */
+export function splitNotification(text: string): [string, string] {
+  const end = text.search(/[.!?](\s|$)/);
+  return end < 0 || end === text.length - 1
+    ? [text, '']
+    : [text.slice(0, end + 1), text.slice(end + 1).trim()];
 }

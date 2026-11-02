@@ -213,8 +213,8 @@ export class GoogleService {
     if (other !== null) throw rpcError('GOOGLE_ACCOUNT_ALREADY_LINKED');
     // ADR 0064: only where Google owns the mailbox does the link make itself.
     if (!isGoogleAuthoritative(email, claims.hd)) {
-      // The link is made on the device that asked; the console has none, so its ticket matches no
-      // device and the console's page asks for the password sign-in instead.
+      // The link is made where it was asked for: the device that asked, or — for the console, which
+      // has none — no device, so the console's session links after its password sign-in.
       const ticket = this.tokens.signProof(
         PROOF_TOKEN_TYPES.googleLinkTicket,
         { sub: claims.sub, email, did: deviceIdOf(context) ?? '' },
@@ -335,7 +335,8 @@ export class GoogleService {
       claims === null ||
       typeof claims.sub !== 'string' ||
       typeof claims.email !== 'string' ||
-      claims.did !== account.deviceId
+      // A device's ticket links on that device; a console ticket (no device) in a console session.
+      claims.did !== (account.deviceId ?? '')
     ) {
       throw rpcError('CONFIRMATION_EXPIRED');
     }

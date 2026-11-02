@@ -21,5 +21,6 @@ export function toOwnerPlace(
         ? undefined
         : { id: pending.id, kind: pending.kind, submittedAt: pending.submittedAt },
     updatedAt: place.updatedAt,
+    statusChangedAt: place.statusChangedAt,
   };
 }

@@ -26,7 +26,7 @@ import { AccountLinksService } from '../account-links/account-links.service';
 import { auditRecord } from '../audit/domain/audit-record';
 import type { AuditFacts } from '../audit/domain/audit-record';
 import { EmailDispatcher } from '../email/email.module';
-import { EmailService } from '../email/email.service';
+import { EmailService, linkAppOf } from '../email/email.service';
 import { proveItsYou } from '../google/domain/prove-its-you';
 import type { PendingEmail } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -62,6 +62,8 @@ export class EmailChangeService {
     user: { readonly id: string; readonly email: string },
     origin: RequestOrigin,
     now: Date,
+    /** `'console'` for a request made in the console (`linkAppOf`). */
+    linkApp?: 'console',
   ): Promise<PendingEmail | null> {
     const link = await this.links.mint(tx, {
       userId: user.id,
@@ -76,11 +78,13 @@ export class EmailChangeService {
       recipient: { userId: user.id },
       data: {},
       links: { action: { path: 'verifyEmail', token: link.token } },
+      ...(linkApp === undefined ? {} : { linkApp }),
     });
   }
 
   /** Re-sends verification; an already verified address sends nothing. */
   async requestEmailVerification(
+    request: identityGrpc.RequestEmailVerificationRequest,
     context: RequestContext,
   ): Promise<identityGrpc.RequestEmailVerificationResponse> {
     const account = requireAccountContext(context);
@@ -88,7 +92,7 @@ export class EmailChangeService {
     const pending = await this.prisma.$transaction(async (tx) => {
       const user = await this.liveUser(tx, account.userId);
       if (user.isEmailVerified) return null;
-      return this.prepareVerification(tx, user, context.origin, now);
+      return this.prepareVerification(tx, user, context.origin, now, linkAppOf(request.client));
     });
     this.dispatcher.run([pending]);
     return {};

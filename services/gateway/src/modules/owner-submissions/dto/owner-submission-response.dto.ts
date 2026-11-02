@@ -3,6 +3,7 @@ import {
   SubmissionStatus,
   zCategoryCode,
   zPlaceSubmissionPayload,
+  zSubmissionDiffEntry,
   zUuidV7,
 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -24,6 +25,11 @@ export const submissionResponseSchema = z.object({
   decisionNote: z.string().nullable(),
   submittedAt: zInstant,
   reviewedAt: zInstant.nullable(),
+  /**
+   * Field by field, the submission's base against what it asks for — the admin review's diff — on
+   * the single reads (a submission, a Venue's pending one); `null` on the list's rows.
+   */
+  diff: z.array(zSubmissionDiffEntry).nullable(),
 });
 
 /** A submission. */

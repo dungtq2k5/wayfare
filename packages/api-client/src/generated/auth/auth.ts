@@ -799,7 +799,7 @@ export const useAuthGoogleConfirm = <TError = unknown,
 }
 
 /**
- * @summary Link the ticket’s Google account to the caller, signed in with its password (ADR 0064).
+ * @summary Link the ticket’s Google account to the caller, signed in with its password (ADR 0064): on the device that asked, or in a console session for the console’s ticket.
  */
 export const authGoogleLink = async (googleLinkDto: GoogleLinkDto, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
 
@@ -865,7 +865,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type AuthGoogleLinkMutationVariables = {data: GoogleLinkDto}
 
     /**
- * @summary Link the ticket’s Google account to the caller, signed in with its password (ADR 0064).
+ * @summary Link the ticket’s Google account to the caller, signed in with its password (ADR 0064): on the device that asked, or in a console session for the console’s ticket.
  */
 export const useAuthGoogleLink = <TError = unknown,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authGoogleLink>>, TError,AuthGoogleLinkMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}

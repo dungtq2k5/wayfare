@@ -16,6 +16,8 @@ export interface ShellMe {
   };
   readonly permissions: readonly string[];
   readonly ownership: Ownership;
+  /** Since when the owner's last payment failed (`owner.billingSummary.dunningSince`), if it did. */
+  readonly dunningSince: string | null;
   readonly signIn: {
     readonly password: boolean;
     readonly google: boolean;

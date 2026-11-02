@@ -6,7 +6,7 @@ import type { Page } from '@playwright/test';
 import { PASSWORD, verifiedUser } from '../support/people';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
-import { refuse, rewrite } from './answers';
+import { refuse } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
 import { as } from './people';
@@ -97,12 +97,33 @@ test('U1 the list, U1b including deactivated', async ({ page }) => {
   await look(page, 'u1b-including-deactivated');
 });
 
-test('U2 a user’s page, U7 sign out everywhere', async ({ page }) => {
-  // Minh Tran signs in as often as earlier specs and their retries need him: his sign-ins vary by
-  // run, so the history drawn leaves them out (a normaliser, as a mask is).
-  await rewrite<{ data: { action: string }[] }>(page, '/admin/audit-logs?*', (answer) => {
-    answer.data = answer.data.filter((row) => !/^USER_LOG(IN|OUT)/.test(row.action));
+/**
+ * A user signs in as often as earlier specs and their retries need: those sign-ins vary by run, so
+ * the history drawn leaves them out (a normaliser, as a mask is). It reads a full page and keeps the
+ * rows asked for, so the sign-ins never push the other rows out of it.
+ */
+async function steadyHistory(page: Page): Promise<void> {
+  await page.route('**/api/v1/admin/audit-logs?*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const url = new URL(route.request().url());
+    const limit = Number(url.searchParams.get('limit') ?? '20');
+    url.searchParams.set('limit', '100');
+    const response = await route.fetch({ url: url.toString() });
+    if (!response.ok()) return route.fulfill({ response });
+    const answer = (await response.json()) as { data: { action: string }[]; meta?: unknown };
+    answer.data = answer.data
+      .filter((row) => !/^USER_LOG(IN|OUT)/.test(row.action))
+      .slice(0, limit);
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(answer),
+    });
   });
+}
+
+test('U2 a user’s page, U7 sign out everywhere', async ({ page }) => {
+  await steadyHistory(page);
   await open(page, PEOPLE.minh);
   for (const section of ['Signing in', 'Devices and sessions', 'Email deliveries', 'History'])
     await expect(page.getByRole('heading', { name: section })).toBeVisible();
@@ -170,6 +191,7 @@ test('U5 lock, U5b locked', async ({ page }) => {
   await look(page, 'u5-lock', { viewportOnly: true });
   await dialog.getByRole('button', { name: 'Cancel' }).click();
 
+  await steadyHistory(page);
   await open(page, LOCKED);
   await expect(page.getByText(/^Locked until /)).toBeVisible();
   // Who locked it is read from the audit log after the page.
@@ -218,6 +240,7 @@ test('U8 email deliveries', async ({ page }) => {
 });
 
 test('U9 acting above one’s level', async ({ page }) => {
+  await steadyHistory(page);
   await open(page, PEOPLE.mai);
   await expect(page.getByText('read-only for you', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Lock' })).toHaveCount(0);
