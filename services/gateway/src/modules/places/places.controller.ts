@@ -1,6 +1,14 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiEnvelope, ApiErrors, Auth, Ctx, ETagged, UsesUpstream } from '@wayfare/nest-common';
+import {
+  ApiEnvelope,
+  ApiErrors,
+  Auth,
+  Ctx,
+  ETagged,
+  RateLimit,
+  UsesUpstream,
+} from '@wayfare/nest-common';
 import type { ETaggedResult, RequestContext } from '@wayfare/nest-common';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { PlaceDetailResponseDto, PlaceSummaryResponseDto } from './dto/place-response.dto';
@@ -35,7 +43,8 @@ export class PlacesController {
   }
 
   @Get('by-code/:publicCode')
-  @Auth('DEVICE')
+  @Auth('PUBLIC')
+  @RateLimit('LINK_READ')
   @ApiOperation({ summary: 'A Place by its printed code, after a QR deep link.' })
   @ApiEnvelope(PlaceDetailResponseDto)
   @ApiErrors('RESOURCE_NOT_FOUND', 'PLACE_UNAVAILABLE')
@@ -49,7 +58,8 @@ export class PlacesController {
   }
 
   @Get(':id')
-  @Auth('DEVICE')
+  @Auth('PUBLIC')
+  @RateLimit('LINK_READ')
   @ETagged()
   @ApiOperation({ summary: 'A live Place in full, in the requested language.' })
   @ApiEnvelope(PlaceDetailResponseDto)

@@ -101,13 +101,23 @@ describe('POST /narration/on-demand', () => {
 });
 
 describe('GET /narration/places/:placeId/status', () => {
-  it('is privately cached for two seconds', async () => {
+  it('is cached for two seconds, the same answer for every caller', async () => {
     gateway.narration.narration.handlers.getNarrationStatus = () =>
       Promise.resolve({ textReady: true, audioStatus: 2, audio: undefined, stale: false });
     const res = await phone('get', `/narration/places/${placeId}/status?lang=ja`);
     expect(res.status).toBe(200);
-    expect(res.headers['cache-control']).toBe('private, max-age=2');
+    expect(res.headers['cache-control']).toBe('public, max-age=2');
     expect(res.body.data).toMatchObject({ textReady: true, audio: null, stale: false });
+  });
+
+  it("answers a link's page with no token", async () => {
+    gateway.narration.narration.handlers.getNarrationStatus = () =>
+      Promise.resolve({ textReady: true, audioStatus: 2, audio: undefined, stale: false });
+    const res = await request(server())
+      .get(`/api/v1/narration/places/${placeId}/status?lang=ja`)
+      .set('X-Wayfare-Client', 'web');
+    expect(res.status).toBe(200);
+    expect(gateway.narration.narration.calls.at(-1)?.context).toMatchObject({ kind: 'anonymous' });
   });
 });
 

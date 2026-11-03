@@ -38,7 +38,10 @@ function cookiesOf(res: request.Response): string[] {
 }
 
 describe('sessions per client', () => {
-  it.each(['console', 'web'])('gives %s cookies and a body with no token', async (client) => {
+  it.each([
+    ['console', 'wf_at', 'wf_rt'],
+    ['web', 'wf_wat', 'wf_wrt'],
+  ])('gives %s its own cookies and a body with no token', async (client, access, refresh) => {
     const res = await request(server())
       .post('/api/v1/auth/register')
       .set('X-Wayfare-Client', client)
@@ -47,10 +50,10 @@ describe('sessions per client', () => {
     expect(Object.keys(res.body.data)).toEqual(['user']);
     expect(JSON.stringify(res.body)).not.toContain('refresh-token');
     const cookies = cookiesOf(res);
-    expect(cookies.find((c) => c.startsWith('wf_at=access-token'))).toMatch(
+    expect(cookies.find((c) => c.startsWith(`${access}=access-token`))).toMatch(
       /Path=\/; .*HttpOnly; Secure; SameSite=Lax/,
     );
-    expect(cookies.find((c) => c.startsWith('wf_rt=refresh-token'))).toMatch(
+    expect(cookies.find((c) => c.startsWith(`${refresh}=refresh-token`))).toMatch(
       /Path=\/api; .*HttpOnly; Secure; SameSite=Lax/,
     );
     expect(res.headers['cache-control']).toBe('private, no-store');
@@ -85,6 +88,18 @@ describe('sessions per client', () => {
       .send({ refreshToken: 'from-body' });
     expect(res.status).toBe(200);
     expect(gateway.identity.auth.calls[0]?.request).toMatchObject({ refreshToken: 'from-cookie' });
+  });
+
+  it("refreshes the web from its own cookie, never the console's", async () => {
+    const res = await request(server())
+      .post('/api/v1/auth/refresh')
+      .set('X-Wayfare-Client', 'web')
+      .set('Cookie', 'wf_rt=the-consoles; wf_wrt=the-webs');
+    expect(res.status).toBe(200);
+    expect(gateway.identity.auth.calls[0]?.request).toMatchObject({ refreshToken: 'the-webs' });
+    const cookies = cookiesOf(res);
+    expect(cookies.some((c) => c.startsWith('wf_wrt=refresh-token'))).toBe(true);
+    expect(cookies.some((c) => c.startsWith('wf_rt='))).toBe(false);
   });
 
   it('refreshes mobile from its body', async () => {
@@ -175,7 +190,7 @@ describe('the auth markers at the edge', () => {
     const res = await request(server())
       .post('/api/v1/auth/devices/claim')
       .set('X-Wayfare-Client', 'web')
-      .set('Cookie', `wf_at=${accountToken()}`)
+      .set('Cookie', `wf_wat=${accountToken()}`)
       .set('Authorization', `Bearer ${deviceToken(deviceId)}`);
     expect(res.status).toBe(204);
     expect(gateway.identity.auth.calls.at(-1)?.context).toMatchObject({
@@ -199,7 +214,7 @@ describe('the auth markers at the edge', () => {
     const res = await request(server())
       .post('/api/v1/auth/login')
       .set('X-Wayfare-Client', 'web')
-      .set('Cookie', `wf_at=${accountToken({ sessionId })}`)
+      .set('Cookie', `wf_wat=${accountToken({ sessionId })}`)
       .set('Authorization', `Bearer ${deviceToken(deviceId)}`)
       .send(credentials);
     expect(res.status).toBe(200);

@@ -16,6 +16,7 @@ import {
   ownerHasLiveVouchersDetails,
   permissionDeniedDetails,
   permissionRetiredDetails,
+  placeUnavailableDetails,
   priceBelowMinimumDetails,
   pronunciationTermExistsDetails,
   quotaExhaustedDetails,
@@ -112,7 +113,7 @@ export const ERRORS = {
   // 404 — one not-found code; `details.resource` says which.
   ROUTE_NOT_FOUND: notFound,
   RESOURCE_NOT_FOUND: { ...notFound, details: resourceNotFoundDetails },
-  PLACE_UNAVAILABLE: notFound,
+  PLACE_UNAVAILABLE: { ...notFound, details: placeUnavailableDetails },
   LOCALIZATION_TARGET_UNAVAILABLE: notFound,
 
   // 409

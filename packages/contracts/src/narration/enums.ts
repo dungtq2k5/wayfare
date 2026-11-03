@@ -112,6 +112,8 @@ export const UI_BUNDLE_STATUSES = Object.values(UiBundleStatus);
 export enum UiBundleNamespace {
   TOURIST = 'tourist',
   CONSOLE = 'console',
+  /** The tourist web app's own strings (its places' and areas' names come from `tourist`). */
+  WEB = 'web',
 }
 
 /** Every `UiBundleNamespace` value. */

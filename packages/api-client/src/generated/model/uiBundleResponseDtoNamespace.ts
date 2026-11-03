@@ -11,4 +11,5 @@ export type UiBundleResponseDtoNamespace = typeof UiBundleResponseDtoNamespace[k
 export const UiBundleResponseDtoNamespace = {
   tourist: 'tourist',
   console: 'console',
+  web: 'web',
 } as const;

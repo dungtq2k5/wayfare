@@ -17,6 +17,10 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
     },
+    "@wayfare/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "public/sw.js"]
+    },
     "typecheck": {
       "dependsOn": ["^build", "db:generate"]
     },

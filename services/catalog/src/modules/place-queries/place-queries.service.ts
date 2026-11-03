@@ -13,10 +13,10 @@ import {
   zRequestedLanguage,
   zUuidV7,
 } from '@wayfare/contracts';
-import type { GeoPoint } from '@wayfare/contracts';
+import type { ErrorDetails, GeoPoint } from '@wayfare/contracts';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { rankNearby, walkingEtaMinutes } from '@wayfare/core';
-import { parseRpcRequest, requireDeviceContext, rpcError } from '@wayfare/nest-common';
+import { deviceIdOf, parseRpcRequest, requireDeviceContext, rpcError } from '@wayfare/nest-common';
 import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client';
@@ -93,6 +93,9 @@ function withLanguages<S extends { localizations: object }>(select: S, langs: st
  * The tourist read path (api-endpoints-plan §2.1): delta sync, nearby, detail, QR resolution,
  * categories and areas. Serves only `ACTIVE`, non-deleted Places.
  */
+/** Three decimals of a degree: about 100 m, where a Place no longer listed was. */
+const round3 = (degrees: number): number => Math.round(degrees * 1000) / 1000;
+
 @Injectable()
 export class PlaceQueriesService {
   private readonly mediaBase: string;
@@ -194,7 +197,8 @@ export class PlaceQueriesService {
     request: catalogGrpc.GetPlaceRequest,
     context: RequestContext,
   ): Promise<catalogGrpc.GetPlaceResponse> {
-    const deviceId = requireDeviceContext(context);
+    // A link's page is rendered without a device (K3 in api-endpoints-plan §2.1): no favourite then.
+    const deviceId = deviceIdOf(context);
     const fields = parseRpcRequest(getFields, request);
     const place = await this.detail(
       { id: fields.placeId },
@@ -211,7 +215,7 @@ export class PlaceQueriesService {
     request: catalogGrpc.GetPlaceByCodeRequest,
     context: RequestContext,
   ): Promise<catalogGrpc.GetPlaceByCodeResponse> {
-    const deviceId = requireDeviceContext(context);
+    const deviceId = deviceIdOf(context);
     const fields = parseRpcRequest(byCodeFields, request);
     const place = await this.detail(
       { publicCode: fields.publicCode },
@@ -220,7 +224,7 @@ export class PlaceQueriesService {
       context.kind === 'account' ? context.userId : null,
     );
     if (place === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
-    if (!place.live) throw rpcError('PLACE_UNAVAILABLE');
+    if (!place.live) throw rpcError('PLACE_UNAVAILABLE', place.where);
     return { place: place.detail };
   }
 
@@ -267,7 +271,10 @@ export class PlaceQueriesService {
         SELECT id, code, name_vi AS "nameVi",
                ST_AsGeoJSON(boundary) AS "boundaryGeojson",
                ST_Y(center::geometry) AS "centerLat", ST_X(center::geometry) AS "centerLng",
-               default_zoom AS "defaultZoom", sort_order AS "sortOrder"
+               default_zoom AS "defaultZoom", sort_order AS "sortOrder",
+               (SELECT count(*)::int FROM places p
+                WHERE p.area_id = areas.id AND p.status = ${PlaceStatus.ACTIVE}
+                  AND p.deleted_at IS NULL) AS "placeCount"
         FROM areas
         WHERE is_active
         ORDER BY sort_order, code`,
@@ -359,9 +366,13 @@ export class PlaceQueriesService {
   private async detail(
     where: Prisma.PlaceWhereUniqueInput,
     requested: string | null,
-    deviceId: string,
+    deviceId: string | null,
     userId: string | null,
-  ): Promise<{ live: false } | { live: true; detail: catalogGrpc.PlaceDetail } | null> {
+  ): Promise<
+    | { live: false; where: ErrorDetails<'PLACE_UNAVAILABLE'> }
+    | { live: true; detail: catalogGrpc.PlaceDetail }
+    | null
+  > {
     const langs = reachableLanguages(requested);
     const select = withLanguages(DETAIL_PLACE_SELECT, langs);
     const row = await this.prisma.place.findUnique({
@@ -370,11 +381,22 @@ export class PlaceQueriesService {
         ...select,
         status: true,
         deletedAt: true,
+        area: { select: { code: true } },
         menuItems: { ...select.menuItems, select: withLanguages(select.menuItems.select, langs) },
       },
     });
     if (row === null) return null;
-    if (row.status !== ACTIVE || row.deletedAt !== null) return { live: false };
+    if (row.status !== ACTIVE || row.deletedAt !== null) {
+      // Where it was, to about 100 m: enough to show what is still near, not to find the stall.
+      const point = (await this.locations([row.id])).get(row.id)!;
+      return {
+        live: false,
+        where: {
+          areaCode: row.area.code,
+          near: { lat: round3(point.lat), lng: round3(point.lng) },
+        },
+      };
+    }
     const [locations, isFavorite] = await Promise.all([
       this.locations([row.id]),
       this.isFavorite(row.id, deviceId, userId),
@@ -388,11 +410,16 @@ export class PlaceQueriesService {
   /** Whether the calling device, or the signed-in account on any of its devices, saved the Place. */
   private async isFavorite(
     placeId: string,
-    deviceId: string,
+    deviceId: string | null,
     userId: string | null,
   ): Promise<boolean> {
+    const owners = [
+      ...(deviceId === null ? [] : [{ deviceId }]),
+      ...(userId === null ? [] : [{ userId }]),
+    ];
+    if (owners.length === 0) return false;
     const saved = await this.prisma.favorite.findFirst({
-      where: { placeId, OR: userId === null ? [{ deviceId }] : [{ deviceId }, { userId }] },
+      where: { placeId, OR: owners },
       select: { deviceId: true },
     });
     return saved !== null;

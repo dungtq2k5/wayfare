@@ -54,6 +54,8 @@ services:
     container_name: wayfare-screens-identity
     environment:
       CONSOLE_URL: http://localhost:5183
+      # A tourist's mail opens the screens' web app, beside the screens' console.
+      WEB_URL: http://localhost:5184
     ports: !override ['127.0.0.1:23101:3101', '127.0.0.1:30051:20051']
   catalog:
     container_name: wayfare-screens-catalog
@@ -73,7 +75,9 @@ services:
   gateway:
     container_name: wayfare-screens-gateway
     environment:
-      CORS_ORIGINS: http://localhost:5183
+      CORS_ORIGINS: http://localhost:5183,http://localhost:5184
+      # A sticker's scan lands on the screens' web app.
+      PUBLIC_LINK_BASE_URL: http://localhost:5184
       PUBLIC_QR_BASE_URL: http://localhost:23000
       # A Place counts as stuck after 15 s, so the stuck spec waits seconds, not an hour.
       STUCK_PROCESSING_AFTER_MS: '15000'

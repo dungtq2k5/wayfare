@@ -14,6 +14,8 @@ export const areaResponseSchema = z.object({
   code: z.string(),
   center: zGeoPoint,
   defaultZoom: z.number().int(),
+  /** Its live Places, for an area chooser. */
+  placeCount: z.number().int().min(0),
   boundary: zGeoJsonPolygon,
   /**
    * The published map pack — `null` without one. `style` and `styleDark` are its public style URLs,

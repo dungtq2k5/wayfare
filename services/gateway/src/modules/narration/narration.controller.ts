@@ -19,8 +19,9 @@ import {
   Auth,
   Ctx,
   NoStore,
-  PrivateCache,
+  PublicCache,
   RateLimit,
+  SkipClientHeader,
   SkipEnvelope,
   UsesUpstream,
 } from '@wayfare/nest-common';
@@ -34,6 +35,7 @@ import {
   OnDemandPendingResponseDto,
   OnDemandResponseDto,
   PrefetchResponseDto,
+  StreamTicketResponseDto,
 } from './dto/narration-response.dto';
 import type { OnDemandAnswer } from './dto/narration-response.dto';
 import {
@@ -43,6 +45,7 @@ import {
   OnDemandDto,
   PrefetchDto,
   StreamQueryDto,
+  StreamTicketParamDto,
 } from './dto/narration.dto';
 import { NarrationService } from './narration.service';
 
@@ -122,9 +125,45 @@ export class NarrationController {
     return this.narration.stream(context, query);
   }
 
-  @Get('places/:placeId/status')
+  @Post('tts/stream-ticket')
   @Auth('DEVICE')
-  @PrivateCache(2)
+  @RateLimit('NARRATION_ON_DEMAND')
+  @NoStore()
+  @ApiOperation({
+    summary:
+      "A single-use ticket for one stream, for a browser's audio element, which sends no headers.",
+  })
+  @ApiEnvelope(StreamTicketResponseDto, { status: HttpStatus.CREATED })
+  @ZodSerializerDto(StreamTicketResponseDto)
+  streamTicket(
+    @Ctx() context: RequestContext,
+    @Body() body: StreamQueryDto,
+  ): Promise<StreamTicketResponseDto> {
+    return this.narration.streamTicket(context, body);
+  }
+
+  @Get('tts/stream/:ticket')
+  @Auth('PUBLIC')
+  @RateLimit('PUBLIC_READ')
+  // An `<audio src>` sends no client header; the ticket stands in for it and for the device.
+  @SkipClientHeader()
+  @NoStore()
+  @SkipEnvelope()
+  @ApiOperation({ summary: 'Audio tier 2 by a stream ticket: its device, Place and language.' })
+  @ApiEnvelope(null, { status: 200, mediaType: 'audio/mpeg' })
+  @ApiErrors('UNAUTHENTICATED', 'RESOURCE_NOT_FOUND', 'INVALID_STATE', 'UPSTREAM_UNAVAILABLE')
+  streamByTicket(
+    @Ctx() context: RequestContext,
+    @Param() params: StreamTicketParamDto,
+  ): Promise<StreamableFile> {
+    return this.narration.streamByTicket(params.ticket, context.origin);
+  }
+
+  @Get('places/:placeId/status')
+  @Auth('PUBLIC')
+  @RateLimit('LINK_READ')
+  // The same answer for every caller, device or none: nothing in it is anyone's own.
+  @PublicCache(2)
   @ApiOperation({ summary: "A Place's text and audio readiness in one language." })
   @ApiEnvelope(NarrationStatusResponseDto)
   @ApiErrors('RESOURCE_NOT_FOUND')

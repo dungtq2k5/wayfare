@@ -63,6 +63,11 @@ const NO_SECURITY = new Set([
   'POST /api/v1/auth/email/verify',
   'POST /api/v1/auth/email/change/confirm',
   'POST /api/v1/auth/email/change/revert',
+  // A link's page reads these while the server renders it, before the browser has a device.
+  'GET /api/v1/places/{id}',
+  'GET /api/v1/places/by-code/{publicCode}',
+  // An `<audio src>`: the ticket in its URL stands in for the device and the client header.
+  'GET /api/v1/narration/tts/stream/{ticket}',
 ]);
 const REFRESH_COOKIE = new Set(['POST /api/v1/auth/refresh', 'POST /api/v1/auth/logout']);
 const DEVICE_ROUTES = new Set([
@@ -71,13 +76,11 @@ const DEVICE_ROUTES = new Set([
   'POST /api/v1/devices/me/legal-acceptances',
   'GET /api/v1/sync/places',
   'GET /api/v1/places/nearby',
-  'GET /api/v1/places/{id}',
-  'GET /api/v1/places/by-code/{publicCode}',
   'POST /api/v1/narration/on-demand',
   'POST /api/v1/narration/hotset',
   'POST /api/v1/narration/prefetch',
   'GET /api/v1/narration/tts/stream',
-  'GET /api/v1/narration/places/{placeId}/status',
+  'POST /api/v1/narration/tts/stream-ticket',
   'GET /api/v1/offline/areas/{areaId}/manifest',
   'GET /api/v1/offline/areas/{areaId}/manifest/diff',
   'GET /api/v1/me/favorites',
@@ -93,6 +96,7 @@ const PUBLIC_READS = new Set([
   'GET /api/v1/categories',
   'GET /api/v1/areas',
   'GET /api/v1/i18n/bundles/{namespace}/{locale}',
+  'GET /api/v1/narration/places/{placeId}/status',
 ]);
 
 /**
@@ -107,6 +111,7 @@ const NON_JSON = new Map([
   ['GET /api/v1/owner/places/{id}/qr', 'image/svg+xml'],
   ['POST /api/v1/admin/narration/pronunciations/preview', 'audio/mpeg'],
   ['GET /api/v1/narration/tts/stream', 'audio/mpeg'],
+  ['GET /api/v1/narration/tts/stream/{ticket}', 'audio/mpeg'],
 ]);
 
 describe('OpenAPI contract', () => {
@@ -114,9 +119,9 @@ describe('OpenAPI contract', () => {
     const names = operations().map(([name]) => name);
     // 152, Continue with Google's five, and round 35's four reads (a recovery, a dictionary
     // entry, the corrections and the stuck Places), round 35a's four billing reads (a plan, a price
-    // look-up, an unpin preview, an event), round 36's owner QR sticker; the dev routes stay out
-    // of the document.
-    expect(names).toHaveLength(166);
+    // look-up, an unpin preview, an event), round 36's owner QR sticker, round 37's stream ticket
+    // and the stream it opens; the dev routes stay out of the document.
+    expect(names).toHaveLength(168);
     expect(names.some((name) => name.includes('/dev/'))).toBe(false);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);

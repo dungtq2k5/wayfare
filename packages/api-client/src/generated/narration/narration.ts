@@ -32,8 +32,10 @@ import type {
   NarrationStatus200,
   NarrationStatusParams,
   NarrationStreamParams,
+  NarrationStreamTicket201,
   OnDemandDto,
-  PrefetchDto
+  PrefetchDto,
+  StreamQueryDto
 } from '../model';
 
 import { apiFetch } from '../../fetch.js';
@@ -419,6 +421,193 @@ export function useNarrationStream<TData = Awaited<ReturnType<typeof narrationSt
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getNarrationStreamQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getNarrationStreamTicketUrl = () => {
+
+
+
+
+  return `/narration/tts/stream-ticket`
+}
+
+/**
+ * @summary A single-use ticket for one stream, for a browser's audio element, which sends no headers.
+ */
+export const narrationStreamTicket = async (streamQueryDto: StreamQueryDto, options?: Parameters<typeof apiFetch>[1]): Promise<NarrationStreamTicket201> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<NarrationStreamTicket201>(getNarrationStreamTicketUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(streamQueryDto)
+  }
+);}
+
+
+
+
+
+export const getNarrationStreamTicketMutationKey = () => ['narrationStreamTicket'] as const;
+
+export const getNarrationStreamTicketMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof narrationStreamTicket>>, TError,NarrationStreamTicketMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof narrationStreamTicket>>, TError,NarrationStreamTicketMutationVariables, TContext> => {
+
+const mutationKey = getNarrationStreamTicketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof narrationStreamTicket>>, NarrationStreamTicketMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  narrationStreamTicket(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NarrationStreamTicketMutationResult = NonNullable<Awaited<ReturnType<typeof narrationStreamTicket>>>
+    export type NarrationStreamTicketMutationBody = StreamQueryDto
+    export type NarrationStreamTicketMutationError = unknown
+    export type NarrationStreamTicketMutationVariables = {data: StreamQueryDto}
+
+    /**
+ * @summary A single-use ticket for one stream, for a browser's audio element, which sends no headers.
+ */
+export const useNarrationStreamTicket = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof narrationStreamTicket>>, TError,NarrationStreamTicketMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof narrationStreamTicket>>,
+        TError,
+        NarrationStreamTicketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getNarrationStreamTicketMutationOptions(options), queryClient);
+    }
+    export const getNarrationStreamByTicketUrl = (ticket: string,) => {
+
+
+
+
+  return `/narration/tts/stream/${ticket}`
+}
+
+/**
+ * @summary Audio tier 2 by a stream ticket: its device, Place and language.
+ */
+export const narrationStreamByTicket = async (ticket: string, options?: Parameters<typeof apiFetch>[1]): Promise<Blob> => {
+
+  return apiFetch<Blob>(getNarrationStreamByTicketUrl(ticket),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getNarrationStreamByTicketQueryKey = (ticket: string,) => {
+    return [
+    `/narration/tts/stream/${ticket}`
+    ] as const;
+    }
+
+
+export const getNarrationStreamByTicketQueryOptions = <TData = Awaited<ReturnType<typeof narrationStreamByTicket>>, TError = unknown>(ticket: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof narrationStreamByTicket>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getNarrationStreamByTicketQueryKey(ticket);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof narrationStreamByTicket>>> = ({ signal }) => narrationStreamByTicket(ticket, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ticket !== null && ticket !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof narrationStreamByTicket>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type NarrationStreamByTicketQueryResult = NonNullable<Awaited<ReturnType<typeof narrationStreamByTicket>>>
+export type NarrationStreamByTicketQueryError = unknown
+
+
+export function useNarrationStreamByTicket<TData = Awaited<ReturnType<typeof narrationStreamByTicket>>, TError = unknown>(
+ ticket: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof narrationStreamByTicket>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof narrationStreamByTicket>>,
+          TError,
+          Awaited<ReturnType<typeof narrationStreamByTicket>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNarrationStreamByTicket<TData = Awaited<ReturnType<typeof narrationStreamByTicket>>, TError = unknown>(
+ ticket: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof narrationStreamByTicket>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof narrationStreamByTicket>>,
+          TError,
+          Awaited<ReturnType<typeof narrationStreamByTicket>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useNarrationStreamByTicket<TData = Awaited<ReturnType<typeof narrationStreamByTicket>>, TError = unknown>(
+ ticket: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof narrationStreamByTicket>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Audio tier 2 by a stream ticket: its device, Place and language.
+ */
+
+export function useNarrationStreamByTicket<TData = Awaited<ReturnType<typeof narrationStreamByTicket>>, TError = unknown>(
+ ticket: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof narrationStreamByTicket>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getNarrationStreamByTicketQueryOptions(ticket,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

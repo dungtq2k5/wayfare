@@ -29,6 +29,14 @@ export class FakeRedis implements RevocationStore {
     return Promise.resolve('OK');
   }
 
+  /** `GETDEL key`: the value, removed in the same step. */
+  getdel(key: string): Promise<string | null> {
+    if (this.failure) return Promise.reject(this.failure);
+    const value = this.values.get(key) ?? null;
+    this.values.delete(key);
+    return Promise.resolve(value);
+  }
+
   del(...keys: string[]): Promise<number> {
     if (this.failure) return Promise.reject(this.failure);
     let removed = 0;

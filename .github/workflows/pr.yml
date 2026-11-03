@@ -127,8 +127,28 @@ jobs:
       - name: The console's screen baselines
         run: pnpm --filter @wayfare/console test:screens
 
+      # The web's baselines need a stack nothing else has written to too (apps/web/e2e/README.md):
+      # the console's screens leave Places and areas the map would list, so the stack starts again.
+      - name: A fresh stack for the web's screens
+        run: |
+          docker compose --profile apps down -v
+          docker compose up -d --wait
+          pnpm db:setup
+          pnpm --filter @wayfare/catalog storage:setup
+          docker compose --profile apps up -d --wait
+          pnpm seed:dev && pnpm --filter @wayfare/identity bootstrap:super-admin
+        env:
+          BOOTSTRAP_SUPER_ADMIN_EMAIL: superadmin@wayfare.local
+          BOOTSTRAP_SUPER_ADMIN_PASSWORD: super admin pass 1
+
+      - name: The web's screen baselines
+        run: pnpm --filter @wayfare/web test:screens
+
       - name: The console's Playwright flows
         run: pnpm --filter @wayfare/console e2e
+
+      - name: The web's Playwright flows
+        run: pnpm --filter @wayfare/web e2e
 
       - name: Playwright report on failure
         if: failure()
@@ -139,6 +159,8 @@ jobs:
           path: |
             apps/console/playwright-report
             apps/console/test-results
+            apps/web/playwright-report
+            apps/web/test-results
 
       - name: Stack logs on failure
         if: failure()

@@ -4,7 +4,7 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { RequestContext, RequestOrigin } from '../context/request-context';
 import { setAuthState } from '../http/request-context';
 import type { AuthError } from '../http/request-context';
-import { ACCESS_COOKIE, readCookie } from '../http/session-cookies';
+import { readCookie, sessionCookieNames } from '../http/session-cookies';
 import { AccountTokenVerifier } from './account-token-verifier';
 import type { AccountTokenVerifierDeps } from './account-token-verifier';
 
@@ -54,7 +54,9 @@ export function createRequestContextMiddleware(
     const origin = originOf(request);
     const client = request.header(CLIENT_HEADER);
     const cookie =
-      client === 'console' || client === 'web' ? readCookie(request, ACCESS_COOKIE) : null;
+      client === 'console' || client === 'web'
+        ? readCookie(request, sessionCookieNames(client).access)
+        : null;
     const bearer = client === 'web' || client === 'mobile' ? bearerOf(request) : null;
 
     let account: AccountStatus = { kind: 'none' };

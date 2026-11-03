@@ -50,12 +50,12 @@ describe('a committed locale', () => {
     expect(services.bundleQueue.items).toEqual([]);
   });
 
-  it('is what the seeder writes, in every namespace, and writing twice changes nothing', async () => {
+  it('is what the seeder writes, in every namespace (tourist, console, web; en and vi), and writing twice changes nothing', async () => {
     const first = await seedSystemBundles(prisma);
-    expect(first.filter((line) => line.startsWith('created'))).toHaveLength(4);
+    expect(first.filter((line) => line.startsWith('created'))).toHaveLength(6);
     const second = await seedSystemBundles(prisma);
     expect(second.every((line) => line.startsWith('unchanged'))).toBe(true);
-    expect(await prisma.uiBundle.count()).toBe(4);
+    expect(await prisma.uiBundle.count()).toBe(6);
   });
 
   it('falls back to English for a tag narration does not serve', async () => {

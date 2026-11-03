@@ -21,6 +21,10 @@ export const buttonVariants = cva(
         default: 'h-9 px-4',
         sm: 'h-8 px-3',
         icon: 'size-10',
+        // The tourist web app's (conventions §12.5): 48 px, the label in body-strong, a 20 px icon.
+        lg: 'h-12 px-5 py-3 text-base font-semibold [&_svg]:size-5',
+        // A tourist's icon button: a 44 px target.
+        'icon-lg': 'size-11 [&_svg]:size-5',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },

@@ -64,10 +64,12 @@ beforeEach(() => {
 
 async function resolve(
   client: string,
-  options: { cookie?: string; bearer?: string } = {},
+  options: { cookie?: string; bearer?: string; cookieName?: string } = {},
 ): Promise<RequestAuthState> {
   const headers: Record<string, string> = { 'x-wayfare-client': client, 'user-agent': 'spec/1.0' };
-  if (options.cookie !== undefined) headers.cookie = `other=1; wf_at=${options.cookie}`;
+  // Each web app reads its own access cookie: the console `wf_at`, the tourist web app `wf_wat`.
+  const name = options.cookieName ?? (client === 'web' ? 'wf_wat' : 'wf_at');
+  if (options.cookie !== undefined) headers.cookie = `other=1; ${name}=${options.cookie}`;
   if (options.bearer !== undefined) headers.authorization = `Bearer ${options.bearer}`;
   const request = {
     ip: '203.0.113.9',
@@ -88,6 +90,20 @@ async function resolve(
 }
 
 describe('request-context middleware', () => {
+  it("reads only the asking app's cookie: the console's from the web, or the web's from the console, is no session", async () => {
+    const webWithConsoleCookie = await resolve('web', {
+      cookie: accountToken(),
+      cookieName: 'wf_at',
+    });
+    expect(webWithConsoleCookie.context.kind).toBe('anonymous');
+    const consoleWithWebCookie = await resolve('console', {
+      cookie: accountToken(),
+      cookieName: 'wf_wat',
+    });
+    expect(consoleWithWebCookie.context.kind).toBe('anonymous');
+    expect((await resolve('web', { cookie: accountToken() })).context.kind).toBe('account');
+  });
+
   it('resolves a valid console cookie to an account, filling a cutoff miss', async () => {
     const state = await resolve('console', { cookie: accountToken() });
     expect(state).toEqual({

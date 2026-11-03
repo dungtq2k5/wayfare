@@ -193,6 +193,8 @@ message Area {
   int64 dataset_version = 8;
   // The published map pack; absent without one.
   AreaMapPack map_pack = 9;
+  // Its live Places, for an area chooser (api-endpoints-plan §2.1).
+  int32 place_count = 10;
 }
 
 // The published map pack of an area, as `/areas` announces it.

@@ -9,6 +9,7 @@ import { readUiBundle } from './locales';
 const GENERATED = [
   { namespace: 'tourist', type: 'TouristArguments' },
   { namespace: 'console', type: 'ConsoleArguments' },
+  { namespace: 'web', type: 'WebArguments' },
 ] as const;
 
 describe('the generated argument types', () => {

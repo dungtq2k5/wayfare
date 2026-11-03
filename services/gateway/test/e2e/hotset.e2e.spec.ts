@@ -118,6 +118,71 @@ describe('GET /narration/tts/stream', () => {
   });
 });
 
+describe('a stream ticket, for a browser', () => {
+  const audio = Buffer.from('ID3fake-mp3-bytes');
+  const asBytes = (res: request.Test) =>
+    res.buffer().parse((response, callback) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () => callback(null, Buffer.concat(chunks)));
+    });
+  /** A web page's request for a ticket, as its device. */
+  const ticketFor = (deviceId: string, lang = 'ja') =>
+    request(server())
+      .post('/api/v1/narration/tts/stream-ticket')
+      .set('X-Wayfare-Client', 'web')
+      .set('Authorization', `Bearer ${deviceToken(deviceId)}`)
+      .send({ placeId, lang });
+  /** The `<audio src>`: no client header, no token. */
+  const play = (ticket: string) =>
+    asBytes(request(server()).get(`/api/v1/narration/tts/stream/${ticket}`));
+
+  beforeEach(() => {
+    gateway.narration.ttsStream.handlers.getStreamAudio = () =>
+      Promise.resolve({ audio, contentType: 'audio/mpeg' });
+  });
+
+  it('opens the stream once, as the device that asked, for its Place and language', async () => {
+    const deviceId = newId();
+    const issued = await ticketFor(deviceId);
+    expect(issued.status).toBe(201);
+    expect(issued.headers['cache-control']).toContain('no-store');
+    const { ticket, expiresAt } = issued.body.data as { ticket: string; expiresAt: string };
+    expect(Date.parse(expiresAt) - Date.now()).toBeGreaterThan(50_000);
+
+    const first = await play(ticket);
+    expect(first.status).toBe(200);
+    expect(first.headers['content-type']).toContain('audio/mpeg');
+    expect(Buffer.from(first.body as Buffer).equals(audio)).toBe(true);
+    const call = gateway.narration.ttsStream.calls.at(-1);
+    expect(call?.request).toEqual({ placeId, lang: 'ja' });
+    expect(call?.context).toMatchObject({ kind: 'device', deviceId });
+
+    expect((await play(ticket)).status).toBe(401);
+  });
+
+  it('refuses a ticket past its time, and one never issued', async () => {
+    const { ticket } = (await ticketFor(newId())).body.data as { ticket: string };
+    const key = `stream-ticket:${ticket}`;
+    const stored = JSON.parse(gateway.redis.values.get(key)!) as { expiresAt: number };
+    gateway.redis.values.set(key, JSON.stringify({ ...stored, expiresAt: Date.now() - 1 }));
+    expect((await play(ticket)).status).toBe(401);
+    expect((await play('A'.repeat(43))).status).toBe(401);
+    expect((await play('not-a-ticket')).status).toBe(400);
+  });
+
+  it('needs a device to issue one, and counts against its narration budget', async () => {
+    const anonymous = await request(server())
+      .post('/api/v1/narration/tts/stream-ticket')
+      .set('X-Wayfare-Client', 'web')
+      .send({ placeId, lang: 'ja' });
+    expect(anonymous.status).toBe(401);
+    const deviceId = newId();
+    for (let i = 0; i < 30; i++) expect((await ticketFor(deviceId)).status).toBe(201);
+    expect((await ticketFor(deviceId)).status).toBe(429);
+  });
+});
+
 describe('GET /i18n/bundles/:namespace/:locale', () => {
   const hash = 'a'.repeat(64);
   const ready = () => ({

@@ -18,6 +18,11 @@ export interface AreaResponseDto {
      * @maximum 9007199254740991
      */
   defaultZoom: number;
+  /**
+     * @minimum 0
+     * @maximum 9007199254740991
+     */
+  placeCount: number;
   boundary: AreaResponseDtoBoundary;
   mapPack: AreaResponseDtoMapPack;
   /**

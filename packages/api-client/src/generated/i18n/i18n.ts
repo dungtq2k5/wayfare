@@ -50,7 +50,7 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getI18nBundleUrl = (namespace: 'tourist' | 'console',
+export const getI18nBundleUrl = (namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params?: I18nBundleParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -70,7 +70,7 @@ export const getI18nBundleUrl = (namespace: 'tourist' | 'console',
 /**
  * @summary One namespace of one locale; an untranslated one answers English and is queued.
  */
-export const i18nBundle = async (namespace: 'tourist' | 'console',
+export const i18nBundle = async (namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params?: I18nBundleParams, options?: Parameters<typeof apiFetch>[1]): Promise<I18nBundle200> => {
 
@@ -87,7 +87,7 @@ export const i18nBundle = async (namespace: 'tourist' | 'console',
 
 
 
-export const getI18nBundleQueryKey = (namespace: 'tourist' | 'console',
+export const getI18nBundleQueryKey = (namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params?: I18nBundleParams,) => {
     return [
@@ -96,7 +96,7 @@ export const getI18nBundleQueryKey = (namespace: 'tourist' | 'console',
     }
 
 
-export const getI18nBundleQueryOptions = <TData = Awaited<ReturnType<typeof i18nBundle>>, TError = unknown>(namespace: 'tourist' | 'console',
+export const getI18nBundleQueryOptions = <TData = Awaited<ReturnType<typeof i18nBundle>>, TError = unknown>(namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params?: I18nBundleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof i18nBundle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
 ) => {
@@ -121,7 +121,7 @@ export type I18nBundleQueryError = unknown
 
 
 export function useI18nBundle<TData = Awaited<ReturnType<typeof i18nBundle>>, TError = unknown>(
- namespace: 'tourist' | 'console',
+ namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params: undefined |  I18nBundleParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof i18nBundle>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -133,7 +133,7 @@ export function useI18nBundle<TData = Awaited<ReturnType<typeof i18nBundle>>, TE
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useI18nBundle<TData = Awaited<ReturnType<typeof i18nBundle>>, TError = unknown>(
- namespace: 'tourist' | 'console',
+ namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params?: I18nBundleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof i18nBundle>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -145,7 +145,7 @@ export function useI18nBundle<TData = Awaited<ReturnType<typeof i18nBundle>>, TE
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useI18nBundle<TData = Awaited<ReturnType<typeof i18nBundle>>, TError = unknown>(
- namespace: 'tourist' | 'console',
+ namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params?: I18nBundleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof i18nBundle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
@@ -155,7 +155,7 @@ export function useI18nBundle<TData = Awaited<ReturnType<typeof i18nBundle>>, TE
  */
 
 export function useI18nBundle<TData = Awaited<ReturnType<typeof i18nBundle>>, TError = unknown>(
- namespace: 'tourist' | 'console',
+ namespace: 'tourist' | 'console' | 'web',
     locale: string,
     params?: I18nBundleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof i18nBundle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient

@@ -115,7 +115,7 @@ describe('/users/me', () => {
     const res = await request(server())
       .get('/api/v1/users/me/legal-acceptances')
       .set('X-Wayfare-Client', 'web')
-      .set('Cookie', cookie());
+      .set('Cookie', cookie().replace('wf_at=', 'wf_wat='));
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       data: [

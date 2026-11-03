@@ -185,6 +185,9 @@ export function wayfareConfig({ tsconfigRootDir }) {
         // The screen baselines' own development server's build (apps/console/e2e/README.md).
         '**/.next-screens/**',
         '**/playwright-report/**',
+        // The web app's service worker, built by Serwist from src/sw.ts.
+        'apps/web/public/sw.js',
+        'apps/web/public/swe-worker-*.js',
         '**/test-results/**',
       ],
     },
@@ -472,9 +475,9 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
-      // The web (ADR 0060, 0061): the browser's globals, React's hooks rules, process.env in the
-      // console's src/env.ts alone, and only design tokens on the screen.
-      files: ['apps/console/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+      // The web (ADR 0060, 0061): the browser's globals, React's hooks rules, process.env in each
+      // web app's src/env.ts alone, and only design tokens on the screen.
+      files: ['apps/console/**/*.{ts,tsx}', 'apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
       plugins: { 'react-hooks': reactHooks },
       languageOptions: { globals: { ...globals.browser } },
       rules: {
@@ -489,11 +492,15 @@ export function wayfareConfig({ tsconfigRootDir }) {
       },
     },
     {
-      // Where the console reads its environment: src/env.ts, and Playwright's own setup.
+      // Where a web app reads its environment: src/env.ts, and Playwright's own setup.
       files: [
         'apps/console/src/env.ts',
         'apps/console/playwright.config.ts',
         'apps/console/e2e/**',
+        'apps/web/src/env.ts',
+        'apps/web/next.config.ts',
+        'apps/web/playwright.config.ts',
+        'apps/web/e2e/**',
       ],
       rules: {
         'no-restricted-syntax': ['error', RPC_EXCEPTION_SELECTOR, ...WEB_TOKENS_ONLY_SELECTORS],
@@ -542,7 +549,7 @@ export function wayfareConfig({ tsconfigRootDir }) {
       rules: { 'no-restricted-imports': 'off' },
     },
     {
-      files: ['**/*.spec.ts', '**/test/**', 'apps/console/e2e/**'],
+      files: ['**/*.spec.ts', '**/test/**', 'apps/console/e2e/**', 'apps/web/e2e/**'],
       rules: {
         '@typescript-eslint/unbound-method': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',

@@ -34,7 +34,7 @@ up() {
     on "$s" pnpm --silent --filter "@wayfare/$s" db:deploy
   done
   on catalog pnpm --silent --filter @wayfare/catalog storage:setup -- \
-    --cors-origin http://localhost:5183
+    --cors-origin http://localhost:5183 --cors-origin http://localhost:5184
   "${compose[@]}" --profile apps up -d --build --wait "${apps[@]}"
   # turbo.json's order for `pnpm seed:dev`: identity's owners open their billing accounts (by event),
   # billing's plans go on those accounts, and catalog's Venues ask billing for them.

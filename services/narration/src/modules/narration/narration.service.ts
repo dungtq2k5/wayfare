@@ -94,9 +94,9 @@ export class NarrationService {
 
   async getNarrationStatus(
     request: narrationGrpc.GetNarrationStatusRequest,
-    context: RequestContext,
+    // Public: a link's page reads it while rendering, before the browser has a device.
+    _context: RequestContext,
   ): Promise<narrationGrpc.GetNarrationStatusResponse> {
-    requireDeviceContext(context);
     const fields = parseRpcRequest(placeLangFields, request);
     const place = await this.activePlace(fields.placeId);
     const lang = normalizeLang(fields.lang);

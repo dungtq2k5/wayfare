@@ -13,6 +13,7 @@ import {
   SynthesisTrigger,
 } from '@wayfare/contracts';
 import { audioStatusProto, onDemandStatusProto } from '@wayfare/contracts/grpc';
+import { buildAnonymousContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { outboxPayloads, testPrisma, truncateAll } from '../setup/database';
 import { device, errorCode, jobsOf, PLACE_CONSUMER, placeChanged } from '../setup/fixtures';
@@ -188,5 +189,16 @@ describe('GetNarrationStatus', () => {
     );
     expect(ko).toMatchObject({ textReady: false, stale: false });
     expect(ko.audioStatus).toBeUndefined();
+  });
+
+  it("answers a link's page without a device", async () => {
+    const place = services.catalog.place({
+      localizations: [localizationState('en', 'd'.repeat(64))],
+    });
+    const en = await services.narration.getNarrationStatus(
+      { placeId: place.id, lang: 'en' },
+      buildAnonymousContext(),
+    );
+    expect(en.textReady).toBe(true);
   });
 });

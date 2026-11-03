@@ -258,6 +258,43 @@ describe('GET /places', () => {
     expect(gone.status).toBe(404);
     expect(gone.body.error.code).toBe('PLACE_UNAVAILABLE');
   });
+
+  it('by code: an unavailable Place says where it was', async () => {
+    const details = { areaCode: 'Q4_VINH_KHANH', near: { lat: 10.761, lng: 106.703 } };
+    gateway.catalog.placeQueries.handlers.getPlaceByCode = () =>
+      Promise.reject(
+        serviceError(status.NOT_FOUND, {
+          'wf-error-code': 'PLACE_UNAVAILABLE',
+          'wf-error-details': JSON.stringify(details),
+        }),
+      );
+    const gone = await phone('/places/by-code/K7M2Q9XA?lang=vi');
+    expect(gone.status).toBe(404);
+    expect(gone.body.error).toMatchObject({ code: 'PLACE_UNAVAILABLE', details });
+  });
+
+  it.each([
+    ['by code', '/places/by-code/K7M2Q9XA?lang=vi', 'getPlaceByCode'],
+    ['by id', `/places/${placeId}?lang=en`, 'getPlace'],
+  ] as const)(
+    "%s answers a link's page with no token, as no one's favourite",
+    async (_name, path, handler) => {
+      const res = await request(server()).get(`/api/v1${path}`).set('X-Wayfare-Client', 'web');
+      expect(res.status).toBe(200);
+      expect(res.body.data.isFavorite).toBe(false);
+      expect(gateway.catalog.placeQueries.calls.at(-1)).toMatchObject({
+        method: handler,
+        context: { kind: 'anonymous' },
+      });
+    },
+  );
+
+  it('nearby still needs a device', async () => {
+    const res = await request(server())
+      .get('/api/v1/places/nearby?lat=10.77&lng=106.69&lang=en')
+      .set('X-Wayfare-Client', 'web');
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('GET /q/:publicCode', () => {
@@ -314,6 +351,8 @@ describe('GET /categories and /areas', () => {
       boundary: { type: 'Polygon' },
       mapPack: null,
       datasetVersion: 42,
+      // Its live Places, for the web's area chooser.
+      placeCount: 3,
     });
     // A published pack names its styles, for a web map.
     gateway.catalog.placeQueries.handlers.listAreas = () =>

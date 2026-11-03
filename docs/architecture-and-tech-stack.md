@@ -347,6 +347,13 @@ It also holds identity's **revocation state** — each user's token cutoff and t
   - **Navigation by permission**, each item behind its read permission and every route checking its own; **an account that is neither a verified owner nor staff** — a tourist or a new applicant — sees Home and *Your registration* only, so anyone may register a venue from the console; *Your business* shows from `/users/me`'s `owner`, not from `owner.access`, which admins also hold.
   - **Development server:** `devIndicators: false` (Next's corner indicator would draw itself into every screen baseline), and the build folder from `NEXT_DIST_DIR` (default `.next`), so the screens' development server runs beside the developer's own without sharing one.
   - **Google** through Google Identity Services' own button, its nonce bound to a `wf_gn` cookie since the console has no device. A development build uses the stack's fake issuer whenever the stack runs it, through a test hook that is absent from a production build.
+- **The tourist web app** (`apps/web`, port 5174; the same stack as the console; buttons 48 px for a phone outdoors):
+  - **Same content, less capability:** no walk and no narration by location; a story starts on a tap. A link's page (`/p/<code>`) is rendered on the server from the token-less reads, then reads `isFavorite` with the device.
+  - **The device** is registered on the first visit, its secret in IndexedDB, its 15-minute token in memory; signed in, the account rides the web's own cookies.
+  - **Audio** plays through one `<audio>` element after a tap: the stored file, then on-demand audio within the 5 s wait, then the live stream by a ticket, then the browser's `speechSynthesis`, said honestly; Media Session gives the lock screen while the tab is open.
+  - **Offline** through Serwist, the build `next build --webpack` (Next 16 builds with Turbopack by default, which `@serwist/next` doesn't hook): the shell precached, place pages network-first, photos and audio cache-first — audio through the range-request plugin so a cached story seeks on an iPhone — and an IndexedDB index of the Places opened. The media bucket's CORS allows the web's origins, or the worker sees only opaque responses. No area packs.
+  - **Open in the app** is an Android intent link (`intent://p/<code>…;package=app.wayfare`, the Play Store as fallback), since the App Links don't verify yet.
+  - **The legal pages** (`/privacy`, `/terms`, `/owner-agreement`) read committed text, `apps/web/content/legal/<document>/<version>.<lang>.md`, English and Vietnamese; another language shows the English with a line; `?v=` opens an earlier version.
 - **Maps:** **MapLibre GL JS** 📌 [ADR 0024](./decisions/0024-maplibre-on-both-platforms.md) — hardware-accelerated vector maps, no vendor lock-in, free.
 - **Legal pages:** the privacy policy is a page of the tourist web app, **`https://wayfare.app/privacy`**, showing the version in `LEGAL_DOCUMENT_VERSIONS`; the mobile app's first run links to it (`EXPO_PUBLIC_PRIVACY_POLICY_URL`).
 - **Offline:** **Workbox** through **Serwist** (`@serwist/next`, the maintained successor of `next-pwa`): we hand-write the service worker, Serwist injects the precache manifest. The offline entry point is a precached client-rendered shell; a server-rendered page is available offline only once cached.
@@ -726,10 +733,12 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `STRIPE_VOUCHER_PMC_ID` | billing | payment method configuration allowing instant methods only, for voucher checkout |
 | `VOUCHER_CODE_HASH_KEY` | billing | HMAC key for voucher short codes |
 | `RESEND_API_KEY` | identity | transactional email — a **sending-only** key; **unset locally**, where Nodemailer → Mailpit is used |
-| `NEXT_PUBLIC_API_ORIGIN` | console | the gateway's origin for the browser — **empty when deployed** (same origin, the edge routes `/api` and `/ws`); `http://localhost:13000` locally. The api-client's `baseUrl` is it plus `/api/v1` |
+| `NEXT_PUBLIC_API_ORIGIN` | console, web | the gateway's origin for the browser — **empty when deployed** (same origin, the edge routes `/api` and `/ws`); `http://localhost:13000` locally. The api-client's `baseUrl` is it plus `/api/v1` |
 | `NEXT_PUBLIC_LEGAL_BASE_URL` | console | where the terms and the owner agreement are read (`/terms`, `/owner-agreement` under it); `https://wayfare.app` by default — pages of the tourist web app, as the privacy policy is |
-| `GATEWAY_INTERNAL_URL` | console (server only) | the gateway as the Next.js server reaches it |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | console | the Google OAuth Web client's id, for Google Identity Services; the console's origin is one of the client's authorised JavaScript origins |
+| `NEXT_PUBLIC_PLAY_STORE_URL` | web | the Android app's Play Store page — *Open in the app*'s fallback and *Get the app* |
+| `NEXT_PUBLIC_APP_VERSION` | web | the web app's package version, sent as its device's `appVersion` |
+| `GATEWAY_INTERNAL_URL` | console, web (server only) | the gateway as the Next.js server reaches it |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | console, web | the Google OAuth Web client's id, for Google Identity Services; the console's origin is one of the client's authorised JavaScript origins |
 | `GOOGLE_ISSUER` | identity, gateway | `google` or `fake` — **`fake` locally and in CI**, where identity trusts tokens it signs itself and `POST /dev/google-token` mints them; **both services refuse `fake` at start-up in production** |
 | `GOOGLE_SERVER_CLIENT_ID` | identity | the Google Cloud OAuth **Web** client's id — the `aud` every Google ID token must carry; required when `GOOGLE_ISSUER=google` |
 | `GOOGLE_FAKE_SIGNING_KEY` | identity | the fake issuer's private key, `fake` only — **identity only**: the gateway's dev route asks identity's `MintFakeGoogleToken` |

@@ -11,6 +11,7 @@ export function toAreaResponseDto(area: catalogGrpc.Area): AreaResponseDto {
     code: area.code,
     center: toGeoPoint(area.center),
     defaultZoom: area.defaultZoom,
+    placeCount: area.placeCount,
     boundary: areaResponseSchema.shape.boundary.parse(JSON.parse(area.boundaryGeojson)),
     mapPack:
       area.mapPack === undefined || area.mapPack === null

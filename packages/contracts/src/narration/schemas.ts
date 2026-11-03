@@ -214,6 +214,19 @@ export const zStreamRequest = z.object({ placeId: zUuidV7, lang: zRequestedLangu
 /** A stream request. */
 export type StreamRequest = z.output<typeof zStreamRequest>;
 
+/** How long a stream ticket opens its stream (api-endpoints-plan §4.1). */
+export const STREAM_TICKET_TTL_MS = 60_000;
+
+/**
+ * `POST /narration/tts/stream-ticket`: a single-use ticket a browser's `<audio src>` carries in
+ * place of the device token and the client header, which a media element cannot send.
+ */
+export const zStreamTicketResponse = z
+  .object({ ticket: z.string().min(1), expiresAt: z.iso.datetime({ offset: true }) })
+  .strict();
+/** A stream ticket. */
+export type StreamTicketResponse = z.output<typeof zStreamTicketResponse>;
+
 /**
  * `GET /i18n/bundles/:namespace/:locale` (api-endpoints-plan §4.2). `PENDING` carries the English
  * strings, so a client renders something immediately and asks again after `retryAfterMs`.

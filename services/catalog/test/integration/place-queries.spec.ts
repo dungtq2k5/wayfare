@@ -245,13 +245,21 @@ describe('GetPlace, GetPlaceByCode, ResolvePublicCode', () => {
         code: 'RESOURCE_NOT_FOUND',
         details: { resource: 'PLACE' },
       });
+      // Where it was, to about 100 m: its area, and the point at three decimals.
       expect(
-        (
-          await errorOf(
-            queries.getPlaceByCode({ publicCode: place.publicCode, lang: 'en' }, device()),
-          )
-        ).code,
-      ).toBe('PLACE_UNAVAILABLE');
+        await errorOf(
+          queries.getPlaceByCode({ publicCode: place.publicCode, lang: 'en' }, device()),
+        ),
+      ).toEqual({
+        code: 'PLACE_UNAVAILABLE',
+        details: {
+          areaCode: tax.area.code,
+          near: {
+            lat: Math.round(FIXTURE_INSIDE.lat * 1000) / 1000,
+            lng: Math.round(FIXTURE_INSIDE.lng * 1000) / 1000,
+          },
+        },
+      });
     }
     expect(
       (await errorOf(queries.getPlaceByCode({ publicCode: 'ZZZZZZZZ', lang: 'en' }, device())))
@@ -262,6 +270,19 @@ describe('GetPlace, GetPlaceByCode, ResolvePublicCode', () => {
       (await errorOf(queries.getPlaceByCode({ publicCode: 'not a code!', lang: 'en' }, device())))
         .code,
     ).toBe('VALIDATION_FAILED');
+  });
+
+  it("answers a link's page without a device, as no one's favourite", async () => {
+    const place = await live();
+    const anonymous = buildAnonymousContext();
+    const { place: byId } = await queries.getPlace({ placeId: place.id, lang: 'en' }, anonymous);
+    expect(byId?.isFavorite).toBe(false);
+    const { place: byCode } = await queries.getPlaceByCode(
+      { publicCode: place.publicCode, lang: 'en' },
+      anonymous,
+    );
+    expect(byCode?.id).toBe(place.id);
+    expect(byCode?.isFavorite).toBe(false);
   });
 
   it('counts a scan for any Place with the code, live or not, per business day', async () => {
@@ -307,6 +328,15 @@ describe('ListCategories and ListAreas', () => {
     expect(areas[0]!.center).toEqual({ lat: 10.765, lng: 106.69 });
     const row = await prisma.place.findUniqueOrThrow({ where: { id: place.id } });
     expect(areas[0]!.datasetVersion).toBe(row.syncVersion.toString());
+  });
+
+  it('counts only live Places in each area', async () => {
+    await live();
+    await live();
+    await live({ status: PlaceStatus.INACTIVE });
+    await live({ deleted: true });
+    const { areas } = await queries.listAreas({}, buildAnonymousContext());
+    expect(areas[0]!.placeCount).toBe(2);
   });
 });
 

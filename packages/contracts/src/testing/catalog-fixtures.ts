@@ -103,6 +103,7 @@ export function areaFixture(overrides: Partial<Area> = {}): Area {
     center: { lat: 10.7725, lng: 106.7 },
     defaultZoom: 15,
     sortOrder: 0,
+    placeCount: 3,
     datasetVersion: '42',
     mapPack: undefined,
     ...overrides,

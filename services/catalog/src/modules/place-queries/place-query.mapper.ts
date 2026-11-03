@@ -139,6 +139,8 @@ export interface AreaRow {
   readonly centerLng: number;
   readonly defaultZoom: number;
   readonly sortOrder: number;
+  /** Its live Places. */
+  readonly placeCount: number;
 }
 
 /**
@@ -324,6 +326,7 @@ export function toArea(
     center: { lat: row.centerLat, lng: row.centerLng },
     defaultZoom: row.defaultZoom,
     sortOrder: row.sortOrder,
+    placeCount: row.placeCount,
     datasetVersion: datasetVersion.toString(),
     mapPack:
       mapPack === null

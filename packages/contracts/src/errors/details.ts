@@ -23,6 +23,19 @@ export const resourceNotFoundDetails = z
   .object({ resource: z.string().regex(/^[A-Z][A-Z0-9_]*$/) })
   .strict();
 
+/**
+ * `PLACE_UNAVAILABLE`: where the Place was — its area and a point rounded to three decimals
+ * (about 100 m) — so a sticker's page can show what is still near (api-endpoints-plan §2.1).
+ */
+export const placeUnavailableDetails = z
+  .object({
+    areaCode: z.string().min(1),
+    near: z
+      .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
+      .strict(),
+  })
+  .strict();
+
 /** `INVALID_STATE`: the resource's current status. */
 export const invalidStateDetails = z.object({ status: z.string().min(1) }).strict();
 

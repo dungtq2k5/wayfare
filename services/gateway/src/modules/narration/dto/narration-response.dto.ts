@@ -3,6 +3,7 @@ import {
   zNarrationStatus,
   zOnDemandResponse,
   zPrefetchResponse,
+  zStreamTicketResponse,
 } from '@wayfare/contracts';
 import type { OnDemandResponse, OnDemandStatus } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -35,6 +36,9 @@ export type OnDemandAnswer = OnDemandResponse;
 
 /** What a language switch found (api-endpoints-plan §4.1). */
 export class HotsetResponseDto extends createZodDto(zHotsetResponse) {}
+
+/** A single-use ticket for one stream (api-endpoints-plan §4.1). */
+export class StreamTicketResponseDto extends createZodDto(zStreamTicketResponse) {}
 
 /** What a prefetch queued, and what it passed over. */
 export class PrefetchResponseDto extends createZodDto(zPrefetchResponse) {}

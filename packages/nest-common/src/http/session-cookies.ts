@@ -1,6 +1,7 @@
 import { createParamDecorator } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
+import { CLIENT_HEADER } from '@wayfare/contracts';
 import type { WayfareClient } from '@wayfare/contracts';
 import { isGrpcServiceError, readGrpcErrorInfo } from '../errors/grpc-service-error';
 import { AppHttpException } from './app-http.exception';
@@ -11,6 +12,26 @@ export const ACCESS_COOKIE = 'wf_at';
 
 /** The refresh-token cookie (api-endpoints-plan §0.3). */
 export const REFRESH_COOKIE = 'wf_rt';
+
+/**
+ * The tourist web app's own pair (api-endpoints-plan §0.3): one gateway host is one cookie jar for
+ * both web apps, so sharing a pair would sign one out with the other, show a staff session to the
+ * tourist app, and make two apps refreshing one family look like a replay.
+ */
+export const WEB_ACCESS_COOKIE = 'wf_wat';
+
+/** The tourist web app's refresh-token cookie. */
+export const WEB_REFRESH_COOKIE = 'wf_wrt';
+
+/** The session cookies' names for a client: `web` has its own, everyone else the console's. */
+export function sessionCookieNames(client: string | undefined): {
+  readonly access: string;
+  readonly refresh: string;
+} {
+  return client === 'web'
+    ? { access: WEB_ACCESS_COOKIE, refresh: WEB_REFRESH_COOKIE }
+    : { access: ACCESS_COOKIE, refresh: REFRESH_COOKIE };
+}
 
 /**
  * The console's Google nonce binding (api-endpoints-plan §1.2): the console has no device to issue
@@ -63,22 +84,24 @@ export class SessionCookieService {
     this.googleNoncePath = `/${globalPrefix}/v1/auth/google`;
   }
 
-  /** Sets both cookies, each living as long as its token. */
-  set(response: Response, tokens: SessionTokens, now: Date): void {
-    response.cookie(ACCESS_COOKIE, tokens.accessToken, {
+  /** Sets the client's two cookies, each living as long as its token. */
+  set(response: Response, tokens: SessionTokens, now: Date, client: WayfareClient): void {
+    const names = sessionCookieNames(client);
+    response.cookie(names.access, tokens.accessToken, {
       ...this.base('/'),
       maxAge: Math.max(0, tokens.accessExpiresAt.getTime() - now.getTime()),
     });
-    response.cookie(REFRESH_COOKIE, tokens.refreshToken, {
+    response.cookie(names.refresh, tokens.refreshToken, {
       ...this.base(this.refreshPath),
       maxAge: Math.max(0, tokens.refreshExpiresAt.getTime() - now.getTime()),
     });
   }
 
-  /** Clears both cookies. */
-  clear(response: Response): void {
-    response.clearCookie(ACCESS_COOKIE, this.base('/'));
-    response.clearCookie(REFRESH_COOKIE, this.base(this.refreshPath));
+  /** Clears the client's two cookies; the other app's stay. */
+  clear(response: Response, client: string | undefined): void {
+    const names = sessionCookieNames(client);
+    response.clearCookie(names.access, this.base('/'));
+    response.clearCookie(names.refresh, this.base(this.refreshPath));
   }
 
   /** Sets the console's Google nonce binding, living as long as the nonce. */
@@ -94,9 +117,9 @@ export class SessionCookieService {
     response.clearCookie(GOOGLE_NONCE_COOKIE, this.base(this.googleNoncePath));
   }
 
-  /** The refresh token a cookie client presented. */
+  /** The refresh token a cookie client presented, in its own cookie. */
   readRefresh(request: Request): string | null {
-    return readCookie(request, REFRESH_COOKIE);
+    return readCookie(request, sessionCookieNames(request.header(CLIENT_HEADER)).refresh);
   }
 
   private base(path: string): CookieOptions {
@@ -138,7 +161,7 @@ export class SessionResponder {
     now: Date,
   ): CookieSessionBody<User> | BearerSessionBody<User> {
     if (usesSessionCookies(client)) {
-      this.cookies.set(response, session, now);
+      this.cookies.set(response, session, now, client);
       return { user: session.user };
     }
     return {
@@ -149,9 +172,12 @@ export class SessionResponder {
     };
   }
 
-  /** Signs a client out locally: clears the session cookies (a no-op for `mobile`, which has none). */
+  /**
+   * Signs a client out locally: clears its session cookies (a no-op for `mobile`, which has none).
+   * The client is the request's header, read from the response's request.
+   */
   clear(response: Response): void {
-    this.cookies.clear(response);
+    this.cookies.clear(response, clientOf(response));
   }
 
   /**
@@ -160,14 +186,21 @@ export class SessionResponder {
    * current ones (api-endpoints-plan §1.2).
    */
   onRefreshFailure(client: WayfareClient, status: number, response: Response): void {
-    if (status === 401 && usesSessionCookies(client)) this.cookies.clear(response);
+    if (status === 401 && usesSessionCookies(client)) this.cookies.clear(response, client);
   }
 }
 
-/** Injects the refresh cookie's value, or `null` — the only way a route reads it. */
+/** The `X-Wayfare-Client` of the request a response answers. */
+function clientOf(response: Response): string | undefined {
+  return (response.req as Request | undefined)?.header(CLIENT_HEADER);
+}
+
+/** Injects the client's refresh cookie's value, or `null` — the only way a route reads it. */
 export const RefreshCookie = createParamDecorator(
-  (_data: unknown, host: ExecutionContext): string | null =>
-    readCookie(requestOf(host), REFRESH_COOKIE),
+  (_data: unknown, host: ExecutionContext): string | null => {
+    const request = requestOf(host);
+    return readCookie(request, sessionCookieNames(request.header(CLIENT_HEADER)).refresh);
+  },
 );
 
 /** Injects the console's Google nonce binding, or `null`. */

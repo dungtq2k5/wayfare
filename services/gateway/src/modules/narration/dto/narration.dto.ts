@@ -30,5 +30,13 @@ export class HotsetDto extends createZodDto(zHotsetRequest) {}
 /** `POST /narration/prefetch` body: at most three ids. */
 export class PrefetchDto extends createZodDto(zPrefetchRequest) {}
 
-/** `GET /narration/tts/stream` query — audio tier 2. */
+/** `GET /narration/tts/stream` query — audio tier 2; also a stream ticket's body. */
 export class StreamQueryDto extends createZodDto(zStreamRequest) {}
+
+/** `/narration/tts/stream/:ticket`: 32 random bytes, base64url. */
+export const streamTicketParamSchema = z
+  .object({ ticket: z.string().regex(/^[A-Za-z0-9_-]{43}$/) })
+  .strict();
+
+/** Validated ticket path parameter. */
+export class StreamTicketParamDto extends createZodDto(streamTicketParamSchema) {}

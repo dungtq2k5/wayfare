@@ -9,13 +9,13 @@ export const BUNDLE_LOCALES = ['en', 'vi'] as const;
 export type BundleLocale = (typeof BUNDLE_LOCALES)[number];
 
 /** The namespaces this package ships: the server's email templates and the two apps' UI strings. */
-export const NAMESPACES = ['email', 'tourist', 'console'] as const;
+export const NAMESPACES = ['email', 'tourist', 'console', 'web'] as const;
 
 /** One namespace of messages. */
 export type Namespace = (typeof NAMESPACES)[number];
 
 /** The app namespaces a UI bundle serves (rdm-spec N-6) — `email` is rendered here, never served. */
-export const UI_NAMESPACES = ['tourist', 'console'] as const;
+export const UI_NAMESPACES = ['tourist', 'console', 'web'] as const;
 
 /**
  * `locales/`, beside `dist/` and `src/` in the package — read by path, never imported, so the JSON

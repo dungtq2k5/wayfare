@@ -47,6 +47,15 @@ const SIGN_IN_BUCKETS = [
 export const RATE_LIMITS = {
   PUBLIC_READ: one('ip', 120, MINUTE_MS),
   DEVICE_READ: one('deviceId', 300, MINUTE_MS),
+  // A link's page (api-endpoints-plan §2.1): read by its device once the browser has one, and by
+  // the visitor's network while the server renders it without one.
+  LINK_READ: {
+    windowMs: MINUTE_MS,
+    buckets: [
+      { key: 'deviceId', limit: 300, onlyWith: 'device' },
+      { key: 'ip', limit: 120, onlyWith: 'noDevice' },
+    ],
+  },
   // A busy hotel's installs in an hour; each install's sign-ins then meet the ceiling above.
   DEVICE_REGISTRATION: one('ip', 60, HOUR_MS),
   // Register, forgot password, account recovery: each call creates or sends something, so all count.

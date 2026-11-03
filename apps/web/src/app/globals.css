@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@wayfare/design-tokens/web.css';
+
+/* packages/ui ships source the web app compiles: its classes are this app's too. */
+@source '../../../../packages/ui/src';
+
+/* Dark follows the class the server renders from the appearance cookie (no flash). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* The handoff's widths: a phone, 720 px (the list beside the map), and 1200 px (the side panel). */
+@theme {
+  --breakpoint-tablet: 45rem;
+  --breakpoint-desk: 75rem;
+}
+
+@theme inline {
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-sans:
+    var(--font-be-vietnam-pro), 'Be Vietnam Pro', var(--font-noto-jp), var(--font-noto-kr),
+    var(--font-noto-sc), var(--font-noto-tc), sans-serif;
+}
+
+/* The Place page at 1200 px (WQ1 at 1440): the story's column, and the 400 px card beside it. */
+@utility place-columns {
+  grid-template-columns: minmax(0, 47.5rem) 25rem;
+}
+
+/* The map page from 720 px: the window under the header, the list and the map scrolling apart. */
+@utility map-height {
+  height: calc(100dvh - var(--header-height));
+}
+
+/* A row that scrolls sideways inside itself (the chips), with no bar of its own. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The header's height (h-14): what sits under it, such as the phone's language picker, starts here. */
+:root {
+  --header-height: 3.5rem;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  * {
+    @apply border-border;
+  }
+  :focus-visible {
+    @apply outline-none;
+  }
+  /* Latin stays Be Vietnam Pro; a CJK run takes its language's Noto first, in its script's form. */
+  :lang(ja) {
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-jp), sans-serif;
+  }
+  :lang(ko) {
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-kr), sans-serif;
+  }
+  :lang(zh-Hans) {
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-sc), sans-serif;
+  }
+  :lang(zh-Hant) {
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-tc), sans-serif;
+  }
+}

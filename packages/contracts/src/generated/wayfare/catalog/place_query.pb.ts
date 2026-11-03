@@ -199,7 +199,11 @@ export interface Area {
   /** The sync cap every area shares (rdm-spec §1.7). */
   datasetVersion: string;
   /** The published map pack; absent without one. */
-  mapPack: AreaMapPack | undefined;
+  mapPack:
+    | AreaMapPack
+    | undefined;
+  /** Its live Places, for an area chooser (api-endpoints-plan §2.1). */
+  placeCount: number;
 }
 
 /** The published map pack of an area, as `/areas` announces it. */
