@@ -33,6 +33,11 @@ import { afterCommit } from './domain/after-commit';
 import { attemptOutcome } from './domain/attempt-outcome';
 import type { AfterCommit } from './domain/after-commit';
 import { placeSsmlBody } from './domain/ssml';
+import {
+  isTransientTransactionError,
+  TRANSACTION_TRIES,
+  transientPauseMs,
+} from './domain/transient';
 import { TaskQueue } from './tasks.module';
 
 /** A narration transaction. */
@@ -97,6 +102,9 @@ function reasonOf(error: unknown): string {
  * active goes through `activate` under the key's advisory lock, and the others follow it
  * (`COALESCED`) and finish with it.
  */
+
+/** How long after a claim gave up its task is queued again: past the end of the item it ran in. */
+export const CLAIM_REQUEUE_MS = 250;
 
 @Injectable()
 export class TasksService implements OnApplicationBootstrap {
@@ -344,10 +352,14 @@ export class TasksService implements OnApplicationBootstrap {
   async settle(tx: NarrationTx, fx: AfterCommit): Promise<void> {
     if (fx.jobs.size === 0) return;
     // Locked in id order before counting: two tasks of one job finishing at once would otherwise
-    // each count the other as still running, and leave the job RUNNING for good.
+    // each count the other as still running, and leave the job RUNNING for good. `NO KEY UPDATE`,
+    // not `UPDATE`: it still serializes settles, and doesn't conflict with the `KEY SHARE` a task
+    // row's foreign key takes on its job when the task is updated twice in one transaction — two
+    // such transactions of one job would otherwise deadlock here.
     const jobIds = [...fx.jobs].toSorted(compareStrings);
     await tx.$queryRaw`
-      SELECT id FROM synthesis_jobs WHERE id = ANY(${jobIds}::uuid[]) ORDER BY id FOR UPDATE`;
+      SELECT id FROM synthesis_jobs WHERE id = ANY(${jobIds}::uuid[]) ORDER BY id
+      FOR NO KEY UPDATE`;
     for (const jobId of jobIds) {
       const job = await tx.synthesisJob.findUnique({
         where: { id: jobId },
@@ -411,23 +423,47 @@ export class TasksService implements OnApplicationBootstrap {
     for (const job of jobs) this.progress.jobStatus(job);
   }
 
-  /** Runs `fn` in a transaction, settles the jobs it touched, and flushes after the commit. */
+  /**
+   * Runs `fn` in a transaction, settles the jobs it touched, and flushes after the commit. A
+   * transaction Postgres aborted — a deadlock, a serialization failure — is run again whole, up to
+   * {@link TRANSACTION_TRIES} times: it was not wrong, so it never counts as a task's failed attempt.
+   * `fn` must keep its effects in the transaction and `fx`, which start afresh on each try.
+   */
   async transact<T>(fn: (tx: NarrationTx, fx: AfterCommit) => Promise<T>): Promise<T> {
-    const fx = afterCommit();
-    const result = await this.prisma.$transaction(async (tx) => {
-      const value = await fn(tx, fx);
-      await this.settle(tx, fx);
-      return value;
-    });
-    await this.flush(fx);
-    return result;
+    for (let tried = 1; ; tried += 1) {
+      const fx = afterCommit();
+      let result: T;
+      try {
+        result = await this.prisma.$transaction(async (tx) => {
+          const value = await fn(tx, fx);
+          await this.settle(tx, fx);
+          return value;
+        });
+      } catch (error) {
+        if (tried >= TRANSACTION_TRIES || !isTransientTransactionError(error)) throw error;
+        this.logger.warn({ tried, err: reasonOf(error) }, 'transaction aborted; running it again');
+        await new Promise((done) => setTimeout(done, transientPauseMs(tried)));
+        continue;
+      }
+      await this.flush(fx);
+      return result;
+    }
   }
 
   // ─── Running a task ───────────────────────────────────────────────────────────────────────
 
   /** Runs one task attempt: the queue worker's handler, and what tests call directly. */
   async run(taskId: string): Promise<void> {
-    const task = await this.claim(taskId);
+    let task: RunningTask | null;
+    try {
+      task = await this.claim(taskId);
+    } catch (error) {
+      // Still transient after `transact`'s tries: the queue item is spent, so add it again rather
+      // than leave the task waiting for the recovery sweep. Anything else surfaces as before.
+      if (!isTransientTransactionError(error)) throw error;
+      await this.requeueClaim(taskId, error);
+      return;
+    }
     if (task === null) return;
     const heartbeat = setInterval(() => void this.beat(task.jobId), JOB_HEARTBEAT_MS);
     heartbeat.unref();
@@ -475,6 +511,29 @@ export class TasksService implements OnApplicationBootstrap {
       });
       return task;
     });
+  }
+
+  /**
+   * A claim Postgres kept aborting: its task goes back on the queue shortly, its attempts as they
+   * were. Added once this item has finished — the queue drops an add under the id of an item still
+   * running — and, if the add is lost, the recovery sweep finds the task as before.
+   */
+  private async requeueClaim(taskId: string, error: unknown): Promise<void> {
+    this.logger.warn({ taskId, err: reasonOf(error) }, 'claim aborted; queued again');
+    const task = await this.prisma.synthesisTask.findUnique({
+      where: { id: taskId },
+      select: { status: true, attempts: true, job: { select: { priority: true } } },
+    });
+    if (task?.status !== SynthesisTaskStatus.QUEUED) return;
+    const again = setTimeout(
+      () => {
+        void this.queue
+          .add(taskId, task.attempts, task.job.priority)
+          .catch((failure: unknown) => this.warn('add', failure));
+      },
+      CLAIM_REQUEUE_MS + transientPauseMs(TRANSACTION_TRIES),
+    );
+    again.unref();
   }
 
   private async beat(jobId: string): Promise<void> {
@@ -555,19 +614,14 @@ export class TasksService implements OnApplicationBootstrap {
     const voiced = isPlace && task.job.includeAudio;
     const speakers = voiced ? this.synthesis.speakersFor(task.lang) : [];
 
+    // Who translated, written with the task's own update: a text-only run updates its row once.
+    const translated = text.provider === null ? {} : { translationProvider: text.provider };
     const carryOn = await this.guarded(task, async (tx, fx) => {
-      if (text.provider !== null) {
-        await tx.synthesisTask.update({
-          where: { id: task.id },
-          data: { translationProvider: text.provider },
-          select: { id: true },
-        });
-      }
       if (!voiced) {
         // A menu item, or a Place asked for text only: publish once, and done.
         if (text.source !== TranslationSource.HUMAN || !isPlace)
           await this.publishReady(tx, task, text, null);
-        await this.finish(tx, task, SynthesisTaskStatus.SUCCEEDED, {}, fx);
+        await this.finish(tx, task, SynthesisTaskStatus.SUCCEEDED, translated, fx);
         return;
       }
       if (speakers.length === 0) {
@@ -586,10 +640,17 @@ export class TasksService implements OnApplicationBootstrap {
           tx,
           task,
           SynthesisTaskStatus.SUCCEEDED,
-          { stage: SynthesisStage.SYNTHESIZE, lastError: 'NO_VOICE' },
+          { ...translated, stage: SynthesisStage.SYNTHESIZE, lastError: 'NO_VOICE' },
           fx,
         );
         return;
+      }
+      if (text.provider !== null) {
+        await tx.synthesisTask.update({
+          where: { id: task.id },
+          data: translated,
+          select: { id: true },
+        });
       }
       // A machine translation is served as soon as it exists; its audio follows.
       if (firstPass && text.source === TranslationSource.MACHINE) {

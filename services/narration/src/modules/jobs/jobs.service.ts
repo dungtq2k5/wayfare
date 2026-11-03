@@ -622,7 +622,7 @@ export class JobsService {
     const { jobId } = parseRpcRequest(jobIdFields, request);
     await this.tasks.transact(async (tx, fx) => {
       const [job] = await tx.$queryRaw<{ id: string; status: string; priority: number }[]>`
-        SELECT id, status, priority FROM synthesis_jobs WHERE id = ${jobId}::uuid FOR UPDATE`;
+        SELECT id, status, priority FROM synthesis_jobs WHERE id = ${jobId}::uuid FOR NO KEY UPDATE`;
       if (job === undefined) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'SYNTHESIS_JOB' });
       const extra = await change(tx, fx, job);
       fx.jobChanged(job.id);
