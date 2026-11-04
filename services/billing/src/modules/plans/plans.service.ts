@@ -33,6 +33,7 @@ import {
 } from '../../providers/payments/payments-provider';
 import type { ProviderPrice } from '../../providers/payments/payments-provider';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
+import { BoostsLedgerService } from '../boosts-ledger/boosts-ledger.service';
 import { billingAuditRecord } from '../entitlements/domain/billing-audit';
 import type { BillingAuditOrigin } from '../entitlements/domain/billing-audit';
 import { grantColumns, grantsOf } from '../entitlements/domain/grants-write';
@@ -85,6 +86,7 @@ export class PlansService {
     private readonly payments: PaymentsProvider,
     private readonly entitlements: EntitlementsService,
     private readonly catalog: CatalogServiceGrpcClient,
+    private readonly boosts: BoostsLedgerService,
   ) {}
 
   /**
@@ -318,6 +320,7 @@ export class PlansService {
     const results: billingGrpc.ApplyAccount[] = [];
     let skippedPinned = 0;
     let unpublishSum: number | null = 0;
+    let endBoostsSum = 0;
     for (const account of accounts) {
       if (account.entitlementsPinned) {
         skippedPinned++;
@@ -328,6 +331,8 @@ export class PlansService {
       const unpublishes = await wouldUnpublish(this.catalog, account.ownerUserId, next);
       unpublishSum =
         unpublishSum === null || unpublishes === null ? null : unpublishSum + unpublishes;
+      // The same rule `writeGrants` ends them by: the newest beyond the new slots.
+      endBoostsSum += await this.boosts.wouldEnd(this.prisma, account.id, next.discoveryBoostSlots);
       let failed = false;
       if (!dryRun && changed) {
         failed = await this.applyOne(account.id, now, actor);
@@ -355,8 +360,7 @@ export class PlansService {
       skippedPinned,
       failed,
       ...(unpublishSum === null ? {} : { wouldUnpublishPlaces: unpublishSum }),
-      // Boosts arrive with Phase 3.
-      wouldEndBoosts: 0,
+      wouldEndBoosts: endBoostsSum,
       accounts: results,
     };
   }

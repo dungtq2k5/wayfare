@@ -357,6 +357,7 @@ describe('/admin/plans and /admin/billing', () => {
           entitlements: grants,
           planGrants: grants,
           recentEvents: [],
+          boosts: [],
         },
       });
     gateway.billing.events.handlers.listBillingEvents = () =>

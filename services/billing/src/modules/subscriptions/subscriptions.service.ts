@@ -80,7 +80,7 @@ export class SubscriptionsService {
   /** `GET /owner/billing` — Postgres only, and catalog's count of the owner's Venues. */
   async getOverview(context: RequestContext): Promise<billingGrpc.GetOverviewResponse> {
     const account = await this.accountOf(requireAccountContext(context));
-    const [price, places, { plan }] = await Promise.all([
+    const [price, places, { plan }, boostsLive] = await Promise.all([
       account.planPriceId === null
         ? null
         : this.prisma.planPrice.findUnique({
@@ -92,6 +92,7 @@ export class SubscriptionsService {
         where: { id: account.id },
         select: { plan: { select: PLAN_WITH_GRANTS_SELECT } },
       }),
+      this.prisma.discoveryBoost.count({ where: { billingAccountId: account.id, endsAt: null } }),
     ]);
     return {
       plan: account.plan,
@@ -106,8 +107,7 @@ export class SubscriptionsService {
         account.dunningStartedAt === null ? undefined : toProtoTimestamp(account.dunningStartedAt),
       entitlements: toEntitlements(grantsOf(account)),
       ...(places === null ? {} : { usagePlaces: places }),
-      // Boosts arrive with Phase 3.
-      usageBoostsLive: 0,
+      usageBoostsLive: boostsLive,
       pinned: account.entitlementsPinned,
       planGrants: toEntitlements(grantsOf(plan)),
     };

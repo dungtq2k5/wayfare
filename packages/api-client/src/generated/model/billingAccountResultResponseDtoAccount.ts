@@ -4,6 +4,7 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { BillingAccountResultResponseDtoAccountBoostsItem } from './billingAccountResultResponseDtoAccountBoostsItem.js';
 import type { BillingAccountResultResponseDtoAccountEntitlements } from './billingAccountResultResponseDtoAccountEntitlements.js';
 import type { BillingAccountResultResponseDtoAccountOwner } from './billingAccountResultResponseDtoAccountOwner.js';
 import type { BillingAccountResultResponseDtoAccountPlanGrants } from './billingAccountResultResponseDtoAccountPlanGrants.js';
@@ -39,7 +40,7 @@ export type BillingAccountResultResponseDtoAccount = {
   cancelAtPeriodEnd: boolean;
   entitlements: BillingAccountResultResponseDtoAccountEntitlements;
   planGrants: BillingAccountResultResponseDtoAccountPlanGrants;
-  boosts: unknown[];
+  boosts: BillingAccountResultResponseDtoAccountBoostsItem[];
   /** @nullable */
   payoutAccount: null;
   recentEvents: BillingAccountResultResponseDtoAccountRecentEventsItem[];

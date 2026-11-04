@@ -19,6 +19,29 @@ service PlaceService {
   // The nearest ACTIVE Places and their readiness — what a language switch warms up.
   rpc ListNarrationCandidates(ListNarrationCandidatesRequest)
       returns (ListNarrationCandidatesResponse);
+  // Each Place's kind, owner and status — what billing checks before a money-related write.
+  rpc BatchGetPlaceSummaries(BatchGetPlaceSummariesRequest)
+      returns (BatchGetPlaceSummariesResponse);
+}
+
+message BatchGetPlaceSummariesRequest {
+  repeated string place_ids = 1;
+}
+
+// Unknown or deleted ids are absent.
+message BatchGetPlaceSummariesResponse {
+  repeated PlaceSummaryRef places = 1;
+}
+
+// A Place as a money-related write checks it.
+message PlaceSummaryRef {
+  string id = 1;
+  PlaceKind kind = 2;
+  // Absent for an Editorial Place.
+  optional string owner_user_id = 3;
+  PlaceStatus status = 4;
+  optional PlaceInactiveReason inactive_reason = 5;
+  string name_vi = 6;
 }
 
 // Distance only, nearest first: boost never reaches narration (ADR 0007).

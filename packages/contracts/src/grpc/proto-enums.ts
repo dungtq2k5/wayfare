@@ -3,6 +3,7 @@ import { GoogleOutcome } from '../identity/enums';
 import {
   BillingEventStatus,
   BillingInterval,
+  BoostEndedReason,
   StripeEndpoint,
   SubscriptionStatus,
 } from '../billing/enums';
@@ -11,6 +12,7 @@ import {
   BillingInterval as ProtoBillingInterval,
   SubscriptionStatus as ProtoSubscriptionStatus,
 } from '../generated/wayfare/billing/billing.pb';
+import { BoostEndedReason as ProtoBoostEndedReason } from '../generated/wayfare/billing/boosts.pb';
 import {
   BillingEventStatus as ProtoBillingEventStatus,
   StripeEndpoint as ProtoStripeEndpoint,
@@ -332,6 +334,13 @@ export const subscriptionStatusProto = protoEnumBridge(
   ProtoSubscriptionStatus,
 );
 
+/** `BoostEndedReason` ⇄ `wayfare.billing.BoostEndedReason`. */
+export const boostEndedReasonProto = protoEnumBridge(
+  'BoostEndedReason',
+  BoostEndedReason,
+  ProtoBoostEndedReason,
+);
+
 /** `BillingInterval` ⇄ `wayfare.billing.BillingInterval`. */
 export const billingIntervalProto = protoEnumBridge(
   'BillingInterval',
@@ -404,6 +413,7 @@ export const PROTO_ENUM_BRIDGES = [
   synthesisTaskStatusProto,
   onDemandStatusProto,
   subscriptionStatusProto,
+  boostEndedReasonProto,
   billingIntervalProto,
   billingEventStatusProto,
   stripeEndpointProto,

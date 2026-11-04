@@ -151,7 +151,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<AuditAction, AuditMetadat
   [AuditAction.LOCALIZATION_REVERTED]: { before: ['lang', 'sourceContentHash'] },
   [AuditAction.BILLING_CHECKOUT_STARTED]: { after: ['planPriceId'] },
   [AuditAction.BILLING_PORTAL_OPENED]: {},
-  [AuditAction.BOOSTS_UPDATED]: {},
+  [AuditAction.BOOSTS_UPDATED]: { before: ['placeIds'], after: ['placeIds'] },
   [AuditAction.PAYOUT_ACCOUNT_CREATED]: {},
   [AuditAction.ENTITLEMENTS_OVERRIDDEN]: { before: ['grants'], after: ['grants'], reason: true },
   [AuditAction.ENTITLEMENTS_UNPINNED]: { reason: true },

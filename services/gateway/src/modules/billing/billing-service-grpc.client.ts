@@ -18,6 +18,7 @@ export class BillingServiceGrpcClient implements OnModuleInit {
   readonly accounts: GrpcServiceCaller<billingGrpc.AccountAdminServiceClient>;
   readonly events: GrpcServiceCaller<billingGrpc.BillingEventAdminServiceClient>;
   readonly webhooks: GrpcServiceCaller<billingGrpc.BillingWebhookServiceClient>;
+  readonly boosts: GrpcServiceCaller<billingGrpc.BoostServiceClient>;
 
   constructor(@Inject(BILLING_GRPC) grpc: ClientGrpc) {
     this.billing = new GrpcServiceCaller(grpc, billingGrpc.BILLING_SERVICE_NAME);
@@ -25,6 +26,7 @@ export class BillingServiceGrpcClient implements OnModuleInit {
     this.accounts = new GrpcServiceCaller(grpc, billingGrpc.ACCOUNT_ADMIN_SERVICE_NAME);
     this.events = new GrpcServiceCaller(grpc, billingGrpc.BILLING_EVENT_ADMIN_SERVICE_NAME);
     this.webhooks = new GrpcServiceCaller(grpc, billingGrpc.BILLING_WEBHOOK_SERVICE_NAME);
+    this.boosts = new GrpcServiceCaller(grpc, billingGrpc.BOOST_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -33,5 +35,6 @@ export class BillingServiceGrpcClient implements OnModuleInit {
     this.accounts.init();
     this.events.init();
     this.webhooks.init();
+    this.boosts.init();
   }
 }

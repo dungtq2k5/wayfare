@@ -365,7 +365,7 @@ All money moves through **Stripe**, and **all prices are in USD, always** ([ADR 
 | # | Stream | Who pays | Who receives | Stripe product |
 | :---- | :---- | :---- | :---- | :---- |
 | **R1** | **Owner subscription** — the core business | Venue Owner | Platform (100%) | **Stripe Billing** + Checkout (`mode: 'subscription'`) + Customer Portal |
-| **R2** | **Discovery boost** — paid ranking on visual surfaces | Venue Owner | Platform (100%) | Billing add-on price, or a one-off Checkout Session |
+| **R2** | **Discovery boost** — paid ranking on visual surfaces | Venue Owner | Platform (100%) | **Part of the plan:** the plan grants boost slots (§8.2) and nothing is paid per boost — no add-on price, no separate Checkout; an owner wanting more slots moves plan |
 | **R3** | **Voucher commission** | Tourist | Venue (85%) + Platform (15%) | **Stripe Connect**, destination charges, `application_fee_amount` |
 | **R4** | *(P2)* Premium platform content | Tourist | Platform (100%) | Checkout Session, `mode: 'payment'` |
 

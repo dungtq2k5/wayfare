@@ -116,6 +116,7 @@ export const ADMIN_PLACE_LIST_SELECT = {
   updatedAt: true,
   deletedAt: true,
   statusChangedAt: true,
+  discoveryBoost: true,
   category: { select: { code: true } },
   area: { select: { code: true } },
   photos: {
@@ -286,5 +287,6 @@ export function toAdminPlaceListItem(
     deletedAt: row.deletedAt === null ? undefined : toProtoTimestamp(row.deletedAt),
     location,
     statusChangedAt: toProtoTimestamp(row.statusChangedAt),
+    boosted: row.discoveryBoost > 0,
   };
 }

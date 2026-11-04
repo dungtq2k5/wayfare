@@ -120,7 +120,9 @@ test('M2 a venue', async ({ page }) => {
 test('M3 close for now, M3b closed with Undo', async ({ page }) => {
   await open(page, PEOPLE.minh, `/owner/venues/${ids.ocOanh}`);
   // The map comes once its area's pack is read, after the page.
-  await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+  await expect(
+    page.getByRole('application', { name: 'Location' }).locator('.maplibregl-canvas'),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Close for now' }).click();
   await expect(
     page.getByRole('dialog').getByRole('heading', { name: 'Close Ốc Oanh for now?' }),

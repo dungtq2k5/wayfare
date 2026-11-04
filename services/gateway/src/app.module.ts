@@ -21,6 +21,7 @@ import { AdminNarrationModule } from './modules/admin-narration/admin-narration.
 import { AdminPlansModule } from './modules/admin-plans/admin-plans.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { OwnerBillingModule } from './modules/owner-billing/owner-billing.module';
+import { OwnerBoostsModule } from './modules/owner-boosts/owner-boosts.module';
 import { StripeWebhooksModule } from './modules/stripe-webhooks/stripe-webhooks.module';
 import { AdminPlacesModule } from './modules/admin-places/admin-places.module';
 import { AdminAreasModule } from './modules/admin-areas/admin-areas.module';
@@ -131,6 +132,7 @@ export class AppModule {
         OwnerSubmissionsModule,
         BillingModule,
         OwnerBillingModule,
+        OwnerBoostsModule,
         AdminPlansModule,
         AdminBillingModule,
         StripeWebhooksModule,

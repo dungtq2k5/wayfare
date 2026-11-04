@@ -11,6 +11,7 @@ export function toOwnerPlace(
     publicCode: place.publicCode,
     nameVi: place.nameVi,
     categoryCode: place.categoryCode,
+    areaCode: place.areaCode,
     status: place.status,
     inactiveReason: place.inactiveReason,
     autoNarration: place.autoNarrationEnabled,

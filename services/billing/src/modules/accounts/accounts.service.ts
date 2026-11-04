@@ -34,6 +34,7 @@ import type { BillingAccountRow } from '../entitlements/entitlement.mapper';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toBillingAccountDetail, toBillingAccountSummary } from './account.mapper';
+import { BoostsService } from '../boosts/boosts.service';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { wouldUnpublish } from '../entitlements/domain/would-unpublish';
 
@@ -54,6 +55,7 @@ export class AccountsService {
     private readonly outbox: OutboxService,
     private readonly entitlements: EntitlementsService,
     private readonly catalog: CatalogServiceGrpcClient,
+    private readonly boosts: BoostsService,
   ) {}
 
   /** A page of accounts, newest first, filtered by plan, status, pin and dunning. */
@@ -231,8 +233,9 @@ export class AccountsService {
         },
       },
     });
+    const boosts = await this.boosts.boostsOf(db, billingAccountId, new Date());
     const row = { ...columns, plan, planPrice, events };
-    return toBillingAccountDetail(row, grantsOf(row.plan), row.planPrice, row.events);
+    return toBillingAccountDetail(row, grantsOf(row.plan), row.planPrice, row.events, boosts);
   }
 
   private async audit(

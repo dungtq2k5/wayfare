@@ -40,6 +40,7 @@ import type { PlaceFilters } from './places-url';
 import { useAreas, useCategories, useNames } from './reference';
 import { printedCode, statusTone, waitKey } from './words';
 import type { InactiveReason, PlaceKind, PlaceStatus } from './words';
+import { SponsoredChip } from '../components/sponsored-chip';
 
 const PAGE_SIZE = 20;
 const STATUSES: readonly PlaceStatus[] = ['ACTIVE', 'PROCESSING', 'DRAFT', 'INACTIVE'];
@@ -202,12 +203,16 @@ export function PlacesList() {
   };
   const nameCell = (row: Row) => (
     <span className="flex flex-col">
-      <Link
-        href={`/places/${row.id}`}
-        className={`font-medium hover:underline ${row.deletedAt === null ? 'text-foreground' : 'text-muted-foreground'}`}
-      >
-        {row.nameVi}
-      </Link>
+      <span className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/places/${row.id}`}
+          className={`font-medium hover:underline ${row.deletedAt === null ? 'text-foreground' : 'text-muted-foreground'}`}
+        >
+          {row.nameVi}
+        </Link>
+        {/* A live discovery boost (BA2b): the chip by the name; no filter. */}
+        {row.boosted ? <SponsoredChip /> : null}
+      </span>
       <span className="text-xs text-muted-foreground">{printedCode(row.publicCode)}</span>
     </span>
   );

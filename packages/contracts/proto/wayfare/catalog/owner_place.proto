@@ -39,6 +39,8 @@ message OwnerPlace {
   google.protobuf.Timestamp updated_at = 11;
   // The status's last change: "since" on the list.
   google.protobuf.Timestamp status_changed_at = 12;
+  // Its area: where a boost row or the chooser says the Venue is.
+  string area_code = 13;
 }
 
 message ListMyPlacesRequest {}

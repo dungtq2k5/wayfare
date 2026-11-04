@@ -531,7 +531,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **recipient_user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE | — |
-| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ENTITLEMENTS_RAISED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN \| PLACE_NARRATION_FAILED` |
+| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ENTITLEMENTS_RAISED \| BOOST_ENDED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN \| PLACE_NARRATION_FAILED` |
 | **data** | JSONB | NOT NULL | Typed by `type` (`NotificationData` union). Ids and short values only — e.g. `{ placeId, placeName, decisionNote }`. |
 | **event_id** | UUID | NOT NULL | The producer's outbox event id. |
 | **read_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -681,6 +681,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **narration_priority** | SMALLINT | NOT NULL, 50 | `CHECK (narration_priority BETWEEN 0 AND 100)`. Higher wins. **Admin-only** (§1.4). |
 | **auto_narration_enabled** | BOOLEAN | NOT NULL | Whether GPS may trigger this Place's narration. `CHECK (kind = 'VENUE' OR auto_narration_enabled)`. Editorial: always true. Venue: **written only by the `billing.entitlements.changed` consumer.** Tap-to-play is unaffected either way. |
 | **discovery_boost** | SMALLINT | NOT NULL, 0 | `CHECK (discovery_boost BETWEEN 0 AND 100)`, `CHECK (kind = 'VENUE' OR discovery_boost = 0)`. Visual ranking weight. **Written only by the `billing.boosts.changed` consumer.** Never read by anything that decides narration. |
+| **discovery_boost_changed_at** | TIMESTAMPTZ(3) | Nullable | The `changedAt` of the last `billing.boosts.changed` applied: an older event is ignored, so a late end never undoes a newer start. |
 | **price_band** | SMALLINT | Nullable | `CHECK (price_band BETWEEN 1 AND 4)` — `$` to `$$$$`. Relative, currency-free, never computed from menu prices. The console explains each band to whoever picks it, per person and meal: 1 under 50.000 ₫, 2 50.000–150.000 ₫, 3 150.000–500.000 ₫, 4 over 500.000 ₫ (the product owner) — guidance only, never stored. |
 | **menu_currency** | CHAR(3) | NOT NULL, `'VND'` | `CHECK (menu_currency IN ('VND','USD'))`. The one currency of this Place's whole menu ([ADR 0046](./decisions/0046-display-only-prices-use-the-venues-own-currency.md)). Held once here, so a mixed-currency menu cannot exist. Display-only: never charged, never converted. |
 | **phone** | VARCHAR(20) | Nullable | E.164. |
@@ -1348,8 +1349,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **Partial unique:** `discovery_boosts_one_live_per_place` — `(place_id) WHERE ends_at IS NULL`.
-- Live boosts per account ≤ `discovery_boost_slots`, checked on insert under a row lock on the billing account.
-- Every change writes outbox `billing.boosts.changed { placeId, discoveryBoost }`; catalog's consumer is the only writer of `places.discovery_boost`.
+- Live boosts per account ≤ `discovery_boost_slots`, checked on insert under a row lock on the billing account — **`FOR NO KEY UPDATE`**, as every billing write takes it: a boost row updated twice in one transaction takes `FOR KEY SHARE` on its account, which `FOR UPDATE` would deadlock against (conventions §8.8).
+- **A boost ends by itself** in its cause's transaction: `ENTITLEMENT_LIMIT` inside the one function every grant change passes (`EntitlementsService.writeGrants`), the newest boosts ending first when the slots drop below the live count; `PLACE_UNAVAILABLE` from `catalog.place.status_changed`. Each end writes `billing.boost.ended` beside the change. The owner's read lists the last 90 days' ended boosts.
+- Every change writes outbox `billing.boosts.changed { placeId, discoveryBoost, changedAt }`; catalog's consumer is the only writer of `places.discovery_boost`.
 
 #### Table B-6: connected_accounts
 
@@ -1812,7 +1814,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | billing | `plans_commission_ck` | CHECK | vouchers ⇔ commission, bounds |
 | billing | `plan_prices_one_active_interval` | partial unique | — |
 | billing | every `*_currency_ck` on B-2, B-7, B-9, B-11, B-12 | CHECK | §1.9 |
-| billing | `discovery_boosts_one_live_per_place`, `discovery_boosts_ended_ck` | partial unique, CHECK | — |
+| billing | `discovery_boosts_one_live_per_place`, `discovery_boosts_ended_ck`, `discovery_boosts_weight_ck` | partial unique, CHECK | one live boost per Place; ended ⇔ reason; weight 1–100 (B-5) |
 | billing | `voucher_offers_stock_ck`, `…_price_ck`, `…_original_price_ck`, `…_validity_ck` | CHECK | no oversell, bounds |
 | billing | `orders_amount_ck`, `orders_fee_ck`, `orders_refunded_ck`, `orders_quantity_ck` | CHECK | arithmetic |
 | billing | `vouchers_redeemed_ck`, `vouchers_void_ck`, `vouchers_pending_expiry_ck` | CHECK | — |

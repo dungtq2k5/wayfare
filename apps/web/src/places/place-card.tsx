@@ -80,7 +80,7 @@ export function PlaceCard({
           ) : null}
         </span>
         {place.sponsored ? (
-          <span className="w-fit rounded-full bg-warning px-2 py-0.5 text-xs font-medium text-warning-foreground">
+          <span className="w-fit rounded-full bg-sponsored px-2 py-0.5 text-xs font-medium text-sponsored-foreground">
             {t('card.sponsored')}
           </span>
         ) : null}

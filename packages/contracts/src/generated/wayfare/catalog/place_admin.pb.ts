@@ -63,7 +63,11 @@ export interface AdminPlaceListItem {
     | GeoPoint
     | undefined;
   /** When the status last changed (rdm-spec C-1). */
-  statusChangedAt: Timestamp | undefined;
+  statusChangedAt:
+    | Timestamp
+    | undefined;
+  /** A discovery boost is live: `discovery_boost > 0`. */
+  boosted: boolean;
 }
 
 export interface GetPlaceAdminRequest {

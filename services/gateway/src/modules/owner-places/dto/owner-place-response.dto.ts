@@ -14,19 +14,23 @@ import { submissionResponseSchema } from '../../owner-submissions/dto/owner-subm
 
 const zInstant = z.iso.datetime({ offset: true });
 
+/** A Venue's live boost (api-endpoints-plan §3.1): null for none, absent when unknown. */
+const zBoosted = z.object({ since: zInstant }).nullable().optional();
+
 /** One row of the owner's Venue list (api-endpoints-plan §3.1). */
 export const ownerPlaceResponseSchema = z.object({
   id: zUuidV7,
   publicCode: z.string(),
   nameVi: z.string(),
   categoryCode: z.string(),
+  areaCode: z.string(),
   status: z.enum(PlaceStatus),
   inactiveReason: z.enum(PlaceInactiveReason).nullable(),
   autoNarration: z.boolean(),
   /** The status's last change: "since" (rdm-spec C-1). */
   statusChangedAt: zInstant,
-  /** Discovery boosts arrive with their own doc; until then, none. */
-  boosted: z.null(),
+  /** A live discovery boost and since when; left out when billing couldn't say (unknown). */
+  boosted: zBoosted,
   cover: zPhotoView.nullable(),
   localizations: z.array(
     z.object({
@@ -52,6 +56,7 @@ export class OwnerPlaceResponseDto extends createZodDto(ownerPlaceResponseSchema
  */
 export const ownerPlaceDetailResponseSchema = z.object({
   place: adminPlaceResponseSchema,
+  boosted: zBoosted,
   editableHash: z.string().regex(/^[0-9a-f]{64}$/),
   pendingSubmission: submissionResponseSchema.nullable(),
 });

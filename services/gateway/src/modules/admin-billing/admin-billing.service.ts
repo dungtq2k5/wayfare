@@ -6,10 +6,12 @@ import type {
   UnpinPreview,
 } from '@wayfare/contracts';
 import { billingEventStatusProto, subscriptionStatusProto } from '@wayfare/contracts/grpc';
+import type { billingGrpc } from '@wayfare/contracts/grpc';
 import type { AccountContext } from '@wayfare/nest-common';
 import { Paged, toPageMetaOrThrow } from '@wayfare/nest-common';
 import { toEntitlements } from '../admin-plans/admin-plan.mapper';
 import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
+import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { PeopleNamesService } from '../people-names/people-names.service';
 import type { OwnerOf } from '../people-names/people-names.service';
 import {
@@ -34,7 +36,30 @@ export class AdminBillingService {
   constructor(
     private readonly billing: BillingServiceGrpcClient,
     private readonly people: PeopleNamesService,
+    private readonly catalog: CatalogServiceGrpcClient,
   ) {}
+
+  /**
+   * The boosted Venues' names, from catalog: billing knows ids only. A billing admin may hold no
+   * `place.read`, so the page can't look them up itself. Empty when catalog doesn't answer.
+   */
+  private async placeNames(
+    context: AccountContext,
+    account: billingGrpc.BillingAccountDetail | undefined,
+  ): Promise<Map<string, string>> {
+    const placeIds = [...new Set((account?.boosts ?? []).map((boost) => boost.placeId))];
+    if (placeIds.length === 0) return new Map();
+    try {
+      const { places } = await this.catalog.places.call(
+        'batchGetPlaceSummaries',
+        { placeIds },
+        context,
+      );
+      return new Map(places.map((place) => [place.id, place.nameVi]));
+    } catch {
+      return new Map();
+    }
+  }
 
   async accounts(
     context: AccountContext,
@@ -66,7 +91,11 @@ export class AdminBillingService {
 
   async account(context: AccountContext, billingAccountId: string): Promise<BillingAccountDetail> {
     const response = await this.billing.accounts.call('getAccount', { billingAccountId }, context);
-    return toBillingAccountDetail(response.account, await this.ownerOfDetail(context, response));
+    return toBillingAccountDetail(
+      response.account,
+      await this.ownerOfDetail(context, response),
+      await this.placeNames(context, response.account),
+    );
   }
 
   async unpinPreview(context: AccountContext, billingAccountId: string): Promise<UnpinPreview> {
@@ -89,6 +118,7 @@ export class AdminBillingService {
       account: toBillingAccountDetail(
         response.account,
         await this.ownerOfDetail(context, response),
+        await this.placeNames(context, response.account),
       ),
     };
   }
@@ -107,6 +137,7 @@ export class AdminBillingService {
       account: toBillingAccountDetail(
         response.account,
         await this.ownerOfDetail(context, response),
+        await this.placeNames(context, response.account),
       ),
     };
   }

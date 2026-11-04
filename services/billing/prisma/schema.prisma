@@ -106,11 +106,33 @@ model BillingAccount {
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  plan      Plan           @relation(fields: [planId], references: [id], onDelete: Restrict)
-  planPrice PlanPrice?     @relation(fields: [planPriceId], references: [id], onDelete: SetNull)
+  plan      Plan             @relation(fields: [planId], references: [id], onDelete: Restrict)
+  planPrice PlanPrice?       @relation(fields: [planPriceId], references: [id], onDelete: SetNull)
   events    BillingEvent[]
+  boosts    DiscoveryBoost[]
 
   @@map("billing_accounts")
+}
+
+/// An owner's assignment of a boost slot to one of their Venues — rdm-spec B-5.
+model DiscoveryBoost {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  billingAccountId String    @map("billing_account_id") @db.Uuid
+  /// ref ➔ catalog.places.id — a Venue owned by this account's owner, checked over gRPC.
+  placeId          String    @map("place_id") @db.Uuid
+  /// `DISCOVERY_BOOST_WEIGHT`, not the owner's choice.
+  weight           Int       @db.SmallInt
+  startsAt         DateTime  @default(now()) @map("starts_at") @db.Timestamptz(3)
+  /// Null while live.
+  endsAt           DateTime? @map("ends_at") @db.Timestamptz(3)
+  /// BoostEndedReason in `@wayfare/contracts`
+  endedReason      String?   @map("ended_reason") @db.VarChar(24)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+
+  @@index([billingAccountId, startsAt])
+  @@map("discovery_boosts")
 }
 
 /// Every Stripe webhook accepted as genuine — rdm-spec B-4. The unique event id is the idempotency.

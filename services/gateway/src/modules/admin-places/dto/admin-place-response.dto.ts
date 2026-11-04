@@ -9,6 +9,7 @@ import {
   zGeoPoint,
   zOpeningHoursRow,
   zPhotoView,
+  zPlaceBoost,
   zUuidV7,
 } from '@wayfare/contracts';
 import { ownerContactSchema } from '../../identity/dto/owner-contact.dto';
@@ -40,6 +41,8 @@ export const adminPlaceListItemResponseSchema = z.object({
   location: zGeoPoint,
   /** When the status last changed (rdm-spec C-1). */
   statusChangedAt: zInstant,
+  /** A discovery boost is live. */
+  boosted: z.boolean(),
 });
 
 /** One row of `GET /admin/places`. */
@@ -131,6 +134,11 @@ export class AdminPlaceResponseDto extends createZodDto(adminPlaceResponseSchema
  */
 export const adminPlaceDetailResponseSchema = adminPlaceResponseSchema.extend({
   owner: ownerContactSchema,
+  /**
+   * The live discovery boost, its account and plan, from billing (api-endpoints-plan §3.5): null
+   * for none, left out when billing couldn't say — the page still loads.
+   */
+  boost: zPlaceBoost.nullable().optional(),
 });
 
 /** One Place, as a staff member's page reads it. */

@@ -33,6 +33,8 @@ import { LocalizationFailedModule } from './modules/localization-failed/localiza
 import { LocalizationReadyConsumer } from './modules/localization-ready/localization-ready.consumer';
 import { LocalizationReadyModule } from './modules/localization-ready/localization-ready.module';
 import { LocalizationSourcesModule } from './modules/localization-sources/localization-sources.module';
+import { BoostsChangedConsumer } from './modules/boosts-changed/boosts-changed.consumer';
+import { BoostsChangedModule } from './modules/boosts-changed/boosts-changed.module';
 import { EntitlementsChangedConsumer } from './modules/entitlements-changed/entitlements-changed.consumer';
 import { EntitlementsChangedModule } from './modules/entitlements-changed/entitlements-changed.module';
 import { FramesModule } from './modules/frames/frames.module';
@@ -92,6 +94,7 @@ export class AppModule {
         LocalizationReadyModule,
         LocalizationFailedModule,
         EntitlementsChangedModule,
+        BoostsChangedModule,
         UserErasedModule,
         DeviceClaimedModule,
         DeviceForgottenModule,
@@ -168,6 +171,7 @@ export class AppModule {
             UserErasedConsumer,
             DeviceClaimedConsumer,
             DeviceForgottenConsumer,
+            BoostsChangedConsumer,
           ],
           useFactory: (
             ready: LocalizationReadyConsumer,
@@ -176,7 +180,8 @@ export class AppModule {
             erased: UserErasedConsumer,
             claimed: DeviceClaimedConsumer,
             forgotten: DeviceForgottenConsumer,
-          ) => [ready, failed, entitlements, erased, claimed, forgotten],
+            boosts: BoostsChangedConsumer,
+          ) => [ready, failed, entitlements, erased, claimed, forgotten, boosts],
         },
       ],
     };

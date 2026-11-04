@@ -106,6 +106,8 @@ test('F6 over the place limit', async ({ page }) => {
   await newVenue(page, 'Chè Ngọc 2');
   await page.getByRole('button', { name: 'Send for review' }).click();
   await expect(page.getByText("You're using every place on your plan")).toBeVisible();
+  // The next plan's line comes with the plans, read after the form.
+  await expect(page.getByText(/^On Free, tourists hear .* Growth adds /)).toBeVisible();
   await look(page, 'f6-over-the-place-limit');
 });
 

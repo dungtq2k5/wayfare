@@ -1,14 +1,19 @@
 // The billing use cases wired by hand over the test database — the same graph Nest builds, with
 // the fake payments provider, an in-memory webhook queue and a catalog that counts from a map.
-import { compareStrings } from '@wayfare/contracts';
+import { compareStrings, newId, PlaceKind, PlaceStatus } from '@wayfare/contracts';
+import { placeKindProto, placeStatusProto } from '@wayfare/contracts/grpc';
+import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { OutboxService } from '@wayfare/nest-common';
 import Stripe from 'stripe';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { AccountsService } from '../../src/modules/accounts/accounts.service';
 import { BillingEventsService } from '../../src/modules/billing-events/billing-events.service';
+import { BoostsService } from '../../src/modules/boosts/boosts.service';
 import type { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
+import { BoostsLedgerService } from '../../src/modules/boosts-ledger/boosts-ledger.service';
 import { EntitlementsService } from '../../src/modules/entitlements/entitlements.service';
 import type { IdentityServiceGrpcClient } from '../../src/modules/identity/identity-service-grpc.client';
+import { PlaceStatusConsumer } from '../../src/modules/place-status/place-status.consumer';
 import { PlansService } from '../../src/modules/plans/plans.service';
 import { BillingAccountsReconcileJob } from '../../src/modules/scheduled/billing-accounts-reconcile.job';
 import { SellerService } from '../../src/modules/seller/seller.service';
@@ -51,10 +56,38 @@ export class RecordingQueue {
 /** Counts per owner; `null` answers as catalog down. */
 export class FakeCatalog {
   readonly counts = new Map<string, number>();
+  /** The Places a boost write checks, by id. */
+  readonly places = new Map<string, catalogGrpc.PlaceSummaryRef>();
   down = false;
 
   countOwnerPlaces(ownerUserId: string): Promise<number | null> {
     return Promise.resolve(this.down ? null : (this.counts.get(ownerUserId) ?? 0));
+  }
+
+  placeSummaries(placeIds: readonly string[]): Promise<catalogGrpc.PlaceSummaryRef[]> {
+    if (this.down) return Promise.reject(new Error('catalog unavailable'));
+    return Promise.resolve(
+      placeIds.flatMap((id) => {
+        const place = this.places.get(id);
+        return place === undefined ? [] : [place];
+      }),
+    );
+  }
+
+  /** A Venue of `ownerUserId`, live unless said otherwise. */
+  venue(
+    ownerUserId: string | null,
+    options: { status?: PlaceStatus; kind?: PlaceKind; id?: string } = {},
+  ): string {
+    const id = options.id ?? newId();
+    this.places.set(id, {
+      id,
+      kind: placeKindProto.toProto(options.kind ?? PlaceKind.VENUE),
+      ...(ownerUserId === null ? {} : { ownerUserId }),
+      status: placeStatusProto.toProto(options.status ?? PlaceStatus.ACTIVE),
+      nameVi: `Quán ${id.slice(-4)}`,
+    });
+    return id;
   }
 }
 
@@ -102,7 +135,8 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
   const identity = new FakeIdentity();
   const redis = new MemoryRedis();
   const verifier = new StripeWebhookVerifier(config);
-  const entitlements = new EntitlementsService(prisma, outbox);
+  const boosts = new BoostsLedgerService(outbox);
+  const entitlements = new EntitlementsService(prisma, outbox, boosts);
   const catalogClient = catalog as unknown as CatalogServiceGrpcClient;
   const identityClient = identity as unknown as IdentityServiceGrpcClient;
   const webhooks = new WebhooksService(
@@ -114,6 +148,7 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
     queue as unknown as WebhookQueue,
     config,
   );
+  const boostsService = new BoostsService(prisma, outbox, entitlements, boosts, catalogClient);
   return {
     config,
     outbox,
@@ -132,8 +167,11 @@ export function billingServices(prisma: PrismaService, options: { mode?: 'test' 
       queue as unknown as WebhookQueue,
     ),
     subscriptions: new SubscriptionsService(prisma, outbox, payments, catalogClient, redis, config),
-    plans: new PlansService(prisma, outbox, payments, entitlements, catalogClient),
-    accounts: new AccountsService(prisma, outbox, entitlements, catalogClient),
+    plans: new PlansService(prisma, outbox, payments, entitlements, catalogClient, boosts),
+    accounts: new AccountsService(prisma, outbox, entitlements, catalogClient, boostsService),
+    boosts: boostsService,
+    ledger: boosts,
+    placeStatus: new PlaceStatusConsumer(prisma, entitlements, boosts),
     events: new BillingEventsService(prisma, outbox, webhooks),
     seller: new SellerService(prisma),
     userErased: new UserErasedConsumer(prisma, payments),

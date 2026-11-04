@@ -5,6 +5,7 @@ package wayfare.billing;
 
 import "google/protobuf/timestamp.proto";
 import "wayfare/billing/billing.proto";
+import "wayfare/billing/boosts.proto";
 import "wayfare/billing/billing_webhook.proto";
 import "wayfare/billing/entitlement.proto";
 import "wayfare/common/page.proto";
@@ -193,6 +194,8 @@ message BillingAccountDetail {
   repeated BillingEvent recent_events = 8;
   // The price of the subscription's last event, kept after a cancellation.
   optional SubscribedPrice subscribed_price = 9;
+  // Live boosts, then those ended within the read's window.
+  repeated wayfare.billing.AccountBoost boosts = 10;
 }
 
 message SubscribedPrice {

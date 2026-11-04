@@ -41,6 +41,7 @@ export const PROTO_FILES = {
   billing: [
     'wayfare/billing/entitlement.proto',
     'wayfare/billing/billing.proto',
+    'wayfare/billing/boosts.proto',
     'wayfare/billing/seller.proto',
     'wayfare/billing/billing_webhook.proto',
     'wayfare/billing/billing_admin.proto',

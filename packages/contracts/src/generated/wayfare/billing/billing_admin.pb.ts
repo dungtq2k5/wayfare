@@ -12,6 +12,7 @@ import { Timestamp } from "../../google/protobuf/timestamp.pb";
 import { PageNumberMeta, PageNumberRequest } from "../common/page.pb";
 import { BillingInterval, PlanPrice, SubscriptionStatus } from "./billing.pb";
 import { BillingEventStatus, StripeEndpoint } from "./billing_webhook.pb";
+import { AccountBoost } from "./boosts.pb";
 import { Entitlements } from "./entitlement.pb";
 
 export const protobufPackage = "wayfare.billing";
@@ -172,7 +173,11 @@ export interface BillingAccountDetail {
   planGrants: Entitlements | undefined;
   recentEvents: BillingEvent[];
   /** The price of the subscription's last event, kept after a cancellation. */
-  subscribedPrice?: SubscribedPrice | undefined;
+  subscribedPrice?:
+    | SubscribedPrice
+    | undefined;
+  /** Live boosts, then those ended within the read's window. */
+  boosts: AccountBoost[];
 }
 
 export interface SubscribedPrice {

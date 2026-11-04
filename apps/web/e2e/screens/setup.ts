@@ -5,6 +5,7 @@ import { dirname } from 'node:path';
 import { publishMapPacks } from '../../../console/e2e/screens/map-pack';
 import { SUPER_ADMIN } from '../../../console/e2e/support/people';
 import { Actor as ConsoleActor } from '../../../console/e2e/support/stack';
+import { boostedVenue } from '../support/boosts';
 import { PLACES, place, takeDown, untilAudio } from '../support/places';
 import { Actor, API, clearMail, resetRateLimits } from '../support/stack';
 import { expect } from '@playwright/test';
@@ -31,7 +32,8 @@ export async function screensSetup(): Promise<() => void> {
   // before any is drawn, so a baseline never catches one half-translated.
   for (const lang of ['fr', 'de', 'ja'])
     for (const namespace of ['web', 'tourist']) await untilBundle(namespace, lang);
-  const made: WebState = { church, opera, gone };
+  const sponsor = await boostedVenue();
+  const made: WebState = { church, opera, gone, sponsor };
   mkdirSync(dirname(STATE_FILE), { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(made));
   resetRateLimits();

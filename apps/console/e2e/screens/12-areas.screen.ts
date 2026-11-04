@@ -220,5 +220,7 @@ test('A4b Places left outside', async ({ page }) => {
     .fill(`${corner[0]![1] + 0.0004}, ${corner[0]![0] + 0.0004}`);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText(/^\d+ Places would be left outside$/)).toBeVisible();
+  // The names come with the area's Places, read after the form.
+  await expect(page.getByText(/^\S.*, .* lie outside the new boundary/)).toBeVisible();
   await look(page, 'a4b-places-outside');
 });

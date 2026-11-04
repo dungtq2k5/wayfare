@@ -3,10 +3,17 @@ import { zUuidV7 } from '../common/ids';
 import { zPageQuery } from '../common/pagination';
 import { zBooleanParam } from '../common/params';
 import { normalizeText } from '../common/text';
+import { MAX_DISCOVERY_BOOST_SLOTS } from '../entitlements/ceilings';
 import { planWithinCeilings, zEntitlements } from '../entitlements/entitlements';
 import { MAX_ADMIN_REASON_LENGTH } from '../identity/limits';
 import { zMoney } from '../money/money';
-import { BillingEventStatus, BillingInterval, StripeEndpoint, SubscriptionStatus } from './enums';
+import {
+  BillingEventStatus,
+  BillingInterval,
+  BoostEndedReason,
+  StripeEndpoint,
+  SubscriptionStatus,
+} from './enums';
 import { MAX_PLAN_CODE_LENGTH, MAX_PLAN_NAME_LENGTH, MAX_STRIPE_ID_LENGTH } from './limits';
 
 const zInstant = z.iso.datetime({ offset: true });
@@ -216,6 +223,67 @@ export const zInvoice = z
 /** An invoice. */
 export type Invoice = z.output<typeof zInvoice>;
 
+/** How far back an ended boost is still read (rdm-spec B-5): the card's *Ended* list. */
+export const BOOSTS_ENDED_WINDOW_DAYS = 90;
+
+/** One live boost: its Venue, and since when. */
+export const zLiveBoost = z.object({ placeId: zUuidV7, since: zInstant }).strict();
+
+/** One ended boost: when, and why. */
+export const zEndedBoost = zLiveBoost
+  .extend({ endedAt: zInstant, endedReason: z.enum(BoostEndedReason) })
+  .strict();
+
+/** `GET /owner/boosts` (api-endpoints-plan §5.2): the slots, the live boosts, the recent ended ones. */
+export const zOwnerBoosts = z
+  .object({
+    slots: z.number().int().min(0),
+    live: z.array(zLiveBoost),
+    ended: z.array(zEndedBoost),
+  })
+  .strict();
+/** An owner's boosts. */
+export type OwnerBoosts = z.output<typeof zOwnerBoosts>;
+
+/** `PUT /owner/boosts` body: the complete set of Venues to boost. */
+export const zOwnerBoostsInput = z
+  .object({
+    placeIds: z
+      .array(zUuidV7)
+      .max(MAX_DISCOVERY_BOOST_SLOTS)
+      .refine((ids) => new Set(ids).size === ids.length, 'each Venue once'),
+  })
+  .strict();
+/** The set of Venues to boost. */
+export type OwnerBoostsInput = z.output<typeof zOwnerBoostsInput>;
+
+/** One boost on an account (api-endpoints-plan §6.2): live, or ended within the window. */
+export const zAccountBoost = z
+  .object({
+    placeId: zUuidV7,
+    /** The Venue's name, as catalog holds it now; null when catalog didn't answer. */
+    placeName: z.string().nullable(),
+    weight: z.number().int().min(1).max(100),
+    since: zInstant,
+    endedAt: zInstant.nullable(),
+    endedReason: z.enum(BoostEndedReason).nullable(),
+  })
+  .strict();
+/** A boost on an account. */
+export type AccountBoost = z.output<typeof zAccountBoost>;
+
+/** A Place's live boost, as an admin's Place page reads it (api-endpoints-plan §3.5). */
+export const zPlaceBoost = z
+  .object({
+    since: zInstant,
+    billingAccountId: zUuidV7,
+    planCode: z.string(),
+    slots: z.number().int().min(0),
+  })
+  .strict();
+/** A Place's live boost. */
+export type PlaceBoost = z.output<typeof zPlaceBoost>;
+
 /** `GET /owner/billing` (api-endpoints-plan §5.1) — read from Postgres, never Stripe. */
 export const zBillingOverview = z
   .object({
@@ -319,7 +387,7 @@ export type BillingEvent = z.output<typeof zBillingEvent>;
 
 /**
  * One account's detail (api-endpoints-plan §6.2): its subscription, effective grants beside its
- * plan's own, and its recent events. Boosts and the payout account are empty until Phase 3.
+ * plan's own, and its recent events. Its boosts, live and recent; the payout account is empty until a later round.
  */
 export const zBillingAccountDetail = zBillingAccountSummary
   .extend({
@@ -335,7 +403,8 @@ export const zBillingAccountDetail = zBillingAccountSummary
     cancelAtPeriodEnd: z.boolean(),
     entitlements: zEntitlements,
     planGrants: zEntitlements,
-    boosts: z.array(z.never()),
+    /** Live boosts, then those ended in the last {@link BOOSTS_ENDED_WINDOW_DAYS} days. */
+    boosts: z.array(zAccountBoost),
     payoutAccount: z.null(),
     recentEvents: z.array(zBillingEvent),
   })

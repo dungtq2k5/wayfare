@@ -9,10 +9,13 @@ export function MarkerFace({
   categoryCode,
   selected,
   name,
+  sponsored,
 }: {
   categoryCode: string;
   selected: boolean;
   name?: string | undefined;
+  /** The *Sponsored* chip's word, under the ordinary 40 px disc (round 25's `Sponsored=true`). */
+  sponsored?: string | undefined;
 }) {
   const Icon = categoryIcon(categoryCode);
   return (
@@ -30,6 +33,14 @@ export function MarkerFace({
       {name === undefined ? null : (
         <span className="rounded-full bg-card px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground shadow-2">
           {name}
+        </span>
+      )}
+      {sponsored === undefined ? null : (
+        <span
+          aria-hidden
+          className="rounded-full bg-sponsored px-2 py-0.5 text-sm font-medium whitespace-nowrap text-sponsored-foreground shadow-1"
+        >
+          {sponsored}
         </span>
       )}
     </span>

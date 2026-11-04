@@ -1,6 +1,6 @@
 // One valid payload per subject, for round-trip tests here and consumer tests in the services.
 import { AuditAction, AuditActorType, AuditResourceType } from '../audit/vocabulary';
-import { EntitlementsChangeCause, RefundReason } from '../billing/enums';
+import { BoostEndedReason, EntitlementsChangeCause, RefundReason } from '../billing/enums';
 import { PlaceInactiveReason, PlaceStatus } from '../catalog/enums';
 import { SessionRevokedReason } from '../identity/enums';
 import { AnalyticsLevel, NarrationLanguageScope } from '../entitlements/entitlements';
@@ -152,7 +152,21 @@ export const EVENT_FIXTURES: Readonly<Record<Subject, EventFixture>> = {
     previous: null,
     cause: EntitlementsChangeCause.SUBSCRIPTION,
   }),
-  'billing.boosts.changed': fixture(place, { placeId: place, discoveryBoost: 50 }),
+  'billing.boosts.changed': fixture(place, {
+    placeId: place,
+    discoveryBoost: 50,
+    changedAt: '2026-09-19T09:00:00.000Z',
+  }),
+  'billing.boost.ended': fixture(user, {
+    ownerUserId: user,
+    placeId: place,
+    reason: BoostEndedReason.PLACE_UNAVAILABLE,
+    placeInactiveReason: PlaceInactiveReason.OWNER,
+    deleted: false,
+    planName: null,
+    slots: 1,
+    endedAt: '2026-09-19T09:00:00.000Z',
+  }),
   'billing.subscription.payment_failed': fixture(user, {
     ownerUserId: user,
     attemptCount: 1,

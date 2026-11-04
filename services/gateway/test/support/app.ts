@@ -126,6 +126,7 @@ export class CatalogStub {
   readonly mapPackAdmin = new StubCaller();
   readonly offline = new StubCaller();
   readonly favorites = new StubCaller();
+  readonly places = new StubCaller();
 
   onModuleInit(): void {}
 
@@ -141,6 +142,7 @@ export class CatalogStub {
       this.mapPackAdmin,
       this.offline,
       this.favorites,
+      this.places,
     ]) {
       caller.calls.length = 0;
       caller.handlers = {};
@@ -183,11 +185,19 @@ export class BillingStub {
   readonly accounts = new StubCaller();
   readonly events = new StubCaller();
   readonly webhooks = new StubCaller();
+  readonly boosts = new StubCaller();
 
   onModuleInit(): void {}
 
   reset(): void {
-    for (const caller of [this.billing, this.plans, this.accounts, this.events, this.webhooks]) {
+    for (const caller of [
+      this.billing,
+      this.plans,
+      this.accounts,
+      this.events,
+      this.webhooks,
+      this.boosts,
+    ]) {
       caller.calls.length = 0;
       caller.handlers = {};
     }

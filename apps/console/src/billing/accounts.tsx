@@ -40,6 +40,7 @@ import { formatDate } from '../i18n/format';
 import { useConsole } from '../i18n/provider';
 import { useCan } from '../shell/can';
 import { ErrorView } from '../states/states';
+import { AccountBoosts } from './account-boosts';
 import { GrantsTable, PinChip } from './grants-table';
 import { GRANT_KEYS, formatMoney, grantLabel, grantValue } from './grants';
 import type { Entitlements } from './grants';
@@ -507,6 +508,7 @@ export function AccountPage({ initial }: { initial: Account }) {
               }}
             />
           </Section>
+          <AccountBoosts account={account} />
           <Section
             id="events"
             title={t('account.events')}

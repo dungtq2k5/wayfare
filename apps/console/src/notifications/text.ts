@@ -39,7 +39,13 @@ export function notificationText(
     (placeId === undefined ? undefined : context.placeName(placeId)) ??
     t('notification.venueFallback');
   const plan = text(notification.data.planCode);
-  return tDynamic(`notification.${notification.type}`, {
+  // A lost boost says why the Venue left: closed by its owner, or off the map otherwise.
+  const variant =
+    notification.type === (NotificationType.BOOST_ENDED as string) &&
+    notification.data.placeInactiveReason === 'OWNER'
+      ? '.closed'
+      : '';
+  return tDynamic(`notification.${notification.type}${variant}`, {
     placeName,
     planName: plan === undefined ? t('notification.planFallback') : planName(plan),
   });
@@ -64,6 +70,7 @@ export function notificationTarget(notification: Pick<FeedNotification, 'type' |
     case NotificationType.SUBSCRIPTION_PAYMENT_FAILED:
     case NotificationType.ENTITLEMENTS_REDUCED:
     case NotificationType.ENTITLEMENTS_RAISED:
+    case NotificationType.BOOST_ENDED:
     case NotificationType.PAYOUT_ACCOUNT_ACTION_REQUIRED:
     case NotificationType.VOUCHER_CODE_GUESSING_SUSPECTED:
       return '/owner/billing';

@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { EntitlementsChangeCause, RefundReason } from '../billing/enums';
+import { BoostEndedReason, EntitlementsChangeCause, RefundReason } from '../billing/enums';
 import { MAX_OFFER_TITLE_LENGTH, MAX_VOUCHERS_PER_ORDER } from '../billing/limits';
+import { PlaceInactiveReason } from '../catalog/enums';
 import { DISCOVERY_BOOST_MAX, DISCOVERY_BOOST_MIN } from '../catalog/limits';
 import { zUuidV7 } from '../common/ids';
 import { zEntitlements } from '../entitlements/entitlements';
@@ -25,7 +26,11 @@ export const BILLING_ENTITLEMENTS_CHANGED = defineEvent({
   aggregateId: (payload) => payload.ownerUserId,
 });
 
-/** `billing.boosts.changed` — a Place's discovery boost weight changed. */
+/**
+ * `billing.boosts.changed` — a Place's discovery boost weight changed. Narrow on purpose: only the
+ * weight and its time cross to catalog's ranking (rdm-spec §1.4). `changedAt` — the boost's start
+ * or end — is the consumer's version guard: an older change arriving late is ignored.
+ */
 export const BILLING_BOOSTS_CHANGED = defineEvent({
   subject: 'billing.boosts.changed',
   publisher: 'billing',
@@ -33,8 +38,33 @@ export const BILLING_BOOSTS_CHANGED = defineEvent({
   schema: eventSchema({
     placeId: zUuidV7,
     discoveryBoost: z.number().int().min(DISCOVERY_BOOST_MIN).max(DISCOVERY_BOOST_MAX),
+    changedAt: zEventInstant,
   }),
   aggregateId: (payload) => payload.placeId,
+});
+
+/**
+ * `billing.boost.ended` — the system ended a boost: the plan's slots shrank, or the Venue stopped
+ * being live. Never for the owner's own ending. Identity tells the owner of a Venue's lost boost.
+ */
+export const BILLING_BOOST_ENDED = defineEvent({
+  subject: 'billing.boost.ended',
+  publisher: 'billing',
+  stream: 'BILLING',
+  schema: eventSchema({
+    ownerUserId: zUuidV7,
+    placeId: zUuidV7,
+    reason: z.enum([BoostEndedReason.ENTITLEMENT_LIMIT, BoostEndedReason.PLACE_UNAVAILABLE]),
+    /** Why the Venue left: its inactive reason, null when it was deleted or the slots shrank. */
+    placeInactiveReason: z.enum(PlaceInactiveReason).nullable(),
+    deleted: z.boolean(),
+    /** The account's plan after the change, for `ENTITLEMENT_LIMIT`. */
+    planName: z.string().min(1).max(64).nullable(),
+    /** The account's boost slots after the change. */
+    slots: z.number().int().min(0),
+    endedAt: zEventInstant,
+  }),
+  aggregateId: (payload) => payload.ownerUserId,
 });
 
 /** `billing.subscription.payment_failed` — a renewal charge failed. */

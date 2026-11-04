@@ -1,6 +1,8 @@
 // The notification feed (rdm-spec I-10, api-endpoints-plan §1.7): one write path, idempotent
 // consumers, the caller's own rows only, and frames only for what changed.
 import {
+  BILLING_BOOST_ENDED,
+  BoostEndedReason,
   CATALOG_PLACE_STATUS_CHANGED,
   compareStrings,
   newId,
@@ -14,6 +16,7 @@ import { JobRunRecorder } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import { buildAccountContext } from '@wayfare/nest-common/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { BoostEndedConsumer } from '../../src/modules/boost-ended/boost-ended.consumer';
 import { NotificationCreateConsumer } from '../../src/modules/notification-create/notification-create.consumer';
 import { PlaceStatusConsumer } from '../../src/modules/place-status/place-status.consumer';
 import { NotificationsPruneJob } from '../../src/modules/scheduled/notifications-prune.job';
@@ -172,6 +175,58 @@ describe('catalog.place.status_changed', () => {
     await consumer.handle(statusChanged({ ownerUserId: undefined }));
     expect(await prisma.notification.count()).toBe(0);
     expect(services.frames.frames).toEqual([]);
+  });
+});
+
+describe('billing.boost.ended', () => {
+  const ended = (overrides: Partial<EventPayload<typeof BILLING_BOOST_ENDED>> = {}) =>
+    BILLING_BOOST_ENDED.schema.parse({
+      eventId: newId(),
+      occurredAt: new Date().toISOString(),
+      ownerUserId: owner.userId,
+      placeId: newId(),
+      reason: BoostEndedReason.PLACE_UNAVAILABLE,
+      placeInactiveReason: PlaceInactiveReason.OWNER,
+      deleted: false,
+      planName: null,
+      slots: 1,
+      endedAt: new Date().toISOString(),
+      ...overrides,
+    });
+
+  it("tells the owner of a Venue's lost boost, once, in the bell only", async () => {
+    const consumer = new BoostEndedConsumer(services.notifications);
+    const event = ended();
+    await consumer.handle(event);
+    await consumer.handle(event);
+    const rows = await prisma.notification.findMany();
+    expect(rows.map((row) => [row.type, row.data])).toEqual([
+      [
+        'BOOST_ENDED',
+        {
+          placeId: event.placeId,
+          reason: 'PLACE_UNAVAILABLE',
+          placeInactiveReason: 'OWNER',
+          deleted: false,
+        },
+      ],
+    ]);
+    expect(await prisma.emailDelivery.count()).toBe(0);
+  });
+
+  it('says nothing for fewer slots, nor to an erased owner', async () => {
+    const consumer = new BoostEndedConsumer(services.notifications);
+    await consumer.handle(
+      ended({
+        reason: BoostEndedReason.ENTITLEMENT_LIMIT,
+        placeInactiveReason: null,
+        planName: 'Free',
+        slots: 0,
+      }),
+    );
+    const erased = await user({ deletedAt: new Date(), erasedAt: new Date() });
+    await consumer.handle(ended({ ownerUserId: erased.userId }));
+    expect(await prisma.notification.count()).toBe(0);
   });
 });
 

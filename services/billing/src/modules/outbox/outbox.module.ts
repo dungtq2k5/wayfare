@@ -18,12 +18,13 @@ export const SERVICE_NAME = 'billing';
 
 /**
  * Streams billing declares at boot: every stream it publishes to — its own, the audit and
- * notification subjects, the dead letters — and identity's, which it consumes (api-endpoints-plan
- * §10). `ensureStreams` creates a missing one and verifies an existing one.
+ * notification subjects, the dead letters — and identity's and catalog's, which it consumes
+ * (api-endpoints-plan §10). `ensureStreams` creates a missing one and verifies an existing one.
  */
 export const BILLING_STREAMS: readonly StreamName[] = [
   'BILLING',
   'IDENTITY',
+  'CATALOG',
   'AUDIT',
   'NOTIFICATION',
   'DLQ',

@@ -20,6 +20,20 @@ describe('a transaction Postgres aborted', () => {
     ).toBe(true);
   });
 
+  it('is a transaction that never started, not one that expired', () => {
+    const p2028 = (message: string) => ({ code: 'P2028', message });
+    expect(
+      isTransientTransactionError(
+        p2028('Transaction API error: Unable to start a transaction in the given time.'),
+      ),
+    ).toBe(true);
+    expect(
+      isTransientTransactionError(
+        p2028('Transaction API error: A commit cannot be executed on an expired transaction.'),
+      ),
+    ).toBe(false);
+  });
+
   it('is nothing else', () => {
     expect(isTransientTransactionError(raw('23505'))).toBe(false);
     expect(isTransientTransactionError({ code: 'P2002' })).toBe(false);

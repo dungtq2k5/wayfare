@@ -31,6 +31,8 @@ import { SubmissionReviewedModule } from './modules/submission-reviewed/submissi
 import { NotificationCreateConsumer } from './modules/notification-create/notification-create.consumer';
 import { NotificationCreateModule } from './modules/notification-create/notification-create.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { BoostEndedConsumer } from './modules/boost-ended/boost-ended.consumer';
+import { BoostEndedModule } from './modules/boost-ended/boost-ended.module';
 import { PlaceStatusConsumer } from './modules/place-status/place-status.consumer';
 import { PlaceStatusModule } from './modules/place-status/place-status.module';
 import { AccountRecoveriesAdvanceJob } from './modules/scheduled/account-recoveries-advance.job';
@@ -101,6 +103,7 @@ export class AppModule {
         NotificationsModule,
         NotificationCreateModule,
         PlaceStatusModule,
+        BoostEndedModule,
         PaymentFailedModule,
         EntitlementsChangedModule,
         SubmissionReviewedModule,
@@ -179,6 +182,7 @@ export class AppModule {
             PaymentFailedConsumer,
             EntitlementsChangedConsumer,
             SubmissionReviewedConsumer,
+            BoostEndedConsumer,
           ],
           useFactory: (
             audit: AuditConsumer,
@@ -188,6 +192,7 @@ export class AppModule {
             paymentFailed: PaymentFailedConsumer,
             entitlementsChanged: EntitlementsChangedConsumer,
             submissionReviewed: SubmissionReviewedConsumer,
+            boostEnded: BoostEndedConsumer,
           ) => [
             audit,
             revocation,
@@ -196,6 +201,7 @@ export class AppModule {
             paymentFailed,
             entitlementsChanged,
             submissionReviewed,
+            boostEnded,
           ],
         },
       ],

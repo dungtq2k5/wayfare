@@ -1,15 +1,19 @@
 import { CurrencyCode } from '@wayfare/contracts';
 import type {
+  AccountBoost,
   BillingOverview,
   BillingSummary,
   Entitlements,
   Invoice,
+  OwnerBoosts,
   Plan,
+  PlaceBoost,
   PlanPrice,
 } from '@wayfare/contracts';
 import {
   analyticsLevelProto,
   billingIntervalProto,
+  boostEndedReasonProto,
   narrationLanguageScopeProto,
   subscriptionStatusProto,
 } from '@wayfare/contracts/grpc';
@@ -115,5 +119,57 @@ export function toBillingSummary(summary: billingGrpc.GetBillingSummaryResponse)
     ),
     dunningSince:
       fromOptionalProtoTimestamp(summary.dunningSince, 'dunningSince')?.toISOString() ?? null,
+  };
+}
+
+/** A boost on the wire as the routes answer it: live without an end, ended with when and why. */
+export function toAccountBoost(
+  boost: billingGrpc.AccountBoost,
+  nameOf: ReadonlyMap<string, string> = new Map(),
+): AccountBoost {
+  const endedAt = fromOptionalProtoTimestamp(boost.endedAt, 'endedAt');
+  return {
+    placeId: boost.placeId,
+    placeName: nameOf.get(boost.placeId) ?? null,
+    weight: boost.weight,
+    since: fromProtoTimestamp(boost.since, 'since').toISOString(),
+    endedAt: endedAt?.toISOString() ?? null,
+    endedReason: endedAt === undefined ? null : boostEndedReasonProto.fromProto(boost.endedReason),
+  };
+}
+
+/** `GET /owner/boosts` and `PUT`'s answer: the slots, the live boosts, the recent ended ones. */
+export function toOwnerBoosts(answer: {
+  readonly slots: number;
+  readonly boosts: readonly billingGrpc.AccountBoost[];
+}): OwnerBoosts {
+  const boosts = answer.boosts.map((boost) => toAccountBoost(boost));
+  return {
+    slots: answer.slots,
+    live: boosts
+      .filter((boost) => boost.endedAt === null)
+      .map((boost) => ({ placeId: boost.placeId, since: boost.since })),
+    ended: boosts.flatMap((boost) =>
+      boost.endedAt === null || boost.endedReason === null
+        ? []
+        : [
+            {
+              placeId: boost.placeId,
+              since: boost.since,
+              endedAt: boost.endedAt,
+              endedReason: boost.endedReason,
+            },
+          ],
+    ),
+  };
+}
+
+/** A Place's live boost, for an admin's Place page. */
+export function toPlaceBoost(boost: billingGrpc.PlaceBoost): PlaceBoost {
+  return {
+    since: fromProtoTimestamp(boost.since, 'since').toISOString(),
+    billingAccountId: boost.billingAccountId,
+    planCode: boost.planCode,
+    slots: boost.slots,
   };
 }

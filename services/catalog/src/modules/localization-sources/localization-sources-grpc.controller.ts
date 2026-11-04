@@ -36,4 +36,10 @@ export class LocalizationSourcesGrpcController implements catalogGrpc.PlaceServi
   ): Promise<catalogGrpc.SearchLocalizedTextResponse> {
     return this.sources.searchLocalizedText(request, unpackCallerContext(metadata));
   }
+
+  batchGetPlaceSummaries(
+    request: catalogGrpc.BatchGetPlaceSummariesRequest,
+  ): Promise<catalogGrpc.BatchGetPlaceSummariesResponse> {
+    return this.sources.batchGetPlaceSummaries(request);
+  }
 }

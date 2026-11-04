@@ -23,6 +23,7 @@ The flows' setup (`global-setup.ts`) makes the fixture Places with fixed names (
   - **Solid boxes:** the week of opening hours (today is the run's weekday), and the players' progress lines, scrubber and elapsed time.
   - **Fixed text:** a story's elapsed time, plus the console's rules (`../../console/e2e/screens/normalize.ts`).
 - **Real records.** Places, accounts and emailed links come from the stack, with fixed names and addresses (`screens/accounts.ts`).
+  - The sponsored Venue (BT1) is made as an owner makes one (`support/boosts.ts`): approved, on Growth by signed webhooks, boosted through `PUT /owner/boosts`. The flows' setup makes it too.
   - `page.route` answers only the browser's own reads: a story not made yet, a job held in flight, a style held back.
   - `play()` refused and the browser's voices are stubbed in the page (`screens/helpers.ts`).
 - **Languages the app doesn't ship** (French, German, Japanese) read their strings from the pipeline. The setup waits until those bundles are translated.

@@ -39,7 +39,7 @@ export function testPrisma(): PrismaService {
  */
 export async function truncateAll(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE billing_events, billing_accounts, plan_prices, outbox_events, processed_events, job_runs RESTART IDENTITY CASCADE',
+    'TRUNCATE discovery_boosts, billing_events, billing_accounts, plan_prices, outbox_events, processed_events, job_runs RESTART IDENTITY CASCADE',
   );
   await prisma.$executeRaw`DELETE FROM plans WHERE code <> 'FREE' OR deleted_at IS NOT NULL`;
   await prisma.plan.updateMany({

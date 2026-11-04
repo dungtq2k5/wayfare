@@ -26,6 +26,12 @@ export const RULES: readonly Rule[] = [
     'g',
     '26\u00a0Sep\u00a02026 – 2\u00a0Oct\u00a02026',
   ],
+  // A range's start without its year, before a full date ("Boosted 4 Nov – 2 Oct 2026").
+  [
+    '\\b\\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) – (?=\\d{1,2} \\w{3,4} \\d{4}\\b)',
+    'g',
+    '26\u00a0Sep – ',
+  ],
   // A date the run sets: a record's creation, an account's start.
   ['\\b\\d{1,2}/\\d{1,2}/\\d{4}\\b', 'g', '10/24/2026'],
   ['\\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{1,2}, \\d{4}\\b', 'g', 'Oct 24, 2026'],

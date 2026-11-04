@@ -23,7 +23,9 @@ import { errorText } from '../client/errors';
 import { useConsole } from '../i18n/provider';
 import { relativeTime } from '../notifications/text';
 import { useCan } from '../shell/can';
+import { SponsoredChip } from '../components/sponsored-chip';
 import { EditorialSection } from './editorial-section';
+import { PlaceBoostSection } from './place-boost';
 import { NarrationSection } from './narration-section';
 import { DeactivateDialog, DeleteDialog, ownerName } from './place-actions';
 import { Facts, focusSection, History, HoursList, Section } from './place-sections';
@@ -211,6 +213,7 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
           <span className="text-sm text-muted-foreground">· {tDynamic(wait)}</span>
         )}
         {stuck ? <StuckChip /> : null}
+        {data.boost === null || data.boost === undefined ? null : <SponsoredChip />}
       </div>
       {stuck ? <StuckAlert placeId={data.id} name={data.nameVi} /> : null}
       {venue ? (
@@ -386,6 +389,7 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
             onDraftRadius={setDraftRadius}
             onSaved={refetch}
           />
+          {venue ? <PlaceBoostSection boost={data.boost} owner={owner} /> : null}
           <QrSection placeId={data.id} name={data.nameVi} code={data.publicCode} />
           {can('audit.read') ? <History place={data} /> : null}
         </div>

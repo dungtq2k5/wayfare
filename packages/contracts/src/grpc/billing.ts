@@ -3,6 +3,7 @@
 export * from '../generated/wayfare/billing/billing.pb';
 export * from '../generated/wayfare/billing/billing_admin.pb';
 export * from '../generated/wayfare/billing/billing_webhook.pb';
+export * from '../generated/wayfare/billing/boosts.pb';
 export * from '../generated/wayfare/billing/entitlement.pb';
 export * from '../generated/wayfare/billing/seller.pb';
 export {

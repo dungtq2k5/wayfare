@@ -368,5 +368,10 @@
   "settings.dark": "Dark",
   "settings.about": "About",
   "settings.homeScreen": "Add Wayfare to your Home Screen",
-  "settings.version": "Wayfare web · version {version} · Map data © OpenStreetMap contributors"
+  "settings.version": "Wayfare web · version {version} · Map data © OpenStreetMap contributors",
+  "map.sponsoredMarker": "{name}, sponsored",
+  "map.sponsoredNote": "Sponsored places are boosted by their owners and rise a little in this list and on the map. A boost never changes which stories play, or when.",
+  "map.fromAgo": "from {n} min ago",
+  "map.offlineList": "Offline: the list is by distance, as last loaded, and nothing is sponsored.",
+  "map.fromJustNow": "just now"
 }

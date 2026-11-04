@@ -30,6 +30,8 @@ import { useMapStyle } from '../content/place-page';
 import { Facts, focusSection, HoursList, Section } from '../content/place-sections';
 import { QrSection } from '../content/qr-section';
 import { useNames } from '../content/reference';
+import { SponsoredChip } from '../components/sponsored-chip';
+import { VenueBoostCard } from './boosts';
 import { FieldCard } from '../content/submission-diff';
 import type { PhotoSource } from '../content/submission-diff';
 import { printedCode } from '../content/words';
@@ -129,7 +131,7 @@ export function OwnerVenuePage({ initial }: { initial: OwnerPlaceDetail }) {
   });
   const billing = useBillingOverview();
   const limits = useLimits();
-  const { place, pendingSubmission } = detail.data;
+  const { place, pendingSubmission, boosted } = detail.data;
   const mapStyle = useMapStyle(place.areaId);
   const [dialog, setDialog] = useState<'close' | 'reopen' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -239,6 +241,7 @@ export function OwnerVenuePage({ initial }: { initial: OwnerPlaceDetail }) {
               {t('venuePage.kind')}
             </span>
             <VenueStatus venue={place} since={place.statusChangedAt} inline />
+            {boosted === null || boosted === undefined ? null : <SponsoredChip />}
           </span>
         }
         description={[
@@ -442,6 +445,14 @@ export function OwnerVenuePage({ initial }: { initial: OwnerPlaceDetail }) {
             />
             <p className="text-xs text-muted-foreground">{t('venuePage.setWhy')}</p>
           </Section>
+          {/* Read with *Set by Wayfare* above: what money changes, and what it never does. */}
+          {place.kind === 'VENUE' && boosted !== undefined ? (
+            <VenueBoostCard
+              venueId={place.id}
+              venueName={place.nameVi}
+              since={boosted?.since ?? null}
+            />
+          ) : null}
           <QrSection
             placeId={place.id}
             name={place.nameVi}

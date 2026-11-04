@@ -72,4 +72,6 @@ export interface WebArguments {
   readonly "legal.since": { "date": string | number };
   readonly "legal.untranslated": { "language": string | number };
   readonly "settings.version": { "version": string | number };
+  readonly "map.sponsoredMarker": { "name": string | number };
+  readonly "map.fromAgo": { "n": string | number };
 }

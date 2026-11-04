@@ -13,7 +13,7 @@ import {
 } from '@wayfare/contracts/grpc';
 import type { billingGrpc } from '@wayfare/contracts/grpc';
 import { fromOptionalProtoTimestamp, fromProtoTimestamp } from '@wayfare/nest-common';
-import { toEntitlements } from '../billing/billing.mapper';
+import { toAccountBoost, toEntitlements } from '../billing/billing.mapper';
 import type { OwnerOf } from '../people-names/people-names.service';
 
 /** An enum this build cannot read is a server fault, never a client's. */
@@ -77,6 +77,7 @@ export function toBillingEvent(
 export function toBillingAccountDetail(
   account: billingGrpc.BillingAccountDetail | undefined,
   ownerOf: OwnerOf,
+  placeNames: ReadonlyMap<string, string> = new Map(),
 ): BillingAccountDetail {
   if (account === undefined) throw new Error('billing sent no account');
   const price = account.subscribedPrice;
@@ -99,7 +100,7 @@ export function toBillingAccountDetail(
     cancelAtPeriodEnd: account.cancelAtPeriodEnd,
     entitlements: toEntitlements(account.entitlements),
     planGrants: toEntitlements(account.planGrants),
-    boosts: [],
+    boosts: account.boosts.map((boost) => toAccountBoost(boost, placeNames)),
     payoutAccount: null,
     recentEvents: account.recentEvents.map((event) => toBillingEvent(event, ownerOf)),
   };

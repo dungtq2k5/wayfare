@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.0.0-dev
  */
 import type { AdminPlaceDetailResponseDtoActivationMissingItem } from './adminPlaceDetailResponseDtoActivationMissingItem.js';
+import type { AdminPlaceDetailResponseDtoBoost } from './adminPlaceDetailResponseDtoBoost.js';
 import type { AdminPlaceDetailResponseDtoInactiveReason } from './adminPlaceDetailResponseDtoInactiveReason.js';
 import type { AdminPlaceDetailResponseDtoKind } from './adminPlaceDetailResponseDtoKind.js';
 import type { AdminPlaceDetailResponseDtoLocalizationsItem } from './adminPlaceDetailResponseDtoLocalizationsItem.js';
@@ -77,4 +78,5 @@ export interface AdminPlaceDetailResponseDto {
   activationMissing: AdminPlaceDetailResponseDtoActivationMissingItem[];
   submissions: unknown[];
   owner: AdminPlaceDetailResponseDtoOwner;
+  boost?: AdminPlaceDetailResponseDtoBoost;
 }

@@ -19,6 +19,7 @@ import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import type { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { BoostsLedgerService } from '../boosts-ledger/boosts-ledger.service';
 import { billingAuditRecord, NO_ORIGIN } from './domain/billing-audit';
 import type { BillingAuditActor } from './domain/billing-audit';
 import { grantColumns, grantsOf, plannedGrantsWrite } from './domain/grants-write';
@@ -46,6 +47,7 @@ export class EntitlementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
+    private readonly boosts: BoostsLedgerService,
   ) {}
 
   /** `{ entitlementsVersion, entitlements }`; no account → `RESOURCE_NOT_FOUND`, a denial. */
@@ -65,7 +67,12 @@ export class EntitlementsService {
     };
   }
 
-  /** The account, locked for this transaction; null when there is none. */
+  /**
+   * The account, locked for this transaction; null when there is none. `NO KEY UPDATE`, not
+   * `UPDATE` (conventions §8.8): every write changes counts and status, never the key, and a child
+   * row's insert or second update — a boost's — takes `KEY SHARE` on the account, which `UPDATE`
+   * would block.
+   */
   async lockAccount(
     tx: Prisma.TransactionClient,
     key: AccountKey,
@@ -73,9 +80,10 @@ export class EntitlementsService {
     const locked =
       'id' in key
         ? await tx.$queryRaw<{ id: string }[]>`
-            SELECT id FROM billing_accounts WHERE id = ${key.id}::uuid FOR UPDATE`
+            SELECT id FROM billing_accounts WHERE id = ${key.id}::uuid FOR NO KEY UPDATE`
         : await tx.$queryRaw<{ id: string }[]>`
-            SELECT id FROM billing_accounts WHERE owner_user_id = ${key.ownerUserId}::uuid FOR UPDATE`;
+            SELECT id FROM billing_accounts WHERE owner_user_id = ${key.ownerUserId}::uuid
+            FOR NO KEY UPDATE`;
     const id = locked[0]?.id;
     if (id === undefined) return null;
     return tx.billingAccount.findUniqueOrThrow({ where: { id }, select: BILLING_ACCOUNT_SELECT });
@@ -147,6 +155,9 @@ export class EntitlementsService {
         data: { ...grantColumns(next), entitlementsVersion: BigInt(planned.version), ...pin },
         select: { id: true },
       });
+      // Fewer boost slots than live boosts: the newest end, in this transaction (rdm-spec B-5).
+      // Every grant change passes here, so no cause — a downgrade, a grant, an unpin — is missed.
+      await this.boosts.endOverSlots(tx, account, next.discoveryBoostSlots, now);
       await this.outbox.add(tx, BILLING_ENTITLEMENTS_CHANGED, {
         occurredAt: now.toISOString(),
         ownerUserId: account.ownerUserId,

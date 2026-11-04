@@ -4,11 +4,13 @@
  * Wayfare API
  * OpenAPI spec version: 0.0.0-dev
  */
+import type { OwnerPlaceDetailResponseDtoBoosted } from './ownerPlaceDetailResponseDtoBoosted.js';
 import type { OwnerPlaceDetailResponseDtoPendingSubmission } from './ownerPlaceDetailResponseDtoPendingSubmission.js';
 import type { OwnerPlaceDetailResponseDtoPlace } from './ownerPlaceDetailResponseDtoPlace.js';
 
 export interface OwnerPlaceDetailResponseDto {
   place: OwnerPlaceDetailResponseDtoPlace;
+  boosted?: OwnerPlaceDetailResponseDtoBoosted;
   /** @pattern ^[0-9a-f]{64}$ */
   editableHash: string;
   pendingSubmission: OwnerPlaceDetailResponseDtoPendingSubmission;

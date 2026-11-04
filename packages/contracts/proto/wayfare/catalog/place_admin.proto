@@ -63,6 +63,8 @@ message AdminPlaceListItem {
   wayfare.common.GeoPoint location = 15;
   // When the status last changed (rdm-spec C-1).
   google.protobuf.Timestamp status_changed_at = 16;
+  // A discovery boost is live: `discovery_boost > 0`.
+  bool boosted = 17;
 }
 
 message GetPlaceAdminRequest {

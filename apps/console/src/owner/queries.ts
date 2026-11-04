@@ -25,6 +25,7 @@ export const OWNER_KEYS = {
   pending: ['owner-submissions', 'PENDING'] as const,
   billing: ['owner-billing'] as const,
   plans: ['owner-plans'] as const,
+  boosts: ['owner-boosts'] as const,
 };
 
 export function useOwnerPlaces(initial?: OwnerPlaceRow[], enabled = true) {

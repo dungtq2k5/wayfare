@@ -26,6 +26,7 @@ export * from './narration/narration';
 export * from './notifications/notifications';
 export * from './offline/offline';
 export * from './owner-billing/owner-billing';
+export * from './owner-boosts/owner-boosts';
 export * from './owner-places/owner-places';
 export * from './owner-registration/owner-registration';
 export * from './owner-submissions/owner-submissions';

@@ -18,6 +18,7 @@ import { OutboxService } from '@wayfare/nest-common';
 import { PrismaClient } from '../../generated/prisma/client';
 import type { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
 import { grantColumns } from '../../src/modules/entitlements/domain/grants-write';
+import { BoostsLedgerService } from '../../src/modules/boosts-ledger/boosts-ledger.service';
 import { EntitlementsService } from '../../src/modules/entitlements/entitlements.service';
 import { PlansService } from '../../src/modules/plans/plans.service';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
@@ -84,13 +85,15 @@ export async function seedDevPlans(
 ): Promise<string[]> {
   const key = env.STRIPE_SECRET_KEY || undefined;
   const outbox = new OutboxService();
+  const boosts = new BoostsLedgerService(outbox);
   const plans = new PlansService(
     prisma,
     outbox,
     new StripePaymentsProvider(key),
-    new EntitlementsService(prisma, outbox),
+    new EntitlementsService(prisma, outbox, boosts),
     // Registering a price never counts Places.
     {} as CatalogServiceGrpcClient,
+    boosts,
   );
   const lines: string[] = [];
   for (const plan of DEV_PLANS) {

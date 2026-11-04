@@ -11,6 +11,7 @@ import type {
   OwnerPlaceResponseDto,
   OwnerPlaceResultResponseDto,
 } from './dto/owner-place-response.dto';
+import { OwnerBoostsService } from '../owner-boosts/owner-boosts.service';
 import { toOwnerLimitsResponseDto, toOwnerPlaceResponseDto } from './owner-place.mapper';
 
 /** `/owner/places`, backed by `catalog.OwnerPlaceService` (api-endpoints-plan §3.1). */
@@ -20,14 +21,22 @@ export class OwnerPlacesService {
 
   constructor(
     private readonly catalog: CatalogServiceGrpcClient,
+    private readonly boosts: OwnerBoostsService,
     config: ConfigService<Env, true>,
   ) {
     this.qrBaseUrl = config.get('PUBLIC_QR_BASE_URL', { infer: true });
   }
 
+  /**
+   * The owner's Venues, each with its boost composed from billing — catalog knows the weight, not
+   * since when. When billing doesn't answer, `boosted` is left out (unknown) and the list loads.
+   */
   async list(context: AccountContext): Promise<OwnerPlaceResponseDto[]> {
-    const response = await this.catalog.ownerPlaces.call('listMyPlaces', {}, context);
-    return response.places.map(toOwnerPlaceResponseDto);
+    const [response, live] = await Promise.all([
+      this.catalog.ownerPlaces.call('listMyPlaces', {}, context),
+      this.boosts.liveSince(context),
+    ]);
+    return response.places.map((place) => withBoost(toOwnerPlaceResponseDto(place), live));
   }
 
   async limits(context: AccountContext): Promise<OwnerLimitsResponseDto> {
@@ -37,8 +46,12 @@ export class OwnerPlacesService {
   }
 
   async get(context: AccountContext, placeId: string): Promise<OwnerPlaceDetailResponseDto> {
-    const response = await this.catalog.ownerPlaces.call('getMyPlace', { placeId }, context);
+    const [response, live] = await Promise.all([
+      this.catalog.ownerPlaces.call('getMyPlace', { placeId }, context),
+      this.boosts.liveSince(context),
+    ]);
     return {
+      ...boostOf(placeId, live),
       place: toAdminPlaceResponseDto(response.place),
       editableHash: response.editableHash,
       pendingSubmission:
@@ -68,4 +81,22 @@ export class OwnerPlacesService {
     );
     return response.svg;
   }
+}
+
+/** A Venue's `boosted`, from the owner's live boosts; left out when billing didn't answer. */
+function boostOf(
+  placeId: string,
+  live: ReadonlyMap<string, string> | null,
+): { boosted?: { since: string } | null } {
+  if (live === null) return {};
+  const since = live.get(placeId);
+  return { boosted: since === undefined ? null : { since } };
+}
+
+/** A row with its `boosted`. */
+function withBoost<T extends { readonly id: string }>(
+  row: T,
+  live: ReadonlyMap<string, string> | null,
+): T & { boosted?: { since: string } | null } {
+  return { ...row, ...boostOf(row.id, live) };
 }

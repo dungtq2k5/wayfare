@@ -368,5 +368,10 @@
   "settings.dark": "Tối",
   "settings.about": "Giới thiệu",
   "settings.homeScreen": "Thêm Wayfare vào Màn hình chính",
-  "settings.version": "Wayfare web · phiên bản {version} · Dữ liệu bản đồ © OpenStreetMap contributors"
+  "settings.version": "Wayfare web · phiên bản {version} · Dữ liệu bản đồ © OpenStreetMap contributors",
+  "map.sponsoredMarker": "{name}, được tài trợ",
+  "map.sponsoredNote": "Nơi được tài trợ do chủ cơ sở quảng bá, nên lên cao hơn một chút trong danh sách và trên bản đồ. Quảng bá không bao giờ thay đổi câu chuyện nào được phát, hay khi nào.",
+  "map.fromAgo": "từ {n} phút trước",
+  "map.offlineList": "Ngoại tuyến: danh sách theo khoảng cách, như lần tải gần nhất, và không có nơi nào được tài trợ.",
+  "map.fromJustNow": "vừa xong"
 }

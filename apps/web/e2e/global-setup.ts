@@ -2,6 +2,7 @@
 // API; their stories are made by the fake narration.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { boostedVenue } from './support/boosts';
 import { admin, PLACES, place, takeDown, untilAudio } from './support/places';
 import { clearMail, resetRateLimits } from './support/stack';
 import { screensSetup } from './screens/setup';
@@ -19,7 +20,9 @@ export default async function globalSetup(): Promise<(() => void) | void> {
   await takeDown(actor, gone.id);
   await untilAudio(church.id, 'en');
   await untilAudio(opera.id, 'en');
-  const made: WebState = { church, opera, gone };
+  // Round 38: a boosted Venue near the map's centre, made as an owner makes one.
+  const sponsor = await boostedVenue();
+  const made: WebState = { church, opera, gone, sponsor };
   mkdirSync(dirname(STATE_FILE), { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(made));
   resetRateLimits();

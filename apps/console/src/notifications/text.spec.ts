@@ -78,3 +78,20 @@ describe('a notification in two lines', () => {
     ]);
   });
 });
+
+describe("a Venue's lost boost", () => {
+  it('says why it left: closed by its owner, or off the map', () => {
+    const closed = { placeId: PLACE, reason: 'PLACE_UNAVAILABLE', placeInactiveReason: 'OWNER' };
+    expect(notificationText({ type: 'BOOST_ENDED', data: closed }, context, en)).toBe(
+      "Phở Hòa Pasteur's boost ended. You closed Phở Hòa Pasteur for now, so its boost ended. Reopen it, then choose it again on Plan and billing.",
+    );
+    expect(
+      notificationText(
+        { type: 'BOOST_ENDED', data: { ...closed, placeInactiveReason: 'ADMIN' } },
+        context,
+        en,
+      ),
+    ).toBe("Phở Hòa Pasteur's boost ended. Phở Hòa Pasteur left the map, so its boost ended.");
+    expect(notificationTarget({ type: 'BOOST_ENDED', data: closed })).toBe('/owner/billing');
+  });
+});

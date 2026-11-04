@@ -14,6 +14,8 @@ export interface MapPlace {
   readonly categoryCode: string;
   readonly name: string;
   readonly location: { readonly lat: number; readonly lng: number };
+  /** A boosted Place (round 25's `Sponsored=true`): the chip under it, drawn above the others. */
+  readonly sponsored?: boolean;
 }
 
 export interface MapView {
@@ -50,6 +52,7 @@ export function AreaMap({
   zoomRightPx = 16,
   zoomInLabel,
   zoomOutLabel,
+  sponsoredWords,
   onLoaded,
 }: {
   style: string | null;
@@ -71,6 +74,8 @@ export function AreaMap({
   zoomRightPx?: number;
   zoomInLabel?: string;
   zoomOutLabel?: string;
+  /** The sponsored marker's chip, and its label: "{name}, sponsored". */
+  sponsoredWords?: { readonly chip: string; readonly label: (name: string) => string };
   /** The map drew its style (WM5 waits for it). */
   onLoaded?: () => void;
 }) {
@@ -182,10 +187,18 @@ export function AreaMap({
         const place = byId.get(id);
         if (place === undefined) return null;
         const selected = id === selectedId;
+        const sponsored = place.sponsored === true;
+        // MapLibre stacks marker elements, not their contents: the selected one first, a sponsored
+        // one above the ordinary — never larger.
+        element.style.zIndex = selected ? '3' : sponsored ? '2' : '1';
         return createPortal(
           <button
             type="button"
-            aria-label={place.name}
+            aria-label={
+              sponsored && sponsoredWords !== undefined
+                ? sponsoredWords.label(place.name)
+                : place.name
+            }
             aria-pressed={selected}
             onClick={() => onSelect?.(id)}
             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -196,6 +209,7 @@ export function AreaMap({
               categoryCode={place.categoryCode}
               selected={selected}
               name={selected ? place.name : undefined}
+              sponsored={sponsored && !selected ? sponsoredWords?.chip : undefined}
             />
           </button>,
           element,

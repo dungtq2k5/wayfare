@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BoostEndedReason } from '../billing/enums';
 import { MAX_VOUCHERS_PER_ORDER } from '../billing/limits';
 import { PlaceInactiveReason } from '../catalog/enums';
 import { MAX_DECISION_NOTE_LENGTH } from '../catalog/limits';
@@ -117,6 +118,18 @@ export const NOTIFICATION_DATA = {
   /** A language's narration failed for good; its text is still served (api-endpoints-plan §10). */
   [NotificationType.PLACE_NARRATION_FAILED]: z
     .object({ placeId: zUuidV7, lang: zLanguage })
+    .strict(),
+  /**
+   * A Venue lost its boost because it stopped being live (`billing.boost.ended`); the console names
+   * it from `placeId` and says why from `placeInactiveReason` and `deleted`.
+   */
+  [NotificationType.BOOST_ENDED]: z
+    .object({
+      placeId: zUuidV7,
+      reason: z.literal(BoostEndedReason.PLACE_UNAVAILABLE),
+      placeInactiveReason: z.enum(PlaceInactiveReason).nullable(),
+      deleted: z.boolean(),
+    })
     .strict(),
 } as const satisfies Record<NotificationType, z.ZodType>;
 

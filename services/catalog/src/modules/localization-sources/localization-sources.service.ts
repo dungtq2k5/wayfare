@@ -5,7 +5,9 @@ import {
   HOTSET_RADIUS_M,
   LocalizationTargetType,
   MAX_PRONUNCIATION_TERM_LENGTH,
+  parseEnum,
   PLACE_LIMIT_STATUSES,
+  PlaceInactiveReason,
   PlaceKind,
   PlaceStatus,
   SUPPORTED_LANGUAGES,
@@ -13,7 +15,12 @@ import {
   zLanguage,
   zUuidV7,
 } from '@wayfare/contracts';
-import { localizationTargetTypeProto } from '@wayfare/contracts/grpc';
+import {
+  localizationTargetTypeProto,
+  placeInactiveReasonProto,
+  placeKindProto,
+  placeStatusProto,
+} from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import {
   decodeCursor,
@@ -35,6 +42,9 @@ import {
 } from './localization-source.mapper';
 
 const sourceFields = z.object({ targetType: z.number(), targetId: zUuidV7 });
+
+/** `BatchGetPlaceSummaries`: a boost set's Places, or an account's boosts of the last 90 days. */
+const placeIdsField = z.object({ placeIds: z.array(zUuidV7).max(100) });
 
 /** `SearchLocalizedText`: the term as the dictionary holds it (rdm-spec N-5's `term` column). */
 const searchFields = zCursorQuery.extend({
@@ -227,5 +237,42 @@ export class LocalizationSourcesService {
       },
     });
     return { count };
+  }
+
+  /**
+   * Each Place's kind, owner and status (api-endpoints-plan §12.2) — what billing checks before a
+   * boost write. Unknown and deleted ids are absent.
+   */
+  async batchGetPlaceSummaries(
+    request: catalogGrpc.BatchGetPlaceSummariesRequest,
+  ): Promise<catalogGrpc.BatchGetPlaceSummariesResponse> {
+    const { placeIds } = parseRpcRequest(placeIdsField, request);
+    const rows = await this.prisma.place.findMany({
+      where: { id: { in: placeIds }, deletedAt: null },
+      select: {
+        id: true,
+        kind: true,
+        ownerUserId: true,
+        status: true,
+        inactiveReason: true,
+        nameVi: true,
+      },
+    });
+    return {
+      places: rows.map((row) => ({
+        id: row.id,
+        kind: placeKindProto.toProto(parseEnum(PlaceKind, row.kind)),
+        ...(row.ownerUserId === null ? {} : { ownerUserId: row.ownerUserId }),
+        status: placeStatusProto.toProto(parseEnum(PlaceStatus, row.status)),
+        ...(row.inactiveReason === null
+          ? {}
+          : {
+              inactiveReason: placeInactiveReasonProto.toProto(
+                parseEnum(PlaceInactiveReason, row.inactiveReason),
+              ),
+            }),
+        nameVi: row.nameVi,
+      })),
+    };
   }
 }

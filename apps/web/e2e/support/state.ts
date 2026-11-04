@@ -9,6 +9,8 @@ export interface WebState {
   readonly church: WebPlace;
   readonly opera: WebPlace;
   readonly gone: WebPlace;
+  /** A boosted Venue near District 1's centre (round 38's BT1). */
+  readonly sponsor: WebPlace;
 }
 
 export function state(): WebState {

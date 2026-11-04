@@ -20,6 +20,7 @@ import { formatDate } from '../i18n/format';
 import { languageName } from '../i18n/language-names';
 import { useConsole } from '../i18n/provider';
 import { isSubscribed, POLL_MS, returnState } from './checkout-return';
+import { BoostsCard } from './boosts';
 import { useBillingOverview, useOwnerPlaces } from './queries';
 import type { BillingOverview } from './queries';
 import { Notice } from './registration';
@@ -157,6 +158,10 @@ function Gives({ overview }: { overview: BillingOverview }) {
           [t('ob.photos'), t('ob.upTo', { n: grants.maxPhotosPerPlace })],
           [t('ob.dishes'), t('ob.upTo', { n: grants.maxMenuItemsPerPlace })],
           [t('ob.analytics'), tDynamic(`ob.analytics.${grants.analyticsLevel}`)],
+          // Slots come with the plan; Free has none, so no row (BO3).
+          ...(grants.discoveryBoostSlots > 0
+            ? [[t('boosts.title'), t('boosts.gives', { n: grants.discoveryBoostSlots })] as const]
+            : []),
         ]}
       />
       <p className="text-xs text-muted-foreground">{t('ob.noLouder')}</p>
@@ -384,6 +389,7 @@ export function OwnerBilling() {
               </div>
             ) : null}
           </Card>
+          <BoostsCard overview={data} />
           <Gives overview={data} />
           {subscribed ? null : (
             <section aria-labelledby="move-heading" className="flex flex-col gap-3">

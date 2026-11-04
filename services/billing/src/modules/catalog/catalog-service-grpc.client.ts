@@ -37,4 +37,19 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
       return null;
     }
   }
+
+  /**
+   * Each Place's kind, owner and status, as catalog holds them now — what a boost write checks.
+   * Unknown or deleted ids are absent. Throws when catalog cannot answer: a money-related write
+   * fails closed (api-endpoints-plan §12.2).
+   */
+  async placeSummaries(placeIds: readonly string[]): Promise<catalogGrpc.PlaceSummaryRef[]> {
+    if (placeIds.length === 0) return [];
+    const response = await this.places.call(
+      'batchGetPlaceSummaries',
+      { placeIds: [...placeIds] },
+      { kind: 'anonymous', origin: SYSTEM_ORIGIN },
+    );
+    return response.places;
+  }
 }

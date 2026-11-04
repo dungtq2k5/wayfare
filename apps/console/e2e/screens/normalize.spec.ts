@@ -58,6 +58,7 @@ describe('what varies, normalised', () => {
     expect(normalizeText('1 Jun 2026 – 25 Oct 2026')).toBe(
       '1\u00a0Jun\u00a02026 – 25\u00a0Oct\u00a02026',
     );
+    expect(normalizeText('Boosted 4 Nov – 4 Nov 2026')).toBe('Boosted 26\u00a0Sep – 2 Oct 2026');
   });
 
   it('fixes the clock times a run sets', () => {

@@ -106,6 +106,7 @@ beforeEach(() => {
           updatedAt: toProtoTimestamp(new Date()),
           location: { lat: 10.7725, lng: 106.698 },
           statusChangedAt: toProtoTimestamp(new Date()),
+          boosted: false,
         },
       ],
       page: { page: 1, pageSize: 20, total: 1 },
@@ -477,6 +478,7 @@ describe('/admin/places', () => {
       updatedAt: toProtoTimestamp(new Date()),
       location: { lat: 10.7725, lng: 106.698 },
       statusChangedAt: toProtoTimestamp(new Date('2026-10-01T00:00:00.000Z')),
+      boosted: false,
     });
     const [failed, paused, never] = [newId(), newId(), newId()];
     gateway.catalog.placeAdmin.handlers.listPlaces = () =>

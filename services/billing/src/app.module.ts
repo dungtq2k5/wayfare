@@ -16,6 +16,8 @@ import { envSchema } from './config/env.schema';
 import type { BillingConfig } from './config/env.schema';
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { BillingEventsModule } from './modules/billing-events/billing-events.module';
+import { BoostsModule } from './modules/boosts/boosts.module';
+import { BoostsLedgerModule } from './modules/boosts-ledger/boosts-ledger.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { EntitlementsModule } from './modules/entitlements/entitlements.module';
 import { IdentityModule } from './modules/identity/identity.module';
@@ -25,6 +27,8 @@ import { EntitlementsChangedConsumer } from './modules/entitlements-changed/enti
 import { EntitlementsChangedModule } from './modules/entitlements-changed/entitlements-changed.module';
 import { OwnerVerifiedModule } from './modules/owner-verified/owner-verified.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PlaceStatusConsumer } from './modules/place-status/place-status.consumer';
+import { PlaceStatusModule } from './modules/place-status/place-status.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
@@ -70,10 +74,12 @@ export class AppModule {
         CatalogModule,
         IdentityModule,
         SystemPlansModule,
+        BoostsLedgerModule,
         EntitlementsModule,
         WebhookQueueModule.forRoot({ worker: jobs }),
         WebhooksModule,
         SubscriptionsModule,
+        BoostsModule,
         PlansModule,
         AccountsModule,
         BillingEventsModule,
@@ -81,6 +87,7 @@ export class AppModule {
         OwnerVerifiedModule,
         UserErasedModule,
         EntitlementsChangedModule,
+        PlaceStatusModule,
         SchedulerModule.forRootAsync({
           imports: [ScheduledModule],
           inject: [
@@ -144,12 +151,18 @@ export class AppModule {
         EventSpine,
         {
           provide: CONSUMERS,
-          inject: [OwnerVerifiedConsumer, UserErasedConsumer, EntitlementsChangedConsumer],
+          inject: [
+            OwnerVerifiedConsumer,
+            UserErasedConsumer,
+            EntitlementsChangedConsumer,
+            PlaceStatusConsumer,
+          ],
           useFactory: (
             ownerVerified: OwnerVerifiedConsumer,
             userErased: UserErasedConsumer,
             entitlements: EntitlementsChangedConsumer,
-          ) => [ownerVerified, userErased, entitlements],
+            placeStatus: PlaceStatusConsumer,
+          ) => [ownerVerified, userErased, entitlements, placeStatus],
         },
       ],
     };

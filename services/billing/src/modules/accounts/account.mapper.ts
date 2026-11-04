@@ -45,6 +45,7 @@ export function toBillingAccountDetail(
   planGrants: Entitlements,
   subscribed: SubscribedPriceRow | null,
   recentEvents: readonly BillingEventRow[],
+  boosts: readonly billingGrpc.AccountBoost[],
 ): billingGrpc.BillingAccountDetail {
   return {
     summary: toBillingAccountSummary(row),
@@ -68,5 +69,6 @@ export function toBillingAccountDetail(
     entitlements: toEntitlements(grantsOf(row)),
     planGrants: toEntitlements(planGrants),
     recentEvents: recentEvents.map((event) => toBillingEvent(event, row.ownerUserId)),
+    boosts: [...boosts],
   };
 }

@@ -31,3 +31,17 @@ ALTER TABLE plan_prices ADD CONSTRAINT plan_prices_currency_ck CHECK (currency =
 
 ALTER TABLE plan_prices DROP CONSTRAINT IF EXISTS plan_prices_amount_ck;
 ALTER TABLE plan_prices ADD CONSTRAINT plan_prices_amount_ck CHECK (amount_minor > 0);
+
+-- discovery_boosts (rdm-spec B-5): one live boost per Place; an ended boost says why, a live one
+-- doesn't; the weight within bounds.
+CREATE UNIQUE INDEX IF NOT EXISTS discovery_boosts_one_live_per_place
+  ON discovery_boosts (place_id)
+  WHERE ends_at IS NULL;
+
+ALTER TABLE discovery_boosts DROP CONSTRAINT IF EXISTS discovery_boosts_ended_ck;
+ALTER TABLE discovery_boosts ADD CONSTRAINT discovery_boosts_ended_ck
+  CHECK ((ends_at IS NULL) = (ended_reason IS NULL));
+
+ALTER TABLE discovery_boosts DROP CONSTRAINT IF EXISTS discovery_boosts_weight_ck;
+ALTER TABLE discovery_boosts ADD CONSTRAINT discovery_boosts_weight_ck
+  CHECK (weight BETWEEN 1 AND 100);

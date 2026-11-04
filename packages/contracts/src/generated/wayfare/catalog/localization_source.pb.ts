@@ -10,9 +10,29 @@ import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { LocalizationTargetType } from "../common/localization.pb";
 import { CursorPage, PageRequest } from "../common/page.pb";
-import { AudioStatus, PlaceKind, PlaceStatus, TranslationSource } from "./place_types.pb";
+import { AudioStatus, PlaceInactiveReason, PlaceKind, PlaceStatus, TranslationSource } from "./place_types.pb";
 
 export const protobufPackage = "wayfare.catalog";
+
+export interface BatchGetPlaceSummariesRequest {
+  placeIds: string[];
+}
+
+/** Unknown or deleted ids are absent. */
+export interface BatchGetPlaceSummariesResponse {
+  places: PlaceSummaryRef[];
+}
+
+/** A Place as a money-related write checks it. */
+export interface PlaceSummaryRef {
+  id: string;
+  kind: PlaceKind;
+  /** Absent for an Editorial Place. */
+  ownerUserId?: string | undefined;
+  status: PlaceStatus;
+  inactiveReason?: PlaceInactiveReason | undefined;
+  nameVi: string;
+}
 
 /** Distance only, nearest first: boost never reaches narration (ADR 0007). */
 export interface ListNarrationCandidatesRequest {
@@ -150,6 +170,13 @@ export interface PlaceServiceClient {
     request: ListNarrationCandidatesRequest,
     metadata?: Metadata,
   ): Observable<ListNarrationCandidatesResponse>;
+
+  /** Each Place's kind, owner and status — what billing checks before a money-related write. */
+
+  batchGetPlaceSummaries(
+    request: BatchGetPlaceSummariesRequest,
+    metadata?: Metadata,
+  ): Observable<BatchGetPlaceSummariesResponse>;
 }
 
 /** catalog's service-to-service reads. A tourist route never reaches it. */
@@ -185,6 +212,16 @@ export interface PlaceServiceController {
     | Promise<ListNarrationCandidatesResponse>
     | Observable<ListNarrationCandidatesResponse>
     | ListNarrationCandidatesResponse;
+
+  /** Each Place's kind, owner and status — what billing checks before a money-related write. */
+
+  batchGetPlaceSummaries(
+    request: BatchGetPlaceSummariesRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<BatchGetPlaceSummariesResponse>
+    | Observable<BatchGetPlaceSummariesResponse>
+    | BatchGetPlaceSummariesResponse;
 }
 
 export function PlaceServiceControllerMethods() {
@@ -194,6 +231,7 @@ export function PlaceServiceControllerMethods() {
       "countOwnerPlaces",
       "searchLocalizedText",
       "listNarrationCandidates",
+      "batchGetPlaceSummaries",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

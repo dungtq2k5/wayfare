@@ -33,7 +33,7 @@ describe('events registry', () => {
     const subjects = definitions.map((definition) => definition.subject);
     expect(new Set(subjects).size).toBe(subjects.length);
     expect(Object.keys(EVENT_REGISTRY)).toHaveLength(subjects.length);
-    expect(subjects).toHaveLength(25);
+    expect(subjects).toHaveLength(26);
   });
 
   it.each(definitions.map((definition) => [definition.subject, definition] as const))(

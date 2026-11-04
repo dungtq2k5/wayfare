@@ -21,7 +21,7 @@ function known<D extends string>(
   return member;
 }
 
-/** One owner Venue row; `boosted` is `null` until discovery boosts exist. */
+/** One owner Venue row, its `boosted` composed by the service from billing. */
 export function toOwnerPlaceResponseDto(place: catalogGrpc.OwnerPlace): OwnerPlaceResponseDto {
   const pending = place.pendingSubmission;
   return {
@@ -29,6 +29,7 @@ export function toOwnerPlaceResponseDto(place: catalogGrpc.OwnerPlace): OwnerPla
     publicCode: place.publicCode,
     nameVi: place.nameVi,
     categoryCode: place.categoryCode,
+    areaCode: place.areaCode,
     status: known(placeStatusProto, place.status, 'status'),
     inactiveReason:
       place.inactiveReason == null
@@ -36,7 +37,6 @@ export function toOwnerPlaceResponseDto(place: catalogGrpc.OwnerPlace): OwnerPla
         : known(placeInactiveReasonProto, place.inactiveReason, 'inactiveReason'),
     autoNarration: place.autoNarration,
     statusChangedAt: fromProtoTimestamp(place.statusChangedAt, 'statusChangedAt').toISOString(),
-    boosted: null,
     cover: place.cover == null ? null : toPhotoView(place.cover),
     localizations: place.localizations.map((localization) => ({
       lang: localization.lang,

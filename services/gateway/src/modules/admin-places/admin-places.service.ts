@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LocalizationTargetType, MAX_STUCK_PLACES } from '@wayfare/contracts';
+import { LocalizationTargetType, MAX_STUCK_PLACES, PlaceKind } from '@wayfare/contracts';
+import type { PlaceBoost } from '@wayfare/contracts';
 import { localizationTargetTypeProto } from '@wayfare/contracts/grpc';
 import { Paged, toProtoTimestamp } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import type { Env } from '../../config/env.schema';
+import { toPlaceBoost } from '../billing/billing.mapper';
+import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { IdentityService } from '../identity/identity.service';
 import { PeopleNamesService } from '../people-names/people-names.service';
@@ -55,6 +58,7 @@ export class AdminPlacesService {
     private readonly identity: IdentityService,
     private readonly narration: NarrationServiceGrpcClient,
     private readonly people: PeopleNamesService,
+    private readonly billing: BillingServiceGrpcClient,
     config: ConfigService<Env, true>,
   ) {
     this.qrBaseUrl = config.get('PUBLIC_QR_BASE_URL', { infer: true });
@@ -119,7 +123,25 @@ export class AdminPlacesService {
   async get(context: AccountContext, placeId: string): Promise<AdminPlaceDetailResponseDto> {
     const response = await this.catalog.placeAdmin.call('getPlaceAdmin', { placeId }, context);
     const place = toAdminPlaceResponseDto(response.place);
-    return { ...place, owner: await this.identity.ownerContact(context, place.ownerUserId) };
+    const [owner, boost] = await Promise.all([
+      this.identity.ownerContact(context, place.ownerUserId),
+      this.boostOf(context, place.kind === PlaceKind.VENUE ? placeId : null),
+    ]);
+    return { ...place, owner, ...boost };
+  }
+
+  /** A Venue's live boost from billing; left out when billing doesn't answer, so the page loads. */
+  private async boostOf(
+    context: AccountContext,
+    placeId: string | null,
+  ): Promise<{ boost?: PlaceBoost | null }> {
+    if (placeId === null) return { boost: null };
+    try {
+      const answer = await this.billing.boosts.call('getPlaceBoost', { placeId }, context);
+      return { boost: answer.boost === undefined ? null : toPlaceBoost(answer.boost) };
+    } catch {
+      return {};
+    }
   }
 
   async create(context: AccountContext, body: CreatePlaceDto): Result {

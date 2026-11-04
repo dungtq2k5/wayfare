@@ -16,6 +16,7 @@ import {
   MapPin,
   Navigation,
   RefreshCw,
+  WifiOff,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +36,8 @@ import { insidePolygon, metresBetween } from './geo';
 import type { Point } from './geo';
 import { PlacePreview } from './place-preview';
 import { areaStyle } from './style';
+import { keepNearby, keptNearby, minutesAgo, offlineList } from './kept-nearby';
+import type { KeptNearby } from './kept-nearby';
 import { formatDate } from '../places/format';
 
 /** The chips the handoff draws (WM1): the categories the pilot's two areas hold. */
@@ -146,9 +149,18 @@ export function MapPage({
     user !== null && !areas.some((candidate) => insidePolygon(user, candidate.boundary));
   const origin = user !== null && !outside ? user : (view?.center ?? area.center);
   const nearby = useNearby(outside ? null : origin, view?.radiusM ?? 1000, category);
+  // BT2 (K10): the last answer kept on this browser, shown offline by distance, nothing sponsored.
+  const [kept, setKept] = useState<KeptNearby | null>(null);
+  useEffect(() => void keptNearby().then(setKept), []);
+  useEffect(() => {
+    if (offline || nearby.data === undefined || nearby.isPlaceholderData) return;
+    keepNearby(nearby.data);
+    setKept({ loadedAt: Date.now(), places: nearby.data });
+  }, [offline, nearby.data, nearby.isPlaceholderData]);
+  const fromKept = offline && kept !== null;
   const places: readonly PlaceSummaryResponseDto[] = useMemo(
-    () => nearby.data ?? [],
-    [nearby.data],
+    () => (fromKept ? offlineList(kept.places) : (nearby.data ?? [])),
+    [fromKept, kept, nearby.data],
   );
   const selectedPlace = places.find((place) => place.id === selected) ?? null;
 
@@ -257,10 +269,19 @@ export function MapPage({
         categoryCode: place.categoryCode,
         name: place.name,
         location: place.location,
+        sponsored: place.sponsored,
       })),
     [places],
   );
   const showMap = !(offline && !loaded);
+  const sponsoredWords = useMemo(
+    () => ({
+      chip: t('card.sponsored'),
+      label: (name: string) => t('map.sponsoredMarker', { name }),
+    }),
+    [t],
+  );
+  const anySponsored = places.some((place) => place.sponsored);
 
   const switcher = (
     <button
@@ -295,6 +316,7 @@ export function MapPage({
       zoomControls={tablet}
       zoomInLabel={t('map.zoomIn')}
       zoomOutLabel={t('map.zoomOut')}
+      sponsoredWords={sponsoredWords}
       zoomRightPx={desk && selectedPlace !== null ? 432 : 16}
     >
       {switcher}
@@ -381,7 +403,7 @@ export function MapPage({
           ))}
       </ul>
     </section>
-  ) : !showMap ? (
+  ) : !showMap && !fromKept ? (
     <section aria-labelledby="opened-heading" className="flex flex-col gap-3 px-4 py-5">
       <h2 id="opened-heading" className="text-lg font-semibold text-foreground">
         {t('map.openedHere')}
@@ -410,7 +432,15 @@ export function MapPage({
     <section aria-labelledby="near-heading" className="flex flex-col gap-3 px-4 py-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="near-heading" className="text-lg font-semibold text-foreground">
-          {fromYou ? t('map.nearYou') : t('map.nearCentre')}
+          {fromKept
+            ? `${t('map.nearCentre')} · ${
+                minutesAgo(kept.loadedAt) === 0
+                  ? t('map.fromJustNow')
+                  : t('map.fromAgo', { n: minutesAgo(kept.loadedAt) })
+              }`
+            : fromYou
+              ? t('map.nearYou')
+              : t('map.nearCentre')}
         </h2>
         <p className="text-xs text-muted-foreground">{t('map.count', { n: places.length })}</p>
       </div>
@@ -434,6 +464,17 @@ export function MapPage({
           </li>
         ))}
       </ul>
+      {fromKept ? (
+        <p className="flex gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+          <WifiOff aria-hidden className="mt-0.5 size-5 shrink-0" />
+          {t('map.offlineList')}
+        </p>
+      ) : anySponsored ? (
+        <p className="flex gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+          <Info aria-hidden className="mt-0.5 size-5 shrink-0" />
+          {t('map.sponsoredNote')}
+        </p>
+      ) : null}
     </section>
   );
 

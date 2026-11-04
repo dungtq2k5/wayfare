@@ -152,6 +152,7 @@ export function toAdminPlaceListItemResponseDto(
     deletedAt: iso(fromOptionalProtoTimestamp(row.deletedAt, 'deletedAt')),
     location: toGeoPoint(row.location),
     statusChangedAt: fromProtoTimestamp(row.statusChangedAt, 'statusChangedAt').toISOString(),
+    boosted: row.boosted,
   };
 }
 

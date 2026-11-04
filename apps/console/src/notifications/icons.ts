@@ -2,6 +2,7 @@ import { NotificationType } from '@wayfare/contracts';
 import {
   Bell,
   CircleCheck,
+  CircleDashed,
   CircleX,
   CreditCard,
   EyeOff,
@@ -34,6 +35,7 @@ const ICONS: Partial<Record<NotificationType, LucideIcon>> = {
   [NotificationType.VOUCHER_CODE_GUESSING_SUSPECTED]: ShieldAlert,
   [NotificationType.ACCOUNT_RECOVERY_PENDING]: ShieldAlert,
   [NotificationType.ACCOUNT_RECOVERY_COMPLETED]: ShieldAlert,
+  [NotificationType.BOOST_ENDED]: CircleDashed,
 };
 
 /** A notification's type icon (the *Notification item*'s `Icon`); the bell for a type it doesn't know. */

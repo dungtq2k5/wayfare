@@ -38,7 +38,11 @@ export interface OwnerPlace {
     | Timestamp
     | undefined;
   /** The status's last change: "since" on the list. */
-  statusChangedAt: Timestamp | undefined;
+  statusChangedAt:
+    | Timestamp
+    | undefined;
+  /** Its area: where a boost row or the chooser says the Venue is. */
+  areaCode: string;
 }
 
 export interface ListMyPlacesRequest {

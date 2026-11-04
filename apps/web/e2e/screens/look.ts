@@ -16,9 +16,11 @@ const SCHEMES = ['light', 'dark'] as const;
 
 /**
  * The web's own rules, before the console's: a story's elapsed time (it runs while the page is
- * drawn) and the week's today, which is the run's weekday.
+ * drawn), the week's today, which is the run's weekday, and how old a list kept offline is (its
+ * no-break space keeps the console's relative-time rule off it).
  */
 const WEB_RULES: readonly Rule[] = [
+  ['· (just now|from \\d+ min ago)$', 'g', '· just\u00a0now'],
   ['\\b\\d+:\\d{2} / ', 'g', '0:04 / '],
   ['^(Playing|Paused|Tap play to hear it)( \\([^)]*\\))? · \\d+:\\d{2}', 'g', '$1$2 · 0:04'],
 ];

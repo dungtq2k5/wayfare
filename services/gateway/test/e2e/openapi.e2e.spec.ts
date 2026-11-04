@@ -120,8 +120,9 @@ describe('OpenAPI contract', () => {
     // 152, Continue with Google's five, and round 35's four reads (a recovery, a dictionary
     // entry, the corrections and the stuck Places), round 35a's four billing reads (a plan, a price
     // look-up, an unpin preview, an event), round 36's owner QR sticker, round 37's stream ticket
-    // and the stream it opens; the dev routes stay out of the document.
-    expect(names).toHaveLength(168);
+    // and the stream it opens, round 38's owner boosts (read and set); the dev routes stay out of
+    // the document.
+    expect(names).toHaveLength(170);
     expect(names.some((name) => name.includes('/dev/'))).toBe(false);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);

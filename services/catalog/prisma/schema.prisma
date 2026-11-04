@@ -15,40 +15,42 @@ datasource db {
 /// Inserted with raw SQL (its location); `sync_version` and `updated_at` are written only by
 /// `bumpSyncVersion`.
 model Place {
-  id                    String                                @id @db.Uuid
-  kind                  String                                @db.VarChar(16)
-  ownerUserId           String?                               @map("owner_user_id") @db.Uuid
+  id                      String                                @id @db.Uuid
+  kind                    String                                @db.VarChar(16)
+  ownerUserId             String?                               @map("owner_user_id") @db.Uuid
   /// Crockford base32; full unique, never reused.
-  publicCode            String                                @unique(map: "places_public_code_key") @map("public_code") @db.VarChar(12)
-  categoryId            String                                @map("category_id") @db.Uuid
-  areaId                String                                @map("area_id") @db.Uuid
-  nameVi                String                                @map("name_vi") @db.VarChar(160)
-  descriptionVi         String                                @map("description_vi") @db.Text
-  contentHash           String                                @map("content_hash") @db.Char(64)
-  location              Unsupported("geography(Point, 4326)")
-  addressVi             String?                               @map("address_vi") @db.VarChar(255)
-  triggerRadiusM        Int                                   @default(30) @map("trigger_radius_m") @db.SmallInt
-  narrationPriority     Int                                   @default(50) @map("narration_priority") @db.SmallInt
-  autoNarrationEnabled  Boolean                               @map("auto_narration_enabled")
-  discoveryBoost        Int                                   @default(0) @map("discovery_boost") @db.SmallInt
-  priceBand             Int?                                  @map("price_band") @db.SmallInt
-  menuCurrency          String                                @default("VND") @map("menu_currency") @db.Char(3)
-  phone                 String?                               @db.VarChar(20)
-  websiteUrl            String?                               @map("website_url") @db.VarChar(512)
-  status                String                                @db.VarChar(16)
+  publicCode              String                                @unique(map: "places_public_code_key") @map("public_code") @db.VarChar(12)
+  categoryId              String                                @map("category_id") @db.Uuid
+  areaId                  String                                @map("area_id") @db.Uuid
+  nameVi                  String                                @map("name_vi") @db.VarChar(160)
+  descriptionVi           String                                @map("description_vi") @db.Text
+  contentHash             String                                @map("content_hash") @db.Char(64)
+  location                Unsupported("geography(Point, 4326)")
+  addressVi               String?                               @map("address_vi") @db.VarChar(255)
+  triggerRadiusM          Int                                   @default(30) @map("trigger_radius_m") @db.SmallInt
+  narrationPriority       Int                                   @default(50) @map("narration_priority") @db.SmallInt
+  autoNarrationEnabled    Boolean                               @map("auto_narration_enabled")
+  discoveryBoost          Int                                   @default(0) @map("discovery_boost") @db.SmallInt
+  /// The newest `billing.boosts.changed` applied: an older one arriving late is ignored.
+  discoveryBoostChangedAt DateTime?                             @map("discovery_boost_changed_at") @db.Timestamptz(3)
+  priceBand               Int?                                  @map("price_band") @db.SmallInt
+  menuCurrency            String                                @default("VND") @map("menu_currency") @db.Char(3)
+  phone                   String?                               @db.VarChar(20)
+  websiteUrl              String?                               @map("website_url") @db.VarChar(512)
+  status                  String                                @db.VarChar(16)
   /// When `status` last changed; stamped by a trigger (prisma/sql/schema-objects.sql), never by a write.
-  statusChangedAt       DateTime                              @default(now()) @map("status_changed_at") @db.Timestamptz(3)
-  inactiveReason        String?                               @map("inactive_reason") @db.VarChar(24)
-  activationRequestedAt DateTime?                             @map("activation_requested_at") @db.Timestamptz(3)
-  publishedAt           DateTime?                             @map("published_at") @db.Timestamptz(3)
+  statusChangedAt         DateTime                              @default(now()) @map("status_changed_at") @db.Timestamptz(3)
+  inactiveReason          String?                               @map("inactive_reason") @db.VarChar(24)
+  activationRequestedAt   DateTime?                             @map("activation_requested_at") @db.Timestamptz(3)
+  publishedAt             DateTime?                             @map("published_at") @db.Timestamptz(3)
   /// From catalog_sync_version_seq; no default names the sequence (rdm-spec §1.7).
-  syncVersion           BigInt                                @map("sync_version")
-  createdById           String                                @map("created_by_id") @db.Uuid
-  createdAt             DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
+  syncVersion             BigInt                                @map("sync_version")
+  createdById             String                                @map("created_by_id") @db.Uuid
+  createdAt               DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
   /// Written only by bumpSyncVersion, with the database's clock — no @updatedAt.
-  updatedAt             DateTime                              @default(now()) @map("updated_at") @db.Timestamptz(3)
-  deletedAt             DateTime?                             @map("deleted_at") @db.Timestamptz(3)
-  deletedById           String?                               @map("deleted_by_id") @db.Uuid
+  updatedAt               DateTime                              @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt               DateTime?                             @map("deleted_at") @db.Timestamptz(3)
+  deletedById             String?                               @map("deleted_by_id") @db.Uuid
 
   category      Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   area          Area                @relation(fields: [areaId], references: [id], onDelete: Restrict)
