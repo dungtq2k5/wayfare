@@ -61,7 +61,7 @@ describe('CreateUpload', () => {
     expect(ttl).toBeLessThan(16 * 60 * 1000);
   });
 
-  it('refuses HEIC, an oversized declaration, and a tour cover', async () => {
+  it('refuses HEIC, an oversized declaration, and an unknown purpose; signs a tour cover', async () => {
     const actor = staff();
     const refuse = async (request: catalogGrpc.CreateUploadRequest) =>
       (await errorOf(uploads.createUpload(request, actor))).code;
@@ -71,17 +71,20 @@ describe('CreateUpload', () => {
     expect(
       await refuse({ purpose: PHOTO, contentType: 'image/png', bytes: MAX_UPLOAD_BYTES + 1 }),
     ).toBe('UPLOAD_TOO_LARGE');
-    expect(
-      await refuse({
-        purpose: catalogGrpc.UploadPurpose.UPLOAD_PURPOSE_TOUR_COVER,
-        contentType: 'image/png',
-        bytes: 10,
-      }),
-    ).toBe('VALIDATION_FAILED');
     expect(await refuse({ purpose: 0, contentType: 'image/png', bytes: 10 })).toBe(
       'VALIDATION_FAILED',
     );
     expect(await prisma.pendingUpload.count()).toBe(0);
+    // A tour's cover is an upload like a Place photo (api-endpoints-plan §3.6).
+    await uploads.createUpload(
+      {
+        purpose: catalogGrpc.UploadPurpose.UPLOAD_PURPOSE_TOUR_COVER,
+        contentType: 'image/png',
+        bytes: 10,
+      },
+      actor,
+    );
+    expect(await prisma.pendingUpload.count()).toBe(1);
   });
 });
 

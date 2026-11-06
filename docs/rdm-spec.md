@@ -834,7 +834,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **content_hash** | CHAR(64) | NOT NULL | As `places.content_hash`, over title + description. |
 | **cover_variants** | JSONB | Nullable | `PhotoVariants`. |
 | **estimated_minutes** | SMALLINT | NOT NULL | `CHECK (estimated_minutes BETWEEN 10 AND 600)`. |
-| **distance_m** | INT | NOT NULL | Walking distance along the stop order, recomputed on every stop change. Stored, because the tours list would otherwise compute a route per row. |
+| **distance_m** | INT | NOT NULL | The sum of **straight-line** legs between consecutive stops — the order, not a walking route — recomputed on every stop change (the console previews it with the same function from `packages/core`). Stored, because the tours list would otherwise compute it per row. |
 | **is_premium** | BOOLEAN | NOT NULL, false | R4, stretch. Always false until premium content ships — and even then sold only on the web, because of the app-store constraint in product-overview §14. |
 | **status** | VARCHAR(16) | NOT NULL | `DRAFT \| PROCESSING \| ACTIVE \| INACTIVE` — the Place machine (§1.6), gated on the `en` tour text only (tours are not narrated as a whole; their stops are). |
 | **inactive_reason** | VARCHAR(24) | Nullable | `ADMIN` only. Same `CHECK` as places. |
@@ -846,7 +846,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **deleted_by_id** | UUID | Nullable, ref ➔ identity.users.id | — |
 
 - Tours are **staff-authored only**. An owner cannot create a tour or add their Venue to one — inclusion in a curated tour is editorial.
-- A tour whose active stops fall below 2 is still `ACTIVE` in the table but omitted from tourist responses; inactive stops are skipped in order, never renumbered in the response.
+- A tour whose live stops fall below 2 is still `ACTIVE` in the table but omitted from tourist responses (`TOUR_UNAVAILABLE`); requesting activation needs at least two stops. **Never renumbered:** each stop keeps its `position` in the response, a stop whose Place isn't live a gap with its position only, no name.
+- **A stop stays when its Place leaves the area or Wayfare:** a stops replace refuses a Place outside the tour's area or deleted only when it isn't already a stop; deleting a Place a live tour lists is refused (`PLACE_IN_ACTIVE_TOUR`).
+- **`activation_requested_at`** (TIMESTAMPTZ(3), nullable) — the gate's input, as a Place's; the gate opens on the English text alone (tours are text-only).
 
 #### Table C-9: tour_localizations
 
@@ -1011,6 +1013,19 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - Written in the **same transaction** that deletes the row referencing the path (a photo removed by a replace), so the intent to delete survives a crash; read by the `photo-objects-cleanup` job, which deletes the object and then the row. This is how C-5's "objects are removed after the row is gone" is kept without a scan of the bucket.
+
+#### Table C-19: public_codes
+
+*One code space for every printed or typed code — a Place's and a tour's — so the two can never be equal.*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **code** | VARCHAR(12) | PK | The 8-character code, as `places.public_code` and `tours.public_code`, which stay as columns. |
+| **target_type** | VARCHAR(8) | NOT NULL | `PLACE \| TOUR` (`public_codes_target_type_ck`). |
+| **target_id** | UUID | NOT NULL | The Place or tour. |
+
+- **Registered by a trigger** on each insert into `places` or `tours` (`places_public_code_trg`, `tours_public_code_trg`, `schema-objects.sql`), so no write path can skip it; the code generator retries on a conflict. Backfilled from `places.public_code`.
+- `GET /codes/:publicCode` reads it, and `/q/` routes by it to `/p/` or `/t/`.
 
 #### Table C-18: owner_entitlements
 
@@ -1794,6 +1809,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | catalog | `place_localizations_audio_ready_ck` | CHECK | READY audio has a file |
 | catalog | `places_menu_currency_ck` | CHECK | menu currency is VND or USD (ADR 0046) |
 | catalog | `places_status_changed_at_trg` (with its function) | trigger | stamps `status_changed_at` whenever `status` changes, on every write path (C-1) |
+| catalog | `public_codes_target_type_ck`; `places_public_code_trg`, `tours_public_code_trg` (with `public_codes_register`) | CHECK, triggers | one code space: every Place and tour insert registers its code (C-19) |
 | catalog | `menu_items_price_ck` | CHECK | non-negative |
 | catalog | `tours_minutes_ck`, `tours_inactive_reason_ck` | CHECK | — |
 | catalog | `place_submissions_one_pending_update` | partial unique | one pending update per Place |

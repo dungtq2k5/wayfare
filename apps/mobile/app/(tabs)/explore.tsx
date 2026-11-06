@@ -1,7 +1,7 @@
 import { NEARBY_LIMIT_MAX } from '@wayfare/contracts';
 import { useAreasList, usePlacesNearby } from '@wayfare/api-client';
-import { useRouter } from 'expo-router';
-import { LocateOff, MapPinned, Search, WifiOff } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LocateOff, MapPin, MapPinned, Route, Search, WifiOff } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +29,8 @@ import { PlaceRow, rowFromRecord } from '../../src/places/place-row';
 import type { RowPlace } from '../../src/places/place-row';
 import { TabHeader } from '../../src/shell/tab-header';
 import { SkeletonRows } from '../../src/ui/skeleton';
+import { SegmentedControl } from '../../src/ui/segmented-control';
+import { ExploreTours } from '../../src/tours/explore-tours';
 
 /**
  * Explore: one list with three honest sources — the gateway's nearby answer online with a
@@ -53,6 +55,11 @@ export default function ExploreScreen() {
   const areas = useAreasList();
   const localAreas = useLocalAreas();
   const [category, setCategory] = useState<string | null>(null);
+  // TM1: *Places · Tours*; a finished tour's *See other tours* opens the second.
+  const params = useLocalSearchParams<{ view?: string }>();
+  const [view, setView] = useState<'places' | 'tours'>(
+    params.view === 'tours' ? 'tours' : 'places',
+  );
 
   const online = !offline && position !== null;
   const nearby = usePlacesNearby(
@@ -146,6 +153,35 @@ export default function ExploreScreen() {
   }, [source, rows, local.data, areas.data]);
 
   const chooseArea = () => router.navigate({ pathname: '/map', params: { areas: '1' } });
+  const segmented = (
+    <SegmentedControl
+      label={t('explore.title')}
+      options={[
+        { value: 'places', label: t('explore.places'), icon: MapPin },
+        { value: 'tours', label: t('explore.tours'), icon: Route },
+      ]}
+      value={view}
+      onChange={setView}
+      stackAtLargeText={false}
+    />
+  );
+
+  if (view === 'tours') {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        <ExploreTours
+          header={
+            <View className="gap-3">
+              <TabHeader title={t('explore.title')} />
+              {segmented}
+            </View>
+          }
+          areaId={currentAreaId}
+          areaName={areaName(currentArea)}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -157,6 +193,7 @@ export default function ExploreScreen() {
         ListHeaderComponent={
           <View className="gap-3 pb-2">
             <TabHeader title={t('explore.title')} />
+            {segmented}
             {source === 'unknown' && (
               <InlineNote
                 icon={LocateOff}

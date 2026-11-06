@@ -30,6 +30,8 @@ export interface AppState {
   appearance: Appearance;
   /** The area the map is showing; the first synced one until the tourist chooses. */
   currentAreaId: string | null;
+  /** The tour shown on the Map while it is followed (TM3); ending the walk keeps it (K9). */
+  followingTourId: string | null;
   /** True once this install is registered (the privacy notice accepted). */
   onboarded: boolean;
   /** Set once the persisted part has been read; nothing routes before it. */
@@ -43,6 +45,7 @@ export interface AppState {
   setPlaybackSpeed: (speed: PlaybackSpeed) => void;
   setAppearance: (appearance: Appearance) => void;
   setCurrentArea: (areaId: string) => void;
+  followTour: (tourId: string | null) => void;
   setOnboarded: (onboarded: boolean) => void;
   requireUpdate: (minimumVersion: string) => void;
   requirePolicy: (currentVersion: string) => void;
@@ -75,6 +78,7 @@ export const useAppStore = create<AppState>()(
       playbackSpeed: 1,
       appearance: 'system',
       currentAreaId: null,
+      followingTourId: null,
       onboarded: false,
       hydrated: false,
       updateRequired: null,
@@ -84,6 +88,7 @@ export const useAppStore = create<AppState>()(
       setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
       setAppearance: (appearance) => set({ appearance }),
       setCurrentArea: (currentAreaId) => set({ currentAreaId }),
+      followTour: (followingTourId) => set({ followingTourId }),
       setOnboarded: (onboarded) => set({ onboarded }),
       requireUpdate: (minimumVersion) => set({ updateRequired: minimumVersion }),
       requirePolicy: (currentVersion) =>
@@ -103,6 +108,7 @@ export const useAppStore = create<AppState>()(
         playbackSpeed,
         appearance,
         currentAreaId,
+        followingTourId,
         onboarded,
       }) => ({
         language,
@@ -112,6 +118,7 @@ export const useAppStore = create<AppState>()(
         playbackSpeed,
         appearance,
         currentAreaId,
+        followingTourId,
         onboarded,
       }),
     },

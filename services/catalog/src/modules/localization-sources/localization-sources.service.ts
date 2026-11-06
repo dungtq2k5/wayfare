@@ -11,6 +11,8 @@ import {
   PlaceKind,
   PlaceStatus,
   SUPPORTED_LANGUAGES,
+  TourStatus,
+  TranslationSource,
   zCursorQuery,
   zLanguage,
   zUuidV7,
@@ -20,6 +22,8 @@ import {
   placeInactiveReasonProto,
   placeKindProto,
   placeStatusProto,
+  tourStatusProto,
+  translationSourceProto,
 } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import {
@@ -111,6 +115,46 @@ export class LocalizationSourcesService {
         select: SOURCE_MENU_ITEM_SELECT,
       });
       return item === null ? { notFound: {} } : { menuItem: toLocalizationSourceMenuItem(item) };
+    }
+    if (targetType === LocalizationTargetType.TOUR) {
+      const tour = await this.prisma.tour.findUnique({
+        where: { id: fields.targetId },
+        select: {
+          status: true,
+          deletedAt: true,
+          contentHash: true,
+          titleVi: true,
+          descriptionVi: true,
+          localizations: {
+            select: {
+              lang: true,
+              sourceContentHash: true,
+              translationSource: true,
+              title: true,
+              description: true,
+            },
+          },
+        },
+      });
+      if (tour === null) return { notFound: {} };
+      return {
+        tour: {
+          status: tourStatusProto.toProto(tour.status as TourStatus),
+          deleted: tour.deletedAt !== null,
+          contentHash: tour.contentHash,
+          titleVi: tour.titleVi,
+          descriptionVi: tour.descriptionVi,
+          localizations: tour.localizations.map((row) => ({
+            lang: row.lang,
+            sourceContentHash: row.sourceContentHash,
+            translationSource: translationSourceProto.toProto(
+              row.translationSource as TranslationSource,
+            ),
+            title: row.title,
+            description: row.description,
+          })),
+        },
+      };
     }
     return { notFound: {} };
   }

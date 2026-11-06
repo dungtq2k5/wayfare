@@ -19,6 +19,7 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   PAYOUT_CHANGES_COOLING_DOWN: { until: '2026-09-23T00:00:00.000Z' },
   PLACE_LIMIT_REACHED: { limit: 1 },
   PLACE_UNAVAILABLE: { areaCode: 'hcmc-d1-core', near: { lat: 10.773, lng: 106.7 } },
+  TOUR_UNAVAILABLE: { areaCode: 'hcmc-d1-core' },
   PHOTO_LIMIT_REACHED: { limit: 3 },
   MENU_LIMIT_REACHED: { limit: 10 },
   STAFF_LIMIT_REACHED: { limit: 10 },

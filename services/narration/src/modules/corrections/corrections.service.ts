@@ -20,7 +20,8 @@ import {
   localizationTargetTypeProto,
   translationSourceProto,
 } from '@wayfare/contracts/grpc';
-import type { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
+import { catalogGrpc } from '@wayfare/contracts/grpc';
+import type { narrationGrpc } from '@wayfare/contracts/grpc';
 import {
   decodeCursor,
   encodeCursor,
@@ -45,9 +46,13 @@ import { isListed, needsReview } from './domain/review';
 const targetFields = z.object({ targetType: z.number(), targetId: zUuidV7 });
 const langField = z.object({ lang: zLanguage });
 
+/** What staff correct: a Place, a menu line or a tour's text (rdm-spec N-7). */
+type CorrectableTarget =
+  LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM | LocalizationTargetType.TOUR;
+
 /** The target as catalog holds it now: its text, its hash, and each language's state. */
 interface Target {
-  readonly type: LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM;
+  readonly type: CorrectableTarget;
   readonly contentHash: string;
   readonly nameVi: string;
   readonly descriptionVi: string | null;
@@ -101,7 +106,10 @@ export class CorrectionsService {
           state.translationSource,
           '/translationSource',
         ),
-        audioStatus: requireProtoEnum(audioStatusProto, state.audioStatus, '/audioStatus'),
+        audioStatus:
+          target.type === LocalizationTargetType.TOUR
+            ? null
+            : requireProtoEnum(audioStatusProto, state.audioStatus, '/audioStatus'),
         correction: this.correctionOf(byLang.get(state.lang), target.contentHash),
         needsReview: (() => {
           const row = byLang.get(state.lang);
@@ -159,10 +167,7 @@ export class CorrectionsService {
       // ponytail: one catalog read per distinct target on a page (≤ 20); a batch RPC if it shows.
       targets.set(
         key,
-        await this.target(
-          row.targetType as LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM,
-          row.targetId,
-        ).catch(() => null),
+        await this.target(row.targetType as CorrectableTarget, row.targetId).catch(() => null),
       );
     }
     const last = rows.length > page.limit ? rows[page.limit - 1] : undefined;
@@ -323,7 +328,8 @@ export class CorrectionsService {
     }
     if (
       targetType !== LocalizationTargetType.PLACE &&
-      targetType !== LocalizationTargetType.MENU_ITEM
+      targetType !== LocalizationTargetType.MENU_ITEM &&
+      targetType !== LocalizationTargetType.TOUR
     ) {
       throw rpcError('VALIDATION_FAILED', {
         issues: [{ path: '/targetType', code: 'not_correctable' }],
@@ -331,13 +337,12 @@ export class CorrectionsService {
     }
   }
 
-  private narratedTarget(
-    value: number,
-  ): LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM {
+  private narratedTarget(value: number): CorrectableTarget {
     const targetType = requireProtoEnum(localizationTargetTypeProto, value, '/targetType');
     if (
       targetType !== LocalizationTargetType.PLACE &&
-      targetType !== LocalizationTargetType.MENU_ITEM
+      targetType !== LocalizationTargetType.MENU_ITEM &&
+      targetType !== LocalizationTargetType.TOUR
     ) {
       throw rpcError('VALIDATION_FAILED', {
         issues: [{ path: '/targetType', code: 'not_correctable' }],
@@ -347,10 +352,7 @@ export class CorrectionsService {
   }
 
   /** The target as catalog holds it now; one that is gone is `404` (api §12.2). */
-  private async target(
-    targetType: LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM,
-    targetId: string,
-  ): Promise<Target> {
+  private async target(targetType: CorrectableTarget, targetId: string): Promise<Target> {
     const response = await this.catalog.localizationSource(targetType, targetId);
     const place = response.place ?? null;
     if (place !== null && !place.deleted) {
@@ -370,6 +372,24 @@ export class CorrectionsService {
         nameVi: item.nameVi,
         descriptionVi: item.descriptionVi ?? null,
         localizations: [],
+      };
+    }
+    const tour = response.tour ?? null;
+    if (tour !== null && !tour.deleted) {
+      return {
+        type: LocalizationTargetType.TOUR,
+        contentHash: tour.contentHash,
+        nameVi: tour.titleVi,
+        descriptionVi: tour.descriptionVi,
+        // A tour's text has no audio: the overview reads its rows' audio as none.
+        localizations: tour.localizations.map((row) => ({
+          lang: row.lang,
+          sourceContentHash: row.sourceContentHash,
+          translationSource: row.translationSource,
+          audioStatus: catalogGrpc.AudioStatus.AUDIO_STATUS_UNSPECIFIED,
+          name: row.title,
+          description: row.description,
+        })),
       };
     }
     throw rpcError('LOCALIZATION_TARGET_UNAVAILABLE');

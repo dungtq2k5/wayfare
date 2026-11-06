@@ -3,8 +3,12 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiEnvelope, ApiErrors, Auth, Ctx, ETagged, UsesUpstream } from '@wayfare/nest-common';
 import type { ETaggedResult, RequestContext, WithMeta } from '@wayfare/nest-common';
 import { ZodSerializerDto } from 'nestjs-zod';
-import { SyncMetaResponseDto, SyncPlacesResponseDto } from './dto/sync-response.dto';
-import { SyncPlacesQueryDto } from './dto/sync.dto';
+import {
+  SyncMetaResponseDto,
+  SyncPlacesResponseDto,
+  SyncToursResponseDto,
+} from './dto/sync-response.dto';
+import { SyncPlacesQueryDto, SyncToursQueryDto } from './dto/sync.dto';
 import { SyncService } from './sync.service';
 
 /** `/sync/places` — the offline corpus, delta by delta (api-endpoints-plan §2.1). */
@@ -29,5 +33,22 @@ export class SyncController {
     @Query() query: SyncPlacesQueryDto,
   ): Promise<ETaggedResult<WithMeta<SyncPlacesResponseDto>>> {
     return this.sync.places(context, query);
+  }
+
+  @Get('tours')
+  @Auth('DEVICE')
+  @ETagged()
+  @ApiOperation({
+    summary:
+      "An area's live tours that changed since a version, their stops as Place ids by position.",
+  })
+  @ApiEnvelope(SyncToursResponseDto, { meta: SyncMetaResponseDto })
+  @ApiErrors('RESOURCE_NOT_FOUND')
+  @ZodSerializerDto(SyncToursResponseDto)
+  tours(
+    @Ctx() context: RequestContext,
+    @Query() query: SyncToursQueryDto,
+  ): Promise<ETaggedResult<WithMeta<SyncToursResponseDto>>> {
+    return this.sync.tours(context, query);
   }
 }

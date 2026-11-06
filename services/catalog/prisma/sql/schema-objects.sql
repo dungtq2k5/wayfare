@@ -130,3 +130,43 @@ CREATE TRIGGER places_status_changed_at_trg
   BEFORE UPDATE OF status ON places
   FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)
   EXECUTE FUNCTION places_stamp_status_changed_at();
+
+-- tours (rdm-spec C-8): the Place machine, an admin's inactive reason only, bounded minutes.
+ALTER TABLE tours DROP CONSTRAINT IF EXISTS tours_status_ck;
+ALTER TABLE tours ADD CONSTRAINT tours_status_ck
+  CHECK (status IN ('DRAFT', 'PROCESSING', 'ACTIVE', 'INACTIVE'));
+ALTER TABLE tours DROP CONSTRAINT IF EXISTS tours_inactive_reason_ck;
+ALTER TABLE tours ADD CONSTRAINT tours_inactive_reason_ck
+  CHECK ((status = 'INACTIVE') = (inactive_reason IS NOT NULL) AND (inactive_reason IS NULL OR inactive_reason = 'ADMIN'));
+ALTER TABLE tours DROP CONSTRAINT IF EXISTS tours_minutes_ck;
+ALTER TABLE tours ADD CONSTRAINT tours_minutes_ck CHECK (estimated_minutes BETWEEN 10 AND 600);
+ALTER TABLE tours DROP CONSTRAINT IF EXISTS tours_distance_ck;
+ALTER TABLE tours ADD CONSTRAINT tours_distance_ck CHECK (distance_m >= 0);
+ALTER TABLE tours DROP CONSTRAINT IF EXISTS tours_not_premium_ck;
+ALTER TABLE tours ADD CONSTRAINT tours_not_premium_ck CHECK (NOT is_premium);
+
+-- tour_stops (rdm-spec C-10): 0-based positions.
+ALTER TABLE tour_stops DROP CONSTRAINT IF EXISTS tour_stops_position_ck;
+ALTER TABLE tour_stops ADD CONSTRAINT tour_stops_position_ck CHECK (position >= 0);
+
+-- public_codes: the one code space of Places and tours. Every insert of either registers its code
+-- here, by every write path — the service, fixtures and raw SQL alike — so the key is the guarantee
+-- that a tour's code never equals a Place's (a trigger, as for a column every path must stamp).
+ALTER TABLE public_codes DROP CONSTRAINT IF EXISTS public_codes_target_type_ck;
+ALTER TABLE public_codes ADD CONSTRAINT public_codes_target_type_ck
+  CHECK (target_type IN ('PLACE', 'TOUR'));
+CREATE OR REPLACE FUNCTION public_codes_register() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO public_codes (code, target_type, target_id) VALUES (NEW.public_code, TG_ARGV[0], NEW.id);
+  RETURN NEW;
+END
+$$;
+DROP TRIGGER IF EXISTS places_public_code_trg ON places;
+CREATE TRIGGER places_public_code_trg
+  AFTER INSERT ON places
+  FOR EACH ROW EXECUTE FUNCTION public_codes_register('PLACE');
+DROP TRIGGER IF EXISTS tours_public_code_trg ON tours;
+CREATE TRIGGER tours_public_code_trg
+  AFTER INSERT ON tours
+  FOR EACH ROW EXECUTE FUNCTION public_codes_register('TOUR');

@@ -16,6 +16,7 @@ import {
   MapPin,
   Navigation,
   RefreshCw,
+  Route,
   WifiOff,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -39,6 +40,7 @@ import { areaStyle } from './style';
 import { keepNearby, keptNearby, minutesAgo, offlineList } from './kept-nearby';
 import type { KeptNearby } from './kept-nearby';
 import { formatDate } from '../places/format';
+import { ToursList } from '../tours/tours-list';
 
 /** The chips the handoff draws (WM1): the categories the pilot's two areas hold. */
 const CHIPS = ['LANDMARK', 'CHURCH', 'MARKET', 'STREET_FOOD'] as const;
@@ -125,6 +127,11 @@ export function MapPage({
   const tablet = useMediaQuery(TABLET);
   const desk = useMediaQuery(DESK);
   const [category, setCategory] = useState<string | null>(null);
+  // TW1: *Places · Tours*; a link to an area's tours (`?view=tours`, TW3) opens the second.
+  const [tab, setTab] = useState<'places' | 'tours'>('places');
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('view') === 'tours') setTab('tours');
+  }, []);
   const [view, setView] = useState<MapView | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [location, setLocation] = useState<Location>({ kind: 'off' });
@@ -486,13 +493,20 @@ export function MapPage({
     >
       <h1 className="sr-only">{t('map.title')}</h1>
       <div className="flex flex-col tablet:order-1 tablet:w-80 tablet:overflow-y-auto tablet:border-r tablet:border-border tablet:pt-6 desk:w-100">
-        <CategoryChips
-          value={category}
-          onChange={(code) => {
-            setCategory(code);
-            setSelected(null);
-          }}
-        />
+        {outside ? null : <ListTabs tab={tab} onTab={setTab} />}
+        {tab === 'tours' && !outside ? (
+          <div className="px-4 py-4">
+            <ToursList areaId={area.id} areaName={areaName} />
+          </div>
+        ) : (
+          <CategoryChips
+            value={category}
+            onChange={(code) => {
+              setCategory(code);
+              setSelected(null);
+            }}
+          />
+        )}
         {location.kind === 'refused' ? (
           <p
             role="status"
@@ -502,9 +516,9 @@ export function MapPage({
             {t('map.locOff', { area: areaName, host })}
           </p>
         ) : null}
-        {/* One map: here on a phone, beside the list from 720 px. */}
-        {tablet ? null : mapBox}
-        {list}
+        {/* One map: here on a phone, beside the list from 720 px. The tours list has none. */}
+        {tablet || (tab === 'tours' && !outside) ? null : mapBox}
+        {tab === 'tours' && !outside ? null : list}
       </div>
       <div className="hidden min-w-0 flex-1 tablet:order-2 tablet:block">
         {tablet ? mapBox : null}
@@ -562,5 +576,39 @@ export function MapPage({
         </Sheet>
       ) : null}
     </main>
+  );
+}
+
+/** *Places · Tours* (TW1): an area's Places and its tours, the list's two views. */
+function ListTabs({
+  tab,
+  onTab,
+}: {
+  tab: 'places' | 'tours';
+  onTab: (tab: 'places' | 'tours') => void;
+}) {
+  const { t } = useWeb();
+  const item = (value: 'places' | 'tours', Icon: typeof MapPin, label: string) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={tab === value}
+      onClick={() => onTab(value)}
+      className={cn(
+        'inline-flex h-11 items-center gap-2 border-b-2 px-4 text-base font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        tab === value
+          ? 'border-primary text-primary'
+          : 'border-transparent text-muted-foreground hover:text-foreground',
+      )}
+    >
+      <Icon aria-hidden className="size-5" />
+      {label}
+    </button>
+  );
+  return (
+    <div role="tablist" className="mx-4 flex border-b border-border">
+      {item('places', MapPin, t('tours.places'))}
+      {item('tours', Route, t('tours.tours'))}
+    </div>
   );
 }

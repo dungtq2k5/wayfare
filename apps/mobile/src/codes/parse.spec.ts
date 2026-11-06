@@ -6,14 +6,15 @@ const bases = { qr: 'http://localhost:13000', link: 'http://localhost:5174' };
 
 describe('parseLink', () => {
   it.each([
-    ['https://go.wayfare.app/q/QK4V1TCX', true],
-    ['https://wayfare.app/p/qk4v-1tcx', false],
-    ['https://wayfare.app/p/QK4V1TCX/?utm=sticker#top', false],
-    ['http://localhost:13000/q/QK4V1TCX', true],
-    ['http://localhost:5174/p/QK4V%201TCX', false],
-    ['wayfare://p/QK4V1TCX', false],
-  ])('reads %s as a code', (text, printed) => {
-    expect(parseLink(text, bases)).toEqual({ kind: 'code', code: 'QK4V1TCX', printed });
+    ['https://go.wayfare.app/q/QK4V1TCX', true, false],
+    ['https://wayfare.app/p/qk4v-1tcx', false, false],
+    ['https://wayfare.app/p/QK4V1TCX/?utm=sticker#top', false, false],
+    ['http://localhost:13000/q/QK4V1TCX', true, false],
+    ['http://localhost:5174/p/QK4V%201TCX', false, false],
+    ['wayfare://p/QK4V1TCX', false, false],
+    ['https://wayfare.app/t/QK4V-1TCX', false, true],
+  ])('reads %s as a code', (text, printed, tour) => {
+    expect(parseLink(text, bases)).toEqual({ kind: 'code', code: 'QK4V1TCX', printed, tour });
   });
 
   it.each([

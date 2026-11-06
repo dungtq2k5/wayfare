@@ -155,6 +155,8 @@ export async function dropInactiveAreas(
   await db.transaction(async (tx) => {
     await tx.run(`DELETE FROM place_records ${where}`, [...activeAreaIds]);
     await tx.run(`DELETE FROM sync_state ${where}`, [...activeAreaIds]);
+    await tx.run(`DELETE FROM tour_records ${where}`, [...activeAreaIds]);
+    await tx.run(`DELETE FROM tour_sync_state ${where}`, [...activeAreaIds]);
   });
 }
 
@@ -198,5 +200,9 @@ export async function clearLocalData(db: Database): Promise<void> {
     await tx.run('DELETE FROM sync_state');
     await tx.run('DELETE FROM heard_places');
     await tx.run('DELETE FROM walk_record');
+    await tx.run('DELETE FROM tour_records');
+    await tx.run('DELETE FROM tour_sync_state');
+    await tx.run('DELETE FROM stories_finished');
+    await tx.run('DELETE FROM tour_progress');
   });
 }

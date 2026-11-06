@@ -20,7 +20,7 @@ import { LARGE_TEXT_SCALE, TALL_CONTROL } from '../ui/layout';
 import { showToast } from '../ui/toast';
 import { actionAccepted } from '../ui/toast-grace';
 import { stopWalk, undoStop } from './controller';
-import { WALK_PILL_LIFT } from './toast-lift';
+import { walkPillLift } from './toast-lift';
 import { minutesOn } from './machine';
 import { allowBackground, startWalk } from './start';
 import { problemOf, useWalkStore } from './store';
@@ -78,7 +78,7 @@ export function stopWithUndo(message: string, undoLabel: string): void {
     message,
     { label: undoLabel, onPress: undoStop },
     WALK_UNDO_MS ?? NARRATION_CONFIG.walkUndoMs,
-    { icon: Footprints, lift: WALK_PILL_LIFT },
+    { icon: Footprints, lift: walkPillLift() },
   );
 }
 

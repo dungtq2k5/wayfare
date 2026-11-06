@@ -73,6 +73,17 @@ export async function bumpSyncVersion(tx: CatalogTx, placeId: string): Promise<b
   return row.sync_version;
 }
 
+/** A tour's next `sync_version`, from the Places' sequence, taken last as a Place's is. */
+export async function bumpTourSyncVersion(tx: CatalogTx, tourId: string): Promise<bigint> {
+  const [row] = await tx.$queryRaw<{ sync_version: bigint }[]>`
+    UPDATE tours
+    SET sync_version = nextval('catalog_sync_version_seq'), updated_at = clock_timestamp()
+    WHERE id = ${tourId}::uuid
+    RETURNING sync_version`;
+  if (row === undefined) throw new Error(`bumpTourSyncVersion: no tour ${tourId}`);
+  return row.sync_version;
+}
+
 /** One changed Place in a sync page. */
 export interface SyncChange {
   readonly id: string;
@@ -98,9 +109,14 @@ export class SyncService {
    * settled once its version is older than the lag, which no bumping transaction outlives.
    */
   async cap(since: bigint = 0n): Promise<bigint> {
+    // Tours take their versions from the same sequence: one cap over both (rdm-spec §1.7).
     const [row] = await this.prisma.$queryRaw<{ cap: bigint }[]>`
       SELECT GREATEST(COALESCE(MAX(sync_version), 0), ${since}::bigint) AS cap
-      FROM places
+      FROM (
+        SELECT sync_version, updated_at FROM places
+        UNION ALL
+        SELECT sync_version, updated_at FROM tours
+      ) versions
       WHERE updated_at < clock_timestamp() - make_interval(secs => ${SYNC_SAFETY_LAG_MS / 1000})`;
     return row?.cap ?? since;
   }

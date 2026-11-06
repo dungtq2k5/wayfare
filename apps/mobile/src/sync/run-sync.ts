@@ -1,4 +1,4 @@
-import { getAreasListQueryOptions, syncPlaces } from '@wayfare/api-client';
+import { getAreasListQueryOptions, syncPlaces, syncTours } from '@wayfare/api-client';
 import type { Language } from '@wayfare/contracts';
 import type { SyncPlaces200 } from '@wayfare/api-client';
 import { create } from 'zustand';
@@ -10,6 +10,8 @@ import { useAppStore } from '../state/app-store';
 import { queryClient } from '../state/query-client';
 import { singleFlight, syncAreas } from './sync';
 import type { SyncClient } from './sync';
+import { syncAreaTours } from './sync-tours';
+import type { ToursClient } from './sync-tours';
 
 interface SyncState {
   /** When a sync pass last finished, a `304` included; the cache TTL counts from here. */
@@ -40,6 +42,22 @@ const client: SyncClient = {
   },
 };
 
+const tours: ToursClient = {
+  async tours({ areaId, lang, since }) {
+    const response = await syncTours({
+      areaId,
+      lang,
+      ...(since === undefined ? {} : { since: String(since) }),
+    });
+    return {
+      tours: response.data.tours,
+      removedTourIds: response.data.removedTourIds,
+      datasetVersion: response.data.datasetVersion,
+      complete: response.meta.complete,
+    };
+  },
+};
+
 /**
  * One sync of every active area in a language (the current one by default); a call while one runs
  * for the same language joins it. A switch syncs its new language beside the current one's rows,
@@ -61,6 +79,10 @@ const syncByLanguage = singleFlight(async (lang: Language) => {
       lang,
       now: Date.now,
     });
+    // Each area's tours after its Places: a tour's live stops are read from those Places (K7).
+    for (const area of areas.data) {
+      await syncAreaTours({ db, client: tours, areaId: area.id, lang, now: Date.now });
+    }
     if (current) useSyncStore.setState({ lastCheckedAt: Date.now() });
     await queryClient.invalidateQueries({ queryKey: LOCAL_QUERY_KEY });
     return results;

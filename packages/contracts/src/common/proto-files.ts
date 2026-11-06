@@ -30,6 +30,9 @@ export const PROTO_FILES = {
     'wayfare/catalog/map_pack_admin.proto',
     'wayfare/catalog/offline.proto',
     'wayfare/catalog/favorite.proto',
+    'wayfare/catalog/tour_types.proto',
+    'wayfare/catalog/tour_admin.proto',
+    'wayfare/catalog/tour_query.proto',
   ],
   narration: [
     'wayfare/narration/narration.proto',

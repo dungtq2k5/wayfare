@@ -26,7 +26,7 @@ export function Section({
 }: {
   id: string;
   title: string;
-  edit?: { href: string; label: string } | undefined;
+  edit?: { href: string; label: string; icon?: ReactNode } | undefined;
   action?: ReactNode;
   children: ReactNode;
 }) {
@@ -44,7 +44,7 @@ export function Section({
         {edit === undefined ? null : (
           <Button asChild variant="ghost" size="sm">
             <Link href={edit.href}>
-              <Pencil aria-hidden />
+              {edit.icon ?? <Pencil aria-hidden />}
               {edit.label}
             </Link>
           </Button>
@@ -219,7 +219,9 @@ export function RecordHistory({
               <span className="font-medium text-foreground">
                 {/* A Place's history keeps its own short words ("Activated"); the rest name the record. */}
                 {tDynamic(
-                  resourceType === 'PLACE' ? `audit.${row.action}` : `auditAction.${row.action}`,
+                  resourceType === 'PLACE' || resourceType === 'TOUR'
+                    ? `audit.${row.action}`
+                    : `auditAction.${row.action}`,
                   undefined,
                   tDynamic(`auditAction.${row.action}`, undefined, t('audit.other')),
                 )}

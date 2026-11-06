@@ -27,6 +27,17 @@ export const TALL_CONTROL = 56;
 export const SHEET_ICON_DISC = 56;
 /** A numbered step's badge (the walk help screen). */
 export const STEP_BADGE = 28;
+/** A toast at the Map's top, under its 48 dp row (the area chooser) and the row's 48 dp padding. */
+export const MAP_TOP_TOAST = space[12] * 2 + space[2];
+/** A tour's cover at the head of its screen (round 39). */
+export const TOUR_COVER_HEIGHT = 224;
+/** A tour card's cover in Explore. */
+export const TOUR_CARD_COVER_HEIGHT = 144;
+/** A tour's route map on its screen. */
+export const TOUR_MAP_HEIGHT = 208;
+/** A tour's progress bar beside its "n of m heard" line: on the screen, on a card. */
+export const TOUR_PROGRESS_WIDTH = 160;
+export const TOUR_CARD_PROGRESS_WIDTH = 112;
 /** A skeleton row's least height. */
 export const SKELETON_ROW = 80;
 

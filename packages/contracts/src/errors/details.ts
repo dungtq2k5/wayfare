@@ -36,6 +36,9 @@ export const placeUnavailableDetails = z
   })
   .strict();
 
+/** `TOUR_UNAVAILABLE`: the tour's area, so its page can point to the area's other tours. */
+export const tourUnavailableDetails = z.object({ areaCode: z.string().min(1) }).strict();
+
 /** `INVALID_STATE`: the resource's current status. */
 export const invalidStateDetails = z.object({ status: z.string().min(1) }).strict();
 

@@ -74,11 +74,12 @@ function put(
 export async function uploadPhoto(
   file: File,
   onProgress: (percent: number) => void = () => undefined,
+  purpose: 'PLACE_PHOTO' | 'TOUR_COVER' = 'PLACE_PHOTO',
 ): Promise<FormPhoto> {
   const refused = photoRefusal(file);
   if (refused !== null) throw refused;
   const { data: signed } = await uploadsCreate({
-    purpose: 'PLACE_PHOTO',
+    purpose,
     contentType: file.type as (typeof UPLOAD_CONTENT_TYPES)[number],
     bytes: file.size,
   });
@@ -90,7 +91,7 @@ export async function uploadPhoto(
     return {
       key: signed.uploadId,
       uploadId: signed.uploadId,
-      preview: data.variants.thumb.url,
+      preview: purpose === 'TOUR_COVER' ? data.variants.card.url : data.variants.thumb.url,
       altTextVi: '',
     };
   } catch (error) {

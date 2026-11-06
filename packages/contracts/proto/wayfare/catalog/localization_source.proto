@@ -5,6 +5,7 @@ syntax = "proto3";
 package wayfare.catalog;
 
 import "wayfare/catalog/place_types.proto";
+import "wayfare/catalog/tour_types.proto";
 import "wayfare/common/localization.proto";
 import "wayfare/common/page.proto";
 
@@ -107,8 +108,10 @@ message GetLocalizationSourceResponse {
   oneof result {
     LocalizationSourcePlace place = 1;
     LocalizationSourceMenuItem menu_item = 2;
-    // The target never existed, or a menu item was deleted. A deleted Place is a `place`.
+    // The target never existed, or a menu item was deleted. A deleted Place is a `place`, a
+    // deleted tour a `tour`.
     LocalizationSourceNotFound not_found = 3;
+    LocalizationSourceTour tour = 4;
   }
 }
 
@@ -147,3 +150,22 @@ message LocalizationSourceMenuItem {
 }
 
 message LocalizationSourceNotFound {}
+
+// A tour's source text (rdm-spec C-8, C-9): translated as text only, never narrated.
+message LocalizationSourceTour {
+  TourStatus status = 1;
+  bool deleted = 2;
+  string content_hash = 3;
+  string title_vi = 4;
+  string description_vi = 5;
+  repeated TourLocalizationState localizations = 6;
+}
+
+// One language's tour text (rdm-spec C-9) and its version.
+message TourLocalizationState {
+  string lang = 1;
+  string source_content_hash = 2;
+  TranslationSource translation_source = 3;
+  string title = 4;
+  string description = 5;
+}

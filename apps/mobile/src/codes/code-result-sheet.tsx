@@ -1,3 +1,4 @@
+import { useAreasList } from '@wayfare/api-client';
 import { formatPublicCode } from '@wayfare/contracts';
 import { router } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
@@ -5,6 +6,7 @@ import { CircleAlert, CircleX, Link2Off, LoaderCircle, WifiOff } from 'lucide-re
 import { Pressable, Text, View } from 'react-native';
 import { space } from '@wayfare/design-tokens/tokens';
 import { useTourist } from '../i18n/use-tourist';
+import { useAppStore } from '../state/app-store';
 import { usePlayerStore } from '../player/store';
 import { MINI_PLAYER_CLEARANCE, SHEET_ICON_DISC } from '../ui/layout';
 import { checkNetwork } from '../network/network-store';
@@ -26,7 +28,8 @@ const close = () => useCodeStore.setState({ result: null });
 
 /** A code that did not open a Place, as a sheet over the Map with a next step (Q10–Q13, Q12b). */
 export function CodeResultSheet() {
-  const { t } = useTourist();
+  const { t, tFamily } = useTourist();
+  const areas = useAreasList();
   const result = useCodeStore((state) => state.result);
   const playing = usePlayerStore((state) => state.current !== null);
   if (result === null) return null;
@@ -75,19 +78,41 @@ export function CodeResultSheet() {
           primary: { label: t('code.scan'), onPress: scan },
           secondary: backToMap,
         };
+      case 'tour-gone': {
+        const area = (areas.data?.data ?? []).find((row) => row.code === r.areaCode);
+        return {
+          icon: CircleX,
+          title: t('tour.goneTitle'),
+          body: t('tour.goneBody', {
+            area: r.areaCode === null ? '' : tFamily('area', r.areaCode, r.areaCode),
+          }),
+          primary: {
+            label: t('tour.seeTours'),
+            onPress: () => {
+              close();
+              if (area !== undefined) useAppStore.getState().setCurrentArea(area.id);
+              router.navigate({ pathname: '/explore', params: { view: 'tours' } });
+            },
+          },
+          secondary: { label: t('tour.backToMap'), onPress: close },
+        };
+      }
       case 'offline':
         return {
           icon: WifiOff,
-          title: t('code.offline.title'),
-          body: t('code.offline.body'),
+          // A tour's link before the phone has ever synced (TM6c): tours arrive with the first sync.
+          title: r.tour === true ? t('tour.offlineTitle') : t('code.offline.title'),
+          body: r.tour === true ? t('tour.notOnPhone') : t('code.offline.body'),
           primary: {
-            label: t('action.retry'),
+            label: r.tour === true ? t('tour.tryAgain') : t('action.retry'),
             // The network verdict is read at launch: ask again before trying, so a connection that
             // came back is noticed.
             onPress: () =>
-              void checkNetwork().then(() => codeOpener.open(r.code, { printed: false })),
+              void checkNetwork().then(() =>
+                codeOpener.open(r.code, { printed: false, tour: r.tour === true }),
+              ),
           },
-          secondary: backToMap,
+          secondary: r.tour === true ? { label: t('tour.backToMap'), onPress: close } : backToMap,
         };
     }
   })(result);

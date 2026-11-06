@@ -53,6 +53,7 @@ test('the shell, desktop (C6)', async ({ page }) => {
     /^Submissions/,
     /^Registrations/,
     /^Places$/,
+    /^Tours$/,
     /^Categories$/,
     /^Areas and map packs$/,
     /^Narration jobs$/,

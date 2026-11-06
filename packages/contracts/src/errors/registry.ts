@@ -17,6 +17,7 @@ import {
   permissionDeniedDetails,
   permissionRetiredDetails,
   placeUnavailableDetails,
+  tourUnavailableDetails,
   priceBelowMinimumDetails,
   pronunciationTermExistsDetails,
   quotaExhaustedDetails,
@@ -114,6 +115,7 @@ export const ERRORS = {
   ROUTE_NOT_FOUND: notFound,
   RESOURCE_NOT_FOUND: { ...notFound, details: resourceNotFoundDetails },
   PLACE_UNAVAILABLE: { ...notFound, details: placeUnavailableDetails },
+  TOUR_UNAVAILABLE: { ...notFound, details: tourUnavailableDetails },
   LOCALIZATION_TARGET_UNAVAILABLE: notFound,
 
   // 409

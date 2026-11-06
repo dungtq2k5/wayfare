@@ -5,7 +5,7 @@
  * OpenAPI spec version: 0.0.0-dev
  */
 
-export type LocalizationOverviewResponseDtoLanguagesItemAudioStatus = typeof LocalizationOverviewResponseDtoLanguagesItemAudioStatus[keyof typeof LocalizationOverviewResponseDtoLanguagesItemAudioStatus];
+export type LocalizationOverviewResponseDtoLanguagesItemAudioStatus = typeof LocalizationOverviewResponseDtoLanguagesItemAudioStatus[keyof typeof LocalizationOverviewResponseDtoLanguagesItemAudioStatus] | null;
 
 
 export const LocalizationOverviewResponseDtoLanguagesItemAudioStatus = {

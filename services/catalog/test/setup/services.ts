@@ -24,6 +24,8 @@ import { PlaceQueriesService } from '../../src/modules/place-queries/place-queri
 import { PlacesService } from '../../src/modules/places/places.service';
 import type { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { SyncService } from '../../src/modules/sync/sync.service';
+import { TourQueriesService } from '../../src/modules/tour-queries/tour-queries.service';
+import { ToursService } from '../../src/modules/tours/tours.service';
 import { UploadsService } from '../../src/modules/uploads/uploads.service';
 import { SharpImageProcessor } from '../../src/providers/image/sharp.image-processor';
 import { GcsStorageProvider } from '@wayfare/nest-common/storage';
@@ -118,7 +120,10 @@ export function catalogServices(
   const manifestCache = new MemoryCache();
   const categories = new CategoriesService(prisma, outbox);
   const submissions = new SubmissionsService(prisma, outbox, places, billingPort);
+  const tours = new ToursService(prisma, outbox, uploads, config);
   return {
+    tours,
+    tourQueries: new TourQueriesService(prisma, sync, config),
     billing,
     identity,
     submissions,
@@ -146,7 +151,7 @@ export function catalogServices(
     sources: new LocalizationSourcesService(prisma),
     sync,
     queries,
-    localizations: new LocalizationsService(prisma, outbox, places),
+    localizations: new LocalizationsService(prisma, outbox, places, tours),
     reap: new PendingUploadsReapJob(prisma, storage),
     cleanup: new PhotoObjectsCleanupJob(prisma, storage),
   };

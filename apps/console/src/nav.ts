@@ -7,6 +7,7 @@ export type NavIcon =
   | 'file-check'
   | 'user-check'
   | 'map-pin'
+  | 'route'
   | 'tags'
   | 'layers'
   | 'audio-lines'
@@ -83,6 +84,7 @@ const STAFF: readonly NavGroup[] = [
     label: 'nav.group.catalog',
     items: [
       { href: '/places', label: 'nav.places', icon: 'map-pin', anyOf: ['place.read'] },
+      { href: '/tours', label: 'nav.tours', icon: 'route', anyOf: ['tour.manage'] },
       {
         href: '/categories',
         label: 'nav.categories',

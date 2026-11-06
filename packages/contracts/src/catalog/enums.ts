@@ -59,6 +59,15 @@ export enum TourStatus {
 /** Every `TourStatus` value. */
 export const TOUR_STATUSES = Object.values(TourStatus);
 
+/** What a public code names, in the one code space of Places and tours — rdm-spec C-19 `target_type`. */
+export enum CodeTargetType {
+  PLACE = 'PLACE',
+  TOUR = 'TOUR',
+}
+
+/** Every `CodeTargetType` value. */
+export const CODE_TARGET_TYPES = Object.values(CodeTargetType);
+
 /** What an owner submission proposes — rdm-spec C-11 `kind`. */
 export enum SubmissionKind {
   CREATE = 'CREATE',

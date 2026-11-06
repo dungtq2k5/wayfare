@@ -1,7 +1,9 @@
 // A Place's job from catalog's event to its published text and audio (rdm-spec N-1 to N-4).
 import { createHash } from 'node:crypto';
 import {
+  CATALOG_TOUR_CONTENT_CHANGED,
   NARRATION_LOCALIZATION_READY,
+  newId,
   SynthesisJobStatus,
   SynthesisTaskStatus,
   SynthesisTrigger,
@@ -233,6 +235,54 @@ describe('a Place job', () => {
     expect(
       events.every((event) => event.targetType === 'MENU_ITEM' && event.audio === undefined),
     ).toBe(true);
+  });
+});
+
+describe("a tour's text (rdm-spec C-9)", () => {
+  it('is translated once per language, text only, as a title and description', async () => {
+    const tour = services.catalog.tour();
+    await services.jobs.fromTourContent(
+      CATALOG_TOUR_CONTENT_CHANGED.schema.parse({
+        eventId: newId(),
+        occurredAt: new Date().toISOString(),
+        tourId: tour.id,
+        contentHash: tour.hash,
+        langs: ['en', 'ja'],
+      }),
+      'narration-catalog-tour-content-changed',
+    );
+    await services.queue.drain();
+    const jobs = await jobsOf(prisma, tour.id);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]!.status).toBe(SynthesisJobStatus.COMPLETED);
+    const events = await readyEvents();
+    expect(
+      events.map((event) => event.lang).toSorted((a, b) => String(a).localeCompare(String(b))),
+    ).toEqual(['en', 'ja']);
+    expect(
+      events.every(
+        (event) =>
+          event.targetType === 'TOUR' &&
+          event.audio === undefined &&
+          typeof (event.text as { title?: string }).title === 'string',
+      ),
+    ).toBe(true);
+    expect(await prisma.audioAsset.count()).toBe(0);
+  });
+
+  it('makes no job for a tour gone or changed since', async () => {
+    const tour = services.catalog.tour({ deleted: true });
+    await services.jobs.fromTourContent(
+      CATALOG_TOUR_CONTENT_CHANGED.schema.parse({
+        eventId: newId(),
+        occurredAt: new Date().toISOString(),
+        tourId: tour.id,
+        contentHash: tour.hash,
+        langs: ['en'],
+      }),
+      'narration-catalog-tour-content-changed',
+    );
+    expect(await jobsOf(prisma, tour.id)).toHaveLength(0);
   });
 });
 

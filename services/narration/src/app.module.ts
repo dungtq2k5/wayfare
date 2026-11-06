@@ -28,6 +28,8 @@ import { TtsStreamModule } from './modules/tts-stream/tts-stream.module';
 import { PronunciationsModule } from './modules/pronunciations/pronunciations.module';
 import { MenuContentConsumer } from './modules/menu-content/menu-content.consumer';
 import { MenuContentModule } from './modules/menu-content/menu-content.module';
+import { TourContentConsumer } from './modules/tour-content/tour-content.consumer';
+import { TourContentModule } from './modules/tour-content/tour-content.module';
 import { NarrationModule } from './modules/narration/narration.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { PlaceContentConsumer } from './modules/place-content/place-content.consumer';
@@ -88,6 +90,7 @@ export class AppModule {
         NarrationModule,
         PlaceContentModule,
         MenuContentModule,
+        TourContentModule,
         SchedulerModule.forRootAsync({
           imports: [ScheduledModule],
           inject: [
@@ -163,8 +166,12 @@ export class AppModule {
         EventSpine,
         {
           provide: CONSUMERS,
-          inject: [PlaceContentConsumer, MenuContentConsumer],
-          useFactory: (place: PlaceContentConsumer, menu: MenuContentConsumer) => [place, menu],
+          inject: [PlaceContentConsumer, MenuContentConsumer, TourContentConsumer],
+          useFactory: (
+            place: PlaceContentConsumer,
+            menu: MenuContentConsumer,
+            tour: TourContentConsumer,
+          ) => [place, menu, tour],
         },
       ],
     };

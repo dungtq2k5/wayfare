@@ -2,7 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@wayfare/ui/button';
-import { Download, Printer } from 'lucide-react';
+import { toast } from '@wayfare/ui/toaster';
+import { Copy, Download, Printer } from 'lucide-react';
 import { API_BASE_URL } from '../env';
 import { useConsole } from '../i18n/provider';
 import { Section } from './place-sections';
@@ -27,16 +28,23 @@ export function QrSection({
   name,
   code,
   src = `/admin/places/${placeId}/qr`,
+  title,
+  body,
+  link,
 }: {
   placeId: string;
   name: string;
   code: string;
-  /** The sticker's route: the admin's, or the owner's own (round 36). */
+  /** The sticker's route: the admin's, or the owner's own (round 36), or a tour's (round 39). */
   src?: string;
+  title?: string;
+  body?: string;
+  /** A tour's shareable link (TA6), shown with *Copy link*. */
+  link?: string;
 }) {
   const { t } = useConsole();
   const svg = useQuery({
-    queryKey: ['place-qr', placeId],
+    queryKey: ['qr', src],
     queryFn: () => stickerSvg(src),
     staleTime: Infinity,
   });
@@ -62,7 +70,7 @@ export function QrSection({
   };
 
   return (
-    <Section id="qr" title={t('qr.title')}>
+    <Section id="qr" title={title ?? t('qr.title')}>
       <div className="flex flex-wrap items-center gap-6">
         <div className="flex size-40 shrink-0 items-center justify-center rounded-md border border-border bg-card p-2">
           {url === null ? null : (
@@ -74,8 +82,23 @@ export function QrSection({
           )}
         </div>
         <div className="flex min-w-0 grow basis-56 flex-col gap-3">
-          <p className="text-sm text-foreground">{t('qr.body', { code: printed })}</p>
+          <p className="text-sm text-foreground">{body ?? t('qr.body', { code: printed })}</p>
+          {link === undefined ? null : <code className="text-sm text-foreground">{link}</code>}
           <div className="flex flex-wrap gap-2">
+            {link === undefined ? null : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void navigator.clipboard
+                    .writeText(`https://${link}`)
+                    .then(() => toast.success(t('tour.linkCopied'), { description: link }))
+                }
+              >
+                <Copy aria-hidden />
+                {t('tour.copyLink')}
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm">
               <a href={url ?? undefined} download={`${code}.svg`} aria-disabled={url === null}>
                 <Download aria-hidden />
@@ -87,7 +110,9 @@ export function QrSection({
               {t('qr.print')}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">{t('qr.note', { code: printed })}</p>
+          {link === undefined ? (
+            <p className="text-xs text-muted-foreground">{t('qr.note', { code: printed })}</p>
+          ) : null}
         </div>
       </div>
     </Section>

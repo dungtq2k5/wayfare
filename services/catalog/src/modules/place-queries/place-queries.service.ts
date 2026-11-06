@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   businessDay,
   canonicalPublicCode,
+  CodeTargetType,
   datasetVersionFromWire,
   MapPackStatus,
   MAX_NEARBY_RADIUS_M,
@@ -14,6 +15,7 @@ import {
   zUuidV7,
 } from '@wayfare/contracts';
 import type { ErrorDetails, GeoPoint } from '@wayfare/contracts';
+import { codeTargetTypeProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { rankNearby, walkingEtaMinutes } from '@wayfare/core';
 import { deviceIdOf, parseRpcRequest, requireDeviceContext, rpcError } from '@wayfare/nest-common';
@@ -47,7 +49,7 @@ export const NEARBY_CANDIDATE_CAP = 200;
 /** A nearby answer's default size. */
 export const NEARBY_LIMIT_DEFAULT = 20;
 
-const zSince = z.string().transform((value, ctx) => {
+export const zSince = z.string().transform((value, ctx) => {
   if (value === '') return 0n;
   try {
     return BigInt(datasetVersionFromWire(value));
@@ -77,7 +79,7 @@ const getFields = z.object({ placeId: zUuidV7, lang: zRequestedLanguage });
 
 const byCodeFields = z.object({ publicCode: zPublicCode, lang: zRequestedLanguage });
 
-const resolveFields = z.object({ publicCode: z.string().max(64) });
+const resolveFields = z.object({ publicCode: z.string().max(64), countScan: z.boolean() });
 
 /** The rows the fallback chain can reach for `requested` (conventions §11.2). */
 function reachableLanguages(requested: string | null): string[] {
@@ -229,8 +231,9 @@ export class PlaceQueriesService {
   }
 
   /**
-   * A sticker scan (rdm-spec C-15): counts one scan for the business day when the code names any
-   * Place, live or not. The gateway redirects either way.
+   * What a code names, in the one code space of Places and tours (`public_codes`) — live or not:
+   * the reader decides what an unavailable target shows. A sticker scan (`countScan`) counts one
+   * scan for the business day when the code is a Place's (rdm-spec C-15: per Place).
    */
   async resolvePublicCode(
     request: catalogGrpc.ResolvePublicCodeRequest,
@@ -238,14 +241,25 @@ export class PlaceQueriesService {
   ): Promise<catalogGrpc.ResolvePublicCodeResponse> {
     const fields = parseRpcRequest(resolveFields, request);
     const code = canonicalPublicCode(fields.publicCode);
-    if (code === null) return { exists: false };
-    const day = businessDay(new Date());
-    const counted = await this.prisma.$queryRaw<{ place_id: string }[]>`
-      INSERT INTO place_qr_scans_daily (place_id, day, scans)
-      SELECT id, ${day}::date, 1 FROM places WHERE public_code = ${code}
-      ON CONFLICT (place_id, day) DO UPDATE SET scans = place_qr_scans_daily.scans + 1
-      RETURNING place_id`;
-    return { exists: counted.length > 0 };
+    if (code === null) return { exists: false, targetType: 0, targetId: '' };
+    const target = await this.prisma.publicCode.findUnique({
+      where: { code },
+      select: { targetType: true, targetId: true },
+    });
+    if (target === null) return { exists: false, targetType: 0, targetId: '' };
+    const type = target.targetType as CodeTargetType;
+    if (fields.countScan && type === CodeTargetType.PLACE) {
+      const day = businessDay(new Date());
+      await this.prisma.$executeRaw`
+        INSERT INTO place_qr_scans_daily (place_id, day, scans)
+        SELECT id, ${day}::date, 1 FROM places WHERE id = ${target.targetId}::uuid
+        ON CONFLICT (place_id, day) DO UPDATE SET scans = place_qr_scans_daily.scans + 1`;
+    }
+    return {
+      exists: true,
+      targetType: codeTargetTypeProto.toProto(type),
+      targetId: target.targetId,
+    };
   }
 
   /** Active categories in display order. */

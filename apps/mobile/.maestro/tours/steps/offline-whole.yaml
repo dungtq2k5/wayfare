@@ -1,0 +1,13 @@
+# Offline with District 1 downloaded (§3.4 item 3): the tour whole, from the download.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Explore'
+- tapOn: 'Tours'
+- tapOn: '.*Danh thắng Quận 1.*'
+- assertVisible: 'Offline — from your .* download.*'
+- assertVisible: 'The route'

@@ -17,6 +17,7 @@
     "@tanstack/react-query": "^5.104.0",
     "@wayfare/api-client": "workspace:*",
     "@wayfare/contracts": "workspace:*",
+    "@wayfare/core": "workspace:*",
     "@wayfare/design-tokens": "workspace:*",
     "@wayfare/i18n": "workspace:*",
     "@wayfare/ui": "workspace:*",

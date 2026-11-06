@@ -5,9 +5,17 @@ export type CodeSource = 'scan' | 'typed' | 'link';
 
 /** What a scanned or linked text turned out to be. */
 export type ParsedLink =
-  /** A Place's code; `printed` when it came from a sticker's `/q/` URL, which counts as a scan. */
-  | { readonly kind: 'code'; readonly code: string; readonly printed: boolean }
-  /** A Wayfare `/q/` or `/p/` link whose code does not canonicalize. */
+  /**
+   * A Place's or a tour's code; `printed` when it came from a sticker's `/q/` URL, which counts as a
+   * scan; `tour` when the link said so (`/t/`), so an offline phone can say a tour isn't there yet.
+   */
+  | {
+      readonly kind: 'code';
+      readonly code: string;
+      readonly printed: boolean;
+      readonly tour: boolean;
+    }
+  /** A Wayfare `/q/`, `/p/` or `/t/` link whose code does not canonicalize. */
   | { readonly kind: 'bad-link' }
   /** A Wayfare link that is not a Place (the site's home, say): the app just opens. */
   | { readonly kind: 'not-place' }
@@ -32,7 +40,7 @@ const originOf = (base: string): string | null => {
 };
 
 /**
- * Reads a scanned or linked text. Only `<base>/q/<code>` and `<base>/p/<code>` are codes, on the
+ * Reads a scanned or linked text. Only `<base>/q/<code>`, `<base>/p/<code>` and `<base>/t/<code>` are codes, on the
  * production hosts (https only) or the build's own bases (which may be plain http locally); the app's
  * scheme, `wayfare://p/<code>`, too. A trailing slash, a query and a fragment are ignored. The
  * scanner must never become a way to open an arbitrary link.
@@ -57,7 +65,7 @@ export function parseLink(text: string, bases: LinkBases): ParsedLink {
     segments = url.pathname.split('/').filter((part) => part.length > 0);
   }
   const [kind, raw, ...rest] = segments;
-  if (kind !== 'q' && kind !== 'p') return { kind: 'not-place' };
+  if (kind !== 'q' && kind !== 'p' && kind !== 't') return { kind: 'not-place' };
   if (raw === undefined || rest.length > 0) return { kind: 'bad-link' };
   let decoded: string;
   try {
@@ -66,5 +74,7 @@ export function parseLink(text: string, bases: LinkBases): ParsedLink {
     return { kind: 'bad-link' };
   }
   const code = canonicalPublicCode(decoded);
-  return code === null ? { kind: 'bad-link' } : { kind: 'code', code, printed: kind === 'q' };
+  return code === null
+    ? { kind: 'bad-link' }
+    : { kind: 'code', code, printed: kind === 'q', tour: kind === 't' };
 }

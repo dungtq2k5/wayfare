@@ -18,3 +18,5 @@ flows:
   - account/account.yaml
   - account/sabotage.yaml
   - account/google.yaml
+  - tours/tours.yaml
+  - tours/links.yaml

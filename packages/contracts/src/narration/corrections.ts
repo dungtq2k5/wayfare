@@ -49,7 +49,8 @@ export const zLocalizationOverviewRow = z
     name: z.string(),
     description: z.string().nullable(),
     translationSource: z.enum(TranslationSource),
-    audioStatus: z.enum(AudioStatus),
+    /** Null for a text-only target: a tour's text has no audio. */
+    audioStatus: z.enum(AudioStatus).nullable(),
     /**
      * The language's latest correction, whether or not it is in use: an active one, or one a
      * Vietnamese change superseded (a revert by nobody). A person's revert leaves none.

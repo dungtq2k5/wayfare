@@ -17,6 +17,8 @@ export const RULES: readonly Rule[] = [
   // A Place's public code, as stickers print it (4 + 4): alone, after "code", "is" or "· ", or
   // before " ·".
   ['(^|[Cc]ode |is |· )[A-Z0-9]{4} [A-Z0-9]{4}(?=$| ·| —|,)', 'g', '$1AB12 CD34'],
+  // … and a code kept whole by a no-break space (a card's facts line, which wraps between values).
+  ['(^|· )[A-Z0-9]{4}\u00a0[A-Z0-9]{4}(?= ·|$)', 'g', '$1AB12\u00a0CD34'],
   // A range of dates (the audit log's Dates) keeps its length: the default seven days, ending on the
   // day every date reads; H1b's fixed range of more than 93 days as it is. Each date's spaces become
   // no-break spaces, so the single-date rule below leaves them alone.

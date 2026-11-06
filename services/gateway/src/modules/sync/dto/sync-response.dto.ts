@@ -1,4 +1,4 @@
-import { zDatasetVersion, zPlaceSyncRecord, zUuidV7 } from '@wayfare/contracts';
+import { zDatasetVersion, zPlaceSyncRecord, zTourSyncRecord, zUuidV7 } from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -19,3 +19,14 @@ export const syncMetaResponseSchema = z.object({ complete: z.boolean() });
 
 /** What `GET /sync/places` returns under `meta`. */
 export class SyncMetaResponseDto extends createZodDto(syncMetaResponseSchema) {}
+
+/** One delta page of an area's tours (api-endpoints-plan §2.1). */
+export const syncToursResponseSchema = z.object({
+  tours: z.array(zTourSyncRecord),
+  /** Every changed tour not live in this area; a client ignores ids it does not hold. */
+  removedTourIds: z.array(zUuidV7),
+  datasetVersion: zDatasetVersion,
+});
+
+/** What `GET /sync/tours` returns under `data`. */
+export class SyncToursResponseDto extends createZodDto(syncToursResponseSchema) {}

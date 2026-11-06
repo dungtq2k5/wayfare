@@ -15,6 +15,7 @@ import { areaNameOf } from './area-name';
 import { fallbackArtworkUrl } from './fallback-artwork';
 import { packAudioUri } from '../packs/use-pack-files';
 import { cachedFile, downloadToCache } from '../data/audio-cache';
+import { markStoryFinished } from '../tours/finished';
 import { resolveSource } from './ladder';
 import type { LadderDeps, OnDemandAnswer, Resolution, Rung } from './ladder';
 import { nextPause } from './pause-machine';
@@ -480,6 +481,9 @@ class NarrationPlayer {
 
   private ended(token: number): void {
     if (token !== this.sequence) return;
+    // Played to its end: a tour's progress counts it (round 39's K8); a story stopped early isn't.
+    const placeId = usePlayerStore.getState().current?.place.id;
+    if (placeId !== undefined) void markStoryFinished(placeId);
     this.advance();
   }
 

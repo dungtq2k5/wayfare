@@ -11,6 +11,7 @@ import { Observable } from "rxjs";
 import { LocalizationTargetType } from "../common/localization.pb";
 import { CursorPage, PageRequest } from "../common/page.pb";
 import { AudioStatus, PlaceInactiveReason, PlaceKind, PlaceStatus, TranslationSource } from "./place_types.pb";
+import { TourStatus } from "./tour_types.pb";
 
 export const protobufPackage = "wayfare.catalog";
 
@@ -98,8 +99,12 @@ export interface GetLocalizationSourceResponse {
   menuItem?:
     | LocalizationSourceMenuItem
     | undefined;
-  /** The target never existed, or a menu item was deleted. A deleted Place is a `place`. */
+  /**
+   * The target never existed, or a menu item was deleted. A deleted Place is a `place`, a
+   * deleted tour a `tour`.
+   */
   notFound?: LocalizationSourceNotFound | undefined;
+  tour?: LocalizationSourceTour | undefined;
 }
 
 export interface LocalizationSourcePlace {
@@ -139,6 +144,25 @@ export interface LocalizationSourceMenuItem {
 }
 
 export interface LocalizationSourceNotFound {
+}
+
+/** A tour's source text (rdm-spec C-8, C-9): translated as text only, never narrated. */
+export interface LocalizationSourceTour {
+  status: TourStatus;
+  deleted: boolean;
+  contentHash: string;
+  titleVi: string;
+  descriptionVi: string;
+  localizations: TourLocalizationState[];
+}
+
+/** One language's tour text (rdm-spec C-9) and its version. */
+export interface TourLocalizationState {
+  lang: string;
+  sourceContentHash: string;
+  translationSource: TranslationSource;
+  title: string;
+  description: string;
 }
 
 export const WAYFARE_CATALOG_PACKAGE_NAME = "wayfare.catalog";

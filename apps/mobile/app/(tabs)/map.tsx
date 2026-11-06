@@ -1,8 +1,9 @@
+import { space } from '@wayfare/design-tokens/tokens';
 import { useAreasList, usePlacesNearby } from '@wayfare/api-client';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronDown, Crosshair, Minus, Plus, ScanQrCode } from 'lucide-react-native';
+import { ChevronDown, LocateFixed, Minus, Plus, ScanQrCode } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useAllPlaces } from '../../src/data/hooks';
 import { useTourist } from '../../src/i18n/use-tourist';
 import {
@@ -30,6 +31,9 @@ import { AreaSheet } from '../../src/map/area-sheet';
 import { SwitchPill } from '../../src/language/switch-status';
 import { MapPackExtras, OfflineMapNote } from '../../src/packs/map-extras';
 import { useLocalStyle } from '../../src/packs/use-local-style';
+import { useLocalTour } from '../../src/tours/hooks';
+import { LARGE_TEXT_SCALE } from '../../src/ui/layout';
+import { TourBar } from '../../src/tours/tour-bar';
 import { WalkControl } from '../../src/walk/walk-control';
 import { WalkNotice } from '../../src/walk/walk-notices';
 import { areaMove } from '../../src/codes/area-move';
@@ -70,6 +74,9 @@ export default function MapScreen() {
   }, []);
   const closeSheet = useCallback(() => setSelectedId(null), []);
   const [areaSheet, setAreaSheet] = useState(false);
+  // At large text a followed tour's bar spans the screen, the zoom control above it (TM3 at 200 %).
+  const large = useWindowDimensions().fontScale >= LARGE_TEXT_SCALE;
+  const [bottomHeight, setBottomHeight] = useState(0);
   const [explainer, setExplainer] = useState(false);
   const [view, setView] = useState<MapView | null>(null);
   const [settledCenter, setSettledCenter] = useState<{ lat: number; lng: number } | null>(null);
@@ -92,7 +99,8 @@ export default function MapScreen() {
   useEffect(() => {
     if (pending === null) return;
     const taken = takePending();
-    if (taken !== null) void codeOpener.open(taken.code, { printed: taken.printed });
+    if (taken !== null)
+      void codeOpener.open(taken.code, { printed: taken.printed, tour: taken.tour === true });
   }, [pending]);
 
   // A code that did not open a Place replaces whatever sheet was open: one sheet at a time.
@@ -201,6 +209,35 @@ export default function MapScreen() {
     }
   };
 
+  // TM3: the followed tour's route over the Places, and its bar above the walk control.
+  const followingTourId = useAppStore((state) => state.followingTourId);
+  const followed = useLocalTour(followingTourId);
+  const following = followed.data ?? null;
+  const wide = large && following !== null;
+  const route = useMemo(
+    () =>
+      following === null
+        ? []
+        : following.tour.stops.flatMap((stop) =>
+            stop.place === null
+              ? []
+              : [
+                  {
+                    id: stop.place.id,
+                    lng: stop.place.location.lng,
+                    lat: stop.place.location.lat,
+                    label: String(stop.position + 1),
+                    state: following.progress.played.has(stop.position)
+                      ? ('heard' as const)
+                      : stop.position === following.progress.next
+                        ? ('next' as const)
+                        : ('upcoming' as const),
+                  },
+                ],
+          ),
+    [following],
+  );
+
   const noPlacesHere = area !== undefined && !allPlaces.isPending && inArea.length === 0;
   const firstSync = lastChecked === null && places.length === 0;
 
@@ -218,6 +255,7 @@ export default function MapScreen() {
           position={position}
           onSelect={select}
           onSettled={setView}
+          route={route}
         />
       )}
 
@@ -279,30 +317,46 @@ export default function MapScreen() {
       </View>
 
       <View
-        style={{ bottom: controlsBottom }}
+        style={{
+          bottom: wide ? controlsBottom + bottomHeight + space[2] : controlsBottom,
+        }}
         className="absolute right-4 gap-2"
         pointerEvents="box-none"
       >
-        {[
-          { key: 'in', icon: Plus, label: '+', onPress: () => mapRef.current?.zoomBy(1) },
-          { key: 'out', icon: Minus, label: '−', onPress: () => mapRef.current?.zoomBy(-1) },
-          { key: 'me', icon: Crosshair, label: t('map.locate'), onPress: () => void locate() },
-        ].map((control) => (
+        {/* Zoom: one card, + and − under a divider; *Locate me* on its own below. */}
+        <View className="rounded-lg bg-card elevation-2">
           <Pressable
-            key={control.key}
             accessibilityRole="button"
-            accessibilityLabel={control.label}
-            onPress={control.onPress}
-            className="min-h-12 min-w-12 items-center justify-center rounded-lg bg-card elevation-2"
+            accessibilityLabel="+"
+            onPress={() => mapRef.current?.zoomBy(1)}
+            className="min-h-12 min-w-12 items-center justify-center"
           >
-            <Icon icon={control.icon} size="lg" />
+            <Icon icon={Plus} size="lg" />
           </Pressable>
-        ))}
+          <View className="h-px bg-border" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="−"
+            onPress={() => mapRef.current?.zoomBy(-1)}
+            className="min-h-12 min-w-12 items-center justify-center"
+          >
+            <Icon icon={Minus} size="lg" />
+          </Pressable>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('map.locate')}
+          onPress={() => void locate()}
+          className="min-h-12 min-w-12 items-center justify-center rounded-lg bg-card elevation-2"
+        >
+          <Icon icon={LocateFixed} size="lg" />
+        </Pressable>
       </View>
       <View
         style={{ bottom: controlsBottom }}
-        className="absolute left-4 right-16 gap-2 pr-2"
+        className={`absolute left-4 gap-2 ${wide ? 'right-4' : 'right-16 pr-2'}`}
         pointerEvents="box-none"
+        onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)}
       >
         <Text
           maxFontSizeMultiplier={1.3}
@@ -311,6 +365,7 @@ export default function MapScreen() {
         >
           {t('map.attribution')}
         </Text>
+        {following !== null && <TourBar row={following} position={position} />}
         <WalkControl />
       </View>
 

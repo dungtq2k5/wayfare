@@ -2,7 +2,7 @@ import { openingState } from '@wayfare/core';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { FavouriteToggle } from '../../../../favourites/favourite-toggle';
 import { languageName } from '../../../../i18n/language-name';
 import { requestLanguage, serverTranslator } from '../../../../i18n/server';
@@ -13,6 +13,7 @@ import { printedCode } from '../../../../places/format';
 import { PhotoGallery } from '../../../../places/gallery';
 import { isAndroid } from '../../../../places/intent';
 import { loadPlace } from '../../../../places/load';
+import { isTourCode } from '../../../../tours/load';
 import { MenuSection } from '../../../../places/menu-section';
 import type { MenuRow } from '../../../../places/menu-section';
 import { MiniMap } from '../../../../places/mini-map';
@@ -53,7 +54,11 @@ export default async function PlacePage({ params }: Params) {
   const translator = await serverTranslator();
   const { t, tDynamic } = translator;
   const lookup = await loadPlace(code, lang);
-  if (lookup.kind === 'missing') notFound();
+  if (lookup.kind === 'missing') {
+    // One code space: a tour's code reached `/p/` (a sticker scanned while catalog was down).
+    if (await isTourCode(code)) redirect(`/t/${encodeURIComponent(code)}`);
+    notFound();
+  }
   if (lookup.kind === 'gone') return <PlaceGone area={lookup.area} near={lookup.near} />;
 
   const { place, vi, area } = lookup;

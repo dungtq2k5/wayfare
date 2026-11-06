@@ -1,5 +1,5 @@
 import { CLIENT_HEADER, APP_VERSION_HEADER } from '@wayfare/contracts';
-import { getPlacesGetQueryKey, placesByCode } from '@wayfare/api-client';
+import { codesResolve, getPlacesGetQueryKey, placesByCode } from '@wayfare/api-client';
 import type { Language } from '@wayfare/contracts';
 import { router } from 'expo-router';
 import { APP_VERSION } from '../api';
@@ -90,4 +90,14 @@ export const codeOpener = createCodeOpener<PlayerPlace>({
   },
   show: (result) => useCodeStore.setState({ result }),
   count: countScan,
+  findLocalTour: async (code) => {
+    const db = await databaseReady;
+    const [row] = await db.all<{ tour_id: string }>(
+      "SELECT tour_id FROM tour_records WHERE json_extract(record_json, '$.publicCode') = ? LIMIT 1",
+      [code],
+    );
+    return row?.tour_id ?? null;
+  },
+  resolve: async (code) => (await codesResolve(code)).data,
+  openTour: (id, code) => router.push({ pathname: '/tour/[id]', params: { id, code } }),
 });

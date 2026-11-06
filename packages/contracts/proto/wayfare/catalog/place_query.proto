@@ -152,10 +152,22 @@ message MenuItemView {
 
 message ResolvePublicCodeRequest {
   string public_code = 1;
+  // `/q/` counts a Place's scan (rdm-spec C-15); every other reader only asks.
+  bool count_scan = 2;
+}
+
+// What a code names, in the one code space of Places and tours.
+enum CodeTargetType {
+  CODE_TARGET_TYPE_UNSPECIFIED = 0;
+  CODE_TARGET_TYPE_PLACE = 1;
+  CODE_TARGET_TYPE_TOUR = 2;
 }
 
 message ResolvePublicCodeResponse {
   bool exists = 1;
+  // Set when the code exists.
+  CodeTargetType target_type = 2;
+  string target_id = 3;
 }
 
 message ListCategoriesRequest {}

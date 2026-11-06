@@ -112,6 +112,41 @@ describe('a correction', () => {
     expect(published.at(-1)!.audio).toBeDefined();
   });
 
+  it("corrects a tour's text, published as text only (rdm-spec N-7)", async () => {
+    const tour = services.catalog.tour();
+    await services.corrections.putCorrection(
+      {
+        targetType: localizationGrpc.LocalizationTargetType.LOCALIZATION_TARGET_TYPE_TOUR,
+        targetId: tour.id,
+        lang: 'en',
+        sourceContentHash: tour.hash,
+        name: 'District 1 landmarks',
+        description: 'A walk through the centre.',
+      },
+      staff(),
+    );
+    await services.queue.drain();
+    const published = (await readyEvents()).filter((event) => event.targetType === 'TOUR');
+    expect(published.at(-1)).toMatchObject({
+      translationSource: TranslationSource.HUMAN,
+      text: { title: 'District 1 landmarks', description: 'A walk through the centre.' },
+    });
+    expect(published.at(-1)!.audio).toBeUndefined();
+    // The correction screen reads the tour's languages with no audio.
+    const screen = JSON.parse(
+      (
+        await services.corrections.getLocalizationOverview(
+          {
+            targetType: localizationGrpc.LocalizationTargetType.LOCALIZATION_TARGET_TYPE_TOUR,
+            targetId: tour.id,
+          },
+          staff(),
+        )
+      ).overviewJson,
+    ) as LocalizationOverview;
+    expect(screen.languages.map((row) => [row.lang, row.audioStatus])).toEqual([['en', null]]);
+  });
+
   it('refuses a stale hash, the source language and an unknown target', async () => {
     const target = place();
     expect((await errorOf(put(target.id, 'f'.repeat(64)))).code).toBe(

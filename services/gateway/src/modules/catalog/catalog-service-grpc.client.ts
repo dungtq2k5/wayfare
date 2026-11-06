@@ -25,6 +25,8 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
   readonly favorites: GrpcServiceCaller<catalogGrpc.FavoriteServiceClient>;
   /** catalog's internal reads (api-endpoints-plan §12.2): Place summaries by id. */
   readonly places: GrpcServiceCaller<catalogGrpc.PlaceServiceClient>;
+  readonly tourAdmin: GrpcServiceCaller<catalogGrpc.TourAdminServiceClient>;
+  readonly tourQueries: GrpcServiceCaller<catalogGrpc.TourQueryServiceClient>;
 
   constructor(@Inject(CATALOG_GRPC) grpc: ClientGrpc) {
     this.placeQueries = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_QUERY_SERVICE_NAME);
@@ -38,6 +40,8 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.offline = new GrpcServiceCaller(grpc, catalogGrpc.OFFLINE_SERVICE_NAME);
     this.favorites = new GrpcServiceCaller(grpc, catalogGrpc.FAVORITE_SERVICE_NAME);
     this.places = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_SERVICE_NAME);
+    this.tourAdmin = new GrpcServiceCaller(grpc, catalogGrpc.TOUR_ADMIN_SERVICE_NAME);
+    this.tourQueries = new GrpcServiceCaller(grpc, catalogGrpc.TOUR_QUERY_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -52,5 +56,7 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.offline.init();
     this.favorites.init();
     this.places.init();
+    this.tourAdmin.init();
+    this.tourQueries.init();
   }
 }

@@ -13,7 +13,7 @@ describe('the navigation (K5)', () => {
   it('gives an admin every staff group, queues first (C6)', () => {
     expect(labels(SYSTEM_ROLE_GRANTS[SystemRole.ADMIN])).toEqual([
       ['nav.group.review', ['nav.submissions', 'nav.registrations']],
-      ['nav.group.catalog', ['nav.places', 'nav.categories', 'nav.areas']],
+      ['nav.group.catalog', ['nav.places', 'nav.tours', 'nav.categories', 'nav.areas']],
       ['nav.group.narration', ['nav.narrationJobs', 'nav.pronunciation', 'nav.corrections']],
       ['nav.group.people', ['nav.users', 'nav.recoveries', 'nav.audit']],
       ['nav.group.billing', ['nav.billingAccounts', 'nav.stripeEvents']],

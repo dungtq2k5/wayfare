@@ -10,7 +10,7 @@ import { grantBackground, runStartFlow } from './permissions';
 import type { PermissionDeps } from './permissions';
 import { askWalkPrompt } from './prompt';
 import { useWalkStore } from './store';
-import { WALK_CARD_LIFT } from './toast-lift';
+import { walkCardLift } from './toast-lift';
 import { refreshPermission } from '../location/location-store';
 
 /** The platform behind the start flow: Android's permissions and the tourist's answers. */
@@ -58,7 +58,7 @@ export async function startWalk(): Promise<void> {
   if (outcome.background)
     showToast(tourist().t('walk.toast.on'), undefined, undefined, {
       icon: CircleCheck,
-      lift: WALK_CARD_LIFT,
+      lift: walkCardLift(),
     });
 }
 

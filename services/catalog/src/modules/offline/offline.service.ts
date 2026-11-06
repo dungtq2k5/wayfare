@@ -7,8 +7,10 @@ import {
   datasetVersionFromWire,
   MapPackStatus,
   PlaceStatus,
+  TourStatus,
   zOfflineManifest,
   zOfflineManifestDiff,
+  zPhotoVariants,
   zPlaceSyncRecord,
   zRequestedLanguage,
   zUuidV7,
@@ -27,9 +29,11 @@ import { STORAGE_PROVIDER } from '@wayfare/nest-common/storage';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
 import { Counter } from 'prom-client';
 import { z } from 'zod';
+import { Prisma } from '../../../generated/prisma/client';
 import type { Env } from '../../config/env.schema';
 import { objectsOf, partsOf } from '../map-packs/domain/map-pack-objects';
 import { PlaceQueriesService } from '../place-queries/place-queries.service';
+import { toPhotoView } from '../places/place.mapper';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
 import { mapPackFiles, mediaOf, offlineMapPack, snapshotPath, totalBytes } from './domain/manifest';
@@ -121,6 +125,7 @@ export class OfflineService {
 
     const snapshot = await this.snapshot(area, fields.lang, cap);
     const media = mediaOf(snapshot.records, (object) => toOfflineAsset(object, this.mediaBase));
+    media.photos = await this.withTourCovers(area.id, media.photos);
     const mapPack = pack === null ? null : offlineMapPack(pack.version, pack.parts, this.mediaBase);
     const manifest: OfflineManifest = zOfflineManifest.parse({
       areaId: area.id,
@@ -190,6 +195,7 @@ export class OfflineService {
     }
     const records = await this.records(changed, fields.lang);
     const media = mediaOf(records, (object) => toOfflineAsset(object, this.mediaBase));
+    media.photos = await this.withTourCovers(area.id, media.photos);
     const snapshot = await this.snapshot(area, fields.lang, cap);
     const diff: OfflineManifestDiff = zOfflineManifestDiff.parse({
       areaId: area.id,
@@ -248,6 +254,33 @@ export class OfflineService {
    * NDJSON. Named by the area's own last change and its live count, so a change elsewhere reuses
    * the file; generated once under a lock on its path, never rewritten.
    */
+  /**
+   * The area's live tours' covers beside the Places' photos (api-endpoints-plan §2.4), so a
+   * downloaded area's tours open whole offline; each asset once. A device skips what it holds.
+   */
+  private async withTourCovers(
+    areaId: string,
+    photos: readonly OfflineAsset[],
+  ): Promise<OfflineAsset[]> {
+    const tours = await this.prisma.tour.findMany({
+      where: {
+        areaId,
+        status: TourStatus.ACTIVE,
+        deletedAt: null,
+        coverVariants: { not: Prisma.DbNull },
+      },
+      select: { coverVariants: true },
+      orderBy: { id: 'asc' },
+    });
+    const byPath = new Map(photos.map((photo) => [photo.path, photo]));
+    for (const tour of tours) {
+      const card = toPhotoView(zPhotoVariants.parse(tour.coverVariants).card, this.mediaBase);
+      const asset = toOfflineAsset(card, this.mediaBase);
+      byPath.set(asset.path, asset);
+    }
+    return [...byPath.values()];
+  }
+
   private async snapshot(
     area: OfflineArea,
     lang: RequestedLanguage,

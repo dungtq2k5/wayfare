@@ -1,0 +1,101 @@
+# Tours on Android (§3.4 item 1): Explore → Tours → District 1 landmarks → Start this tour → a
+# simulated walk: stop 1 heard, the Tour bar moves on; every stop heard → the finished sheet once.
+#
+# Before the flow, as walk/walk.yaml: location services on, the app's location and notification
+# permissions granted, a Diagnostics build, the local stack with the seeded tours, an app that has
+# finished `first-run/first-run.yaml`. English phone. Run by tours/system.sh.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+# A walk left on by an earlier run is stopped first: a Place it already narrated would not play again.
+- tapOn: 'Map'
+- runFlow:
+    when:
+      visible: 'Stop the walk'
+    commands:
+      - tapOn:
+          text: 'Stop the walk'
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible: 'Start walk'
+          timeout: 40000
+- tapOn: 'Explore'
+- tapOn: 'Tours'
+- extendedWaitUntil:
+    visible: '.*Danh thắng Quận 1.*'
+    timeout: 20000
+# The editors' note closes the list.
+- scrollUntilVisible:
+    element: "Tours are chosen by Wayfare's editors.*"
+- scrollUntilVisible:
+    element: '.*Danh thắng Quận 1.*'
+    direction: UP
+- tapOn: '.*Danh thắng Quận 1.*'
+- assertVisible: 'Tour · .*'
+- assertVisible: 'Stops'
+# A walk the tour followed on an earlier run: it is walked again.
+- runFlow:
+    when:
+      visible: 'Walk it again'
+    commands:
+      - tapOn: 'Walk it again'
+      # A finished tour starts again where it is: back to the Map, where the bar shows it.
+      - back
+      - tapOn: 'Map'
+- runFlow:
+    when:
+      visible: 'Continue the tour'
+    commands:
+      - tapOn: 'Continue the tour'
+- runFlow:
+    when:
+      visible: 'Start this tour'
+    commands:
+      - tapOn: 'Start this tour'
+# The tour starts the walk and shows the Map with its route and the Tour bar.
+# A tour continued from an earlier run keeps its progress: the bar names whichever stop is next.
+- extendedWaitUntil:
+    visible: 'Next: [1-6] · .*'
+    timeout: 20000
+- runFlow: steps/next-place.yaml
+- extendedWaitUntil:
+    visible: '.* · [1-6] of 6 heard'
+    timeout: 20000
+# The rest by code, each to its end: on a stack with more Places than the seed, a walk may pick
+# another Place near a stop. The last one heard opens the finished sheet once, on the tour.
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'QK4V1TCX' } }
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'NQ22ZQXK' } }
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'GP7R4MY3' } }
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'SCT7J6K3' } }
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'EHFZVTBV' } }
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'FKYRQVBJ' } }
+# The last code's Place sheet covers the bar: the tour opens from Explore.
+- tapOn: 'Explore'
+- tapOn: 'Tours'
+- scrollUntilVisible:
+    element: '.*Danh thắng Quận 1.*'
+    direction: UP
+- tapOn: '.*Danh thắng Quận 1.*'
+- extendedWaitUntil:
+    visible: 'You finished .*'
+    timeout: 20000
+- assertVisible: 'All 6 stops heard, in .*'
+- tapOn: 'Done'
+- assertNotVisible: 'You finished .*'
+- assertVisible: 'Walk it again'
+# Once: back on the tour, the sheet doesn't open again.
+- back
+- tapOn: '.*Danh thắng Quận 1.*'
+- assertVisible: 'Walk it again'
+- assertNotVisible: 'You finished .*'
+- back
+- tapOn: 'Map'
+- assertVisible: 'All 6 stops heard'
+# The walk stops; the tour is left as it is.
+- tapOn:
+    text: 'Stop the walk'
+    retryTapIfNoChange: false

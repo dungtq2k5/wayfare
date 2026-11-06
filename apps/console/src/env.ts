@@ -26,6 +26,9 @@ export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
  */
 export const LEGAL_BASE_URL = process.env.NEXT_PUBLIC_LEGAL_BASE_URL ?? 'https://wayfare.app';
 
+/** The tourist web's origin: a tour's or a Place's shareable link (`/t/<code>`, `/p/<code>`). */
+export const LINK_BASE_URL = process.env.NEXT_PUBLIC_LINK_BASE_URL ?? 'https://wayfare.app';
+
 /** Development-only aids (the fake Google hook, `/dev/patterns`); dead code in a production build. */
 export const DEVELOPMENT = process.env.NODE_ENV !== 'production';
 

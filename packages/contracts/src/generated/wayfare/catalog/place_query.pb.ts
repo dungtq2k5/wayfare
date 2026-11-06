@@ -22,6 +22,14 @@ import {
 
 export const protobufPackage = "wayfare.catalog";
 
+/** What a code names, in the one code space of Places and tours. */
+export enum CodeTargetType {
+  CODE_TARGET_TYPE_UNSPECIFIED = 0,
+  CODE_TARGET_TYPE_PLACE = 1,
+  CODE_TARGET_TYPE_TOUR = 2,
+  UNRECOGNIZED = -1,
+}
+
 export interface SyncPlacesRequest {
   areaId: string;
   /** The requested tag, as sent; any well-formed BCP 47 tag. */
@@ -157,10 +165,15 @@ export interface MenuItemView {
 
 export interface ResolvePublicCodeRequest {
   publicCode: string;
+  /** `/q/` counts a Place's scan (rdm-spec C-15); every other reader only asks. */
+  countScan: boolean;
 }
 
 export interface ResolvePublicCodeResponse {
   exists: boolean;
+  /** Set when the code exists. */
+  targetType: CodeTargetType;
+  targetId: string;
 }
 
 export interface ListCategoriesRequest {

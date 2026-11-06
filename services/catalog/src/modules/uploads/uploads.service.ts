@@ -107,8 +107,7 @@ export class UploadsService {
     const actor = requireAccountContext(context);
     const fields = parseRpcRequest(createFields, request);
     const purpose = requireProtoEnum(uploadPurposeProto, fields.purpose, '/purpose');
-    // Tour covers arrive with tours.
-    if (purpose !== UploadPurpose.PLACE_PHOTO) {
+    if (purpose !== UploadPurpose.PLACE_PHOTO && purpose !== UploadPurpose.TOUR_COVER) {
       throw rpcError('VALIDATION_FAILED', {
         issues: [{ path: '/purpose', code: 'invalid_value' }],
       });
@@ -157,6 +156,7 @@ export class UploadsService {
   async importOriginal(
     context: RequestContext,
     file: { readonly bytes: Buffer; readonly contentType: string },
+    purpose: UploadPurpose.PLACE_PHOTO | UploadPurpose.TOUR_COVER = UploadPurpose.PLACE_PHOTO,
   ): Promise<{ uploadId: string; sha256: string }> {
     const actor = requireAccountContext(context);
     const contentType = UPLOAD_CONTENT_TYPES.find((type) => type === file.contentType);
@@ -166,7 +166,7 @@ export class UploadsService {
     await this.prisma.pendingUpload.create({
       data: {
         id,
-        purpose: UploadPurpose.PLACE_PHOTO,
+        purpose,
         uploaderUserId: actor.userId,
         objectPath: originalPath(id),
         declaredContentType: contentType,

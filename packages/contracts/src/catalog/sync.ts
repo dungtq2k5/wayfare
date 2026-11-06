@@ -32,7 +32,7 @@ const mediaObjectSchema = (mode: ObjectMode) =>
 export const zMediaObject = mediaObjectSchema('strict');
 
 /** A served photo variant. */
-const photoViewSchema = (mode: ObjectMode) =>
+export const photoViewSchema = (mode: ObjectMode) =>
   objectOf(mode, {
     url: z.url(),
     sha256: zSha256Hex,
@@ -60,7 +60,7 @@ export type PlaceAudio = z.output<typeof zPlaceAudio>;
  * An enum in the server's form, a plain string in the stored form: a value the server adds later
  * is as breaking to an installed app as a key it adds (conventions §12.2).
  */
-const openEnum = <M extends ObjectMode, T extends z.ZodType>(mode: M, closed: T) =>
+export const openEnum = <M extends ObjectMode, T extends z.ZodType>(mode: M, closed: T) =>
   (mode === 'strict' ? closed : z.string().min(1)) as M extends 'strict' ? T : z.ZodString;
 
 /** The localized text of a record and where it came from (api-endpoints-plan §0.6). */

@@ -143,13 +143,6 @@ export function checkEventTopology(
  */
 export const PHASE_3_OWED = {
   auditActions: new Set([
-    'TOUR_CREATED',
-    'TOUR_UPDATED',
-    'TOUR_STOPS_REPLACED',
-    'TOUR_ACTIVATED',
-    'TOUR_DEACTIVATED',
-    'TOUR_DELETED',
-    'TOUR_RESTORED',
     'PAYOUT_ACCOUNT_CREATED',
     'VOUCHER_OFFER_CREATED',
     'VOUCHER_OFFER_UPDATED',

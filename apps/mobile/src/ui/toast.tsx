@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { Icon } from '../theme/icon';
 import { useDuration } from '../theme/use-duration';
 import { space } from '@wayfare/design-tokens/tokens';
-import { TAB_BAR_CLEARANCE } from './layout';
+import { MAP_TOP_TOAST, TAB_BAR_CLEARANCE } from './layout';
 import { actionAccepted } from './toast-grace';
 
 interface ToastState {
@@ -17,6 +17,8 @@ interface ToastState {
     icon?: LucideIcon;
     /** Extra height above the usual spot, so the toast clears a control that sits there. */
     lift?: number;
+    /** `top`: under the Map's top row, where the bottom is full (the Tour bar, the walk card). */
+    placement?: 'top';
     action?: { label: string; onPress: () => void };
   } | null;
 }
@@ -31,7 +33,7 @@ export function showToast(
   message: string,
   action?: { label: string; onPress: () => void },
   ms = 4_000,
-  options: { icon?: LucideIcon; lift?: number } = {},
+  options: { icon?: LucideIcon; lift?: number; placement?: 'top' } = {},
 ): void {
   counter += 1;
   clearTimeout(timer);
@@ -67,7 +69,9 @@ export function ToastHost() {
         position: 'absolute',
         left: space[4],
         right: space[4],
-        bottom: TAB_BAR_CLEARANCE + (toast.lift ?? 0),
+        ...(toast.placement === 'top'
+          ? { top: MAP_TOP_TOAST }
+          : { bottom: TAB_BAR_CLEARANCE + (toast.lift ?? 0) }),
       }}
       className="flex-row items-center gap-3 rounded-lg bg-foreground px-4 py-3 elevation-2"
     >

@@ -234,7 +234,7 @@ export class AdminPlacesController {
   @NoStore()
   @ApiOperation({ summary: 'Soft-delete a Place. Its code stays reserved.' })
   @ApiEnvelope(null)
-  @ApiErrors(...WRITE_ERRORS, 'PLACE_HAS_LIVE_VOUCHERS')
+  @ApiErrors(...WRITE_ERRORS, 'PLACE_HAS_LIVE_VOUCHERS', 'PLACE_IN_ACTIVE_TOUR')
   async delete(
     @Ctx() context: AccountContext,
     @Param() params: AdminPlaceIdParamDto,

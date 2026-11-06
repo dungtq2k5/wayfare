@@ -1,0 +1,12 @@
+# The first run of a fresh install whose first sync fails: run with catalog stopped (the privacy
+# step registers the install through identity; the sync, which needs catalog, doesn't land). Then
+# steps/never-synced.yaml, offline.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Continue in English'
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 30000

@@ -38,6 +38,9 @@ describe('what varies, normalised', () => {
     );
     expect(normalizeText('J9P0 QGXC')).toBe('AB12 CD34');
     expect(normalizeText('J9P0 QGXC · Quận 1 · Temple')).toBe('AB12 CD34 · Quận 1 · Temple');
+    expect(normalizeText('J9P0\u00a0QGXC · District\u00a01 · 1\u00a0h\u00a030')).toBe(
+      'AB12\u00a0CD34 · District\u00a01 · 1\u00a0h\u00a030',
+    );
     expect(normalizeText('Sent by Minh Tran · 3 days ago · 2R6X WHAS · Quận 4')).toBe(
       'Sent by Minh Tran · 3 days ago · AB12 CD34 · Quận 4',
     );

@@ -288,16 +288,18 @@ describe('GetPlace, GetPlaceByCode, ResolvePublicCode', () => {
   it('counts a scan for any Place with the code, live or not, per business day', async () => {
     const place = await live({ status: PlaceStatus.INACTIVE });
     const anonymous = buildAnonymousContext();
-    expect(await queries.resolvePublicCode({ publicCode: place.publicCode }, anonymous)).toEqual({
+    const scan = (publicCode: string) =>
+      queries.resolvePublicCode({ publicCode, countScan: true }, anonymous);
+    expect(await scan(place.publicCode)).toEqual({
       exists: true,
+      targetType: catalogGrpc.CodeTargetType.CODE_TARGET_TYPE_PLACE,
+      targetId: place.id,
     });
-    await queries.resolvePublicCode({ publicCode: place.publicCode.toLowerCase() }, anonymous);
-    expect(await queries.resolvePublicCode({ publicCode: 'ZZZZZZZZ' }, anonymous)).toEqual({
-      exists: false,
-    });
-    expect(await queries.resolvePublicCode({ publicCode: '<script>' }, anonymous)).toEqual({
-      exists: false,
-    });
+    await scan(place.publicCode.toLowerCase());
+    // Only asking — the app's scanner, `GET /codes/` — counts nothing.
+    await queries.resolvePublicCode({ publicCode: place.publicCode, countScan: false }, anonymous);
+    expect(await scan('ZZZZZZZZ')).toEqual({ exists: false, targetType: 0, targetId: '' });
+    expect(await scan('<script>')).toEqual({ exists: false, targetType: 0, targetId: '' });
     const scans = await prisma.placeQrScanDaily.findMany();
     expect(scans).toEqual([
       { placeId: place.id, day: new Date(`${businessDay(new Date())}T00:00:00Z`), scans: 2 },

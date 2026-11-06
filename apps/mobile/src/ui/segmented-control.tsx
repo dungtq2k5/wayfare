@@ -9,6 +9,8 @@ interface SegmentedControlProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   label: string;
+  /** Rows at large text; off where the labels are short enough to sit side by side at 2× (TM1). */
+  stackAtLargeText?: boolean;
 }
 
 /**
@@ -20,8 +22,10 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   label,
+  stackAtLargeText = true,
 }: SegmentedControlProps<T>) {
-  const rows = useWindowDimensions().fontScale >= LARGE_TEXT_SCALE;
+  const { fontScale } = useWindowDimensions();
+  const rows = stackAtLargeText && fontScale >= LARGE_TEXT_SCALE;
   if (rows) {
     return (
       <View accessibilityRole="radiogroup" accessibilityLabel={label} className="gap-1">

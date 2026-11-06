@@ -79,6 +79,11 @@ const COALESCED: string = SynthesisTaskStatus.COALESCED;
 const PAUSED: string = SynthesisJobStatus.PAUSED;
 const TRANSLATE: string = SynthesisStage.TRANSLATE;
 const PLACE: string = LocalizationTargetType.PLACE;
+const MENU_ITEM: string = LocalizationTargetType.MENU_ITEM;
+
+/** What narration makes text for: a Place, a menu line or a tour (rdm-spec N-1). */
+type NarrationTarget =
+  LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM | LocalizationTargetType.TOUR;
 
 const LIVE_UNPAUSED = new Set<string>([SynthesisJobStatus.QUEUED, SynthesisJobStatus.RUNNING]);
 
@@ -605,10 +610,11 @@ export class TasksService implements OnApplicationBootstrap {
       return;
     }
     const firstPass = task.stage === TRANSLATE;
+    // A tour's title and description take a Place's bounds; only a menu line's are short.
     const text = await this.synthesis.localizedText(
       { ...task, targetId: task.targetId! },
       { name: source.name, description: source.description },
-      task.targetType === PLACE,
+      task.targetType !== MENU_ITEM,
     );
     const isPlace = task.targetType === PLACE;
     const voiced = isPlace && task.job.includeAudio;
@@ -618,7 +624,7 @@ export class TasksService implements OnApplicationBootstrap {
     const translated = text.provider === null ? {} : { translationProvider: text.provider };
     const carryOn = await this.guarded(task, async (tx, fx) => {
       if (!voiced) {
-        // A menu item, or a Place asked for text only: publish once, and done.
+        // A menu item, a tour, or a Place asked for text only: publish once, and done.
         if (text.source !== TranslationSource.HUMAN || !isPlace)
           await this.publishReady(tx, task, text, null);
         await this.finish(tx, task, SynthesisTaskStatus.SUCCEEDED, translated, fx);
@@ -704,6 +710,11 @@ export class TasksService implements OnApplicationBootstrap {
       if (item.contentHash !== task.sourceContentHash) return { kind: 'gone' };
       return { kind: 'text', name: item.nameVi, description: item.descriptionVi ?? null };
     }
+    const tour = response.tour ?? null;
+    if (tour !== null) {
+      if (tour.deleted || tour.contentHash !== task.sourceContentHash) return { kind: 'gone' };
+      return { kind: 'text', name: tour.titleVi, description: tour.descriptionVi };
+    }
     return { kind: 'gone' };
   }
 
@@ -755,20 +766,23 @@ export class TasksService implements OnApplicationBootstrap {
     text: LocalizedText,
     audio: Audio | null,
   ): Promise<void> {
-    const isPlace = task.targetType === PLACE;
+    const targetType = task.targetType as NarrationTarget;
     const input: EventInput<typeof NARRATION_LOCALIZATION_READY> = {
       occurredAt: new Date().toISOString(),
-      targetType: isPlace ? LocalizationTargetType.PLACE : LocalizationTargetType.MENU_ITEM,
+      targetType,
       targetId: task.targetId!,
       lang: task.lang,
       sourceContentHash: task.sourceContentHash,
       translationSource: text.source,
-      text: isPlace
-        ? { name: text.name, description: text.description ?? text.name }
-        : {
-            name: text.name,
-            ...(text.description === null ? {} : { description: text.description }),
-          },
+      text:
+        targetType === LocalizationTargetType.PLACE
+          ? { name: text.name, description: text.description ?? text.name }
+          : targetType === LocalizationTargetType.TOUR
+            ? { title: text.name, description: text.description ?? text.name }
+            : {
+                name: text.name,
+                ...(text.description === null ? {} : { description: text.description }),
+              },
       ...(audio === null ? {} : { audio: { ...audio, sourceContentHash: task.sourceContentHash } }),
     };
     await this.outbox.add(tx, NARRATION_LOCALIZATION_READY, input);
@@ -814,10 +828,7 @@ export class TasksService implements OnApplicationBootstrap {
       const { attempts, final } = outcome;
       await this.outbox.add(tx, NARRATION_LOCALIZATION_FAILED, {
         occurredAt: new Date().toISOString(),
-        targetType:
-          task.targetType === PLACE
-            ? LocalizationTargetType.PLACE
-            : LocalizationTargetType.MENU_ITEM,
+        targetType: task.targetType as NarrationTarget,
         targetId: task.targetId!,
         lang: task.lang,
         stage: now.stage as SynthesisStage,

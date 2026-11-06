@@ -66,6 +66,10 @@ const NO_SECURITY = new Set([
   // A link's page reads these while the server renders it, before the browser has a device.
   'GET /api/v1/places/{id}',
   'GET /api/v1/places/by-code/{publicCode}',
+  'GET /api/v1/tours/{id}',
+  'GET /api/v1/tours/by-code/{publicCode}',
+  // A code a page or the app resolves: a Place's or a tour's.
+  'GET /api/v1/codes/{publicCode}',
   // An `<audio src>`: the ticket in its URL stands in for the device and the client header.
   'GET /api/v1/narration/tts/stream/{ticket}',
 ]);
@@ -75,7 +79,9 @@ const DEVICE_ROUTES = new Set([
   'DELETE /api/v1/devices/me',
   'POST /api/v1/devices/me/legal-acceptances',
   'GET /api/v1/sync/places',
+  'GET /api/v1/sync/tours',
   'GET /api/v1/places/nearby',
+  'GET /api/v1/tours',
   'POST /api/v1/narration/on-demand',
   'POST /api/v1/narration/hotset',
   'POST /api/v1/narration/prefetch',
@@ -109,6 +115,7 @@ const ACCEPTED_WITH_DATA = new Set(['POST /api/v1/narration/prefetch']);
 const NON_JSON = new Map([
   ['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml'],
   ['GET /api/v1/owner/places/{id}/qr', 'image/svg+xml'],
+  ['GET /api/v1/admin/tours/{id}/qr', 'image/svg+xml'],
   ['POST /api/v1/admin/narration/pronunciations/preview', 'audio/mpeg'],
   ['GET /api/v1/narration/tts/stream', 'audio/mpeg'],
   ['GET /api/v1/narration/tts/stream/{ticket}', 'audio/mpeg'],
@@ -120,9 +127,10 @@ describe('OpenAPI contract', () => {
     // 152, Continue with Google's five, and round 35's four reads (a recovery, a dictionary
     // entry, the corrections and the stuck Places), round 35a's four billing reads (a plan, a price
     // look-up, an unpin preview, an event), round 36's owner QR sticker, round 37's stream ticket
-    // and the stream it opens, round 38's owner boosts (read and set); the dev routes stay out of
+    // and the stream it opens, round 38's owner boosts (read and set), round 39's tours — ten for
+    // staff, three for tourists, their sync — and the code resolver; the dev routes stay out of
     // the document.
-    expect(names).toHaveLength(170);
+    expect(names).toHaveLength(185);
     expect(names.some((name) => name.includes('/dev/'))).toBe(false);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);

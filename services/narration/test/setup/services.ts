@@ -124,6 +124,36 @@ export class FakeCatalog {
     return { id, hash };
   }
 
+  /** Adds or replaces a tour's text. */
+  tour(input: { id?: string; title?: string; deleted?: boolean } = {}): {
+    id: string;
+    hash: string;
+  } {
+    const id = input.id ?? newId();
+    const title = input.title ?? 'Danh thắng Quận 1';
+    const description = 'Một vòng đi bộ qua trung tâm.';
+    const hash = sha(`${title}\n${description}`);
+    this.sources.set(id, {
+      tour: {
+        status: 3,
+        deleted: input.deleted ?? false,
+        contentHash: hash,
+        titleVi: title,
+        descriptionVi: description,
+        localizations: [
+          {
+            lang: 'en',
+            sourceContentHash: hash,
+            translationSource: translationSourceProto.toProto(TranslationSource.MACHINE),
+            title: 'District 1 landmarks',
+            description: 'A walk through the centre.',
+          },
+        ],
+      },
+    });
+    return { id, hash };
+  }
+
   localizationSource(
     _type: string,
     id: string,

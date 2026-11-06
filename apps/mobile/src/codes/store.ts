@@ -7,6 +7,8 @@ export interface PendingCode {
   readonly source: CodeSource;
   /** From a sticker's `/q/` URL: counted as a scan. */
   readonly printed: boolean;
+  /** From a tour's `/t/` link. */
+  readonly tour?: boolean;
 }
 
 /** What the Map shows for a code that did not open a Place, as a sheet with a next step. */
@@ -14,8 +16,12 @@ export type CodeResult =
   | {
       readonly kind: 'looking-up' | 'no-longer' | 'no-such-code' | 'offline';
       readonly code: string;
+      /** Offline with a tour's link that isn't on the phone yet (TM6c). */
+      readonly tour?: boolean;
     }
-  | { readonly kind: 'bad-link' };
+  | { readonly kind: 'bad-link' }
+  /** A tour no longer on Wayfare (TM5b), with its area for *See tours* when the gateway named it. */
+  | { readonly kind: 'tour-gone'; readonly areaCode: string | null };
 
 /** A Place a code opened, for the Map to move to and show at half. */
 export interface OpenedPlace {

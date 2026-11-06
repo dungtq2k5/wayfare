@@ -20,7 +20,7 @@ import {
 } from './limits';
 
 /** User text, normalized before its bounds are checked (conventions §11.1). */
-const zText = (max: number, options: { singleLine?: boolean } = {}) =>
+export const zText = (max: number, options: { singleLine?: boolean } = {}) =>
   z
     .string()
     .transform(normalizeText)

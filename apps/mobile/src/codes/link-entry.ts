@@ -15,7 +15,7 @@ export function routeForLink(path: string): string {
   const parsed = parseLink(path, { qr: QR_BASE_URL, link: LINK_BASE_URL });
   switch (parsed.kind) {
     case 'code':
-      setPending({ code: parsed.code, source: 'link', printed: parsed.printed });
+      setPending({ code: parsed.code, source: 'link', printed: parsed.printed, tour: parsed.tour });
       return MAP_PATH;
     case 'bad-link':
       useCodeStore.setState({ result: { kind: 'bad-link' } });

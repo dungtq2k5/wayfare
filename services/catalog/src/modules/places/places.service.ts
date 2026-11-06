@@ -35,6 +35,7 @@ import {
   SubmissionKind,
   SubmissionStatus,
   SynthesisTrigger,
+  TourStatus,
   trimTrailingSlashes,
   UploadPurpose,
   zMenuInput,
@@ -993,7 +994,13 @@ export class PlacesService {
     });
     if (found === null) throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
     if (found.deletedAt !== null) throw rpcError('INVALID_STATE', { status: DELETED });
-    // An Editorial Place cannot have offers; tours are checked once they exist.
+    // A live tour still lists it (api-endpoints-plan §3.5): take it off the tour first. A tour that
+    // isn't live keeps the stop as a gap (rdm-spec C-10).
+    const listed = await this.prisma.tourStop.count({
+      where: { placeId, tour: { status: TourStatus.ACTIVE, deletedAt: null } },
+    });
+    if (listed > 0) throw rpcError('PLACE_IN_ACTIVE_TOUR');
+    // An Editorial Place cannot have offers.
     if (found.kind === VENUE) {
       const vouchers = await this.billing.countLiveVouchers(placeId);
       if (vouchers > 0) throw rpcError('PLACE_HAS_LIVE_VOUCHERS');
@@ -2148,7 +2155,7 @@ function contentOf(payload: PlaceSubmissionPayload): PlaceContentInput {
 }
 
 /** Every object path a stored `PhotoVariants` names. */
-function objectPathsOf(variants: Prisma.JsonValue): string[] {
+export function objectPathsOf(variants: Prisma.JsonValue): string[] {
   if (typeof variants !== 'object' || variants === null || Array.isArray(variants)) return [];
   return Object.values(variants).flatMap((variant) =>
     typeof variant === 'object' &&
@@ -2164,7 +2171,7 @@ const escapeXml = (value: string) =>
   value.replace(/[<>&'"]/g, (character) => `&#${character.charCodeAt(0)};`);
 
 /** A print-ready sticker: the QR, then the code in a monospace font. */
-async function stickerSvg(url: string, code: string): Promise<string> {
+export async function stickerSvg(url: string, code: string): Promise<string> {
   const qr = await QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'M', margin: 2 });
   const inner = qr.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
   const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(qr);

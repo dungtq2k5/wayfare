@@ -14,7 +14,7 @@ import { space } from '@wayfare/design-tokens/tokens';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
 import { useDuration } from '../theme/use-duration';
-import { MINI_PLAYER_BAND, MINI_PLAYER_CLEARANCE } from '../ui/layout';
+import { MINI_PLAYER_BAND } from '../ui/layout';
 import { ClockText } from './clock-text';
 import { narrationPlayer } from './narration-player';
 import { PlayerNote } from './player-note';
@@ -50,9 +50,9 @@ export function useControlsBottom(): number {
   const hidden = useMiniHidden();
   const playing = usePlayerStore((state) => state.current !== null);
   const drawn = usePlayerStore((state) => state.miniHeight);
-  // The band is the mini player's usual height; at large text it grows and the controls rise with it.
-  const extra = Math.max(0, drawn - MINI_PLAYER_BAND);
-  if (lift === 0) return MINI_PLAYER_CLEARANCE + extra;
+  // No band is kept: the controls rise by the mini player's drawn height while it is on screen
+  // (it grows at large text), and sit just above the tab bar while it is not.
+  if (lift === 0) return (drawn > 0 ? Math.max(MINI_PLAYER_BAND, drawn) : 0) + space[4];
   return lift + (playing && !hidden ? MINI_PLAYER_BAND : 0) + space[2];
 }
 

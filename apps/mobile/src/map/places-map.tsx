@@ -20,6 +20,8 @@ import { categoryIcon } from '../ui/categories';
 import { useHeardStore } from '../data/heard';
 import { MARKER_IMAGES } from './generated/marker-images';
 import { accuracyRadiusExpression, clusteredFeatures } from './map-logic';
+import { RouteLayers } from '../tours/route-layers';
+import type { RouteStop } from '../tours/route-layers';
 
 /** What the screen can ask of the map. */
 export interface PlacesMapHandle {
@@ -44,6 +46,8 @@ interface PlacesMapProps {
   onSelect: (placeId: string | null) => void;
   /** The camera came to rest. */
   onSettled: (view: MapView) => void;
+  /** A followed tour's route (TM3): its stops in order over the Places, which stay. */
+  route?: readonly RouteStop[];
 }
 
 /** Disc sizes in dp: the marker, the nearest's halo, the selected one. */
@@ -172,6 +176,7 @@ export function PlacesMap({
   position,
   onSelect,
   onSettled,
+  route = [],
 }: PlacesMapProps) {
   const { t } = useTourist();
   const theme = useTheme();
@@ -306,6 +311,7 @@ export function PlacesMap({
           }}
         />
       </GeoJSONSource>
+      <RouteLayers stops={route} />
       {accuracy !== null && position !== null && (
         <GeoJSONSource id="accuracy" data={accuracy}>
           <Layer

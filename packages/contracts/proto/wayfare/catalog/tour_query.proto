@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+// The tourist's tours — api-endpoints-plan §2.1 (`/sync/tours`), §2.2.
+package wayfare.catalog;
+
+import "wayfare/catalog/place_types.proto";
+import "wayfare/catalog/tour_types.proto";
+import "wayfare/common/page.proto";
+
+service TourQueryService {
+  rpc ListTours(ListToursRequest) returns (ListToursResponse);
+  rpc GetTour(GetTourRequest) returns (GetTourResponse);
+  rpc GetTourByCode(GetTourByCodeRequest) returns (GetTourByCodeResponse);
+  rpc SyncTours(SyncToursRequest) returns (SyncToursResponse);
+}
+
+message ListToursRequest {
+  string area_id = 1;
+  // The requested tag, as sent; any well-formed BCP 47 tag.
+  string lang = 2;
+  wayfare.common.PageRequest page = 3;
+}
+
+message ListToursResponse {
+  repeated TourSummary tours = 1;
+  wayfare.common.CursorPage page = 2;
+}
+
+message GetTourRequest {
+  string tour_id = 1;
+  string lang = 2;
+}
+
+message GetTourByCodeRequest {
+  string public_code = 1;
+  string lang = 2;
+}
+
+message GetTourResponse {
+  TourDetail tour = 1;
+}
+
+message GetTourByCodeResponse {
+  TourDetail tour = 1;
+}
+
+message TourDetail {
+  TourSummary summary = 1;
+  PhotoVariantViews cover = 2;
+  repeated TourStopView stops = 3;
+}
+
+message SyncToursRequest {
+  string area_id = 1;
+  string lang = 2;
+  // 0 for a first sync.
+  int64 since = 3;
+}
+
+message SyncToursResponse {
+  repeated TourSyncRecord tours = 1;
+  repeated string removed_tour_ids = 2;
+  int64 dataset_version = 3;
+  bool complete = 4;
+}
+
+// What the phone holds per tour. The stops are Place ids by position: the phone decides which are
+// live from its own Places, as the server does.
+message TourSyncRecord {
+  string id = 1;
+  string public_code = 2;
+  string area_id = 3;
+  TourText text = 4;
+  PhotoView cover = 5;
+  int32 estimated_minutes = 6;
+  int32 distance_m = 7;
+  repeated TourSyncStop stops = 8;
+  int64 sync_version = 9;
+}
+
+message TourSyncStop {
+  int32 position = 1;
+  string place_id = 2;
+}

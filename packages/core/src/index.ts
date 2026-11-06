@@ -10,3 +10,5 @@ export * from './hours/opening-state';
 export * from './ranking/distance';
 export * from './ranking/nearby';
 export * from './ranking/walking';
+export * from './tours/progress';
+export * from './tours/tour-stops';

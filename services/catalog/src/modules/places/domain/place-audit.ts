@@ -20,6 +20,8 @@ export function placeAuditRecord(facts: {
   readonly metadata?: AuditRecordPayload['metadata'];
   readonly origin: PlaceAuditOrigin;
   readonly now: Date;
+  /** A tour's rows share the shape (api-endpoints-plan §3.6); a Place's by default. */
+  readonly resourceType?: AuditResourceType.PLACE | AuditResourceType.TOUR;
 }): EventInput<typeof AUDIT_RECORD> {
   return {
     occurredAt: facts.now.toISOString(),
@@ -29,7 +31,7 @@ export function placeAuditRecord(facts: {
         ? { type: facts.actor.type, userId: facts.actor.userId }
         : { type: facts.actor.type },
     action: facts.action,
-    resource: { type: AuditResourceType.PLACE, id: facts.placeId },
+    resource: { type: facts.resourceType ?? AuditResourceType.PLACE, id: facts.placeId },
     metadata: facts.metadata ?? {},
     ...(facts.origin.ip === null ? {} : { ip: facts.origin.ip }),
     ...(facts.origin.userAgent === null ? {} : { userAgent: facts.origin.userAgent }),

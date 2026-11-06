@@ -44,6 +44,8 @@ import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { CONSUMERS, EventSpine, OutboxModule, SERVICE_NAME } from './modules/outbox/outbox.module';
 import { PlaceQueriesModule } from './modules/place-queries/place-queries.module';
 import { PlacesModule } from './modules/places/places.module';
+import { TourQueriesModule } from './modules/tour-queries/tour-queries.module';
+import { ToursModule } from './modules/tours/tours.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { SystemCatalogModule } from './modules/system-catalog/system-catalog.module';
@@ -87,6 +89,8 @@ export class AppModule {
         FavoritesModule,
         UploadsModule,
         PlacesModule,
+        ToursModule,
+        TourQueriesModule,
         SubmissionsModule,
         SubmissionReviewModule,
         OwnerPlacesModule,

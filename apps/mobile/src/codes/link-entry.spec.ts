@@ -13,7 +13,12 @@ describe('routeForLink', () => {
 
   it('keeps a Place link for the Map, which opens it once', () => {
     expect(routeForLink('https://wayfare.app/p/QK4V1TCX')).toBe(MAP_PATH);
-    expect(takePending()).toEqual({ code: 'QK4V1TCX', source: 'link', printed: false });
+    expect(takePending()).toEqual({
+      code: 'QK4V1TCX',
+      source: 'link',
+      printed: false,
+      tour: false,
+    });
     expect(takePending()).toBeNull();
   });
 

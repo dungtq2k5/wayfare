@@ -22,7 +22,8 @@ import { netVisibilityChange } from '../places/domain/place-lifecycle';
 import { PlacesService } from '../places/places.service';
 import type { OwnerPlaceFrame } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { bumpSyncVersion, withSyncWrite } from '../sync/sync.service';
+import { bumpSyncVersion, bumpTourSyncVersion, withSyncWrite } from '../sync/sync.service';
+import { ToursService } from '../tours/tours.service';
 import type { CatalogTx } from '../sync/sync.service';
 
 /** The reason narration gives for a language it serves as text only — expected, never notified. */
@@ -74,6 +75,7 @@ export class LocalizationsService {
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
     private readonly places: PlacesService,
+    private readonly tours: ToursService,
   ) {}
 
   /** `narration.localization.ready` — upserts the text (and audio), and may open the gate. */
@@ -83,8 +85,10 @@ export class LocalizationsService {
         return this.applyPlace(payload, consumer);
       case LocalizationTargetType.MENU_ITEM:
         return this.applyMenuItem(payload, consumer);
+      case LocalizationTargetType.TOUR:
+        return this.applyTour(payload, consumer);
       default:
-        // Tours and offers have no table here yet.
+        // Offers have no table here yet.
         this.logger.debug({ targetType: payload.targetType }, 'localization ignored');
     }
   }
@@ -305,6 +309,55 @@ export class LocalizationsService {
         select: { lang: true },
       });
       await bumpSyncVersion(tx, item.placeId);
+    });
+  }
+
+  /**
+   * A tour's text in one language (rdm-spec C-9), by the same currency rule as a menu line's. The
+   * English text for the current hash may open the tour's gate (rdm-spec C-8); a tour has no owner,
+   * so nobody is notified.
+   */
+  private async applyTour(payload: Ready, consumer: string): Promise<void> {
+    await withSyncWrite(this.prisma, async (tx) => {
+      if (!(await this.firstDelivery(tx, consumer, payload.eventId))) return;
+      const tour = await tx.tour.findUnique({
+        where: { id: payload.targetId },
+        select: { contentHash: true },
+      });
+      if (tour === null) {
+        this.logger.warn({ tourId: payload.targetId }, 'localization for an unknown tour');
+        return;
+      }
+      const key = { tourId: payload.targetId, lang: payload.lang };
+      const row = await tx.tourLocalization.findUnique({
+        where: { tourId_lang: key },
+        select: { sourceContentHash: true },
+      });
+      const writes = localizationWrites({
+        current: tour.contentHash,
+        row:
+          row === null
+            ? null
+            : { ...row, audioStatus: AudioStatus.PENDING, audioSourceContentHash: null },
+        textHash: payload.sourceContentHash,
+        audioHash: null,
+      });
+      if (!writes.text) return;
+      const text = payload.text as { title: string; description: string };
+      const data = {
+        title: text.title,
+        description: text.description,
+        sourceContentHash: payload.sourceContentHash,
+        translationSource: payload.translationSource,
+      };
+      await tx.tourLocalization.upsert({
+        where: { tourId_lang: key },
+        create: { ...key, ...data },
+        update: data,
+        select: { lang: true },
+      });
+      if (payload.lang === 'en') await this.tours.openGateIfReady(tx, payload.targetId);
+      await bumpTourSyncVersion(tx, payload.targetId);
     });
   }
 

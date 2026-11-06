@@ -61,6 +61,7 @@ model Place {
   openingHours  PlaceOpeningHours[]
   submissions   PlaceSubmission[]
   favorites     Favorite[]
+  tourStops     TourStop[]
 
   @@index([syncVersion], map: "places_sync_version_idx")
   @@index([areaId, status], map: "places_area_status_idx")
@@ -134,6 +135,7 @@ model Area {
 
   places   Place[]
   mapPacks MapPack[]
+  tours    Tour[]
 
   @@map("areas")
 }
@@ -217,6 +219,87 @@ model MenuItemLocalization {
 
   @@id([menuItemId, lang])
   @@map("menu_item_localizations")
+}
+
+/// A curated route of Places — rdm-spec C-8. Staff-authored only; soft-deletable, the deleted row is
+/// the sync tombstone. `sync_version` and `updated_at` are written only by `bumpTourSyncVersion`.
+model Tour {
+  id                    String    @id @db.Uuid
+  /// Crockford base32, in the one code space with Places' (`public_codes`); never reused.
+  publicCode            String    @unique(map: "tours_public_code_key") @map("public_code") @db.VarChar(12)
+  areaId                String    @map("area_id") @db.Uuid
+  titleVi               String    @map("title_vi") @db.VarChar(160)
+  descriptionVi         String    @map("description_vi") @db.Text
+  /// Over the title and the description, as a Place's.
+  contentHash           String    @map("content_hash") @db.Char(64)
+  /// PhotoVariants (packages/contracts).
+  coverVariants         Json?     @map("cover_variants") @db.JsonB
+  estimatedMinutes      Int       @map("estimated_minutes") @db.SmallInt
+  /// The straight-line legs between consecutive stops, summed; recomputed on every stop change.
+  distanceM             Int       @map("distance_m")
+  isPremium             Boolean   @default(false) @map("is_premium")
+  status                String    @db.VarChar(16)
+  inactiveReason        String?   @map("inactive_reason") @db.VarChar(24)
+  activationRequestedAt DateTime? @map("activation_requested_at") @db.Timestamptz(3)
+  /// From catalog_sync_version_seq, the Places' sequence (rdm-spec §1.7).
+  syncVersion           BigInt    @map("sync_version")
+  createdById           String    @map("created_by_id") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedById           String?   @map("deleted_by_id") @db.Uuid
+
+  area          Area               @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  localizations TourLocalization[]
+  stops         TourStop[]
+
+  @@index([syncVersion], map: "tours_sync_version_idx")
+  @@index([areaId, status], map: "tours_area_status_idx")
+  @@map("tours")
+}
+
+/// A tour's text in one language — rdm-spec C-9. Written only by the
+/// narration.localization.ready consumer (ADR 0040).
+model TourLocalization {
+  tourId            String   @map("tour_id") @db.Uuid
+  lang              String   @db.VarChar(16)
+  title             String   @db.VarChar(160)
+  description       String   @db.Text
+  sourceContentHash String   @map("source_content_hash") @db.Char(64)
+  translationSource String   @map("translation_source") @db.VarChar(16)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@id([tourId, lang])
+  @@map("tour_localizations")
+}
+
+/// One stop — rdm-spec C-10. The list is replaced as a whole; positions are 0-based and contiguous.
+model TourStop {
+  tourId   String @map("tour_id") @db.Uuid
+  position Int    @db.SmallInt
+  placeId  String @map("place_id") @db.Uuid
+
+  tour  Tour  @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  place Place @relation(fields: [placeId], references: [id], onDelete: Restrict)
+
+  @@id([tourId, position])
+  @@unique([tourId, placeId], map: "tour_stops_tour_place_key")
+  @@index([placeId], map: "tour_stops_place_idx")
+  @@map("tour_stops")
+}
+
+/// The one code space of Places and tours: its key is the uniqueness, so a tour's code can never
+/// equal a Place's. Written by a trigger on every insert of either (prisma/sql/schema-objects.sql).
+model PublicCode {
+  code       String @id @db.VarChar(12)
+  /// `PLACE` or `TOUR`
+  targetType String @map("target_type") @db.VarChar(8)
+  targetId   String @map("target_id") @db.Uuid
+
+  @@unique([targetType, targetId], map: "public_codes_target_key")
+  @@map("public_codes")
 }
 
 /// One presigned upload, from signing to use — rdm-spec C-12. Private to its uploader.

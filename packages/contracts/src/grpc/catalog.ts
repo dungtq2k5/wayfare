@@ -10,6 +10,9 @@ export * from '../generated/wayfare/catalog/place_query.pb';
 export * from '../generated/wayfare/catalog/place_types.pb';
 export * from '../generated/wayfare/catalog/submission.pb';
 export * from '../generated/wayfare/catalog/taxonomy_admin.pb';
+export * from '../generated/wayfare/catalog/tour_admin.pb';
+export * from '../generated/wayfare/catalog/tour_query.pb';
+export * from '../generated/wayfare/catalog/tour_types.pb';
 export * from '../generated/wayfare/catalog/upload.pb';
 export {
   protobufPackage,

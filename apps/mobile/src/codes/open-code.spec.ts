@@ -1,5 +1,5 @@
 import { ApiError } from '@wayfare/api-client';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createCodeOpener } from './open-code';
 import type { OpenCodeDeps, ResolvedPlace } from './open-code';
 import type { CodeResult } from './store';
@@ -28,6 +28,9 @@ function harness(over: Partial<OpenCodeDeps<string>> = {}) {
     reveal: (p) => log.push(`reveal ${p.id}`),
     show: (result) => shown.push(result),
     count: (code) => log.push(`count ${code}`),
+    findLocalTour: () => Promise.resolve(null),
+    resolve: (code) => Promise.resolve({ type: 'PLACE', id: `remote-${code}` }),
+    openTour: (id, code) => log.push(`tour ${id} ${code}`),
     ...over,
   };
   return { opener: createCodeOpener(deps), log, shown, setPlaying: (id: string) => (playing = id) };
@@ -94,7 +97,7 @@ describe('openCode', () => {
     });
     const first = opener.open('QK4V1TCX', { printed: false });
     await opener.open('QK4V1TCX', { printed: false });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(calls).toBe(1));
     answer(place('one'));
     await first;
     expect(calls).toBe(1);
@@ -119,5 +122,46 @@ describe('openCode', () => {
     const offline = harness({ findLocal: () => Promise.resolve(place('a')), online: () => false });
     await offline.opener.open('QK4V1TCX', { printed: true });
     expect(offline.log.filter((line) => line.startsWith('count'))).toEqual([]);
+  });
+
+  it('opens a tour the phone holds without the network', async () => {
+    const { opener, log } = harness({
+      findLocalTour: () => Promise.resolve('t1'),
+      online: () => false,
+    });
+    await opener.open('T4QX8MRK', { printed: false });
+    expect(log).toEqual(['tour t1 T4QX8MRK']);
+  });
+
+  it("opens a tour's screen when the resolver names a tour", async () => {
+    const { opener, log, shown } = harness({
+      resolve: () => Promise.resolve({ type: 'TOUR', id: 't2' }),
+      fetchByCode: () => Promise.reject(new Error('not a Place')),
+    });
+    await opener.open('T4QX8MRK', { printed: true });
+    expect(log).toEqual(['count T4QX8MRK', 'tour t2 T4QX8MRK']);
+    expect(shown).toEqual([{ kind: 'looking-up', code: 'T4QX8MRK' }, null]);
+  });
+
+  it('ends an unknown code at the resolver', async () => {
+    const { opener, shown } = harness({
+      resolve: () => Promise.reject(new ApiError(404, 'RESOURCE_NOT_FOUND', 'none')),
+    });
+    await opener.open('T4QX8MRK', { printed: false });
+    expect(shown.at(-1)).toEqual({ kind: 'no-such-code', code: 'T4QX8MRK' });
+  });
+
+  it("says a tour's link isn't on the phone yet, offline (TM6c)", async () => {
+    const { opener, shown } = harness({ online: () => false });
+    await opener.open('T4QX8MRK', { printed: false, tour: true });
+    expect(shown.at(-1)).toEqual({ kind: 'offline', code: 'T4QX8MRK', tour: true });
+  });
+
+  it("keeps a tour's words when its lookup finds no network (TM6c)", async () => {
+    const { opener, shown } = harness({
+      resolve: () => Promise.reject(new ApiError(0, 'NETWORK_ERROR', 'down')),
+    });
+    await opener.open('T4QX8MRK', { printed: false, tour: true });
+    expect(shown.at(-1)).toEqual({ kind: 'offline', code: 'T4QX8MRK', tour: true });
   });
 });

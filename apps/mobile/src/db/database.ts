@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { whenUnlocked } from './when-unlocked';
 
 /** What a statement binds. */
 export type SqlValue = string | number | null;
@@ -47,9 +48,11 @@ export function openDatabase(): Promise<Database> {
       async transaction(fn) {
         let result: Awaited<ReturnType<typeof fn>> | undefined;
         const turn = transactions.then(() =>
-          db.withExclusiveTransactionAsync(async (txn) => {
-            result = await fn(over(txn));
-          }),
+          whenUnlocked(() =>
+            db.withExclusiveTransactionAsync(async (txn) => {
+              result = await fn(over(txn));
+            }),
+          ),
         );
         transactions = turn.catch(() => undefined);
         await turn;

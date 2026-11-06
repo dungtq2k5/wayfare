@@ -15,8 +15,16 @@ export interface OpenedPlace {
   readonly openedAt: number;
 }
 
+/** A story played to its end on this browser (round 39's K8): its Place and when. */
+export interface FinishedStory {
+  readonly placeId: string;
+  readonly at: number;
+}
+
 interface WayfareDb extends DBSchema {
   device: { key: 'credentials'; value: DeviceCredentials };
+  /** The latest time each Place's story finished here: a tour's progress reads it. */
+  finished: { key: string; value: FinishedStory };
   opened: { key: string; value: OpenedPlace; indexes: { openedAt: number } };
   /** Per-browser counters and dates: saves made, prompts shown (K9, K13). */
   kv: { key: string; value: number | string | boolean };
@@ -26,11 +34,14 @@ let db: Promise<IDBPDatabase<WayfareDb>> | null = null;
 
 /** The browser's one database, opened once. */
 export function database(): Promise<IDBPDatabase<WayfareDb>> {
-  db ??= openDB<WayfareDb>('wayfare', 1, {
-    upgrade(next) {
-      next.createObjectStore('device');
-      next.createObjectStore('opened', { keyPath: 'code' }).createIndex('openedAt', 'openedAt');
-      next.createObjectStore('kv');
+  db ??= openDB<WayfareDb>('wayfare', 2, {
+    upgrade(next, oldVersion) {
+      if (oldVersion < 1) {
+        next.createObjectStore('device');
+        next.createObjectStore('opened', { keyPath: 'code' }).createIndex('openedAt', 'openedAt');
+        next.createObjectStore('kv');
+      }
+      if (oldVersion < 2) next.createObjectStore('finished', { keyPath: 'placeId' });
     },
   });
   return db;

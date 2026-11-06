@@ -74,4 +74,26 @@ export interface WebArguments {
   readonly "settings.version": { "version": string | number };
   readonly "map.sponsoredMarker": { "name": string | number };
   readonly "map.fromAgo": { "n": string | number };
+  readonly "tours.inArea": { "area": string | number };
+  readonly "tours.stops": { "n": number };
+  readonly "tours.hours": { "h": string | number };
+  readonly "tours.hoursMinutes": { "h": string | number; "m": string | number };
+  readonly "tours.minutes": { "m": string | number };
+  readonly "tours.played": { "n": string | number; "total": string | number };
+  readonly "tour.eyebrow": { "area": string | number };
+  readonly "tour.about": { "h": string | number };
+  readonly "tour.aboutMinutes": { "m": string | number };
+  readonly "tour.walk": { "distance": string | number };
+  readonly "tour.playStop": { "n": string | number; "place": string | number };
+  readonly "tour.playedOf": { "n": string | number; "total": string | number };
+  readonly "tour.playedHere": { "n": string | number; "total": string | number };
+  readonly "tour.playStory": { "place": string | number };
+  readonly "tour.breadcrumb": { "area": string | number };
+  readonly "tour.routeLabel": { "tour": string | number };
+  readonly "tour.legFrom": { "distance": string | number; "n": string | number };
+  readonly "tour.stopN": { "n": string | number };
+  readonly "tour.shownIn": { "language": string | number; "page": string | number };
+  readonly "tour.goneBody": { "area": string | number };
+  readonly "tour.otherTours": { "area": string | number };
+  readonly "tour.seeAreaTours": { "area": string | number };
 }

@@ -3,6 +3,7 @@
 import { narrationOnDemand, narrationStatus, narrationStreamTicket } from '@wayfare/api-client';
 import { NARRATION_CONFIG } from '@wayfare/contracts';
 import { API_BASE_URL } from '../env';
+import { recordFinished } from '../tours/progress';
 import { resolveSource } from './ladder';
 import type { OnDemandAnswer, StoredAudio } from './ladder';
 import type { Track } from './track';
@@ -243,6 +244,8 @@ export class NarrationPlayer {
 
   /** The story ended: the next one waiting starts, else the player rests at the end. */
   private finished(): void {
+    // Played to its end: a tour's progress counts it (round 39's K8).
+    if (this.state.track !== null) void recordFinished(this.state.track.placeId);
     const next = this.state.upNext;
     if (next !== null) {
       this.set({ upNext: null });

@@ -5,6 +5,7 @@ import {
   AuditActorType,
   AuditResourceType,
   CATALOG_MENU_CONTENT_CHANGED,
+  CATALOG_TOUR_CONTENT_CHANGED,
   CATALOG_PLACE_CONTENT_CHANGED,
   isSupportedLanguage,
   LocalizationTargetType,
@@ -51,7 +52,8 @@ import { jobsToSupersede } from './domain/supersede';
 import { JOB_SELECT, TASK_SELECT, toSynthesisJob, toSynthesisTask } from './job.mapper';
 
 /** The targets narration localizes now: tours and offers come with their docs. */
-type NarratedTarget = LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM;
+type NarratedTarget =
+  LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM | LocalizationTargetType.TOUR;
 
 /** What a new job is (rdm-spec N-1). */
 export interface NewJob {
@@ -269,6 +271,34 @@ export class JobsService {
           trigger: SynthesisTrigger.CONTENT_CHANGED,
         });
       }
+    });
+  }
+
+  /**
+   * `catalog.tour.content_changed` → one text-only job for the tour (rdm-spec C-9): translated as a
+   * menu line is, never voiced — each stop plays its Place's own story. A tour gone or changed since
+   * makes none; its newer event follows.
+   */
+  async fromTourContent(
+    payload: EventPayload<typeof CATALOG_TOUR_CONTENT_CHANGED>,
+    consumer: string,
+  ): Promise<void> {
+    const source = await this.catalog.localizationSource(
+      LocalizationTargetType.TOUR,
+      payload.tourId,
+    );
+    const tour = source.tour ?? null;
+    const current = tour !== null && !tour.deleted && tour.contentHash === payload.contentHash;
+    await this.tasks.transact(async (tx, fx) => {
+      if (!(await this.firstDelivery(tx, consumer, payload.eventId)) || !current) return;
+      await this.createJob(tx, fx, {
+        targetType: LocalizationTargetType.TOUR,
+        targetId: payload.tourId,
+        sourceContentHash: payload.contentHash,
+        langs: payload.langs,
+        includeAudio: false,
+        trigger: SynthesisTrigger.CONTENT_CHANGED,
+      });
     });
   }
 

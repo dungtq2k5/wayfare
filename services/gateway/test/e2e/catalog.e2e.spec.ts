@@ -304,7 +304,10 @@ describe('GET /q/:publicCode', () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe('https://wayfare.test/p/K7M2Q9XA');
     expect(res.headers['cache-control']).toBe('no-store');
-    expect(gateway.catalog.placeQueries.calls[0]!.request).toEqual({ publicCode: 'K7M2Q9XA' });
+    expect(gateway.catalog.placeQueries.calls[0]!.request).toEqual({
+      publicCode: 'K7M2Q9XA',
+      countScan: true,
+    });
     expect((await request(server()).get('/api/v1/q/K7M2Q9XA')).status).toBe(404);
   });
 
@@ -324,7 +327,51 @@ describe('GET /q/:publicCode', () => {
     expect(app.status).toBe(204);
     expect(app.headers.location).toBeUndefined();
     expect(app.headers['cache-control']).toBe('no-store');
-    expect(gateway.catalog.placeQueries.calls[0]!.request).toEqual({ publicCode: 'QK4V1TCX' });
+    expect(gateway.catalog.placeQueries.calls[0]!.request).toEqual({
+      publicCode: 'QK4V1TCX',
+      countScan: true,
+    });
+  });
+
+  it("sends a tour's code to its page, `/t/` (one code space)", async () => {
+    gateway.catalog.placeQueries.handlers.resolvePublicCode = () =>
+      Promise.resolve({
+        exists: true,
+        targetType: catalogGrpc.CodeTargetType.CODE_TARGET_TYPE_TOUR,
+        targetId: '01990000-0000-7000-8000-000000000a01',
+      });
+    const res = await request(server()).get('/q/T4QX-8MRK');
+    expect(res.headers.location).toBe('https://wayfare.test/t/T4QX8MRK');
+  });
+});
+
+describe('GET /codes/:publicCode', () => {
+  it('names the target, a Place or a tour, and counts no scan', async () => {
+    gateway.catalog.placeQueries.handlers.resolvePublicCode = () =>
+      Promise.resolve({
+        exists: true,
+        targetType: catalogGrpc.CodeTargetType.CODE_TARGET_TYPE_TOUR,
+        targetId: '01990000-0000-7000-8000-000000000a01',
+      });
+    const res = await request(server())
+      .get('/api/v1/codes/t4qx-8mrk')
+      .set('X-Wayfare-Client', 'web');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({
+      type: 'TOUR',
+      id: '01990000-0000-7000-8000-000000000a01',
+      publicCode: 'T4QX8MRK',
+    });
+    expect(gateway.catalog.placeQueries.calls[0]!.request).toEqual({
+      publicCode: 'T4QX8MRK',
+      countScan: false,
+    });
+    gateway.catalog.placeQueries.handlers.resolvePublicCode = () =>
+      Promise.resolve({ exists: false, targetType: 0, targetId: '' });
+    const unknown = await request(server())
+      .get('/api/v1/codes/ZZZZZZZZ')
+      .set('X-Wayfare-Client', 'web');
+    expect(unknown.status).toBe(404);
   });
 });
 

@@ -28,6 +28,12 @@ export interface OpenCodeDeps<P> {
   show(result: CodeResult | null): void;
   /** Counts a sticker scan, not awaited. */
   count(code: string): void;
+  /** The id of the phone's own tour with this code, or null. */
+  findLocalTour(code: string): Promise<string | null>;
+  /** `GET /codes/:code`: what the code names; throws the API's error. */
+  resolve(code: string): Promise<{ readonly type: 'PLACE' | 'TOUR'; readonly id: string }>;
+  /** Opens a tour's screen, which answers for a tour no longer shown itself. */
+  openTour(id: string, code: string): void;
 }
 
 /** What a failed lookup means for the tourist. */
@@ -42,7 +48,7 @@ export function resultOf(error: unknown, code: string): CodeResult {
 /**
  * Every way into a code ends here: the scanner, the typed code and links. The phone's own data first,
  * so a synced Place opens offline; otherwise the gateway, behind *Looking up*. A Place opens on the
- * Map and plays as a manual start; the Place already playing carries on. A late answer after
+ * Map and plays as a manual start, a tour's code opens its screen; the Place already playing carries on. A late answer after
  * *Cancel* is dropped, and a second call for the code being resolved is ignored.
  */
 export function createCodeOpener<P>(deps: OpenCodeDeps<P>) {
@@ -57,7 +63,7 @@ export function createCodeOpener<P>(deps: OpenCodeDeps<P>) {
   };
 
   return {
-    async open(code: string, options: { printed: boolean }): Promise<void> {
+    async open(code: string, options: { printed: boolean; tour?: boolean }): Promise<void> {
       if (resolving === code) return;
       const mine = ++sequence;
       resolving = code;
@@ -67,13 +73,40 @@ export function createCodeOpener<P>(deps: OpenCodeDeps<P>) {
         const local = await deps.findLocal(code);
         if (mine !== sequence) return;
         if (local !== null) return opened(local);
-        if (!deps.online()) return deps.show({ kind: 'offline', code });
+        const tour = await deps.findLocalTour(code);
+        if (mine !== sequence) return;
+        if (tour !== null) {
+          deps.show(null);
+          return deps.openTour(tour, code);
+        }
+        if (!deps.online()) {
+          return deps.show(
+            options.tour === true
+              ? { kind: 'offline', code, tour: true }
+              : { kind: 'offline', code },
+          );
+        }
         deps.show({ kind: 'looking-up', code });
         let fetched: ResolvedPlace<P>;
         try {
+          // One code space: the resolver says whether the code is a Place's or a tour's.
+          const target = await deps.resolve(code);
+          if (mine !== sequence) return;
+          if (target.type === 'TOUR') {
+            deps.show(null);
+            return deps.openTour(target.id, code);
+          }
           fetched = await deps.fetchByCode(code);
         } catch (error) {
-          if (mine === sequence) deps.show(resultOf(error, code));
+          if (mine === sequence) {
+            const result = resultOf(error, code);
+            // A tour's link whose lookup found no network: the tour's words, not a Place's (TM6c).
+            deps.show(
+              result.kind === 'offline' && options.tour === true
+                ? { ...result, tour: true }
+                : result,
+            );
+          }
           return;
         }
         if (mine === sequence) opened(fetched);

@@ -50,10 +50,10 @@ const SORT_FIELDS = { place: 'nameVi', updated: 'updatedAt' } as const;
 const STUCK = 'STUCK';
 
 /**
- * The owner a link filtered on, by name for a reader holding `user.read` (K1); `null` without it,
- * `undefined` while the name loads.
+ * A person by name for a reader holding `user.read` (K1) — the owner a link filtered on, a tour's
+ * maker; `null` without it, `undefined` while the name loads.
  */
-function useOwnerName(id: string | null): string | null | undefined {
+export function usePersonName(id: string | null): string | null | undefined {
   const can = useCan();
   const owner = useQuery({
     queryKey: ['user', id],
@@ -105,7 +105,7 @@ export function PlacesList() {
   };
   const stuckOnly = status === STUCK;
   const stuck = useStuck();
-  const ownerName = useOwnerName(filters.ownerUserId);
+  const ownerName = usePersonName(filters.ownerUserId);
 
   const params: AdminPlacesListParams = {
     page,

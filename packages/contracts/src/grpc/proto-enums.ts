@@ -28,6 +28,8 @@ import {
   PlaceInactiveReason,
   PlaceKind,
   PlaceStatus,
+  TourStatus,
+  CodeTargetType,
   SubmissionKind,
   SubmissionStatus,
   UploadPurpose,
@@ -87,6 +89,8 @@ import {
   SubmissionStatus as ProtoSubmissionStatus,
 } from '../generated/wayfare/catalog/submission.pb';
 import { UploadPurpose as ProtoUploadPurpose } from '../generated/wayfare/catalog/upload.pb';
+import { TourStatus as ProtoTourStatus } from '../generated/wayfare/catalog/tour_types.pb';
+import { CodeTargetType as ProtoCodeTargetType } from '../generated/wayfare/catalog/place_query.pb';
 import { MenuCurrency } from '../money/display-price';
 import { OnDemandStatus } from '../narration/schemas';
 import { LocalizationTargetType as ProtoLocalizationTargetType } from '../generated/wayfare/common/localization.pb';
@@ -184,6 +188,16 @@ export const placeKindProto = protoEnumBridge('PlaceKind', PlaceKind, ProtoPlace
 
 /** `PlaceStatus` ⇄ `wayfare.catalog.PlaceStatus`. */
 export const placeStatusProto = protoEnumBridge('PlaceStatus', PlaceStatus, ProtoPlaceStatus);
+
+/** `TourStatus` ⇄ `wayfare.catalog.TourStatus`. */
+export const tourStatusProto = protoEnumBridge('TourStatus', TourStatus, ProtoTourStatus);
+
+/** `CodeTargetType` ⇄ `wayfare.catalog.CodeTargetType`. */
+export const codeTargetTypeProto = protoEnumBridge(
+  'CodeTargetType',
+  CodeTargetType,
+  ProtoCodeTargetType,
+);
 
 /** `PlaceInactiveReason` ⇄ `wayfare.catalog.PlaceInactiveReason`. */
 export const placeInactiveReasonProto = protoEnumBridge(
@@ -392,6 +406,8 @@ export const PROTO_ENUM_BRIDGES = [
   ownerStatusProto,
   placeKindProto,
   placeStatusProto,
+  tourStatusProto,
+  codeTargetTypeProto,
   placeInactiveReasonProto,
   categoryAppliesToProto,
   mapPackStatusProto,

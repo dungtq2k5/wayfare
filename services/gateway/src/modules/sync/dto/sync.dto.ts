@@ -15,3 +15,6 @@ export const syncPlacesQuerySchema = z
 
 /** Validated `GET /sync/places` query. */
 export class SyncPlacesQueryDto extends createZodDto(syncPlacesQuerySchema) {}
+
+/** `GET /sync/tours` query (api-endpoints-plan §2.1): an area's tours, by the same versions. */
+export class SyncToursQueryDto extends createZodDto(syncPlacesQuerySchema) {}

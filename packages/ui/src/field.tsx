@@ -88,10 +88,13 @@ export function Field({
   required = false,
   help,
   error,
+  badge,
   className,
   children,
 }: {
   label: string;
+  /** A chip beside the label: *Changed* on an edit (round 34's chip). */
+  badge?: ReactNode;
   required?: boolean;
   help?: string | undefined;
   error?: string | undefined;
@@ -106,14 +109,17 @@ export function Field({
     .join(' ');
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <Label htmlFor={id}>
-        {label}
-        {required ? (
-          <span aria-hidden className="ml-1 text-destructive">
-            *
-          </span>
-        ) : null}
-      </Label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Label htmlFor={id}>
+          {label}
+          {required ? (
+            <span aria-hidden className="ml-1 text-destructive">
+              *
+            </span>
+          ) : null}
+        </Label>
+        {badge}
+      </div>
       {children({
         id,
         ...(describedBy === '' ? {} : { 'aria-describedby': describedBy }),
