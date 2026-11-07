@@ -9,7 +9,9 @@ import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client
 /**
  * `/q/:publicCode` — the URL printed on stickers (api-endpoints-plan §2.1). Counts a Place's scan
  * and answers its universal link, `/p/` or a tour's `/t/`, whatever the code: the landing page
- * explains an unavailable one, so a sticker never dead-ends — not even while catalog is down.
+ * explains an unavailable one, so a sticker never dead-ends — not even while catalog is down. The
+ * link carries `?via=qr`: the only way the landing page can tell a sticker from a shared link, for
+ * the scan's consented event and its story's trigger. The page drops it from the address.
  */
 @Injectable()
 export class QrService {
@@ -43,6 +45,6 @@ export class QrService {
         );
       }
     }
-    return `${this.linkBase}/${path}/${encodeURIComponent(canonical ?? code)}`;
+    return `${this.linkBase}/${path}/${encodeURIComponent(canonical ?? code)}?via=qr`;
   }
 }

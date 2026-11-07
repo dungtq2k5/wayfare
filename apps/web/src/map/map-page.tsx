@@ -1,6 +1,7 @@
 'use client';
 
 import { placesByCode } from '@wayfare/api-client';
+import { sharePosition } from '../analytics/shared-position';
 import type { AreaResponseDto, PlaceSummaryResponseDto } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { cn } from '@wayfare/ui/cn';
@@ -249,6 +250,8 @@ export function MapPage({
       (position) => {
         const point = { lat: position.coords.latitude, lng: position.coords.longitude };
         setLocation({ kind: 'on', point });
+        // Shared with the map: analytics may snap it to a cell — it never asks on its own.
+        sharePosition(point);
         const home = areas.find((candidate) => insidePolygon(point, candidate.boundary));
         setFlyTo(home === undefined ? { ...CITY, zoom: 12 } : { ...point, zoom: 16 });
       },

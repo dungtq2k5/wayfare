@@ -18,6 +18,7 @@ describe('routeForLink', () => {
       source: 'link',
       printed: false,
       tour: false,
+      viaQr: false,
     });
     expect(takePending()).toBeNull();
   });

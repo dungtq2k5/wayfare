@@ -39,6 +39,7 @@ describe('resolveSource', () => {
       kind: 'file',
       uri: 'file:///cache/hit.mp3',
       fellBack: false,
+      tier: 'T1',
     });
     const download = vi.fn(() => Promise.resolve('file:///cache/new.mp3'));
     expect((await resolveSource(place(true), 'en', 'file', fake({ download }))).kind).toBe('file');
@@ -46,7 +47,10 @@ describe('resolveSource', () => {
   });
 
   it('tier 1.5: no audio → on demand; READY plays as a file', async () => {
-    expect(await resolveSource(place(false), 'en', 'file', fake())).toMatchObject({ kind: 'file' });
+    expect(await resolveSource(place(false), 'en', 'file', fake())).toMatchObject({
+      kind: 'file',
+      tier: 'T1_5',
+    });
   });
 
   it('PENDING polls the status route and plays the file once it is ready', async () => {
@@ -55,7 +59,10 @@ describe('resolveSource', () => {
       onDemand: () => Promise.resolve<OnDemandAnswer>({ status: 'PENDING', retryAfterMs: 1_000 }),
       status,
     });
-    expect(await resolveSource(place(false), 'en', 'file', deps)).toMatchObject({ kind: 'file' });
+    expect(await resolveSource(place(false), 'en', 'file', deps)).toMatchObject({
+      kind: 'file',
+      tier: 'T1_5',
+    });
     expect(status).toHaveBeenCalledTimes(2);
   });
 

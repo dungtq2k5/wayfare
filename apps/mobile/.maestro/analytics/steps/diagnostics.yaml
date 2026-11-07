@@ -1,0 +1,10 @@
+# Settings → Diagnostics, where the Analytics block is first.
+appId: app.wayfare
+---
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- extendedWaitUntil:
+    visible: 'Analytics: .*'
+    timeout: 10000

@@ -184,4 +184,8 @@ export interface TouristArguments {
   readonly "tour.goneBody": { "area": string | number };
   readonly "tour.offlineFrom": { "area": string | number; "when": string | number };
   readonly "tour.offlineBody": { "area": string | number };
+  readonly "consent.changed.lead": { "date": string | number; "summary": string | number };
+  readonly "consent.changed.leadPlain": { "date": string | number };
+  readonly "settings.diagnostics.analytics": { "state": string | number; "version": string | number; "known": string | number; "asked": string | number };
+  readonly "settings.diagnostics.analyticsId": { "id": string | number; "age": string | number; "queue": string | number; "last": string | number };
 }

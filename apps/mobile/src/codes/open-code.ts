@@ -34,6 +34,8 @@ export interface OpenCodeDeps<P> {
   resolve(code: string): Promise<{ readonly type: 'PLACE' | 'TOUR'; readonly id: string }>;
   /** Opens a tour's screen, which answers for a tour no longer shown itself. */
   openTour(id: string, code: string): void;
+  /** A sticker's code resolved — scanned, typed, or a camera's `?via=qr` link: analytics' scan. */
+  scanned?(target: 'PLACE' | 'TOUR'): void;
 }
 
 /** What a failed lookup means for the tourist. */
@@ -63,7 +65,11 @@ export function createCodeOpener<P>(deps: OpenCodeDeps<P>) {
   };
 
   return {
-    async open(code: string, options: { printed: boolean; tour?: boolean }): Promise<void> {
+    /** `scanned`: a sticker's code (the scanner, the keyboard, a `?via=qr` link), not a shared link. */
+    async open(
+      code: string,
+      options: { printed: boolean; tour?: boolean; scanned?: boolean },
+    ): Promise<void> {
       if (resolving === code) return;
       const mine = ++sequence;
       resolving = code;
@@ -72,11 +78,18 @@ export function createCodeOpener<P>(deps: OpenCodeDeps<P>) {
         if (options.printed && deps.online()) deps.count(code);
         const local = await deps.findLocal(code);
         if (mine !== sequence) return;
-        if (local !== null) return opened(local);
+        const scanned = (target: 'PLACE' | 'TOUR') => {
+          if (options.scanned === true) deps.scanned?.(target);
+        };
+        if (local !== null) {
+          scanned('PLACE');
+          return opened(local);
+        }
         const tour = await deps.findLocalTour(code);
         if (mine !== sequence) return;
         if (tour !== null) {
           deps.show(null);
+          scanned('TOUR');
           return deps.openTour(tour, code);
         }
         if (!deps.online()) {
@@ -94,6 +107,7 @@ export function createCodeOpener<P>(deps: OpenCodeDeps<P>) {
           if (mine !== sequence) return;
           if (target.type === 'TOUR') {
             deps.show(null);
+            scanned('TOUR');
             return deps.openTour(target.id, code);
           }
           fetched = await deps.fetchByCode(code);
@@ -109,7 +123,10 @@ export function createCodeOpener<P>(deps: OpenCodeDeps<P>) {
           }
           return;
         }
-        if (mine === sequence) opened(fetched);
+        if (mine === sequence) {
+          scanned('PLACE');
+          opened(fetched);
+        }
       } finally {
         if (mine === sequence) resolving = null;
       }

@@ -707,6 +707,8 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 
 ### 11.2 Language codes and fallback
 
+- **A privacy-policy version bump rewrites `consent.changed.summary` and `consent.changed.version`** in `en` and `vi`, in `tourist.json` and `web.json`, in the same change: the new-policy question shows the summary only when its version matches, so a build that kept the old text says nothing wrong.
+
 - Language codes are validated against `CONTENT_LANGUAGES` / `isSupportedLanguage()` and normalized with `normalizeLang()` — `zh` becomes `zh-Hans`, `EN-us` becomes `en`.
 - **A language's name comes from one list,** `LANGUAGE_NAMES` (each language written in itself — "简体中文", "ไทย") and `LANGUAGE_ENGLISH_NAMES` in `packages/contracts`, read by the app and the console alike; never `Intl.DisplayNames`, whose names differ by browser and runtime. A spec holds both lists to every `Language`.
 - **A language is typed `Language`.** Inputs parse with `zLanguage` (which normalizes); a schema describing what the server returns types its `lang` with `zServedLanguage`; a string from the database becomes a `Language` only through `servedLanguage(value, owner)`, which throws on a corrupt row — the request fails as a `500` naming the row, never a value outside the union — and never through a cast. A persisted client value is checked with `isSupportedLanguage` when it is read back. `string` remains only where any tag is genuinely accepted: a `?lang=` before normalization (`zRequestedLanguage`), a tag handed to `Intl`, and the stored forms a client parses, which stay open on purpose (§12.2).

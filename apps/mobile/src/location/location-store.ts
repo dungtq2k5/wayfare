@@ -5,6 +5,8 @@ export interface Position {
   readonly lat: number;
   readonly lng: number;
   readonly accuracyM: number;
+  /** When it was read, in ms — what decides whether it's fresh enough for analytics' cell. */
+  readonly at?: number;
 }
 
 interface LocationState {
@@ -61,6 +63,7 @@ export async function acquireWatch(): Promise<() => void> {
             lat: fix.coords.latitude,
             lng: fix.coords.longitude,
             accuracyM: fix.coords.accuracy ?? 50,
+            at: fix.timestamp,
           },
         }),
     );

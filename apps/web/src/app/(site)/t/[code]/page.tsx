@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { QrArrivalNote } from '../../../../analytics/qr-arrival-note';
 import { notFound } from 'next/navigation';
 import { Footprints, Info, ListOrdered, Route, Timer } from 'lucide-react';
 import { languageName } from '../../../../i18n/language-name';
@@ -59,57 +61,62 @@ export default async function TourPage({ params }: Params) {
         });
 
   return (
-    <TourStops
-      tour={tour}
-      area={area}
-      header={
-        <>
-          {areaName === null ? null : (
-            <nav
-              aria-label={t('tour.breadcrumb', { area: areaName })}
-              className="hidden text-sm text-muted-foreground desk:block"
-            >
-              {t('tour.breadcrumb', { area: areaName })}
-            </nav>
-          )}
-          {tour.coverVariants === null ? null : (
-            <img
-              src={tour.coverVariants.full.url}
-              alt=""
-              className="aspect-video w-full object-cover desk:rounded-lg"
-            />
-          )}
-          <div className="flex flex-col gap-4 px-4 desk:p-0">
-            <p className="flex items-center gap-1 text-sm font-medium text-primary">
-              <Route aria-hidden className="size-4" />
-              {areaName === null ? t('tours.tours') : t('tour.eyebrow', { area: areaName })}
-            </p>
-            <h1 lang={tour.text.lang} className="text-2xl font-semibold text-foreground">
-              {tour.text.title}
-            </h1>
-            <p className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <ListOrdered aria-hidden className="size-4" />
-                {t('tours.stops', { n: tour.stopCount })}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Timer aria-hidden className="size-4" />
-                {about}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Footprints aria-hidden className="size-4" />
-                {t('tour.walk', { distance: walk })}
-              </span>
-            </p>
-            {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
-            <p className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
-              {t('tour.honest')}
-            </p>
-          </div>
-        </>
-      }
-      footer={<p className="text-sm text-muted-foreground">{t('tour.editorial')}</p>}
-    />
+    <>
+      <Suspense>
+        <QrArrivalNote target="TOUR" />
+      </Suspense>
+      <TourStops
+        tour={tour}
+        area={area}
+        header={
+          <>
+            {areaName === null ? null : (
+              <nav
+                aria-label={t('tour.breadcrumb', { area: areaName })}
+                className="hidden text-sm text-muted-foreground desk:block"
+              >
+                {t('tour.breadcrumb', { area: areaName })}
+              </nav>
+            )}
+            {tour.coverVariants === null ? null : (
+              <img
+                src={tour.coverVariants.full.url}
+                alt=""
+                className="aspect-video w-full object-cover desk:rounded-lg"
+              />
+            )}
+            <div className="flex flex-col gap-4 px-4 desk:p-0">
+              <p className="flex items-center gap-1 text-sm font-medium text-primary">
+                <Route aria-hidden className="size-4" />
+                {areaName === null ? t('tours.tours') : t('tour.eyebrow', { area: areaName })}
+              </p>
+              <h1 lang={tour.text.lang} className="text-2xl font-semibold text-foreground">
+                {tour.text.title}
+              </h1>
+              <p className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <ListOrdered aria-hidden className="size-4" />
+                  {t('tours.stops', { n: tour.stopCount })}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Timer aria-hidden className="size-4" />
+                  {about}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Footprints aria-hidden className="size-4" />
+                  {t('tour.walk', { distance: walk })}
+                </span>
+              </p>
+              {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
+              <p className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+                <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+                {t('tour.honest')}
+              </p>
+            </div>
+          </>
+        }
+        footer={<p className="text-sm text-muted-foreground">{t('tour.editorial')}</p>}
+      />
+    </>
   );
 }

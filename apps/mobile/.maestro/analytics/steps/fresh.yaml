@@ -1,0 +1,10 @@
+# A fresh install's first run, in English, to the synced Map: nothing chosen about counting yet.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Continue in English'
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 60000

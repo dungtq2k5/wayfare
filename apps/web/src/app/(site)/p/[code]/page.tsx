@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { FavouriteToggle } from '../../../../favourites/favourite-toggle';
 import { languageName } from '../../../../i18n/language-name';
 import { requestLanguage, serverTranslator } from '../../../../i18n/server';
@@ -18,6 +19,7 @@ import { MenuSection } from '../../../../places/menu-section';
 import type { MenuRow } from '../../../../places/menu-section';
 import { MiniMap } from '../../../../places/mini-map';
 import { OpenedPlaceRecorder } from '../../../../places/opened';
+import { QrArrivalNote } from '../../../../analytics/qr-arrival-note';
 import { OpeningBadge, OpeningHours, openingLabel } from '../../../../places/opening-hours';
 import { PlaceGone } from '../../../../places/place-gone';
 import { QuickActions } from '../../../../places/quick-actions';
@@ -25,6 +27,7 @@ import type { Track } from '../../../../player/track';
 import { QrCode, Wallet } from 'lucide-react';
 
 type Params = { params: Promise<{ code: string }> };
+type PageProps = Params & { searchParams: Promise<{ via?: string | string[] }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { code } = await params;
@@ -48,15 +51,18 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * A Place from its sticker or a link (WQ1–WQ4): rendered on the server with no device, so the name,
  * the photo and *Play the story* arrive in the first response (K3).
  */
-export default async function PlacePage({ params }: Params) {
+export default async function PlacePage({ params, searchParams }: PageProps) {
   const { code } = await params;
+  const { via } = await searchParams;
   const { lang } = await requestLanguage();
   const translator = await serverTranslator();
   const { t, tDynamic } = translator;
   const lookup = await loadPlace(code, lang);
   if (lookup.kind === 'missing') {
     // One code space: a tour's code reached `/p/` (a sticker scanned while catalog was down).
-    if (await isTourCode(code)) redirect(`/t/${encodeURIComponent(code)}`);
+    // A sticker's `?via=qr` goes along: the tour page counts the scan and drops it.
+    if (await isTourCode(code))
+      redirect(`/t/${encodeURIComponent(code)}${via === 'qr' ? '?via=qr' : ''}`);
     notFound();
   }
   if (lookup.kind === 'gone') return <PlaceGone area={lookup.area} near={lookup.near} />;
@@ -172,6 +178,9 @@ export default async function PlacePage({ params }: Params) {
 
   return (
     <>
+      <Suspense>
+        <QrArrivalNote target="PLACE" />
+      </Suspense>
       <OpenedPlaceRecorder
         place={{
           code: place.publicCode,

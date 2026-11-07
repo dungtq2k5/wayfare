@@ -36,13 +36,13 @@ function deps(overrides: Partial<LadderDeps> & { answers?: (StoredAudio | null)[
 describe('the audio ladder (K6)', () => {
   it('plays the stored file at once', async () => {
     const { value, calls } = deps();
-    expect(await resolveSource(stored, value)).toEqual({ kind: 'file', audio: stored });
+    expect(await resolveSource(stored, value)).toEqual({ kind: 'file', audio: stored, tier: 'T1' });
     expect(calls.onDemand).toBe(0);
   });
 
   it('makes it now, and plays it when it is ready within 5 s', async () => {
     const { value, calls } = deps({ answers: [null, null, stored] });
-    expect(await resolveSource(null, value)).toEqual({ kind: 'file', audio: stored });
+    expect(await resolveSource(null, value)).toEqual({ kind: 'file', audio: stored, tier: 'T1_5' });
     expect(calls).toEqual({ onDemand: 1, status: 3, preparing: 1 });
   });
 
@@ -56,7 +56,7 @@ describe('the audio ladder (K6)', () => {
     const { value } = deps({
       onDemand: () => Promise.resolve({ status: 'READY', audio: stored }),
     });
-    expect(await resolveSource(null, value)).toEqual({ kind: 'file', audio: stored });
+    expect(await resolveSource(null, value)).toEqual({ kind: 'file', audio: stored, tier: 'T1_5' });
   });
 
   it("falls to the browser's voice offline when the file isn't kept, and says it can't otherwise", async () => {
@@ -64,7 +64,11 @@ describe('the audio ladder (K6)', () => {
     expect(await resolveSource(stored, offline.value)).toEqual({ kind: 'voice', offline: true });
     expect(await resolveSource(null, offline.value)).toEqual({ kind: 'voice', offline: true });
     const kept = deps({ isOffline: () => true, isCached: () => Promise.resolve(true) });
-    expect(await resolveSource(stored, kept.value)).toEqual({ kind: 'file', audio: stored });
+    expect(await resolveSource(stored, kept.value)).toEqual({
+      kind: 'file',
+      audio: stored,
+      tier: 'T1',
+    });
     const mute = deps({ isOffline: () => true, hasVoice: () => false });
     expect(await resolveSource(stored, mute.value)).toEqual({ kind: 'unavailable' });
   });

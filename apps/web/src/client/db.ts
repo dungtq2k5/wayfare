@@ -21,7 +21,21 @@ export interface FinishedStory {
   readonly at: number;
 }
 
+/** A consented event not yet sent, under the analytics id it was recorded with (ADR 0042). */
+export interface QueuedAnalyticsEvent {
+  readonly id: string;
+  readonly analyticsDeviceId: string;
+  readonly body: string;
+  readonly recordedAt: number;
+}
+
 interface WayfareDb extends DBSchema {
+  /** Analytics' queue: validated events, never a coordinate, at most a week old and 5,000 rows. */
+  analytics: {
+    key: string;
+    value: QueuedAnalyticsEvent;
+    indexes: { recordedAt: number };
+  };
   device: { key: 'credentials'; value: DeviceCredentials };
   /** The latest time each Place's story finished here: a tour's progress reads it. */
   finished: { key: string; value: FinishedStory };
@@ -34,7 +48,7 @@ let db: Promise<IDBPDatabase<WayfareDb>> | null = null;
 
 /** The browser's one database, opened once. */
 export function database(): Promise<IDBPDatabase<WayfareDb>> {
-  db ??= openDB<WayfareDb>('wayfare', 2, {
+  db ??= openDB<WayfareDb>('wayfare', 3, {
     upgrade(next, oldVersion) {
       if (oldVersion < 1) {
         next.createObjectStore('device');
@@ -42,6 +56,10 @@ export function database(): Promise<IDBPDatabase<WayfareDb>> {
         next.createObjectStore('kv');
       }
       if (oldVersion < 2) next.createObjectStore('finished', { keyPath: 'placeId' });
+      if (oldVersion < 3)
+        next
+          .createObjectStore('analytics', { keyPath: 'id' })
+          .createIndex('recordedAt', 'recordedAt');
     },
   });
   return db;

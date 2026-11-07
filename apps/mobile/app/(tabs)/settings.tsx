@@ -2,6 +2,7 @@ import { ApiError, useDevicesForget } from '@wayfare/api-client';
 import * as Application from 'expo-application';
 import { useRouter } from 'expo-router';
 import {
+  ChartColumn,
   Clock,
   Download,
   FileText,
@@ -23,6 +24,7 @@ import {
   SunMoon,
   Trash2,
 } from 'lucide-react-native';
+import { CircleCheck } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -31,12 +33,14 @@ import {
   Linking,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { resendVerification, signOut } from '../../src/account/actions';
+import { useAnalytics } from '../../src/analytics/use-analytics';
 import { AccountEntry, AccountNotice } from '../../src/account/components';
 import { addPassword } from '../../src/account/google-components';
 import { countdown, retryAfterSeconds } from '../../src/account/form-errors';
@@ -49,7 +53,9 @@ import { accountSession, deviceSession } from '../../src/session';
 import { useAccountStore } from '../../src/session/account-store';
 import { routeApiError } from '../../src/state/api-errors';
 import { useAppStore } from '../../src/state/app-store';
+import { useTheme } from '../../src/theme/appearance';
 import { Icon } from '../../src/theme/icon';
+import { showToast } from '../../src/ui/toast';
 import { LARGE_TEXT_SCALE, LIST_END_PADDING } from '../../src/ui/layout';
 import { TabHeader } from '../../src/shell/tab-header';
 import { SegmentedControl } from '../../src/ui/segmented-control';
@@ -117,6 +123,77 @@ function Row({
     <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress}>
       {body}
     </Pressable>
+  );
+}
+
+/**
+ * A row that is one switch (round 31's list row with a trailing switch): the whole row toggles, its
+ * line read as its description.
+ */
+function SwitchRow({
+  icon,
+  title,
+  subtitle,
+  value,
+  onChange,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      testID="analytics-switch"
+      accessibilityRole="switch"
+      accessibilityLabel={title}
+      accessibilityHint={subtitle}
+      accessibilityState={{ checked: value }}
+      onPress={() => onChange(!value)}
+      className="min-h-12 flex-row items-center gap-3 px-4 py-3"
+    >
+      <Icon icon={icon} size="lg" color="muted-foreground" />
+      <View className="flex-1">
+        <Text className="text-body text-foreground">{title}</Text>
+        <Text className="text-caption text-muted-foreground">{subtitle}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        importantForAccessibility="no-hide-descendants"
+        trackColor={{ false: colors.muted, true: colors.primary }}
+        thumbColor={colors.card}
+      />
+    </Pressable>
+  );
+}
+
+/**
+ * *Help improve Wayfare* (AC2): the question's choice, on or off. On allows (no sheet — the tourist
+ * is in Settings to choose); off withdraws every id the phone used and says what was deleted
+ * (AC2b). The switch shows the stored choice at once; a send still pending doesn't make it flicker.
+ */
+function AnalyticsRow() {
+  const { t } = useTourist();
+  const live = useAnalytics();
+  const on = live?.snapshot.choice === 'GRANTED';
+  return (
+    <SwitchRow
+      icon={ChartColumn}
+      title={t('settings.analytics')}
+      subtitle={on ? t('settings.analytics.on') : t('settings.analytics.off')}
+      value={on}
+      onChange={(next) => {
+        if (live === null) return;
+        if (next) void live.client.allow();
+        else {
+          void live.client.withdraw();
+          showToast(t('settings.analytics.offToast'), undefined, 4_000, { icon: CircleCheck });
+        }
+      }}
+    />
   );
 }
 
@@ -337,6 +414,7 @@ export default function SettingsScreen() {
           </Group>
 
           <Group title={t('settings.privacy')}>
+            <AnalyticsRow />
             <Row
               icon={ShieldCheck}
               title={t('settings.privacyPolicy')}

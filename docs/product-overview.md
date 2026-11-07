@@ -259,6 +259,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 **Consent-gated. Anonymous. Aggregate.**
 
 - Anonymous device ID, not a user ID. Ingest endpoint refuses events without consent.
+- **Asked after the first story ends**, never in the first run or during a story; once more after the next story if the question was closed, then only in Settings, where it can be turned off (which deletes the raw events still held). A new privacy policy asks again those who had allowed. **The web asks per browser** — a browser is its own install with its own id.
 - Events: narration started / completed / abandoned, place opened, QR scanned, language chosen, pack installed, search performed.
 - Read models: most-heard Places, average listen duration per Place, completion rate, language distribution, hourly/daily activity.
 - Anonymised movement traces → **heatmap** of tourist density. Coordinates snapped to a grid before storage; no raw trace is ever joinable back to a device across sessions.

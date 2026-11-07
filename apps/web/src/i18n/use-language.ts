@@ -1,6 +1,8 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { AnalyticsEventType } from '@wayfare/contracts';
+import { track } from '../analytics/analytics';
 import { devicesUpdate, usersUpdate } from '@wayfare/api-client';
 import type { Language } from '@wayfare/contracts';
 import { useRouter } from 'next/navigation';
@@ -27,6 +29,7 @@ export function useChooseLanguage(): {
     (lang: Language) => {
       setPageCookie(LANGUAGE_COOKIE, lang);
       startTransition(() => router.refresh());
+      track({ type: AnalyticsEventType.LANGUAGE_SELECTED, lang });
       // Best effort: the page already switched; the device and account follow when they can.
       void devicesUpdate({ contentLocale: lang }).catch(() => undefined);
       if (readPageCookie(ACCOUNT_HINT_COOKIE) !== null) {

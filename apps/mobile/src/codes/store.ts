@@ -9,6 +9,8 @@ export interface PendingCode {
   readonly printed: boolean;
   /** From a tour's `/t/` link. */
   readonly tour?: boolean;
+  /** A link the gateway's `/q/` answered (`?via=qr`): a sticker scanned with the phone's camera. */
+  readonly viaQr?: boolean;
 }
 
 /** What the Map shows for a code that did not open a Place, as a sheet with a next step. */

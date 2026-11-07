@@ -1,4 +1,8 @@
+import { analytics } from '../analytics/analytics';
 import { clearAudioCache } from '../data/audio-cache';
+
+/** How long *Forget* waits for analytics' withdrawals before clearing regardless. */
+const FORGET_ANALYTICS_WAIT_MS = 5_000;
 import { forgetPacks } from '../packs/controller';
 import { narrationPlayer } from '../player/narration-player';
 import { clearLocalData } from '../sync/sync';
@@ -24,6 +28,12 @@ import { resetAccountState } from '../session/account-store';
  */
 export async function forgetLocalData(): Promise<void> {
   narrationPlayer.stop();
+  // Analytics withdraws every id first, so the server deletes their raw events; offline, the install
+  // is cleared anyway — the ids go with it, and the raw events, which name no one, age out.
+  await Promise.race([
+    analytics().then((client) => client.forget()),
+    new Promise((resolve) => setTimeout(resolve, FORGET_ANALYTICS_WAIT_MS)),
+  ]).catch(() => undefined);
   await accountSession.end();
   resetAccountState();
   await resetWalk();

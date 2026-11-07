@@ -37,6 +37,7 @@ import { TourBar } from '../../src/tours/tour-bar';
 import { WalkControl } from '../../src/walk/walk-control';
 import { WalkNotice } from '../../src/walk/walk-notices';
 import { areaMove } from '../../src/codes/area-move';
+import { ConsentSheetHost } from '../../src/map/consent-sheet';
 import { CodeResultSheet } from '../../src/codes/code-result-sheet';
 import { codeOpener } from '../../src/codes/opener';
 import { takePending, useCodeStore } from '../../src/codes/store';
@@ -100,7 +101,11 @@ export default function MapScreen() {
     if (pending === null) return;
     const taken = takePending();
     if (taken !== null)
-      void codeOpener.open(taken.code, { printed: taken.printed, tour: taken.tour === true });
+      void codeOpener.open(taken.code, {
+        printed: taken.printed,
+        tour: taken.tour === true,
+        scanned: taken.source !== 'link' || taken.printed || taken.viaQr === true,
+      });
   }, [pending]);
 
   // A code that did not open a Place replaces whatever sheet was open: one sheet at a time.
@@ -378,6 +383,7 @@ export default function MapScreen() {
         />
       )}
       <CodeResultSheet />
+      <ConsentSheetHost />
       {areaSheet && (
         <AreaSheet
           areas={areaList}

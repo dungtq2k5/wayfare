@@ -20,3 +20,7 @@ flows:
   - account/google.yaml
   - tours/tours.yaml
   - tours/links.yaml
+  - analytics/analytics.yaml
+  - analytics/no-thanks.yaml
+  - analytics/new-policy.yaml
+  - analytics/sabotage.yaml

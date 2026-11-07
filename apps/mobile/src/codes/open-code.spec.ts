@@ -31,12 +31,25 @@ function harness(over: Partial<OpenCodeDeps<string>> = {}) {
     findLocalTour: () => Promise.resolve(null),
     resolve: (code) => Promise.resolve({ type: 'PLACE', id: `remote-${code}` }),
     openTour: (id, code) => log.push(`tour ${id} ${code}`),
+    scanned: (target) => log.push(`scanned ${target}`),
     ...over,
   };
   return { opener: createCodeOpener(deps), log, shown, setPlaying: (id: string) => (playing = id) };
 }
 
 describe('openCode', () => {
+  it('tells analytics of a sticker’s code once it knows a Place from a tour; never a shared link', async () => {
+    const place1 = harness();
+    await place1.opener.open('QK4V1TCX', { printed: false, scanned: true });
+    expect(place1.log[0]).toBe('scanned PLACE');
+    const tour = harness({ findLocalTour: () => Promise.resolve('tour-1') });
+    await tour.opener.open('QK4V1TCX', { printed: false, scanned: true });
+    expect(tour.log).toEqual(['scanned TOUR', 'tour tour-1 QK4V1TCX']);
+    const shared = harness();
+    await shared.opener.open('QK4V1TCX', { printed: false });
+    expect(shared.log.some((line) => line.startsWith('scanned'))).toBe(false);
+  });
+
   it('opens a Place on the phone without the network, and plays it', async () => {
     const { opener, log, shown } = harness({
       findLocal: () => Promise.resolve(place('local')),

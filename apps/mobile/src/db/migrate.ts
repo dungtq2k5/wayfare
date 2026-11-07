@@ -4,6 +4,7 @@ import { migration0002 } from './migrations/0002_resync_for_address';
 import { migration0003 } from './migrations/0003_walk';
 import { migration0004 } from './migrations/0004_packs';
 import { migration0005 } from './migrations/0005_tours';
+import { migration0006 } from './migrations/0006_analytics';
 
 /** One numbered step. Once shipped, a migration is never edited (conventions §12.2). */
 export interface Migration {
@@ -18,6 +19,7 @@ export const MIGRATIONS: readonly Migration[] = [
   migration0003,
   migration0004,
   migration0005,
+  migration0006,
 ];
 
 /** The schema version the database is at (`PRAGMA user_version`). */

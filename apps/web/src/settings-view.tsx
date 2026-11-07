@@ -16,6 +16,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { AnalyticsRow } from './analytics/analytics-row';
 import { useTheme } from './app/providers';
 import { APP_VERSION } from './env';
 import { useWeb } from './i18n/provider';
@@ -119,6 +120,8 @@ export function SettingsView() {
         {segment('light', t('settings.light'), Sun)}
         {segment('dark', t('settings.dark'), Moon)}
       </div>
+      <h2 className="pt-2 text-sm font-medium text-muted-foreground">{t('settings.privacy')}</h2>
+      <AnalyticsRow />
       <h2 className="pt-2 text-sm font-medium text-muted-foreground">{t('settings.about')}</h2>
       <ListRow
         icon={<ShieldCheck aria-hidden className="size-6" />}

@@ -1,5 +1,7 @@
 import { ApiError, offlineDiff, offlineManifest } from '@wayfare/api-client';
+import { AnalyticsEventType } from '@wayfare/contracts';
 import { create } from 'zustand';
+import { track } from '../analytics/analytics';
 import { databaseReady } from '../data/boot';
 import { tourist } from '../i18n';
 import { showToast } from '../ui/toast';
@@ -97,6 +99,7 @@ async function ended(areaId: string, lang: string, state: PackState): Promise<vo
   if (state === 'ready') {
     await refreshPackIndex();
     showToast(tourist().t('pack.toast.ready', { area: areaName(areaId) }));
+    track({ type: AnalyticsEventType.PACK_INSTALLED, props: { areaId } });
   }
   const bytes =
     usePackStore.getState().packs.find((p) => p.areaId === areaId && p.lang === lang)?.bytes ?? 0;

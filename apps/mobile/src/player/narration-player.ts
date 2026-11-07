@@ -1,11 +1,13 @@
 import { getNarrationStreamUrl, narrationOnDemand, narrationStatus } from '@wayfare/api-client';
 import { APP_VERSION_HEADER, CLIENT_HEADER, NARRATION_CONFIG } from '@wayfare/contracts';
+import { AnalyticsTrigger, AudioTier } from '@wayfare/contracts';
 import type { Language } from '@wayfare/contracts';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioPlayer, AudioStatus } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import { onBecomingNoisy } from '../../modules/noisy-audio/src';
+import { narrationTracker } from '../analytics/narration-tracker';
 import { APP_VERSION } from '../api';
 import { API_URL } from '../env';
 import { useNetworkStore } from '../network/network-store';
@@ -82,22 +84,32 @@ class NarrationPlayer {
   private sentenceIndex = 0;
   private modeReady = false;
   private stopListeningNoisy: (() => void) | null = null;
+  /** How the narration entered the player, and how *Up next*'s did — analytics' trigger. */
+  private trigger: AnalyticsTrigger = AnalyticsTrigger.TAP;
+  private nextTrigger: AnalyticsTrigger = AnalyticsTrigger.GEOFENCE;
 
   // ——— what callers use ———
 
-  /** A manual *Play narration*: the tap wins; *Up next* is left as it was. */
-  play(place: PlayerPlace): void {
+  /**
+   * A manual *Play narration*: the tap wins; *Up next* is left as it was. `trigger` is `QR` when
+   * the code opener plays it.
+   */
+  play(place: PlayerPlace, trigger: AnalyticsTrigger = AnalyticsTrigger.TAP): void {
     const { current, next } = usePlayerStore.getState();
     const waiting = afterManualPlay({ currentId: current?.place.id ?? null, next }, place);
-    this.begin(place, 'manual', null, waiting);
+    this.begin(place, 'manual', null, waiting, trigger);
   }
 
   /** What the walk calls: start, wait in *Up next*, or refuse; told which. */
   offer(place: PlayerPlace, options: { distanceM?: number } = {}): OfferResult {
     const { current, next } = usePlayerStore.getState();
     const result = decideOffer({ currentId: current?.place.id ?? null, next }, place);
-    if (result === 'start') this.begin(place, 'auto', options.distanceM ?? null, next);
-    else if (result === 'queued') usePlayerStore.setState({ next: place });
+    if (result === 'start')
+      this.begin(place, 'auto', options.distanceM ?? null, next, AnalyticsTrigger.GEOFENCE);
+    else if (result === 'queued') {
+      this.nextTrigger = AnalyticsTrigger.GEOFENCE;
+      usePlayerStore.setState({ next: place });
+    }
     return result;
   }
 
@@ -127,10 +139,11 @@ class NarrationPlayer {
   skip(): void {
     const { next } = usePlayerStore.getState();
     if (next === null) this.stop();
-    else this.begin(next, 'manual', null, null);
+    else this.begin(next, 'manual', null, null, this.nextTrigger);
   }
 
   stop(): void {
+    narrationTracker.end(false);
     this.sequence += 1;
     this.teardown();
     this.clearTimers();
@@ -193,6 +206,7 @@ class NarrationPlayer {
         held.current.started,
         held.current.distanceM,
         usePlayerStore.getState().next,
+        this.trigger,
       );
     }
   }
@@ -209,11 +223,14 @@ class NarrationPlayer {
     started: Narration['started'],
     distanceM: number | null,
     next: PlayerPlace | null,
+    trigger: AnalyticsTrigger,
   ): void {
     this.teardown();
     this.clearTimers();
     const token = (this.sequence += 1);
     const lang = currentLang();
+    this.trigger = trigger;
+    narrationTracker.begin(place.id, lang, trigger);
     usePlayerStore.setState({
       current: {
         place,
@@ -254,7 +271,7 @@ class NarrationPlayer {
         this.unavailable(narration);
         return;
       case 'file':
-        await this.startFile(token, resolution.uri, resolution.fellBack);
+        await this.startFile(token, resolution.uri, resolution.fellBack, resolution.tier);
         return;
       case 'stream':
         await this.startStream(token, resolution.fellBack);
@@ -266,6 +283,7 @@ class NarrationPlayer {
   }
 
   private unavailable(narration: Narration): void {
+    narrationTracker.end(false);
     const manual = narration.started === 'manual';
     this.sequence += 1;
     this.teardown();
@@ -276,10 +294,15 @@ class NarrationPlayer {
     else this.advance();
   }
 
-  private async startFile(token: number, uri: string, fellBack: boolean): Promise<void> {
+  private async startFile(
+    token: number,
+    uri: string,
+    fellBack: boolean,
+    tier: 'T1' | 'T1_5',
+  ): Promise<void> {
     await this.prepareAudio();
     if (token !== this.sequence) return;
-    this.attach(token, { uri }, 'file', fellBack);
+    this.attach(token, { uri }, 'file', fellBack, tier === 'T1' ? AudioTier.T1 : AudioTier.T1_5);
   }
 
   private async startStream(token: number, fellBack: boolean): Promise<void> {
@@ -301,6 +324,7 @@ class NarrationPlayer {
       },
       'stream',
       fellBack,
+      AudioTier.T2,
     );
   }
 
@@ -309,6 +333,7 @@ class NarrationPlayer {
     source: { uri: string; headers?: Record<string, string> },
     kind: 'file' | 'stream',
     fellBack: boolean,
+    tier: AudioTier,
   ): void {
     const narration = usePlayerStore.getState().current;
     if (narration === null) return;
@@ -320,7 +345,9 @@ class NarrationPlayer {
     this.everPlayed = false;
     this.inNotification = false;
     this.subscriptions.push(
-      player.addListener('playbackStatusUpdate', (status) => this.onStatus(token, kind, status)),
+      player.addListener('playbackStatusUpdate', (status) =>
+        this.onStatus(token, kind, tier, status),
+      ),
     );
     player.setPlaybackRate(useAppStore.getState().playbackSpeed);
     // A source swapped in after a failure keeps a pause the tourist already asked for.
@@ -412,6 +439,9 @@ class NarrationPlayer {
     Speech.speak(sentence, {
       language: engineLocale(narration.lang),
       rate: useAppStore.getState().playbackSpeed,
+      onStart: () => {
+        if (token === this.sequence) narrationTracker.sounding(AudioTier.T3);
+      },
       onDone: () => {
         if (token !== this.sequence || index !== this.sentenceIndex) return;
         this.sentenceIndex += 1;
@@ -425,8 +455,16 @@ class NarrationPlayer {
 
   // ——— events ———
 
-  private onStatus(token: number, kind: 'file' | 'stream', status: AudioStatus): void {
+  private onStatus(
+    token: number,
+    kind: 'file' | 'stream',
+    tier: AudioTier,
+    status: AudioStatus,
+  ): void {
     if (token !== this.sequence) return;
+    // Only the time sound actually plays counts as listening (rdm-spec A-4).
+    if (status.playing && !status.isBuffering) narrationTracker.sounding(tier);
+    else narrationTracker.silent();
     if (status.error !== null) {
       this.fallFrom(token, kind);
       return;
@@ -484,6 +522,7 @@ class NarrationPlayer {
     // Played to its end: a tour's progress counts it (round 39's K8); a story stopped early isn't.
     const placeId = usePlayerStore.getState().current?.place.id;
     if (placeId !== undefined) void markStoryFinished(placeId);
+    narrationTracker.end(true);
     this.advance();
   }
 
@@ -491,7 +530,7 @@ class NarrationPlayer {
   private advance(): void {
     const { next } = usePlayerStore.getState();
     if (next === null) this.stop();
-    else this.begin(next, 'auto', null, null);
+    else this.begin(next, 'auto', null, null, this.nextTrigger);
   }
 
   // ——— plumbing ———
@@ -505,6 +544,7 @@ class NarrationPlayer {
 
   /** Stops the sound without ending the narration. */
   private halt(): void {
+    narrationTracker.silent();
     const source = usePlayerStore.getState().current?.source;
     if (source === 'device') void Speech.stop();
     else this.audio?.pause();

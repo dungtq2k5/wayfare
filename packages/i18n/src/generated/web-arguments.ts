@@ -96,4 +96,6 @@ export interface WebArguments {
   readonly "tour.goneBody": { "area": string | number };
   readonly "tour.otherTours": { "area": string | number };
   readonly "tour.seeAreaTours": { "area": string | number };
+  readonly "consent.changed.lead": { "date": string | number; "summary": string | number };
+  readonly "consent.changed.leadPlain": { "date": string | number };
 }

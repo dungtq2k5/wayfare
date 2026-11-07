@@ -1,7 +1,9 @@
 'use client';
 
 import { narrationOnDemand, narrationStatus, narrationStreamTicket } from '@wayfare/api-client';
-import { NARRATION_CONFIG } from '@wayfare/contracts';
+import { AnalyticsTrigger, AudioTier, NARRATION_CONFIG } from '@wayfare/contracts';
+import { narrationTracker } from '../analytics/analytics';
+import { takeQrArrival } from '../analytics/qr-arrival';
 import { API_BASE_URL } from '../env';
 import { recordFinished } from '../tours/progress';
 import { resolveSource } from './ladder';
@@ -78,6 +80,8 @@ export class NarrationPlayer {
   private audio: HTMLAudioElement | null = null;
   private generation = 0;
   private utterance: SpeechSynthesisUtterance | null = null;
+  /** Where the current story's sound comes from — analytics' tier. */
+  private tier: AudioTier = AudioTier.T1;
 
   getState = (): PlayerState => this.state;
 
@@ -101,7 +105,11 @@ export class NarrationPlayer {
       if (Number.isFinite(audio.duration)) this.set({ durationMs: audio.duration * 1000 });
     });
     audio.addEventListener('play', () => this.set({ phase: 'playing' }));
+    // Only the time sound actually plays counts as listening (rdm-spec A-4).
+    audio.addEventListener('playing', () => narrationTracker.sounding(this.tier));
+    audio.addEventListener('waiting', () => narrationTracker.silent());
     audio.addEventListener('pause', () => {
+      narrationTracker.silent();
       if (this.state.phase === 'playing') this.set({ phase: 'paused' });
     });
     audio.addEventListener('ended', () => this.finished());
@@ -115,10 +123,18 @@ export class NarrationPlayer {
     return audio;
   }
 
-  /** Plays a story from the start, as the ladder finds it (K6). */
+  /**
+   * Plays a story from the start, as the ladder finds it (K6). The first story on a page a sticker
+   * opened (`?via=qr`) entered by the QR; any other by a tap.
+   */
   async play(track: Track): Promise<void> {
     const generation = ++this.generation;
     this.stopSound();
+    narrationTracker.begin(
+      track.placeId,
+      track.lang,
+      takeQrArrival() ? AnalyticsTrigger.QR : AnalyticsTrigger.TAP,
+    );
     this.set({
       track,
       phase: track.audio === null ? 'preparing' : 'paused',
@@ -158,6 +174,7 @@ export class NarrationPlayer {
     if (generation !== this.generation) return;
     switch (resolution.kind) {
       case 'file':
+        this.tier = resolution.tier === 'T1' ? AudioTier.T1 : AudioTier.T1_5;
         audio.src = resolution.audio.url;
         this.set({ source: 'file', durationMs: resolution.audio.durationMs });
         return this.start(audio);
@@ -180,6 +197,7 @@ export class NarrationPlayer {
       if (generation !== this.generation) return;
       const audio = this.element();
       audio.src = `${API_BASE_URL}/narration/tts/stream/${data.ticket}`;
+      this.tier = AudioTier.T2;
       this.set({ source: 'stream', durationMs: null });
       await this.start(audio);
     } catch {
@@ -208,6 +226,7 @@ export class NarrationPlayer {
   readAloud(track: Track): void {
     ++this.generation;
     this.stopSound();
+    narrationTracker.begin(track.placeId, track.lang, AnalyticsTrigger.TAP);
     this.set({ track, elapsedMs: 0 });
     this.speak(track, !navigator.onLine);
   }
@@ -221,6 +240,9 @@ export class NarrationPlayer {
     const utterance = new SpeechSynthesisUtterance(track.text);
     utterance.lang = track.lang;
     utterance.rate = this.state.rate;
+    utterance.onstart = () => narrationTracker.sounding(AudioTier.T3);
+    utterance.onresume = () => narrationTracker.sounding(AudioTier.T3);
+    utterance.onpause = () => narrationTracker.silent();
     utterance.onend = () => {
       if (this.utterance === utterance) this.finished();
     };
@@ -246,6 +268,7 @@ export class NarrationPlayer {
   private finished(): void {
     // Played to its end: a tour's progress counts it (round 39's K8).
     if (this.state.track !== null) void recordFinished(this.state.track.placeId);
+    narrationTracker.end(true);
     const next = this.state.upNext;
     if (next !== null) {
       this.set({ upNext: null });
@@ -312,6 +335,7 @@ export class NarrationPlayer {
 
   /** Cancel preparing, or stop: the player closes. */
   stop(): void {
+    narrationTracker.end(false);
     this.generation++;
     this.stopSound();
     this.state = { ...IDLE, rate: this.state.rate, upNext: this.state.upNext };

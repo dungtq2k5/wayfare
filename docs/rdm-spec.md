@@ -1591,6 +1591,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Index:** `(analytics_device_id, recorded_at DESC)`. Current state is the newest row, **read inside every ingest's transaction — never cached**: ingest and withdrawal each first take `pg_advisory_xact_lock` on the id's hash, so a batch racing a withdrawal either commits before it (and is deleted by it) or reads `WITHDRAWN` and stores nothing.
 - A grant names the current privacy policy version (else `409 LEGAL_VERSION_OUTDATED`); a withdrawal never checks the version.
+- **The client withdraws every id it used in the last 90 days** (rotation leaves earlier ids whose raw events may remain), so a withdrawal deletes everything of that install's still held.
 - **Withdrawal deletes that id's raw events (A-2)** in the same transaction, so the next nightly rollup removes the id from **every day it still rebuilds** (the last 8). Older days stay as computed — they contain no id. The heatmap's HyperLogLogs can't remove an id and needn't: they hold none.
 - Pruned 400 days after the newest row for an id.
 
@@ -1602,12 +1603,12 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Client-generated, so a batch retried after a timeout de-duplicates. |
 | **analytics_device_id** | UUID | NOT NULL | — |
-| **session_id** | UUID | NOT NULL | Client-generated per app foreground session. |
+| **session_id** | UUID | NOT NULL | Client-generated: a new one, with an `APP_OPENED`, when the app or page comes to the front after 30 minutes with nothing recorded, or on a cold start. Events recorded in the background carry the latest. |
 | **event_type** | VARCHAR(48) | NOT NULL | `APP_OPENED \| NARRATION_STARTED \| NARRATION_COMPLETED \| NARRATION_ABANDONED \| PLACE_OPENED \| QR_SCANNED \| LANGUAGE_SELECTED \| PACK_INSTALLED \| SEARCH_PERFORMED \| TOUR_STARTED \| VOUCHER_VIEWED` — `APP_OPENED` once per session, which is what *sessions* counts; `VOUCHER_VIEWED` dropped at ingest while vouchers aren't available (ADR 0066). |
-| **trigger** | VARCHAR(16) | Nullable | `GEOFENCE \| TAP \| QR` for narration events — auto versus pull is the question the ranking firewall exists to answer. |
+| **trigger** | VARCHAR(16) | Nullable | `GEOFENCE \| TAP \| QR` for narration events — auto versus pull is the question the ranking firewall exists to answer. How the story entered the player, kept through *Up next*: the walk's offer, a tap on *Play*, or a code opened from a sticker (`via=qr`, the scanner, a typed code). |
 | **place_id** | UUID | Nullable | ref ➔ catalog.places.id. |
 | **lang** | VARCHAR(16) | Nullable | — |
-| **audio_tier** | VARCHAR(8) | Nullable | `T1 \| T1_5 \| T2 \| T3` — which fallback tier served the narration. |
+| **audio_tier** | VARCHAR(8) | Nullable | `T1 \| T1_5 \| T2 \| T3` — which fallback tier served the narration's **first sound**: the Place's own file, a file made on request, the stream, the device voice. A fallback during play doesn't change it. |
 | **listen_ms** | INT | Nullable | For `COMPLETED`/`ABANDONED`. |
 | **props** | JSONB | NOT NULL, `'{}'` | Typed per `event_type` (`AnalyticsEventProps`). **No coordinates, ever** — location reaches analytics only as a pre-snapped cell (A-3). |
 | **platform** | VARCHAR(16) | NOT NULL | — |
@@ -1666,6 +1667,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **active_estimate** | INT | NOT NULL | HyperLogLog of *request* activity attributed to an area, from the gateway — no device id stored, no finer location than the area. |
 | **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
+- **Sent by the Android app only**, at most every 15 minutes while it is in front or walking, and only within 1 km of a synced Place — the area is that Place's, so no position leaves the phone. The web doesn't send it.
 - **Why this may exist without consent and A-3 may not:** this lane knows only that *some* install was active in a 1.5 km² area in an hour, which is operational telemetry with no individual in it. A-3 knows 150 m cells, which at low counts is a person. Merging them into one table would give the operational lane the resolution of the consented one. Separate tables make that a schema change someone has to propose, instead of a query someone can write.
 
 #### Table A-6: activity_daily_stats

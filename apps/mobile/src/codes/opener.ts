@@ -1,7 +1,13 @@
-import { CLIENT_HEADER, APP_VERSION_HEADER } from '@wayfare/contracts';
+import {
+  AnalyticsEventType,
+  AnalyticsTrigger,
+  APP_VERSION_HEADER,
+  CLIENT_HEADER,
+} from '@wayfare/contracts';
 import { codesResolve, getPlacesGetQueryKey, placesByCode } from '@wayfare/api-client';
 import type { Language } from '@wayfare/contracts';
 import { router } from 'expo-router';
+import { track } from '../analytics/analytics';
 import { APP_VERSION } from '../api';
 import { databaseReady } from '../data/boot';
 import { placeByPublicCode } from '../data/queries';
@@ -69,7 +75,7 @@ export const codeOpener = createCodeOpener<PlayerPlace>({
   },
   online: () => useNetworkStore.getState().status !== 'offline',
   playingId: () => usePlayerStore.getState().current?.place.id ?? null,
-  play: (place) => narrationPlayer.play(place),
+  play: (place) => narrationPlayer.play(place, AnalyticsTrigger.QR),
   alreadyPlaying: () => {
     const { t } = tourist();
     showToast(
@@ -100,4 +106,5 @@ export const codeOpener = createCodeOpener<PlayerPlace>({
   },
   resolve: async (code) => (await codesResolve(code)).data,
   openTour: (id, code) => router.push({ pathname: '/tour/[id]', params: { id, code } }),
+  scanned: (target) => track({ type: AnalyticsEventType.QR_SCANNED, target }),
 });

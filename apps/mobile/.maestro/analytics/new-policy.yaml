@@ -1,0 +1,27 @@
+# §3.3 A new policy: allowed in Settings → Diagnostics' *Pretend the policy changed* → the Map →
+# AC5 → Allow → Diagnostics: the current version again.
+appId: app.wayfare
+---
+- runFlow: steps/fresh.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Help improve Wayfare'
+- tapOn: 'Help improve Wayfare'
+- assertVisible: 'On · counts which stories are heard, never who you are'
+- runFlow: steps/diagnostics.yaml
+- extendedWaitUntil:
+    visible: 'Analytics: GRANTED · policy 2026-09-01 .*'
+    timeout: 20000
+- tapOn: 'Pretend the policy changed'
+- assertVisible: 'Analytics: GRANTED · policy 2000-01-01 .*'
+- tapOn: 'Back'
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: 'We changed how we count'
+    timeout: 15000
+- assertVisible: 'Until you choose, nothing is sent.'
+- tapOn: 'Allow'
+- runFlow: steps/diagnostics.yaml
+- extendedWaitUntil:
+    visible: 'Analytics: GRANTED · policy 2026-09-01 .*'
+    timeout: 20000

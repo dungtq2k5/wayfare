@@ -44,7 +44,7 @@ export interface BusinessClock {
 }
 
 /** Days since 1970-01-01 → `YYYY-MM-DD` (proleptic Gregorian; Howard Hinnant's civil-from-days). */
-function civilDate(days: number): string {
+export function civilDate(days: number): string {
   const z = days + 719_468;
   const era = Math.floor(z / 146_097);
   const dayOfEra = z - era * 146_097;

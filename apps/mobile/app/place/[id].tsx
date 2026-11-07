@@ -1,10 +1,12 @@
+import { AnalyticsEventType } from '@wayfare/contracts';
 import { distanceMeters, walkingEtaMinutes } from '@wayfare/core';
 import { space } from '@wayfare/design-tokens/tokens';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, LoaderCircle } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { track } from '../../src/analytics/analytics';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { usePosition } from '../../src/location/use-position';
 import { PlaceDetail, PlaceUnavailable } from '../../src/places/place-detail';
@@ -16,6 +18,9 @@ import { ScreenHeader } from '../../src/ui/screen-header';
 /** A Place's whole detail: the gallery, hours, menu and contact online; the synced fields offline. */
 export default function PlaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  useEffect(() => {
+    track({ type: AnalyticsEventType.PLACE_OPENED, placeId: id });
+  }, [id]);
   const { t } = useTourist();
   const router = useRouter();
   const position = usePosition();

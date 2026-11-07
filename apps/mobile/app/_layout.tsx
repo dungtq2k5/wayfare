@@ -1,4 +1,7 @@
+import '../src/crypto-random'; // FIRST: newId() needs crypto.getRandomValues
 import '../global.css';
+import { analytics } from '../src/analytics/analytics';
+import { startRuntimeLane } from '../src/analytics/runtime-lane';
 import '../src/api';
 import '../src/i18n';
 import '../src/walk/task';
@@ -70,6 +73,12 @@ export default function RootLayout() {
   useDataBoot(checked && onboarded && !blocked);
   usePackBoot(checked && onboarded && !blocked);
   useAccountBoot(checked && onboarded && !blocked);
+  // Analytics and the runtime lane call device routes: they wait for registration too.
+  useEffect(() => {
+    if (!checked || !onboarded || blocked) return;
+    void analytics();
+    startRuntimeLane();
+  }, [checked, onboarded, blocked]);
 
   if (!hydrated || !checked) return null;
   // Navigation reads the active mode's tokens: header, card and page colours follow the theme.

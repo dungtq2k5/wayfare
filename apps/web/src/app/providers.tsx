@@ -11,6 +11,8 @@ import type { Messages } from '../i18n/messages';
 import { I18nProvider } from '../i18n/provider';
 import { AccountOfferProvider } from '../favourites/account-offer';
 import { PlayerSurfaces } from '../player/surfaces';
+import { ConsentHost } from '../analytics/consent-dialog';
+import { ToastHost } from '../ui/toast';
 import { InstallPrompt } from '../prompts/install-prompt';
 import { LanguagePickerProvider } from '../shell/language-picker-state';
 import { THEME_COOKIE } from '../theme';
@@ -76,6 +78,8 @@ export function Providers({
           <LanguagePickerProvider>
             <AccountOfferProvider>{children}</AccountOfferProvider>
             <PlayerSurfaces />
+            <ConsentHost />
+            <ToastHost />
             <InstallPrompt />
             <Toaster theme={theme} />
           </LanguagePickerProvider>

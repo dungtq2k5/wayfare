@@ -14,7 +14,24 @@ describe('parseLink', () => {
     ['wayfare://p/QK4V1TCX', false, false],
     ['https://wayfare.app/t/QK4V-1TCX', false, true],
   ])('reads %s as a code', (text, printed, tour) => {
-    expect(parseLink(text, bases)).toEqual({ kind: 'code', code: 'QK4V1TCX', printed, tour });
+    expect(parseLink(text, bases)).toEqual({
+      kind: 'code',
+      code: 'QK4V1TCX',
+      printed,
+      tour,
+      viaQr: false,
+    });
+  });
+
+  it('knows a link the gateway’s /q/ answered, with ?via=qr: a sticker, already counted', () => {
+    expect(parseLink('https://wayfare.app/p/QK4V1TCX?via=qr', bases)).toMatchObject({
+      printed: false,
+      viaQr: true,
+    });
+    expect(parseLink('https://wayfare.app/t/QK4V1TCX?via=qr', bases)).toMatchObject({
+      tour: true,
+      viaQr: true,
+    });
   });
 
   it.each([

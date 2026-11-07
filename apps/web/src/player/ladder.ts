@@ -30,9 +30,9 @@ export interface LadderDeps {
   onPreparing(): void;
 }
 
-/** Where the ladder landed. */
+/** Where the ladder landed. A file names its rung: the Place's own (`T1`) or made on demand (`T1_5`). */
 export type Resolution =
-  | { readonly kind: 'file'; readonly audio: StoredAudio }
+  | { readonly kind: 'file'; readonly audio: StoredAudio; readonly tier: 'T1' | 'T1_5' }
   | { readonly kind: 'stream' }
   | { readonly kind: 'voice'; readonly offline: boolean }
   | { readonly kind: 'unavailable' }
@@ -59,7 +59,7 @@ export async function resolveSource(
     switch (rung) {
       case 'file': {
         if (!deps.isOffline() || (await deps.isCached(audio!.url))) {
-          return deps.stale() ? { kind: 'discarded' } : { kind: 'file', audio: audio! };
+          return deps.stale() ? { kind: 'discarded' } : { kind: 'file', audio: audio!, tier: 'T1' };
         }
         rung = 'voice';
         break;
@@ -103,7 +103,7 @@ export async function resolveSource(
           rung = 'stream';
           break;
         }
-        return deps.stale() ? { kind: 'discarded' } : { kind: 'file', audio: made };
+        return deps.stale() ? { kind: 'discarded' } : { kind: 'file', audio: made, tier: 'T1_5' };
       }
       case 'stream':
         if (deps.isOffline()) {

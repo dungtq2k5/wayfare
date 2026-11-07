@@ -1,6 +1,8 @@
 import { useAreasList } from '@wayfare/api-client';
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAnalytics } from '../../src/analytics/use-analytics';
 import { useAllPlaces, useLocalAreas } from '../../src/data/hooks';
 import { useFakeGoogle } from '../../src/account/google';
 import { useSwitchHolds } from '../../src/i18n/switch-holds';
@@ -24,6 +26,66 @@ import {
   startSimulation,
 } from '../../src/walk/simulation';
 import { useWalkStore } from '../../src/walk/store';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Analytics, for testing: the consent and its version, the question's count, the id and its age,
+ * the queue, the last send; and the two shortcuts that reach every question without waiting days.
+ */
+function AnalyticsBlock() {
+  const { t } = useTourist();
+  const live = useAnalytics();
+  const [queue, setQueue] = useState<number | null>(null);
+  useEffect(() => {
+    if (live === null) return;
+    let alive = true;
+    const read = () => void live.client.queued().then((n) => alive && setQueue(n));
+    read();
+    const timer = setInterval(read, 1_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [live]);
+  if (live === null) return null;
+  const { state } = live.snapshot;
+  const choice =
+    state.choice === null ? '—' : `${state.choice}${state.grantPending ? ' (pending)' : ''}`;
+  return (
+    <View testID="diagnostics-analytics" className="gap-1">
+      <Text className="text-label text-foreground">
+        {t('settings.diagnostics.analytics', {
+          state: choice,
+          version: state.policyVersion ?? '—',
+          known: state.knownPolicyVersion,
+          asked: state.asked,
+        })}
+      </Text>
+      <Text className="text-caption text-muted-foreground">
+        {t('settings.diagnostics.analyticsId', {
+          id: state.current?.id.slice(0, 8) ?? '—',
+          age:
+            state.current === null
+              ? 0
+              : Math.floor((Date.now() - state.current.createdAt) / DAY_MS),
+          queue: queue ?? 0,
+          last: state.lastSend ?? '—',
+        })}
+      </Text>
+      <Button
+        label={t('settings.diagnostics.analyticsDue')}
+        variant="secondary"
+        onPress={() => void live.client.makeDue()}
+      />
+      <Button
+        label={t('settings.diagnostics.analyticsPolicy')}
+        variant="secondary"
+        onPress={() => void live.client.pretendPolicyChanged()}
+      />
+    </View>
+  );
+}
 
 /** Settings › About › Diagnostics, for testing: the database, the last sync, the network verdict. */
 export default function DiagnosticsScreen() {
@@ -50,6 +112,7 @@ export default function DiagnosticsScreen() {
       <ScreenHeader title={t('settings.diagnostics')} type="back" />
       <ScrollView contentContainerStyle={{ paddingBottom: LIST_END_PADDING }}>
         <View className="gap-3 px-4">
+          <AnalyticsBlock />
           <Text className="text-label text-muted-foreground">
             {t('settings.data.network', { status: network })}
           </Text>

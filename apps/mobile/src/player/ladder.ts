@@ -34,9 +34,17 @@ export interface LadderDeps {
   onDemandWaitMs: number;
 }
 
-/** Where the ladder landed. `fellBack` is true when a source that was tried failed. */
+/**
+ * Where the ladder landed. `fellBack` is true when a source that was tried failed. A file names
+ * its rung: the Place's own audio (`T1`) or the on-demand route's (`T1_5`) — analytics' tiers.
+ */
 export type Resolution =
-  | { readonly kind: 'file'; readonly uri: string; readonly fellBack: boolean }
+  | {
+      readonly kind: 'file';
+      readonly uri: string;
+      readonly fellBack: boolean;
+      readonly tier: 'T1' | 'T1_5';
+    }
   | { readonly kind: 'stream'; readonly fellBack: boolean }
   | { readonly kind: 'device'; readonly fellBack: boolean }
   | { readonly kind: 'unavailable' }
@@ -68,11 +76,11 @@ export async function resolveSource(
   let rung: Rung = start;
   let fellBack = startedFellBack;
   const stale = () => deps.currentLang() !== lang;
-  const fileFrom = async (audio: PlaceAudio): Promise<Resolution | null> => {
+  const fileFrom = async (audio: PlaceAudio, tier: 'T1' | 'T1_5'): Promise<Resolution | null> => {
     try {
       const uri =
         (await deps.cachedFile(place, audio, lang)) ?? (await deps.download(place, audio, lang));
-      return stale() ? { kind: 'discarded' } : { kind: 'file', uri, fellBack };
+      return stale() ? { kind: 'discarded' } : { kind: 'file', uri, fellBack, tier };
     } catch {
       return null;
     }
@@ -86,7 +94,7 @@ export async function resolveSource(
           rung = 'on-demand';
           break;
         }
-        const resolved = await fileFrom(place.audio);
+        const resolved = await fileFrom(place.audio, 'T1');
         if (resolved !== null) return resolved;
         fellBack = true;
         rung = deps.isOffline() ? 'device' : 'stream';
@@ -136,7 +144,7 @@ export async function resolveSource(
           rung = 'stream';
           break;
         }
-        const resolved = await fileFrom(audio);
+        const resolved = await fileFrom(audio, 'T1_5');
         if (resolved !== null) return resolved;
         fellBack = true;
         rung = 'stream';

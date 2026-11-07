@@ -14,6 +14,8 @@ export type ParsedLink =
       readonly code: string;
       readonly printed: boolean;
       readonly tour: boolean;
+      /** The gateway's `/q/` sent it here (`?via=qr`): a sticker, already counted. */
+      readonly viaQr: boolean;
     }
   /** A Wayfare `/q/`, `/p/` or `/t/` link whose code does not canonicalize. */
   | { readonly kind: 'bad-link' }
@@ -76,5 +78,11 @@ export function parseLink(text: string, bases: LinkBases): ParsedLink {
   const code = canonicalPublicCode(decoded);
   return code === null
     ? { kind: 'bad-link' }
-    : { kind: 'code', code, printed: kind === 'q', tour: kind === 't' };
+    : {
+        kind: 'code',
+        code,
+        printed: kind === 'q',
+        tour: kind === 't',
+        viaQr: url.searchParams.get('via') === 'qr',
+      };
 }

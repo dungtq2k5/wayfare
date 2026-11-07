@@ -299,10 +299,10 @@ describe('GET /places', () => {
 });
 
 describe('GET /q/:publicCode', () => {
-  it('counts the scan and redirects, unprefixed, with no client header', async () => {
+  it('counts the scan and redirects with ?via=qr, unprefixed, with no client header', async () => {
     const res = await request(server()).get('/q/k7m2q9xa');
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('https://wayfare.test/p/K7M2Q9XA');
+    expect(res.headers.location).toBe('https://wayfare.test/p/K7M2Q9XA?via=qr');
     expect(res.headers['cache-control']).toBe('no-store');
     expect(gateway.catalog.placeQueries.calls[0]!.request).toEqual({
       publicCode: 'K7M2Q9XA',
@@ -314,12 +314,14 @@ describe('GET /q/:publicCode', () => {
   it('redirects a malformed code without asking catalog, and while catalog is down', async () => {
     const odd = await request(server()).get('/q/%3Cscript%3E');
     expect(odd.status).toBe(302);
-    expect(odd.headers.location).toBe('https://wayfare.test/p/%3Cscript%3E');
+    expect(odd.headers.location).toBe('https://wayfare.test/p/%3Cscript%3E?via=qr');
     expect(gateway.catalog.placeQueries.calls).toHaveLength(0);
     gateway.catalog.placeQueries.handlers.resolvePublicCode = () =>
       Promise.reject(serviceError(status.UNAVAILABLE));
     const down = await request(server()).get('/q/K7M2Q9XA');
     expect(down.status).toBe(302);
+    // The web's `/p/` sends a tour's code on to `/t/`, keeping `via`.
+    expect(down.headers.location).toBe('https://wayfare.test/p/K7M2Q9XA?via=qr');
   });
 
   it('answers the app, which resolves the code itself, with 204 after counting', async () => {
@@ -341,7 +343,7 @@ describe('GET /q/:publicCode', () => {
         targetId: '01990000-0000-7000-8000-000000000a01',
       });
     const res = await request(server()).get('/q/T4QX-8MRK');
-    expect(res.headers.location).toBe('https://wayfare.test/t/T4QX8MRK');
+    expect(res.headers.location).toBe('https://wayfare.test/t/T4QX8MRK?via=qr');
   });
 });
 

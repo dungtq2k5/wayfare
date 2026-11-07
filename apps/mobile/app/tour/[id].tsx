@@ -1,4 +1,4 @@
-import { formatPublicCode } from '@wayfare/contracts';
+import { AnalyticsEventType, formatPublicCode } from '@wayfare/contracts';
 import { space } from '@wayfare/design-tokens/tokens';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -18,6 +18,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { track } from '../../src/analytics/analytics';
 import { databaseReady } from '../../src/data/boot';
 import { useLocalAreas } from '../../src/data/hooks';
 import { relativeTime } from '../../src/data/relative-time';
@@ -99,6 +100,7 @@ export default function TourScreen() {
     await beginTour(db, record.id, Date.now(), finished);
     useFinishedStore.setState((state) => ({ version: state.version + 1 }));
     followTour(record.id);
+    track({ type: AnalyticsEventType.TOUR_STARTED, tourId: record.id });
     void startWalk();
     if (!finished) router.navigate('/map');
   };

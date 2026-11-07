@@ -12,3 +12,4 @@ export * from './ranking/nearby';
 export * from './ranking/walking';
 export * from './tours/progress';
 export * from './tours/tour-stops';
+export * from './analytics';

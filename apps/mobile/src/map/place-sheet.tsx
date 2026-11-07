@@ -1,4 +1,6 @@
 import { distanceMeters, walkingEtaMinutes } from '@wayfare/core';
+import { AnalyticsEventType } from '@wayfare/contracts';
+import { track } from '../analytics/analytics';
 import { space } from '@wayfare/design-tokens/tokens';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +44,10 @@ export function PlaceSheet({
   initialSnap?: 'peek' | 'half';
 }) {
   const { t } = useTourist();
+  // Each Place the sheet shows counts as one opening (analytics' PLACE_OPENED).
+  useEffect(() => {
+    track({ type: AnalyticsEventType.PLACE_OPENED, placeId });
+  }, [placeId]);
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // The map screen ends at the tab bar: the sheet fits what is left, below the status bar.
