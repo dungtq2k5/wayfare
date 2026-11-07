@@ -1,0 +1,140 @@
+// analytics — rdm-spec §3.5. Consent-gated, anonymous, aggregate: nothing here identifies a person
+// or an install (§1.10, ADR 0042).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma" // outside src/ — ADR 0056's entryFile depends on it
+  moduleFormat = "cjs" // ADR 0058; never rely on inference
+}
+
+datasource db {
+  provider = "postgresql" // no url here — it lives in prisma.config.ts
+}
+
+/// Append-only consent decisions — rdm-spec A-1. The current state is the newest row per id, read
+/// inside ingest's transaction (no cache).
+model Consent {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  analyticsDeviceId String   @map("analytics_device_id") @db.Uuid
+  state             String   @db.VarChar(16)
+  policyVersion     String   @map("policy_version") @db.VarChar(16)
+  recordedAt        DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  @@index([analyticsDeviceId, recordedAt(sort: Desc)])
+  @@map("consents")
+}
+
+/// Raw consented events, short-lived by design — rdm-spec A-2. No coordinates, ever; no cell either
+/// (the cell only reaches the heatmap's counters).
+model Event {
+  /// Client-generated, so a retried batch de-duplicates.
+  id                String   @id @db.Uuid
+  analyticsDeviceId String   @map("analytics_device_id") @db.Uuid
+  sessionId         String   @map("session_id") @db.Uuid
+  eventType         String   @map("event_type") @db.VarChar(48)
+  trigger           String?  @db.VarChar(16)
+  placeId           String?  @map("place_id") @db.Uuid
+  lang              String?  @db.VarChar(16)
+  audioTier         String?  @map("audio_tier") @db.VarChar(8)
+  listenMs          Int?     @map("listen_ms")
+  props             Json     @default("{}")
+  platform          String   @db.VarChar(16)
+  appVersion        String   @map("app_version") @db.VarChar(32)
+  occurredAt        DateTime @map("occurred_at") @db.Timestamptz(3)
+  receivedAt        DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  @@index([occurredAt])
+  @@index([placeId, occurredAt])
+  @@index([analyticsDeviceId])
+  @@map("events")
+}
+
+/// The heatmap: device estimates per geohash-7 cell per UTC hour — rdm-spec A-3. A cell under
+/// `HEATMAP_MIN_DEVICES` is never written.
+model LocationCellHourly {
+  cell           String   @db.VarChar(12)
+  bucketStart    DateTime @map("bucket_start") @db.Timestamptz(3)
+  deviceEstimate Int      @map("device_estimate")
+  computedAt     DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  @@id([cell, bucketStart])
+  @@index([bucketStart])
+  @@map("location_cell_hourly")
+}
+
+/// Per-Place rollup, rebuilt whole days at a time — rdm-spec A-4.
+model PlaceDailyStats {
+  placeId             String   @map("place_id") @db.Uuid
+  day                 DateTime @db.Date
+  narrationsStarted   Int      @default(0) @map("narrations_started")
+  narrationsCompleted Int      @default(0) @map("narrations_completed")
+  narrationsAbandoned Int      @default(0) @map("narrations_abandoned")
+  geofenceStarted     Int      @default(0) @map("geofence_started")
+  tapStarted          Int      @default(0) @map("tap_started")
+  qrStarted           Int      @default(0) @map("qr_started")
+  listenMsSum         BigInt   @default(0) @map("listen_ms_sum")
+  listenCount         Int      @default(0) @map("listen_count")
+  opens               Int      @default(0)
+  computedAt          DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  @@id([placeId, day])
+  @@index([day])
+  @@map("place_daily_stats")
+}
+
+/// The consent-free lane: installs active per Area per UTC hour — rdm-spec A-5. Never joined with
+/// A-3.
+model RuntimeActivityHourly {
+  areaId         String   @map("area_id") @db.Uuid
+  bucketStart    DateTime @map("bucket_start") @db.Timestamptz(3)
+  activeEstimate Int      @map("active_estimate")
+  computedAt     DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  @@id([areaId, bucketStart])
+  @@map("runtime_activity_hourly")
+}
+
+/// Per day and platform: the totals on the `lang = '*'` row, narrations per language on the others
+/// — rdm-spec A-6. Nothing here is summed over languages.
+model ActivityDailyStats {
+  day                   DateTime @db.Date
+  lang                  String   @db.VarChar(16)
+  platform              String   @db.VarChar(16)
+  sessions              Int      @default(0)
+  /// An exact distinct count of the day's rotating ids: an upper bound on installs (ADR 0042).
+  activeDevicesEstimate Int      @default(0) @map("active_devices_estimate")
+  narrationsStarted     Int      @default(0) @map("narrations_started")
+  narrationsCompleted   Int      @default(0) @map("narrations_completed")
+  tier1Narrations       Int      @default(0) @map("tier1_narrations")
+  tier15Narrations      Int      @default(0) @map("tier1_5_narrations")
+  tier2Narrations       Int      @default(0) @map("tier2_narrations")
+  tier3Narrations       Int      @default(0) @map("tier3_narrations")
+  packInstalls          Int      @default(0) @map("pack_installs")
+  searches              Int      @default(0)
+  computedAt            DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  @@id([day, lang, platform])
+  @@map("activity_daily_stats")
+}
+
+/// Each business day the nightly rollup rebuilt, and when: `dataThrough` is the newest.
+model RollupDay {
+  day        DateTime @id @db.Date
+  computedAt DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  @@map("rollup_days")
+}
+
+/// Scheduled jobs' health (rdm-spec §2.12).
+model JobRun {
+  jobName             String    @id @map("job_name") @db.VarChar(64)
+  lastStartedAt       DateTime? @map("last_started_at") @db.Timestamptz(3)
+  lastSucceededAt     DateTime? @map("last_succeeded_at") @db.Timestamptz(3)
+  lastFailedAt        DateTime? @map("last_failed_at") @db.Timestamptz(3)
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastDurationMs      Int?      @map("last_duration_ms")
+  lastError           String?   @map("last_error") @db.Text
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("job_runs")
+}

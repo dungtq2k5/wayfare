@@ -46,6 +46,7 @@ import { PlaceQueriesModule } from './modules/place-queries/place-queries.module
 import { PlacesModule } from './modules/places/places.module';
 import { TourQueriesModule } from './modules/tour-queries/tour-queries.module';
 import { ToursModule } from './modules/tours/tours.module';
+import { InsightsModule } from './modules/insights/insights.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { SystemCatalogModule } from './modules/system-catalog/system-catalog.module';
@@ -95,6 +96,7 @@ export class AppModule {
         SubmissionReviewModule,
         OwnerPlacesModule,
         PlaceQueriesModule,
+        InsightsModule,
         LocalizationReadyModule,
         LocalizationFailedModule,
         EntitlementsChangedModule,

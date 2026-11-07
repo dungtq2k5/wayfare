@@ -540,10 +540,10 @@ Product capability → owning service. Full technical detail lives in [`architec
 | :---- | :---- | :---- |
 | **gateway** | The only public HTTP surface. Auth verification, rate limiting, request shaping, OpenAPI spec. | all clients |
 | **identity** | Accounts, devices, sessions, tokens, roles, permissions, PII encryption, owner verification state. | every service |
-| **catalog** | Places, menus, tours, media metadata, submissions, moderation workflow, dataset versioning + delta sync, PostGIS nearby/geofence queries, map pack manifests. | gateway, narration, analytics |
+| **catalog** | Places, menus, tours, media metadata, submissions, moderation workflow, dataset versioning + delta sync, PostGIS nearby/geofence queries, map pack manifests. | gateway, narration, billing |
 | **narration** | TTS jobs, audio assets, voice catalogue, pronunciation dictionary, audio packs, content translation, UI string bundles, hotset & warmup. | gateway, catalog |
 | **billing** | Stripe: subscriptions, Connect accounts, checkout sessions, webhook processing, entitlements, vouchers, payouts. | gateway, catalog |
-| **analytics** *(P1)* | Consent-gated ingest, event store, rollups, read models, heatmap aggregation. | gateway, console |
+| **analytics** *(P1)* | Consent-gated ingest, event store, rollups, read models, heatmap aggregation. Publishes and consumes no event. | gateway |
 | **ai** *(P1)* | Description enhancement, quota accounting, provider fallback. | gateway |
 
 **Inter-service interactions that must exist:**
@@ -578,7 +578,7 @@ The Phase 1 demo is one video: someone walking a route with the screen off while
 - Full 5-language narration; audio tiers 1.5 and 2; pronunciation dictionary; hotset + warmup + dual-lane i18n.
 - Offline packs: map pack + content + images + audio, with SHA-256 verification.
 - Web tourist PWA.
-- `analytics` service + admin dashboards.
+- `analytics` service + admin dashboards — moved to Phase 3.
 - `ai` service: description enhancement.
 - Staging deployment, mobile build distributed to testers.
 
@@ -587,6 +587,7 @@ The Phase 1 demo is one video: someone walking a route with the screen off while
 - Vouchers + Stripe Connect payouts — **deferred** ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)): Stripe can't pay a Vietnamese venue; the chain waits for where Wayfare is set up, how venues are paid, and the VAT that follows.
 - Discovery boost.
 - Tours browser and progress.
+- Analytics (§F9): the `analytics` service, its rollup jobs and every dashboard read are built; the apps' consent question and the owner's and admin's dashboards follow.
 - Load test, OpenTelemetry traces, architecture diagrams.
 
 ### 12.1 Pilot area

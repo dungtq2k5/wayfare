@@ -1,6 +1,7 @@
 // Written by scripts/write-index.mjs. Do not edit manually.
 export * from './model';
 export * from './account-recoveries/account-recoveries';
+export * from './admin-analytics/admin-analytics';
 export * from './admin-areas/admin-areas';
 export * from './admin-audit-logs/admin-audit-logs';
 export * from './admin-billing/admin-billing';
@@ -17,6 +18,7 @@ export * from './admin-roles/admin-roles';
 export * from './admin-submissions/admin-submissions';
 export * from './admin-tours/admin-tours';
 export * from './admin-users/admin-users';
+export * from './analytics/analytics';
 export * from './areas/areas';
 export * from './auth/auth';
 export * from './categories/categories';
@@ -31,6 +33,7 @@ export * from './owner-billing/owner-billing';
 export * from './owner-boosts/owner-boosts';
 export * from './owner-places/owner-places';
 export * from './owner-registration/owner-registration';
+export * from './owner-stats/owner-stats';
 export * from './owner-submissions/owner-submissions';
 export * from './places/places';
 export * from './sync/sync';

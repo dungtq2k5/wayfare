@@ -33,6 +33,7 @@ export const PROTO_FILES = {
     'wayfare/catalog/tour_types.proto',
     'wayfare/catalog/tour_admin.proto',
     'wayfare/catalog/tour_query.proto',
+    'wayfare/catalog/insight.proto',
   ],
   narration: [
     'wayfare/narration/narration.proto',
@@ -49,6 +50,7 @@ export const PROTO_FILES = {
     'wayfare/billing/billing_webhook.proto',
     'wayfare/billing/billing_admin.proto',
   ],
+  analytics: ['wayfare/analytics/analytics.proto'],
   health: ['grpc/health/v1/health.proto'],
 } as const;
 
@@ -58,5 +60,6 @@ export const GRPC_PACKAGES = {
   catalog: 'wayfare.catalog',
   narration: 'wayfare.narration',
   billing: 'wayfare.billing',
+  analytics: 'wayfare.analytics',
   health: 'grpc.health.v1',
 } as const;

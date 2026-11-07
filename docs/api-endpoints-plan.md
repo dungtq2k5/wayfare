@@ -142,6 +142,8 @@ Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, 
 | Auth (`AUTH`: register, forgot password, account recovery's cancel and complete) — every call | normalized email · deviceId (with a verified device token) · IP | as `AUTH_LOGIN`'s buckets |
 | On-demand narration, hotset, TTS stream | deviceId | 30 / 10 min |
 | Analytics ingest | analyticsDeviceId | 60 batches / hour |
+| Analytics consent (`ANALYTICS_CONSENT`) | analyticsDeviceId | 10 / hour — a withdrawal deletes rows |
+| Runtime telemetry (`TELEMETRY`) | deviceId | 1 / 15 min |
 | AI enhancement | userId | quota (X-2), plus 20 / hour burst |
 | Voucher redemption by short code — per person | userId | 20 **failed** attempts / 10 min |
 | Voucher redemption by short code — per seller | billingAccountId, across the owner and all staff | 20 **failed** attempts / 10 min. Successful redemptions never count. Tripping it answers `429 SHORT_CODE_ENTRY_PAUSED` for **short-code entry only** until the window ends — QR redemption keeps working — and notifies **the owner only, never staff** — the owner's own staff may be the ones guessing — once per window (`VOUCHER_CODE_GUESSING_SUSPECTED`). Without a per-seller key, an owner with ten staff would have ten times the guessing budget against 40-bit codes. |
@@ -694,22 +696,24 @@ Staff never see prices, sales, commissions, payouts, offers, billing, submission
 
 ---
 
-## 7. `analytics` — consented events and dashboards *(P1)*
+## 7. `analytics` — consented events and dashboards
 
-*Backed by:* `analytics.AnalyticsService` · A-1 … A-6.
+*Backed by:* `analytics.AnalyticsService` · A-1 … A-6, `rollup_days`; QR scans and the heatmap's labels from `catalog.InsightService` (§12.2).
+
+**Ranges:** `from` and `to` are business days (rdm-spec §2.2), inclusive, at most **93 days** (else `400 VALIDATION_FAILED`). Every read answers **`dataThrough`**, the newest day the nightly rollup completed (`rollup_days`). **The gateway never logs an `/analytics/*` body**, and the analytics id is on its log redaction list: it is the one process that sees the device and the analytics id together (ADR 0042), and it uses the analytics id only as a rate-limit key.
 
 | Method | Path | Description | Auth |
 | :---- | :---- | :---- | :---- |
-| POST | `/analytics/consent` | `{ analyticsDeviceId, state, policyVersion }`. Withdrawal deletes that id's raw events in the same transaction (rdm-spec A-1). The `analyticsDeviceId` is **not** the device id — it is never sent anywhere else. | DEVICE |
-| POST | `/analytics/events` | Batch `{ analyticsDeviceId, events: [≤100] }`, each with a client-generated `id`. **Refused `403 CONSENT_REQUIRED` without current consent** — the gate is here, not in the client. Duplicate event ids are silently dropped, so an offline phone can retry a batch safely. Geofence and location events carry only a **client-snapped geohash-7 cell**; a request containing a coordinate field is `400`. Answers `202`. | DEVICE |
-| POST | `/telemetry/activity` | `{ areaId }` — the non-consent operational lane (rdm-spec A-5). No device id is stored; the gateway adds the call to an area-hour HyperLogLog. Sent at most once per 15 minutes per install. | DEVICE |
-| GET | `/owner/stats/places` | `?from=&to=` (≤ 93 days). Per-Venue totals from A-4 plus C-15 QR scans. Fields beyond the plan's `analytics_level` are **absent, not zero** — a zero would read as "nobody listened". | OWNER |
-| GET | `/owner/stats/places/:id` | Daily series for one Venue. | OWNER |
-| GET | `/owner/stats/export` | CSV of the above. `FULL` level only (`403 ANALYTICS_LEVEL_INSUFFICIENT`). | OWNER |
-| GET | `/admin/analytics/overview` | `?from=&to=` → sessions, narrations by trigger and tier, completion rate, pack installs, language split, with `dataThrough` — the last fully computed day. | perm:`analytics.read` |
-| GET | `/admin/analytics/places/top` | `?from=&to=&metric=completed\|started\|listenMs&limit=`. | perm:`analytics.read` |
-| GET | `/admin/analytics/heatmap` | `?areaId=&from=&to=` → GeoJSON of A-3 cells. Suppressed cells are absent. | perm:`analytics.read` |
-| GET | `/admin/analytics/runtime-activity` | `?areaId=&hours=` → A-5 series. | perm:`analytics.read` |
+| POST | `/analytics/consent` | `{ analyticsDeviceId, state, policyVersion }` → `204`. A **grant** on a version other than the current privacy policy is `409 LEGAL_VERSION_OUTDATED`; a **withdrawal** never checks the version, and for an id never seen is accepted. Withdrawal deletes that id's raw events (rdm-spec A-1). A rotated id is a new `GRANTED` for the new id, without asking again. The `analyticsDeviceId` is **not** the device id — it is never sent anywhere else. | DEVICE |
+| POST | `/analytics/events` | Batch `{ analyticsDeviceId, events: [≤100] }`, each with a client-generated `id` → `202`. **Refused `403 CONSENT_REQUIRED` unless the id's newest consent is `GRANTED` on the current policy** — the gate is here, not in the client. Duplicate ids are dropped, so an offline phone can retry a batch. **Any event may carry a client-snapped geohash-7 `cell`**; a coordinate field anywhere, more than 100 events or a malformed envelope refuses **the whole batch** `400`; **one event** failing its type's `props`, or a `VOUCHER_VIEWED` while vouchers aren't available (ADR 0066), is dropped and the rest stored. `APP_OPENED`, once per session, counts sessions. | DEVICE |
+| POST | `/telemetry/activity` | `{ areaId }` → `204` — the non-consent operational lane (rdm-spec A-5). The gateway adds the device to the Area's UTC-hour HyperLogLog and stores nothing else; an Area it doesn't serve is not counted. At most once per 15 minutes per device. | DEVICE |
+| GET | `/owner/stats/places` | `?from=&to=`. Per-Venue totals from A-4 plus C-15 QR scans, for **the Venues the owner owns now, active or inactive, never deleted** (a Venue moved to another owner takes its earlier days with it). **By `analytics_level`:** `BASIC` — narrations started and completed, average listening, QR scans; `FULL` adds abandoned, opens and started by trigger; `NONE` — `403 ANALYTICS_LEVEL_INSUFFICIENT`. Fields beyond the level are **absent, not zero** — a zero would read as "nobody listened". | OWNER |
+| GET | `/owner/stats/places/:id` | `?from=&to=` — one Venue's totals and daily series, by the same level rule; another owner's Venue is `404`. | OWNER |
+| GET | `/owner/stats/export` | `?from=&to=&lang=en\|vi` — `FULL` only (`403 ANALYTICS_LEVEL_INSUFFICIENT`). CSV, UTF-8 with a BOM, `wayfare-stats-{from}-{to}.csv`; one row per Venue per day of the range: day (`YYYY-MM-DD`), Venue, narrations started, finished, stopped early, started by walking by, by tapping, by scanning, average listening in seconds (empty when nothing was heard), page opens, QR scans; the header in `lang`. | OWNER |
+| GET | `/admin/analytics/overview` | `?from=&to=` → totals and a daily series of sessions, active devices (**the range's figure is the daily mean** — distinct ids can't be summed across days), narrations started and completed, by trigger and by the four audio tiers, languages (narrations), pack installs, and QR scans from C-15 (every scan, the owners' figure). | perm:`analytics.read` |
+| GET | `/admin/analytics/places/top` | `?from=&to=&metric=completed\|started\|listenMs&limit=` (`limit` ≤ 50, default 10; metric default `completed`). Names from catalog; a deleted Place is dropped and the list still filled to `limit`. | perm:`analytics.read` |
+| GET | `/admin/analytics/heatmap` | `?areaId=&from=&to=&hours=` — `hours` a band of whole hours in **Vietnam time**, `start-end`, end exclusive, default `0-24`, converted to UTC (it may cross UTC midnight) → GeoJSON squares of A-3 summed over the range and band. Suppressed cells are absent. **The ten busiest carry a label**, the nearest live Place within 300 m, or none. | perm:`analytics.read` |
+| GET | `/admin/analytics/runtime-activity` | `?areaId=&hours=` (≤ 72, default 24) → A-5's hours; or **`?current=true`** → **this hour so far** for every live Area, from the live counters. | perm:`analytics.read` |
 
 ---
 
@@ -886,7 +890,9 @@ gRPC packages are `wayfare.<service>`, protos in `packages/contracts/proto/wayfa
 | `identity.AuthService.GetTokenCutoff(userId)` | gateway (on a revocation-cache miss, §0.1) | a revoked token must never pass on a stale answer | **`503` on account routes**; public routes are unaffected |
 | `identity.OwnerService.ListVerifiedOwnerIds(cursor, limit)` | billing (`billing-accounts-reconcile`) | the ids of live accounts with `owner_verified_at` set, keyset on the id — the guarantee behind the `identity.owner.verified` consumer | the job leaves it to its next run |
 | `identity.OwnerService.GetOwnerVerification(userId)` | catalog (accept `owner_user_id`), billing (open account) | `{ verified, live }` (`live`: neither deactivated nor erased) — a write must not reference an unverified or departed owner | **refuse the write** (`503`) |
-| `catalog.PlaceService.BatchGetPlaceSummaries(ids)` — at most 100 ids, each answered with kind, `ownerUserId`, status and name; unknown ids absent | billing (boosts, offers, an account's boosts' names), analytics (dashboard names) | validate kind, owner and status before a money-related write | refuse the write; dashboards show ids |
+| `catalog.PlaceService.BatchGetPlaceSummaries(ids)` — at most 100 ids, each answered with kind, `ownerUserId`, status and name; unknown ids absent | billing (boosts, offers, an account's boosts' names), gateway (the top Places' names) | validate kind, owner and status before a money-related write | refuse the write; dashboards show ids |
+| `catalog.InsightService.GetQrScans(placeIds, fromDay, toDay)` | gateway (owner stats, the admin overview) | rows `(placeId, day, scans)` from C-15, only days with a scan; no ids answers every Place summed per day | the read fails (`503`) |
+| `catalog.InsightService.NearestLivePlaces(points[≤50], radiusM)` | gateway (the heatmap's labels) | per point, the nearest `ACTIVE` Place within the radius — `NearbyPlaces` serves devices only | the squares come back unlabelled |
 | `billing.BoostService.GetPlaceBoost(placeId)` | gateway (the admin Place's `boost`) | `{ since, billingAccountId, planCode, slots }` or none | the Place page loads, its boost card saying it couldn't load |
 | `catalog.PlaceService.ListNarrationCandidates(lat, lng, radiusM, limit, lang)` | narration (hotset) | the nearest `ACTIVE` Places with their content hash and per-language readiness — distance only, no ranking, no boost | the hotset answers what it knows and enqueues nothing |
 | `catalog.PlaceService.SearchLocalizedText(term, langs?, cursor, limit)` | narration (the dictionary fan-out) | the localizations of `ACTIVE`, non-deleted targets whose name or description contains the term as a **whole word**, case-insensitively and with diacritics, across Places and menu items, paged | the fan-out stops and reports; nothing is regenerated |
@@ -929,7 +935,7 @@ Rules for every row: a **2 s deadline** unless stated — **the gateway's calls 
 | **2 — the complete product** | §1.2 remaining auth flows · §1.4–1.5 owner registration · §1.7 notifications · §1.8 audit log · §2.3 favourites · §2.4 offline packs · §3.1, §3.3, §3.4 owner venues and submissions · §3.6 categories, areas, map packs · §1.2 email-change revert · §1.9 email delivery webhook · §1.10 owner account recovery · §4.1 hotset, prefetch, TTS stream · §4.2 UI bundles · §4.4 pronunciation · §4.5 translation corrections · §5.1 subscriptions · §6.1, §6.2 accounts, §6.3 subscription events · §7 analytics · §8 AI · remaining §9, §10 |
 | **3 — revenue and polish** | §2.2 tours · §3.6 tours · §5.2 boosts · §5.3–5.7 payouts (with the payout-change restriction), offers, redemption, purchases, venue staff · §6.2 offers, orders, refunds, disputes · §6.3 payment and Connect events |
 
-**Phase 2 as built.** Everything in its row exists except §7 analytics and §8 AI, which are **deferred**: additive services nothing else depends on, left until after Phase 3 or dropped. The event table (§10) marks with *(Phase 3)* and *(ai)* every publisher and consumer still owed.
+**Phase 2 as built.** Everything in its row exists except §8 AI, which is **deferred**: an additive service nothing else depends on, left until after Phase 3 or dropped. **§7 analytics** followed in Phase 3 (the service and its reads first; the apps' consent and the dashboards after). The event table (§10) marks with *(Phase 3)* and *(ai)* every publisher and consumer still owed.
 
 **Handed to Phase 3,** measured against the code at the end of Phase 2 — each answers honestly until its feature lands, so none is a bug today:
 

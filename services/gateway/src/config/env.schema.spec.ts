@@ -19,6 +19,7 @@ const valid = {
   CATALOG_GRPC_URL: 'localhost:20052',
   NARRATION_GRPC_URL: 'localhost:20053',
   BILLING_GRPC_URL: 'localhost:20054',
+  ANALYTICS_GRPC_URL: 'localhost:20055',
   PUBLIC_QR_BASE_URL: 'https://go.wayfare.app/',
   PUBLIC_LINK_BASE_URL: 'https://wayfare.app',
   JWT_PUBLIC_KEYS: keys.publicKeys,

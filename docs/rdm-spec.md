@@ -31,7 +31,7 @@ This document is written to change as little as possible. Where a column's meani
 | `catalog` | `wayfare_catalog` (PostGIS) | C-1 … C-16 | 1 |
 | `narration` | `wayfare_narration` | N-1 … N-7 | 1 |
 | `billing` | `wayfare_billing` | B-1 … B-14 | 2 |
-| `analytics` | `wayfare_analytics` | A-1 … A-6 | 2 |
+| `analytics` | `wayfare_analytics` | A-1 … A-7 | 3 |
 | `ai` | `wayfare_ai` | X-1 … X-3 | 2 |
 | `gateway` | *none* | — | 1 |
 
@@ -259,7 +259,7 @@ It is applied **after** `prisma migrate deploy` in every environment (local, tes
 
 ### 2.10 Shared table shape: `outbox_events`
 
-Present in `identity`, `catalog`, `narration`, `billing`, `analytics` and `ai` — every service that publishes. Identical in each. See §1.11.
+Present in `identity`, `catalog`, `narration`, `billing` and `ai` — every service that publishes (`analytics` publishes nothing). Identical in each. See §1.11.
 
 | Field | Type | Constraints / Default | Description |
 | :---- | :---- | :---- | :---- |
@@ -328,7 +328,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
               connected_accounts, voucher_offers, voucher_offer_localizations,
               orders, vouchers, refunds, disputes, venue_staff, venue_staff_places
 [ analytics ] consents, events, location_cell_hourly, place_daily_stats,
-              runtime_activity_hourly, activity_daily_stats
+              runtime_activity_hourly, activity_daily_stats, rollup_days
 [ ai        ] ai_generations, ai_daily_usage, ai_prompt_versions
 + per service where applicable: outbox_events, processed_events, job_runs (§2.10–2.12)
 ```
@@ -1589,8 +1589,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **policy_version** | VARCHAR(16) | NOT NULL | The privacy policy version the decision was made against. A new policy version re-asks. |
 | **recorded_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
-- **Index:** `(analytics_device_id, recorded_at DESC)`. Current state is the newest row, cached in Redis and read on every ingest.
-- **Withdrawal deletes that id's raw events (A-2)** in the same transaction. Aggregates already computed stay — they contain no id.
+- **Index:** `(analytics_device_id, recorded_at DESC)`. Current state is the newest row, **read inside every ingest's transaction — never cached**: ingest and withdrawal each first take `pg_advisory_xact_lock` on the id's hash, so a batch racing a withdrawal either commits before it (and is deleted by it) or reads `WITHDRAWN` and stores nothing.
+- A grant names the current privacy policy version (else `409 LEGAL_VERSION_OUTDATED`); a withdrawal never checks the version.
+- **Withdrawal deletes that id's raw events (A-2)** in the same transaction, so the next nightly rollup removes the id from **every day it still rebuilds** (the last 8). Older days stay as computed — they contain no id. The heatmap's HyperLogLogs can't remove an id and needn't: they hold none.
 - Pruned 400 days after the newest row for an id.
 
 #### Table A-2: events
@@ -1602,7 +1603,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | Client-generated, so a batch retried after a timeout de-duplicates. |
 | **analytics_device_id** | UUID | NOT NULL | — |
 | **session_id** | UUID | NOT NULL | Client-generated per app foreground session. |
-| **event_type** | VARCHAR(48) | NOT NULL | `NARRATION_STARTED \| NARRATION_COMPLETED \| NARRATION_ABANDONED \| PLACE_OPENED \| QR_SCANNED \| LANGUAGE_SELECTED \| PACK_INSTALLED \| SEARCH_PERFORMED \| TOUR_STARTED \| VOUCHER_VIEWED` |
+| **event_type** | VARCHAR(48) | NOT NULL | `APP_OPENED \| NARRATION_STARTED \| NARRATION_COMPLETED \| NARRATION_ABANDONED \| PLACE_OPENED \| QR_SCANNED \| LANGUAGE_SELECTED \| PACK_INSTALLED \| SEARCH_PERFORMED \| TOUR_STARTED \| VOUCHER_VIEWED` — `APP_OPENED` once per session, which is what *sessions* counts; `VOUCHER_VIEWED` dropped at ingest while vouchers aren't available (ADR 0066). |
 | **trigger** | VARCHAR(16) | Nullable | `GEOFENCE \| TAP \| QR` for narration events — auto versus pull is the question the ranking firewall exists to answer. |
 | **place_id** | UUID | Nullable | ref ➔ catalog.places.id. |
 | **lang** | VARCHAR(16) | Nullable | — |
@@ -1615,6 +1616,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **received_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **Indexes:** `(occurred_at)`, `(place_id, occurred_at)`.
+- **Any event may carry a `cell`** (A-3), which ingest adds to a counter and no row stores. A coordinate field anywhere refuses the whole batch; one event failing its `props` is dropped and the rest stored.
 - **Pruned after `RAW_EVENT_RETENTION_DAYS` (90).** Everything durable is a rollup.
 
 #### Table A-3: location_cell_hourly
@@ -1625,10 +1627,11 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **cell** | VARCHAR(12) | PK | Geohash at precision 7 (~150 m). **Snapped on the client** before sending; the server never receives a raw coordinate on this lane. |
 | **bucket_start** | TIMESTAMPTZ(3) | PK | Start of the UTC hour. |
-| **device_estimate** | INT | NOT NULL | Distinct consented devices, from a Redis HyperLogLog flushed hourly. An estimate by design: an exact count would require storing the ids. |
-| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+| **device_estimate** | INT | NOT NULL | Distinct consented devices, from a Redis HyperLogLog per cell and **`occurred_at` hour**. An estimate by design: an exact count would require storing the ids. |
+| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | The last re-count. |
 
 - **Suppression:** cells with `device_estimate < HEATMAP_MIN_DEVICES` (5) are never written. A cell with one device in it at 3 a.m. is a person, not a density.
+- **Late events:** a phone uploads up to 7 days late, so each counter lives 8 days and `heatmap-flush` **re-counts every hour still held**, upserting the cells at 5 or more. A cell reaching 5 late appears then; an estimate never falls, so a written row never needs removing. A flush never overwrites an hour with only its late phones.
 
 #### Table A-4: place_daily_stats
 
@@ -1647,9 +1650,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **listen_ms_sum** | BIGINT | NOT NULL, 0 | Sum/count pair rather than an average, so a date range is summable. |
 | **listen_count** | INT | NOT NULL, 0 | — |
 | **opens** | INT | NOT NULL, 0 | — |
-| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Load-bearing: part of the cache key for closed ranges, so a backfill invalidates cached dashboards automatically. |
+| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Ready to be part of the cache key for closed ranges, so a backfill would invalidate cached dashboards automatically. **No read is cached yet.** |
 
-- Written by an **idempotent** daily job that recomputes whole days from A-2. Re-running a day replaces it. A backfill beyond A-2's 90-day retention is impossible, which is stated here so nobody discovers it during an incident.
+- Written by an **idempotent** nightly job that recomputes whole days from A-2 — yesterday and the 7 days before it, since a phone uploads up to a week late. Re-running a day replaces it. A backfill beyond A-2's 90-day retention is impossible, which is stated here so nobody discovers it during an incident.
 - **Owners read their own Places only**, and only at their plan's `analytics_level`.
 
 #### Table A-5: runtime_activity_hourly
@@ -1672,15 +1675,43 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **day** | DATE | PK | — |
 | **lang** | VARCHAR(16) | PK | — |
 | **platform** | VARCHAR(16) | PK | — |
-| **sessions** | INT | NOT NULL, 0 | — |
-| **active_devices_estimate** | INT | NOT NULL, 0 | HLL over rotated ids — an upper bound, since rotation mid-day counts one install twice. Labelled as an estimate in the UI. |
+| **sessions** | INT | NOT NULL, 0 | `APP_OPENED` events. `'*'` row only. |
+| **active_devices_estimate** | INT | NOT NULL, 0 | An exact `COUNT(DISTINCT analytics_device_id)` over the day's A-2 — still an upper bound on installs, since rotation mid-day counts one install twice. Labelled as an estimate in the UI; a range shows the daily mean. `'*'` row only. |
 | **narrations_started** | INT | NOT NULL, 0 | — |
 | **narrations_completed** | INT | NOT NULL, 0 | — |
-| **tier3_narrations** | INT | NOT NULL, 0 | Narrations served by on-device TTS — a rising number means offline packs or on-demand synthesis are failing. |
-| **pack_installs** | INT | NOT NULL, 0 | — |
-| **searches** | INT | NOT NULL, 0 | — |
-| **qr_scans** | INT | NOT NULL, 0 | — |
+| **tier1_narrations** | INT | NOT NULL, 0 | Started narrations by the `audio_tier` that served them: pre-generated audio… |
+| **tier1_5_narrations** | INT | NOT NULL, 0 | …made on request… |
+| **tier2_narrations** | INT | NOT NULL, 0 | …streamed live… |
+| **tier3_narrations** | INT | NOT NULL, 0 | …and on-device TTS — a rising share means offline packs or on-demand synthesis are failing. |
+| **pack_installs** | INT | NOT NULL, 0 | `'*'` row only. |
+| **searches** | INT | NOT NULL, 0 | `'*'` row only. |
 | **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- **Per `(day, platform)`, the totals row has `lang = '*'`**; the per-language rows carry narrations only (started, completed, the four tiers). A session in two languages would otherwise count twice, so nothing is summed over languages.
+- **No QR column:** the overview's QR scans are C-15's, every scan, the same figure owners see.
+- Written by the same nightly job as A-4.
+
+#### Table A-7: rollup_days
+
+*Each business day the nightly rollup rebuilt.*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **day** | DATE | PK | Business day (§2.2). |
+| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- **`dataThrough`** on every dashboard is the newest day here. A day rebuilt by hand counts too.
+
+#### Jobs
+
+`SCHEDULED_JOBS`, each run in `job_runs` (§2.12); no other service runs a job for analytics.
+
+| Job | When | Does |
+| :---- | :---- | :---- |
+| `heatmap-flush` | hourly at :05 | re-counts every cell-hour counter still held (8 days) into A-3, suppressed below 5 |
+| `runtime-flush` | hourly at :05 | each finished hour's Area counters into A-5 |
+| `daily-rollup` | 03:00 business time | rebuilds the last 8 days from A-2 into A-4 and A-6, each day in one transaction; records A-7. A day older than A-2's 90 days is refused |
+| `raw-prune` | 04:00 business time | A-2 after 90 days; A-1 400 days after an id's newest row |
 
 ### 3.6 `ai` — description enhancement
 
@@ -1880,8 +1911,8 @@ New questions are added here, numbered after the last one ever recorded, and rem
 | Expired or revoked staff invitations | 90 d | `venue-staff-invites-prune` job (billing) |
 | Superseded or reverted translation corrections | 400 d | `localization-overrides-prune` job (narration) |
 | Orders, vouchers, refunds, disputes | indefinitely | financial records — anonymised on buyer erasure (B-9) |
-| Raw analytics events | 90 d | `analytics-events-prune` job |
-| Consent history | 400 d after last decision | `consents-prune` job |
+| Raw analytics events | 90 d | `raw-prune` job (analytics) |
+| Consent history | 400 d after last decision | `raw-prune` job (analytics) |
 | AI ledger | 400 d | `ai-generations-prune` job |
 | Outbox rows | 7 d after publishing | `outbox-prune` job (every publisher) |
 | Processed-event records | stream `max_age` + 1 d | `processed-events-prune` job (every consumer) |

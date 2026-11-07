@@ -7,7 +7,9 @@ import {
   StripeEndpoint,
   SubscriptionStatus,
 } from '../billing/enums';
+import { ConsentState } from '../analytics/enums';
 import { AnalyticsLevel, NarrationLanguageScope } from '../entitlements/entitlements';
+import { ConsentState as ProtoConsentState } from '../generated/wayfare/analytics/analytics.pb';
 import {
   BillingInterval as ProtoBillingInterval,
   SubscriptionStatus as ProtoSubscriptionStatus,
@@ -390,6 +392,9 @@ export const analyticsLevelProto = protoEnumBridge(
   ProtoAnalyticsLevel,
 );
 
+/** `ConsentState` ⇄ `wayfare.analytics.ConsentState`. */
+export const consentStateProto = protoEnumBridge('ConsentState', ConsentState, ProtoConsentState);
+
 /** Every bridge, so one spec can round-trip them all. Each new proto enum adds its line here. */
 export const PROTO_ENUM_BRIDGES = [
   platformProto,
@@ -435,4 +440,5 @@ export const PROTO_ENUM_BRIDGES = [
   stripeEndpointProto,
   narrationLanguageScopeProto,
   analyticsLevelProto,
+  consentStateProto,
 ] as const;

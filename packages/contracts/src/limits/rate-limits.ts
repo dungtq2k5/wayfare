@@ -77,6 +77,10 @@ export const RATE_LIMITS = {
   },
   NARRATION_ON_DEMAND: one('deviceId', 30, 10 * MINUTE_MS),
   ANALYTICS_INGEST: one('analyticsDeviceId', 60, HOUR_MS),
+  // A withdrawal deletes rows: a few decisions an hour per analytics id.
+  ANALYTICS_CONSENT: one('analyticsDeviceId', 10, HOUR_MS),
+  // The consent-free lane: an install reports its area at most once per 15 minutes (rdm-spec A-5).
+  TELEMETRY: one('deviceId', 1, 15 * MINUTE_MS),
   // The burst limit only; the daily quota is the AI ledger's (rdm-spec X-2).
   AI_ENHANCEMENT: one('userId', 20, HOUR_MS),
   // Failures only; their codes come with the short-code routes, none of which exists yet.

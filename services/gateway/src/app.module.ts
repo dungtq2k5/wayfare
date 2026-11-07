@@ -30,6 +30,9 @@ import { ToursModule } from './modules/tours/tours.module';
 import { AdminAreasModule } from './modules/admin-areas/admin-areas.module';
 import { AdminCorrectionsModule } from './modules/admin-corrections/admin-corrections.module';
 import { AdminLocalizationsModule } from './modules/admin-localizations/admin-localizations.module';
+import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { OwnerStatsModule } from './modules/owner-stats/owner-stats.module';
 import { AccountRecoveriesModule } from './modules/account-recoveries/account-recoveries.module';
 import { AdminRecoveriesModule } from './modules/admin-recoveries/admin-recoveries.module';
 import { I18nModule } from './modules/i18n/i18n.module';
@@ -142,6 +145,9 @@ export class AppModule {
         AdminPlansModule,
         AdminBillingModule,
         StripeWebhooksModule,
+        AnalyticsModule,
+        OwnerStatsModule,
+        AdminAnalyticsModule,
         // Development only: it answers 404 unless GOOGLE_ISSUER=fake, which production refuses.
         DevModule,
       ],

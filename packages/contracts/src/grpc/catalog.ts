@@ -8,6 +8,7 @@ export * from '../generated/wayfare/catalog/owner_place.pb';
 export * from '../generated/wayfare/catalog/place_admin.pb';
 export * from '../generated/wayfare/catalog/place_query.pb';
 export * from '../generated/wayfare/catalog/place_types.pb';
+export * from '../generated/wayfare/catalog/insight.pb';
 export * from '../generated/wayfare/catalog/submission.pb';
 export * from '../generated/wayfare/catalog/taxonomy_admin.pb';
 export * from '../generated/wayfare/catalog/tour_admin.pb';

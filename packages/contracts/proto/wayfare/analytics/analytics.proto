@@ -1,0 +1,207 @@
+syntax = "proto3";
+
+// Consented events and the dashboards' numbers — api-endpoints-plan §7, rdm-spec A-1 … A-6.
+// Nothing here carries the identity device id or a user id (ADR 0042): the gateway calls the
+// tourist's routes with an anonymous caller.
+package wayfare.analytics;
+
+import "google/protobuf/timestamp.proto";
+
+// A device's analytics consent decision (rdm-spec A-1).
+enum ConsentState {
+  CONSENT_STATE_UNSPECIFIED = 0;
+  CONSENT_STATE_GRANTED = 1;
+  CONSENT_STATE_WITHDRAWN = 2;
+}
+
+// The tourist's two writes.
+service AnalyticsService {
+  // Appends a decision; a withdrawal deletes the id's raw events. A grant on an outdated policy
+  // version is LEGAL_VERSION_OUTDATED.
+  rpc RecordConsent(RecordConsentRequest) returns (RecordConsentResponse);
+  // CONSENT_REQUIRED without a current grant. Each event is checked on its own: a bad one is
+  // dropped, the rest stored.
+  rpc IngestEvents(IngestEventsRequest) returns (IngestEventsResponse);
+}
+
+message RecordConsentRequest {
+  string analytics_device_id = 1;
+  ConsentState state = 2;
+  string policy_version = 3;
+}
+
+message RecordConsentResponse {}
+
+message IngestEventsRequest {
+  string analytics_device_id = 1;
+  // Each event as the client sent it, JSON — checked here, so the gateway only forwards.
+  repeated string events_json = 2;
+  // The install's platform and build, from the gateway's device context — nothing that identifies.
+  string platform = 3;
+  string app_version = 4;
+}
+
+message IngestEventsResponse {
+  int32 stored = 1;
+  int32 duplicates = 2;
+  int32 dropped = 3;
+}
+
+// The dashboards' reads. Days are business days, `YYYY-MM-DD`, inclusive.
+service AnalyticsReadService {
+  // A-4 rows for the given Places, one per Place and day that has any.
+  rpc GetPlaceDailyStats(GetPlaceDailyStatsRequest) returns (GetPlaceDailyStatsResponse);
+  rpc GetOverview(GetOverviewRequest) returns (GetOverviewResponse);
+  // A-4 ranked by a metric, highest first; ties by Place id.
+  rpc GetTopPlaces(GetTopPlacesRequest) returns (GetTopPlacesResponse);
+  // A-3 summed per cell over the days and UTC hours asked, within a box. Suppressed cells are absent.
+  rpc GetHeatmap(GetHeatmapRequest) returns (GetHeatmapResponse);
+  // A-5's hours for one Area.
+  rpc GetRuntimeActivity(GetRuntimeActivityRequest) returns (GetRuntimeActivityResponse);
+  // This hour so far, per Area, from the live counters.
+  rpc GetCurrentActivity(GetCurrentActivityRequest) returns (GetCurrentActivityResponse);
+}
+
+message DayRange {
+  string from_day = 1;
+  string to_day = 2;
+}
+
+message GetPlaceDailyStatsRequest {
+  repeated string place_ids = 1;
+  DayRange range = 2;
+}
+
+message PlaceDay {
+  string place_id = 1;
+  string day = 2;
+  int32 narrations_started = 3;
+  int32 narrations_completed = 4;
+  int32 narrations_abandoned = 5;
+  int32 geofence_started = 6;
+  int32 tap_started = 7;
+  int32 qr_started = 8;
+  int64 listen_ms_sum = 9;
+  int32 listen_count = 10;
+  int32 opens = 11;
+}
+
+message GetPlaceDailyStatsResponse {
+  repeated PlaceDay days = 1;
+  // The last business day the nightly rollup completed; absent before its first run.
+  optional string data_through = 2;
+}
+
+message GetOverviewRequest {
+  DayRange range = 1;
+}
+
+// One day's totals across languages and platforms.
+message OverviewDay {
+  string day = 1;
+  int32 sessions = 2;
+  int32 active_devices_estimate = 3;
+  int32 pack_installs = 4;
+  int32 searches = 5;
+  int32 narrations_started = 6;
+  int32 narrations_completed = 7;
+  int32 geofence_started = 8;
+  int32 tap_started = 9;
+  int32 qr_started = 10;
+  int32 tier1_narrations = 11;
+  int32 tier15_narrations = 12;
+  int32 tier2_narrations = 13;
+  int32 tier3_narrations = 14;
+}
+
+message LanguageCount {
+  string lang = 1;
+  int32 narrations_started = 2;
+  int32 narrations_completed = 3;
+}
+
+message GetOverviewResponse {
+  // Every day of the range, a quiet one as zeros.
+  repeated OverviewDay days = 1;
+  // Over the whole range, most first.
+  repeated LanguageCount languages = 2;
+  optional string data_through = 3;
+}
+
+enum TopPlacesMetric {
+  TOP_PLACES_METRIC_UNSPECIFIED = 0;
+  TOP_PLACES_METRIC_COMPLETED = 1;
+  TOP_PLACES_METRIC_STARTED = 2;
+  TOP_PLACES_METRIC_LISTEN_MS = 3;
+}
+
+message GetTopPlacesRequest {
+  DayRange range = 1;
+  TopPlacesMetric metric = 2;
+  int32 limit = 3;
+}
+
+message TopPlace {
+  string place_id = 1;
+  int32 narrations_started = 2;
+  int32 narrations_completed = 3;
+  int64 listen_ms_sum = 4;
+}
+
+message GetTopPlacesResponse {
+  repeated TopPlace places = 1;
+  optional string data_through = 2;
+}
+
+message GetHeatmapRequest {
+  DayRange range = 1;
+  // The UTC hours of day to sum (0–23); every hour when empty.
+  repeated int32 utc_hours = 2;
+  double min_lat = 3;
+  double min_lng = 4;
+  double max_lat = 5;
+  double max_lng = 6;
+}
+
+message HeatCell {
+  string cell = 1;
+  int32 estimate = 2;
+}
+
+message GetHeatmapResponse {
+  // Busiest first.
+  repeated HeatCell cells = 1;
+  // When the newest of these rows was counted; absent with no row.
+  google.protobuf.Timestamp computed_through = 2;
+}
+
+message GetRuntimeActivityRequest {
+  string area_id = 1;
+  // The finished hours before this one.
+  int32 hours = 2;
+}
+
+message RuntimeHour {
+  google.protobuf.Timestamp hour_start = 1;
+  int32 estimate = 2;
+}
+
+message GetRuntimeActivityResponse {
+  // Every hour asked, oldest first, a quiet one as zero.
+  repeated RuntimeHour hours = 1;
+}
+
+message GetCurrentActivityRequest {
+  repeated string area_ids = 1;
+}
+
+message AreaActivity {
+  string area_id = 1;
+  int32 estimate = 2;
+}
+
+message GetCurrentActivityResponse {
+  google.protobuf.Timestamp hour_start = 1;
+  // Only the Areas with any activity, busiest first.
+  repeated AreaActivity areas = 2;
+}

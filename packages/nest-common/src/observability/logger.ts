@@ -22,6 +22,10 @@ export const LOG_REDACT_PATHS = [
   'req.body.email',
   'req.body.newEmail',
   'req.body.token',
+  // The analytics id never meets the device id in a log line (ADR 0042): bodies aren't logged, and
+  // this is the backstop.
+  'req.body.analyticsDeviceId',
+  '*.analyticsDeviceId',
   '*.newEmail',
   '*.revertToken',
   '*.password',
@@ -60,7 +64,8 @@ export function createLoggerModuleAsync(): DynamicModule {
   });
 }
 
-function loggerParams(level: LogLevel): Params {
+/** The HTTP logger's options: what a request line holds — never its body (conventions §9.4). */
+export function loggerParams(level: LogLevel): Params {
   return {
     // Named wildcard: path-to-regexp v8 (Nest 11) rejects the bare '*' nestjs-pino defaults to.
     forRoutes: [{ path: '{*splat}', method: RequestMethod.ALL }],

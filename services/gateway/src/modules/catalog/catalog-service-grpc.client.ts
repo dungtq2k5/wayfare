@@ -27,6 +27,8 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
   readonly places: GrpcServiceCaller<catalogGrpc.PlaceServiceClient>;
   readonly tourAdmin: GrpcServiceCaller<catalogGrpc.TourAdminServiceClient>;
   readonly tourQueries: GrpcServiceCaller<catalogGrpc.TourQueryServiceClient>;
+  /** What the analytics dashboards read: QR scans (rdm-spec C-15) and the heatmap's labels. */
+  readonly insights: GrpcServiceCaller<catalogGrpc.InsightServiceClient>;
 
   constructor(@Inject(CATALOG_GRPC) grpc: ClientGrpc) {
     this.placeQueries = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_QUERY_SERVICE_NAME);
@@ -42,6 +44,7 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.places = new GrpcServiceCaller(grpc, catalogGrpc.PLACE_SERVICE_NAME);
     this.tourAdmin = new GrpcServiceCaller(grpc, catalogGrpc.TOUR_ADMIN_SERVICE_NAME);
     this.tourQueries = new GrpcServiceCaller(grpc, catalogGrpc.TOUR_QUERY_SERVICE_NAME);
+    this.insights = new GrpcServiceCaller(grpc, catalogGrpc.INSIGHT_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -58,5 +61,6 @@ export class CatalogServiceGrpcClient implements OnModuleInit {
     this.places.init();
     this.tourAdmin.init();
     this.tourQueries.init();
+    this.insights.init();
   }
 }

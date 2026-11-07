@@ -69,6 +69,11 @@
       "dependsOn": ["build", "@wayfare/narration#seed:dev"],
       "cache": false,
       "passThroughEnv": ["NODE_ENV", "SEED_ACCOUNT_PASSWORD"]
+    },
+    "@wayfare/analytics#seed:dev": {
+      "dependsOn": ["build", "@wayfare/catalog#seed:dev"],
+      "cache": false,
+      "passThroughEnv": ["NODE_ENV"]
     }
   }
 }

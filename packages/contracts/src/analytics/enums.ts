@@ -9,6 +9,8 @@ export const CONSENT_STATES = Object.values(ConsentState);
 
 /** A consented analytics event — rdm-spec A-2 `event_type`. */
 export enum AnalyticsEventType {
+  // Once per session (a foreground of the app, a visible page): the overview's sessions count these.
+  APP_OPENED = 'APP_OPENED',
   NARRATION_STARTED = 'NARRATION_STARTED',
   NARRATION_COMPLETED = 'NARRATION_COMPLETED',
   NARRATION_ABANDONED = 'NARRATION_ABANDONED',

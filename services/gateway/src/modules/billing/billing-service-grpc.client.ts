@@ -19,6 +19,8 @@ export class BillingServiceGrpcClient implements OnModuleInit {
   readonly events: GrpcServiceCaller<billingGrpc.BillingEventAdminServiceClient>;
   readonly webhooks: GrpcServiceCaller<billingGrpc.BillingWebhookServiceClient>;
   readonly boosts: GrpcServiceCaller<billingGrpc.BoostServiceClient>;
+  /** An owner's effective grants (api-endpoints-plan §12.2): My stats' depth. */
+  readonly entitlements: GrpcServiceCaller<billingGrpc.EntitlementServiceClient>;
 
   constructor(@Inject(BILLING_GRPC) grpc: ClientGrpc) {
     this.billing = new GrpcServiceCaller(grpc, billingGrpc.BILLING_SERVICE_NAME);
@@ -27,6 +29,7 @@ export class BillingServiceGrpcClient implements OnModuleInit {
     this.events = new GrpcServiceCaller(grpc, billingGrpc.BILLING_EVENT_ADMIN_SERVICE_NAME);
     this.webhooks = new GrpcServiceCaller(grpc, billingGrpc.BILLING_WEBHOOK_SERVICE_NAME);
     this.boosts = new GrpcServiceCaller(grpc, billingGrpc.BOOST_SERVICE_NAME);
+    this.entitlements = new GrpcServiceCaller(grpc, billingGrpc.ENTITLEMENT_SERVICE_NAME);
   }
 
   onModuleInit(): void {
@@ -36,5 +39,6 @@ export class BillingServiceGrpcClient implements OnModuleInit {
     this.events.init();
     this.webhooks.init();
     this.boosts.init();
+    this.entitlements.init();
   }
 }

@@ -17,11 +17,15 @@ export function rateLimitValues(
   request: Request,
   context: RequestContext,
 ): Partial<Record<RateLimitKey, string>> {
-  const body = request.body as { email?: unknown } | undefined;
+  const body = request.body as { email?: unknown; analyticsDeviceId?: unknown } | undefined;
   const deviceId = deviceIdOf(context);
   return {
     ...(request.ip === undefined ? {} : { ip: request.ip }),
     ...(typeof body?.email === 'string' ? { email: normalizeEmail(body.email) } : {}),
+    // The analytics routes' only use of the analytics id at the gateway (ADR 0042).
+    ...(typeof body?.analyticsDeviceId === 'string'
+      ? { analyticsDeviceId: body.analyticsDeviceId }
+      : {}),
     ...(deviceId === null ? {} : { deviceId }),
     ...(context.kind === 'account' ? { userId: context.userId } : {}),
   };

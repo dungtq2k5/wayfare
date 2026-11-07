@@ -75,6 +75,9 @@ const NO_SECURITY = new Set([
 ]);
 const REFRESH_COOKIE = new Set(['POST /api/v1/auth/refresh', 'POST /api/v1/auth/logout']);
 const DEVICE_ROUTES = new Set([
+  'POST /api/v1/analytics/consent',
+  'POST /api/v1/analytics/events',
+  'POST /api/v1/telemetry/activity',
   'PATCH /api/v1/devices/me',
   'DELETE /api/v1/devices/me',
   'POST /api/v1/devices/me/legal-acceptances',
@@ -109,10 +112,14 @@ const PUBLIC_READS = new Set([
  * A `202` carries no body, except where the endpoint plan says what it accepted: a prefetch
  * answers which ids it queued and which it passed over (api-endpoints-plan §4.1).
  */
-const ACCEPTED_WITH_DATA = new Set(['POST /api/v1/narration/prefetch']);
+const ACCEPTED_WITH_DATA = new Set([
+  'POST /api/v1/narration/prefetch',
+  'POST /api/v1/analytics/events',
+]);
 
 /** Bodies that are not the JSON envelope, with their media type. */
 const NON_JSON = new Map([
+  ['GET /api/v1/owner/stats/export', 'text/csv'],
   ['GET /api/v1/admin/places/{id}/qr', 'image/svg+xml'],
   ['GET /api/v1/owner/places/{id}/qr', 'image/svg+xml'],
   ['GET /api/v1/admin/tours/{id}/qr', 'image/svg+xml'],
@@ -128,9 +135,10 @@ describe('OpenAPI contract', () => {
     // entry, the corrections and the stuck Places), round 35a's four billing reads (a plan, a price
     // look-up, an unpin preview, an event), round 36's owner QR sticker, round 37's stream ticket
     // and the stream it opens, round 38's owner boosts (read and set), round 39's tours — ten for
-    // staff, three for tourists, their sync — and the code resolver; the dev routes stay out of
-    // the document.
-    expect(names).toHaveLength(185);
+    // staff, three for tourists, their sync — and the code resolver, and round 40's analytics:
+    // the tourist's consent, events and runtime lane, the owner's three stats routes and the
+    // admin's four; the dev routes stay out of the document.
+    expect(names).toHaveLength(195);
     expect(names.some((name) => name.includes('/dev/'))).toBe(false);
     // Provider webhooks and the QR redirect are not client routes; they stay out of the document.
     expect(names.some((name) => name.includes('/webhooks/'))).toBe(false);

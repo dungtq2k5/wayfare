@@ -12,9 +12,9 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/../../../.." && pwd)
 cd "$repo"
 compose=(docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml)
-infra=(identity-db catalog-db narration-db billing-db redis nats mailpit fake-gcs)
-apps=(identity catalog narration billing gateway)
-declare -A port=([identity]=25433 [catalog]=25434 [narration]=25435 [billing]=25436)
+infra=(identity-db catalog-db narration-db billing-db analytics-db redis nats mailpit fake-gcs)
+apps=(identity catalog narration billing analytics gateway)
+declare -A port=([identity]=25433 [catalog]=25434 [narration]=25435 [billing]=25436 [analytics]=25437)
 
 # A host-side step's addresses for this stack: its database, and the shared Redis, NATS, mail and
 # bucket (a seed that boots its service's app connects to them all).
@@ -23,6 +23,7 @@ on() {
     REDIS_URL=redis://localhost:26379 NATS_URL=nats://localhost:24222 SMTP_URL=smtp://localhost:21025 \
     IDENTITY_GRPC_URL=localhost:30051 CATALOG_GRPC_URL=localhost:30052 \
     NARRATION_GRPC_URL=localhost:30053 BILLING_GRPC_URL=localhost:30054 \
+    ANALYTICS_GRPC_URL=localhost:30055 \
     GCS_API_ENDPOINT=http://localhost:24443 GCS_PUBLIC_BASE_URL=http://localhost:24443/wayfare-media-local \
     "${@:2}"
 }
@@ -30,7 +31,7 @@ on() {
 up() {
   "${compose[@]}" up -d --wait "${infra[@]}"
   pnpm --silent turbo run build --filter='./services/*' --output-logs=errors-only
-  for s in "${apps[@]:0:4}"; do
+  for s in "${apps[@]:0:5}"; do
     on "$s" pnpm --silent --filter "@wayfare/$s" db:deploy
   done
   on catalog pnpm --silent --filter @wayfare/catalog storage:setup -- \
@@ -40,7 +41,8 @@ up() {
   # billing's plans go on those accounts, and catalog's Venues ask billing for them.
   # Billing seeds the fake Stripe's `price_dev_*` prices, never a developer's sandbox ones: the
   # baselines draw the same catalogue on every machine and in CI.
-  for s in identity billing narration catalog; do
+  # Analytics last: its events name catalog's pilot Places.
+  for s in identity billing narration catalog analytics; do
     on "$s" env STRIPE_SECRET_KEY= STRIPE_PRICE_GROWTH_MONTHLY= STRIPE_PRICE_GROWTH_ANNUAL= \
       STRIPE_PRICE_PRO_MONTHLY= STRIPE_PRICE_PRO_ANNUAL= \
       pnpm --silent --filter "@wayfare/$s" seed:dev

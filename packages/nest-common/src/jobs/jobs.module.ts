@@ -6,6 +6,7 @@ import type {
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from '@nestjs/common';
+import { BUSINESS_TIME_ZONE } from '@wayfare/contracts';
 import { Queue, Worker } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 import type { ReadinessCheck } from '../health/readiness';
@@ -19,8 +20,13 @@ import { JobRunRecorder } from './job-run.recorder';
 export interface ScheduledJob {
   /** The stable job id — an entry of the service's `SCHEDULED_JOBS`. */
   readonly name: string;
-  /** How often it runs. */
+  /** How often it runs: the interval, and the staleness health judges against. */
   readonly everyMs: number;
+  /**
+   * When it runs, as a cron pattern in the business time zone (`5 * * * *`, `0 3 * * *`); without
+   * one, every `everyMs` from when it was first scheduled.
+   */
+  readonly cron?: string;
   run(now: Date): Promise<unknown>;
 }
 
@@ -89,7 +95,9 @@ export class JobScheduler implements OnApplicationBootstrap, OnApplicationShutdo
     for (const job of wanted.values()) {
       await this.queue.upsertJobScheduler(
         job.name,
-        { every: job.everyMs },
+        job.cron === undefined
+          ? { every: job.everyMs }
+          : { pattern: job.cron, tz: BUSINESS_TIME_ZONE },
         { name: job.name, opts: { removeOnComplete: 100, removeOnFail: 100 } },
       );
     }
