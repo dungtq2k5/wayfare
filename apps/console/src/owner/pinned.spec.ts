@@ -29,6 +29,7 @@ describe('the limits a pin set (Y1c)', () => {
           canSellVouchers: false,
         },
         growth,
+        true,
       ),
     ).toEqual([
       { key: 'pin.autoNarrationOff' },
@@ -37,5 +38,12 @@ describe('the limits a pin set (Y1c)', () => {
       { key: 'pin.vouchersOff' },
     ]);
     expect(pinnedLimits(growth, growth)).toEqual([]);
+  });
+
+  it('leaves voucher selling out while vouchers aren’t sold (ADR 0066), and names it once they are', () => {
+    const off = { ...growth, canSellVouchers: false };
+    expect(pinnedLimits(off, growth)).toEqual([]);
+    expect(pinnedLimits(growth, off, false)).toEqual([]);
+    expect(pinnedLimits(growth, off, true)).toEqual([{ key: 'pin.vouchersOn' }]);
   });
 });

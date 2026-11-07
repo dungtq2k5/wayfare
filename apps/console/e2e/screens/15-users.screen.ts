@@ -225,7 +225,7 @@ test('U6b restore', async ({ page }) => {
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Restore' }).click();
   const dialog = page.getByRole('dialog', { name: `Restore ${LINH.name}?` });
-  await expect(dialog.getByText("don't come back", { exact: false })).toBeVisible();
+  await expect(dialog.getByText('They can sign in again.')).toBeVisible();
   await look(page, 'u6b-restore', { viewportOnly: true });
 });
 

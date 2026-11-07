@@ -11,7 +11,13 @@ import {
 } from './entitlements';
 import type { Entitlements } from './entitlements';
 import { FREE_PLAN_GRANTS } from './free-plan';
-import { grantsFor, narrowedDimensions, sameGrants, scopeWidened } from './grants';
+import {
+  grantsFor,
+  narrowedDimensions,
+  sameGrants,
+  scopeWidened,
+  widenedDimensions,
+} from './grants';
 
 const growth: Entitlements = {
   maxPlaces: 10,
@@ -77,7 +83,7 @@ describe('narrowedDimensions', () => {
   });
 
   it('names every narrowed dimension, in the notification shape', () => {
-    const narrowing = narrowedDimensions(growth, FREE_PLAN_GRANTS);
+    const narrowing = narrowedDimensions(growth, FREE_PLAN_GRANTS, true);
     expect(narrowing).toEqual({
       reduced: [
         'maxPlaces',
@@ -107,6 +113,21 @@ describe('narrowedDimensions', () => {
       reduced: [],
       analyticsReduced: true,
     });
+  });
+
+  it('leaves the voucher grant out while vouchers aren’t sold (ADR 0066)', () => {
+    const noVouchers = { ...growth, canSellVouchers: false, voucherCommissionBps: null };
+    expect(narrowedDimensions(growth, noVouchers, false)).toBeNull();
+    expect(widenedDimensions(noVouchers, growth, false)).toBeNull();
+    expect(narrowedDimensions(growth, noVouchers, true)).toEqual({
+      reduced: [],
+      vouchersLost: true,
+    });
+    expect(widenedDimensions(noVouchers, growth, true)).toEqual({
+      raised: [],
+      vouchersGained: true,
+    });
+    expect(narrowedDimensions(growth, FREE_PLAN_GRANTS, false)).not.toHaveProperty('vouchersLost');
   });
 
   it('orders scopes', () => {

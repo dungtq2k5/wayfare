@@ -25,8 +25,10 @@ import {
   checkGrants,
   draftOf,
   scopeLanguages,
+  vouchersPaused,
 } from './grants';
 import type { GrantsDraft } from './grants';
+import { PausedNote } from './grants-table';
 
 type Plan = AdminPlanResponseDto;
 
@@ -443,6 +445,7 @@ export function PlanForm({ plan }: { plan: Plan | null }) {
                 />
                 {t('planForm.sellVouchers')}
               </label>
+              {vouchersPaused() ? <PausedNote /> : null}
             </fieldset>
             {/* Only while vouchers are sold, so a commission without selling can't be typed (K12). */}
             <div aria-live="polite">

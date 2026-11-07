@@ -125,7 +125,6 @@ describe('billing.entitlements.changed', () => {
           'aiCreditsPerDay',
         ],
         autoNarrationLost: true,
-        vouchersLost: true,
         languagesReduced: true,
         analyticsReduced: true,
       },
@@ -154,6 +153,14 @@ describe('billing.entitlements.changed', () => {
       ],
     ]);
     // The bell only: no email template.
+    expect(await deliveries()).toEqual([]);
+  });
+
+  it('tells nobody of a voucher-only change while vouchers aren’t sold (ADR 0066)', async () => {
+    const noVouchers = { ...GROWTH, canSellVouchers: false, voucherCommissionBps: null };
+    await consumer().handle(changed(noVouchers, GROWTH, 4, EntitlementsChangeCause.OVERRIDE));
+    await consumer().handle(changed(GROWTH, noVouchers, 5, EntitlementsChangeCause.UNPIN));
+    expect(await prisma.notification.count()).toBe(0);
     expect(await deliveries()).toEqual([]);
   });
 

@@ -92,6 +92,7 @@ Every ADR carries the **cost** of its decision, not only the upside. An ADR with
 | [0063](./decisions/0063-google-sign-in-reaches-the-web-and-owners-never-staff.md) | Google sign-in reaches the web app and owners, never staff, and can be unlinked — partly supersedes 0062 |
 | [0064](./decisions/0064-google-links-by-itself-only-where-google-owns-the-mailbox.md) | A Google sign-in links to an existing account by itself only where Google owns the mailbox — partly supersedes 0062 |
 | [0065](./decisions/0065-the-pilots-staging-is-one-vm-with-docker-compose.md) | The pilot's staging is one VM running Docker Compose — partly supersedes 0036 |
+| [0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md) | The voucher chain waits for a way to pay Vietnamese venues |
 
 ### Payments and providers
 

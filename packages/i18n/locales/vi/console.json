@@ -510,7 +510,7 @@
   "delete.done": "Đã xóa địa điểm",
   "delete.doneBody": "{name} đã rời bản đồ; nhãn QR đã ngừng hoạt động.",
   "error.PLACE_HAS_LIVE_VOUCHERS": "Địa điểm còn voucher chưa dùng. Hãy chờ đến khi chúng được dùng hoặc hết hạn.",
-  "delete.billingDown": "Hệ thống thanh toán chưa xác nhận được là không còn voucher, nên chưa xóa gì. Hãy thử lại sau ít phút.",
+  "delete.billingDown": "Hệ thống thanh toán chưa xác nhận được là có thể xóa địa điểm này, nên chưa xóa gì. Hãy thử lại sau ít phút.",
   "qr.title": "Nhãn QR",
   "qr.body": "Quét nhãn sẽ mở địa điểm trong Wayfare, hoặc trên web nếu không có ứng dụng. Mã in bên dưới là {code} — không bao giờ đổi.",
   "qr.download": "Tải SVG",
@@ -1412,7 +1412,7 @@
   "lock.reasonHelp": "Nhân viên thấy lý do trong lịch sử. Tối đa 255 ký tự.",
   "lock.until": "Khóa đến",
   "lock.untilHelp": "Không bắt buộc, tối đa một năm. Để trống: đến khi có người mở khóa.",
-  "lock.note": "Khóa sẽ đăng xuất {name} ở mọi nơi. Nhân viên cơ sở của họ vẫn đổi được voucher đã bán — muốn dừng người bán, hãy ngừng tài khoản.",
+  "lock.note": "Khóa sẽ đăng xuất {name} ở mọi nơi.",
   "lock.confirm": "Khóa tài khoản",
   "lock.done": "Đã khóa tài khoản",
   "lock.untilFar": "Chọn một ngày trong vòng một năm.",
@@ -1431,7 +1431,7 @@
   "deactivateUser.refund": "Hoàn tiền {issued} voucher chưa dùng và hủy lượt thanh toán",
   "deactivateUser.confirmRefund": "Ngừng và hoàn tiền",
   "restoreUser.title": "Khôi phục {name}?",
-  "restoreUser.body": "Họ đăng nhập lại được. Nhân viên cơ sở và các ưu đãi voucher đã tạm dừng không trở lại: họ tự mời lại nhân viên và mở lại ưu đãi.",
+  "restoreUser.body": "Họ đăng nhập lại được.",
   "restoreUser.confirm": "Khôi phục tài khoản",
   "restoreUser.done": "Đã khôi phục tài khoản",
   "signOutAll.title": "Đăng xuất {name} ở mọi nơi?",
@@ -2769,5 +2769,7 @@
   "audit.TOUR_DELETED": "Đã xóa",
   "audit.TOUR_RESTORED": "Đã khôi phục",
   "auditAction.TOUR_ACTIVATION_REQUESTED": "Đã yêu cầu kích hoạt tour",
-  "tourForm.savedByYou": "Bạn đã lưu {when}."
+  "tourForm.savedByYou": "Bạn đã lưu {when}.",
+  "grants.vouchersPaused": "Voucher chưa được bán (tạm dừng cho đến khi có thể trả tiền cho cơ sở); quyền này có hiệu lực khi bắt đầu bán.",
+  "grants.paused": "Tạm dừng"
 }

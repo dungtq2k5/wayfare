@@ -41,8 +41,8 @@ import { useConsole } from '../i18n/provider';
 import { useCan } from '../shell/can';
 import { ErrorView } from '../states/states';
 import { AccountBoosts } from './account-boosts';
-import { GrantsTable, PinChip } from './grants-table';
-import { GRANT_KEYS, formatMoney, grantLabel, grantValue } from './grants';
+import { GrantsTable, PausedChip, PinChip } from './grants-table';
+import { GRANT_KEYS, formatMoney, grantLabel, grantPaused, grantValue } from './grants';
 import type { Entitlements } from './grants';
 import { EventBadge, SubscriptionBadge, formatMoment, ownerName, usePlans } from './words';
 
@@ -600,25 +600,44 @@ export function AccountPage({ initial }: { initial: Account }) {
   );
 }
 
+/** One grant that differs: its "Places: 15 → 10" line, and whether what it becomes is paused. */
+export interface GrantChange {
+  readonly text: string;
+  readonly paused: boolean;
+}
+
 /** The grants that differ, as "Places: 15 → 10" lines (W3's *What changes*, W4). */
 export function grantChanges(
   from: Entitlements,
   to: Entitlements,
   translator: ReturnType<typeof useConsole>,
-): string[] {
+): GrantChange[] {
   return GRANT_KEYS.flatMap((key) => {
     const before = grantValue(key, from, translator, true);
     const after = grantValue(key, to, translator, true);
     return before === after
       ? []
       : [
-          translator.t('account.change', {
-            grant: grantLabel(key, translator),
-            from: before,
-            to: after,
-          }),
+          {
+            text: translator.t('account.change', {
+              grant: grantLabel(key, translator),
+              from: before,
+              to: after,
+            }),
+            paused: grantPaused(key, to),
+          },
         ];
   });
+}
+
+/** A change's line, with the *Paused* chip where what it becomes is paused. */
+export function ChangeLine({ change }: { change: GrantChange }) {
+  return (
+    <li className="flex flex-wrap items-center gap-2">
+      {change.text}
+      {change.paused ? <PausedChip /> : null}
+    </li>
+  );
 }
 
 /**
@@ -703,7 +722,7 @@ function UnpinDialog({
               {changes.length === 0 ? (
                 <li>{t('account.unpinSame')}</li>
               ) : (
-                changes.map((line) => <li key={line}>{line}</li>)
+                changes.map((change) => <ChangeLine key={change.text} change={change} />)
               )}
               {places === null || places === undefined || places === 0 ? null : (
                 <li className="text-warning-foreground">

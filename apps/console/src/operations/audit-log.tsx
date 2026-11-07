@@ -22,6 +22,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useState } from 'react';
+import { auditActionShown, auditResourceShown } from '../billing/vouchers';
 import { failureOf } from '../client/errors';
 import { ClearFilters, Filter } from '../components/filter';
 import { DayInput, isDay } from '../forms/day-input';
@@ -261,10 +262,12 @@ export function AuditLog() {
             name={t('auditLog.action')}
             allLabel={t('auditLog.all')}
             value={action}
-            options={(actions.data ?? []).map((code) => ({
-              value: code,
-              label: tDynamic(`auditAction.${code}`, undefined, code),
-            }))}
+            options={(actions.data ?? [])
+              .filter((code) => auditActionShown(code))
+              .map((code) => ({
+                value: code,
+                label: tDynamic(`auditAction.${code}`, undefined, code),
+              }))}
             onChange={setAction}
           />
           {record.id === null ? (
@@ -272,10 +275,12 @@ export function AuditLog() {
               name={t('auditLog.resource')}
               allLabel={t('auditLog.all')}
               value={resource}
-              options={AUDIT_RESOURCE_TYPES.map((type) => ({
-                value: type,
-                label: tDynamic(`auditResource.${type}`, undefined, type),
-              }))}
+              options={AUDIT_RESOURCE_TYPES.filter((type) => auditResourceShown(type)).map(
+                (type) => ({
+                  value: type,
+                  label: tDynamic(`auditResource.${type}`, undefined, type),
+                }),
+              )}
               onChange={setResource}
             />
           ) : (

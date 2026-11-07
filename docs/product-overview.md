@@ -366,7 +366,7 @@ All money moves through **Stripe**, and **all prices are in USD, always** ([ADR 
 | :---- | :---- | :---- | :---- | :---- |
 | **R1** | **Owner subscription** — the core business | Venue Owner | Platform (100%) | **Stripe Billing** + Checkout (`mode: 'subscription'`) + Customer Portal |
 | **R2** | **Discovery boost** — paid ranking on visual surfaces | Venue Owner | Platform (100%) | **Part of the plan:** the plan grants boost slots (§8.2) and nothing is paid per boost — no add-on price, no separate Checkout; an owner wanting more slots moves plan |
-| **R3** | **Voucher commission** | Tourist | Venue (85%) + Platform (15%) | **Stripe Connect**, destination charges, `application_fee_amount` |
+| **R3** | **Voucher commission** — *deferred* ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)) | Tourist | Venue (85%) + Platform (15%) | **Stripe Connect**, destination charges, `application_fee_amount` — unavailable for Vietnamese venues; revisited when the chain resumes |
 | **R4** | *(P2)* Premium platform content | Tourist | Platform (100%) | Checkout Session, `mode: 'payment'` |
 
 R1 is the business. R3 is the growth story. Build R1 first and completely; R3 is a P1 feature; R4 is a stretch goal with a real app-store complication (§14).
@@ -384,7 +384,9 @@ R1 is the business. R3 is the growth story. Build R1 first and completely; R3 is
 | Discovery boost slots | 0 | 1 | 5 |
 | AI enhancement credits | 0 | 10/day | 10/day |
 | Own analytics | — | basic | full + export |
-| Sell vouchers | — | ✔ (15%) | ✔ (10%) |
+| Sell vouchers *(not available yet — ADR 0066)* | — | ✔ (15%) | ✔ (10%) |
+
+**While the voucher chain is deferred** the plans keep the grant and its commission as their terms for when it resumes, but no owner screen shows it, and staff see it as *paused*.
 
 Each plan is a **separate Stripe Product** with monthly and annual **Prices**. Do not put three tiers' prices on one Product — invoices and Checkout show the Product name, and the customer would not be able to tell tiers apart.
 
@@ -582,7 +584,7 @@ The Phase 1 demo is one video: someone walking a route with the screen off while
 
 ### Phase 3 — revenue and polish
 
-- Vouchers + Stripe Connect payouts.
+- Vouchers + Stripe Connect payouts — **deferred** ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)): Stripe can't pay a Vietnamese venue; the chain waits for where Wayfare is set up, how venues are paid, and the VAT that follows.
 - Discovery boost.
 - Tours browser and progress.
 - Load test, OpenTelemetry traces, architecture diagrams.
@@ -634,5 +636,5 @@ Hotel/flight booking · table reservations · food delivery · ride hailing · u
 | **Unofficial TTS / translation endpoints.** The free Microsoft Edge TTS and Google Translate wrappers are undocumented internal endpoints, not products. They can break or rate-limit without notice. | Audio generation stops without warning. | Wrap both behind a provider interface with **two** implementations from day one; keep a paid fallback (Azure Speech / Google Cloud TTS) configured and tested. Pre-generate and store audio so a provider outage never affects tourists, only authoring. |
 | **PMTiles offline vector tiles on React Native.** Well-trodden on the web, much less so in RN. | The offline map — a headline feature — may not work on mobile. | Spike in Phase 1. Fallbacks: a small in-app local HTTP server serving the pack, MapLibre Native's own offline region download, or raster tiles for the offline case. **Outcome on Android:** works without a fallback (local `pmtiles://` in MapLibre Native). |
 | **App-store rules on digital goods.** Google Play requires its own IAP for digital content consumed in the app. Premium content (R4) is digital content. Real-world goods and services (vouchers, R3) are exempt and may use Stripe. | R4 gets the app rejected, or loses 30%. | Keep R4 out of the native app (web-only purchase), or drop R4. R1 (B2B subscription sold on the web console) and R3 (real-world vouchers) are both fine with Stripe. |
-| **Stripe availability and tax in Vietnam.** Stripe's support for Vietnamese connected accounts and payouts directly constrains R3, and VAT treatment on R1 is unresolved. | R3 cannot ship; or we under-collect tax silently. | Verify before promising payouts to owners. Do not enable `automatic_tax` without confirming an active registration (§8.6). |
+| **Stripe availability and tax in Vietnam.** Stripe's support for Vietnamese connected accounts and payouts directly constrains R3, and VAT treatment on R1 is unresolved. | R3 cannot ship; or we under-collect tax silently. | **Verified 2026-11: Stripe doesn't support Vietnam** (no Vietnamese accounts; cross-border payouts don't reach it; Global Payouts only from US or UK platforms), so the voucher chain is deferred ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)) until Wayfare's legal home, the way venues are paid and the VAT are settled with an advisor. Do not enable `automatic_tax` without confirming an active registration (§8.6). |
 | **Scope.** This document describes more product than a small team ships quickly. | Everything half-done; nothing demonstrable. | Phase 1 is sacred and small. Nothing from Phase 2 starts until the walking demo works. |

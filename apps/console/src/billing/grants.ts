@@ -4,6 +4,7 @@ import {
   LONG_TAIL_LANGUAGES,
   MAX_VOUCHER_COMMISSION_BPS,
   PLATFORM_CEILINGS,
+  VOUCHERS_AVAILABLE,
 } from '@wayfare/contracts';
 import type { AdminPlanResponseDtoGrants } from '@wayfare/api-client';
 import type { LimitDimension } from '@wayfare/contracts';
@@ -78,6 +79,16 @@ export function grantValue(
       return String(grants[key]);
   }
 }
+
+/** Whether staff see the voucher grant as paused: vouchers aren't sold yet (ADR 0066). */
+export const vouchersPaused = (available = VOUCHERS_AVAILABLE): boolean => !available;
+
+/** Whether a grant carries the *Paused* chip: voucher selling held while it's paused; "No" never. */
+export const grantPaused = (
+  key: GrantKey,
+  grants: Entitlements,
+  available = VOUCHERS_AVAILABLE,
+): boolean => key === 'canSellVouchers' && grants.canSellVouchers && vouchersPaused(available);
 
 /** The languages a scope narrates, by name: the launch five, or "Also …" the long tail. */
 export function scopeLanguages(

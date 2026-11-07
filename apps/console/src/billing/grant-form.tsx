@@ -19,8 +19,16 @@ import type { ReactNode } from 'react';
 import { errorText } from '../client/errors';
 import type { FieldErrors } from '../forms/field-errors';
 import { useConsole } from '../i18n/provider';
-import { grantChanges } from './accounts';
-import { checkGrants, draftOf, grantLabel, grantValue, typedGrants } from './grants';
+import { ChangeLine, grantChanges } from './accounts';
+import {
+  checkGrants,
+  draftOf,
+  grantLabel,
+  grantValue,
+  typedGrants,
+  vouchersPaused,
+} from './grants';
+import { PausedNote } from './grants-table';
 import type { GrantKey, GrantsDraft } from './grants';
 import { ownerName, usePlans } from './words';
 
@@ -131,6 +139,7 @@ export function GrantForm({ account }: { account: Account }) {
         <td className="py-3 pr-4 text-muted-foreground">{planValue}</td>
         <td className="py-2">
           {control}
+          {key === 'canSellVouchers' && vouchersPaused() ? <PausedNote /> : null}
           {errors[key] === undefined ? null : <FieldError>{errors[key]}</FieldError>}
         </td>
       </tr>
@@ -304,8 +313,8 @@ export function GrantForm({ account }: { account: Account }) {
                 <p className="text-muted-foreground">{t('grantForm.noChanges')}</p>
               ) : (
                 <ul className="flex flex-col gap-1">
-                  {changes.map((line) => (
-                    <li key={line}>{line}</li>
+                  {changes.map((change) => (
+                    <ChangeLine key={change.text} change={change} />
                   ))}
                 </ul>
               )}

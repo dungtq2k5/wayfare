@@ -1,3 +1,5 @@
+import { VOUCHERS_AVAILABLE } from '@wayfare/contracts';
+
 /** The grants a pin can set, as both reads carry them. */
 export interface PinnableGrants {
   readonly maxPlaces: number;
@@ -39,9 +41,14 @@ const COUNTS = [
 
 /**
  * The limits a pin set by hand (Y1c): each grant in force that differs from the plan's own, in the
- * order the page lists them. The limits a pin left as the plan has them are not named.
+ * order the page lists them. The limits a pin left as the plan has them are not named, nor voucher
+ * selling while vouchers aren't sold (ADR 0066): an owner is never told of a grant they can't use.
  */
-export function pinnedLimits(inForce: PinnableGrants, plan: PinnableGrants): PinnedLimit[] {
+export function pinnedLimits(
+  inForce: PinnableGrants,
+  plan: PinnableGrants,
+  vouchersAvailable = VOUCHERS_AVAILABLE,
+): PinnedLimit[] {
   const limits: PinnedLimit[] = [];
   for (const grant of COUNTS) {
     if (inForce[grant] !== plan[grant]) limits.push({ key: `pin.${grant}`, n: inForce[grant] });
@@ -52,7 +59,7 @@ export function pinnedLimits(inForce: PinnableGrants, plan: PinnableGrants): Pin
     limits.push({ key: 'scope', scope: inForce.narrationLanguageScope });
   if (inForce.analyticsLevel !== plan.analyticsLevel)
     limits.push({ key: 'analytics', level: inForce.analyticsLevel });
-  if (inForce.canSellVouchers !== plan.canSellVouchers)
+  if (vouchersAvailable && inForce.canSellVouchers !== plan.canSellVouchers)
     limits.push({ key: inForce.canSellVouchers ? 'pin.vouchersOn' : 'pin.vouchersOff' });
   return limits;
 }

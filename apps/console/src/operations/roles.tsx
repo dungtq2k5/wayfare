@@ -10,6 +10,7 @@ import {
   rolesUpdate,
 } from '@wayfare/api-client';
 import type { PermissionGroupResponseDto, RoleResponseDto } from '@wayfare/api-client';
+import { permissionShown } from '../billing/vouchers';
 import {
   compareStrings,
   MAX_ROLE_DESCRIPTION_LENGTH,
@@ -66,9 +67,12 @@ function usePermissionGroups() {
       const merged = new Map<string, Group['permissions']>();
       for (const group of (await rolesPermissions()).data) {
         const key = DISPLAY_GROUP[group.group] ?? group.group;
-        merged.set(key, [...(merged.get(key) ?? []), ...group.permissions]);
+        const shown = group.permissions.filter((permission) => permissionShown(permission.code));
+        merged.set(key, [...(merged.get(key) ?? []), ...shown]);
       }
-      return [...merged].map(([group, permissions]) => ({ group, permissions }));
+      return [...merged]
+        .filter(([, permissions]) => permissions.length > 0)
+        .map(([group, permissions]) => ({ group, permissions }));
     },
     staleTime: 30 * 60_000,
   });

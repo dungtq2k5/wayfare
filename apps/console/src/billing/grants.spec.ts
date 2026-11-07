@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '../i18n/messages';
-import { EMPTY_DRAFT, GRANT_KEYS, checkGrants, formatMoney, grantNote, grantValue } from './grants';
+import {
+  EMPTY_DRAFT,
+  GRANT_KEYS,
+  checkGrants,
+  formatMoney,
+  grantNote,
+  grantPaused,
+  grantValue,
+  vouchersPaused,
+} from './grants';
 import type { Entitlements, GrantsDraft } from './grants';
 
 const en = createTranslator('en');
@@ -51,6 +60,21 @@ describe('the grants in words (B2)', () => {
         expect(grantValue(key, GROWTH, translator)).not.toMatch(/^grants\./);
       }
     expect(grantValue('canSellVouchers', GROWTH, vi)).toBe('Có, hoa hồng 15 %');
+  });
+
+  it('keeps the voucher grant’s value, paused while vouchers aren’t sold (ADR 0066)', () => {
+    const none = { ...GROWTH, canSellVouchers: false, voucherCommissionBps: null };
+    expect(vouchersPaused()).toBe(true);
+    expect(grantPaused('canSellVouchers', GROWTH)).toBe(true);
+    expect(grantValue('canSellVouchers', GROWTH, en)).toBe('Yes, 15 % commission');
+    // "No" carries no chip; nor does any other grant.
+    expect(grantPaused('canSellVouchers', none)).toBe(false);
+    expect(grantPaused('maxPlaces', GROWTH)).toBe(false);
+    // Once they are sold, today's rendering returns.
+    expect(vouchersPaused(true)).toBe(false);
+    expect(grantPaused('canSellVouchers', GROWTH, true)).toBe(false);
+    expect(en.t('grants.vouchersPaused')).toMatch(/^Vouchers aren't sold yet/);
+    expect(vi.t('grants.paused')).toBe('Tạm dừng');
   });
 
   it('writes money as Stripe states it', () => {

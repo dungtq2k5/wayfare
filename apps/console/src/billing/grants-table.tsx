@@ -1,8 +1,8 @@
 'use client';
 
-import { Pin } from 'lucide-react';
+import { Pause, Pin } from 'lucide-react';
 import { useConsole } from '../i18n/provider';
-import { GRANT_KEYS, grantLabel, grantNote, grantValue } from './grants';
+import { GRANT_KEYS, grantLabel, grantNote, grantPaused, grantValue } from './grants';
 import type { Entitlements } from './grants';
 
 /** The *Override* chip (`Badge` `accent`, `pin`): a grant an account holds off its plan. */
@@ -11,6 +11,28 @@ export function PinChip({ children }: { children: string }) {
     <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium whitespace-nowrap text-accent-foreground [&_svg]:size-3">
       <Pin aria-hidden />
       {children}
+    </span>
+  );
+}
+
+/** The muted *Paused* chip (`pause`): a voucher grant held while vouchers aren't sold. */
+export function PausedChip() {
+  const { t } = useConsole();
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium whitespace-nowrap text-muted-foreground [&_svg]:size-3">
+      <Pause aria-hidden />
+      {t('grants.paused')}
+    </span>
+  );
+}
+
+/** The line under the voucher grant while vouchers aren't sold: it takes effect when they are. */
+export function PausedNote() {
+  const { t } = useConsole();
+  return (
+    <span className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+      <Pause aria-hidden className="mt-px size-3.5 shrink-0" />
+      {t('grants.vouchersPaused')}
     </span>
   );
 }
@@ -70,7 +92,9 @@ export function GrantsTable({
                   {plan?.pinned === true && differs(key) ? (
                     <PinChip>{t('grants.override')}</PinChip>
                   ) : null}
+                  {plan !== undefined && grantPaused(key, grants) ? <PausedChip /> : null}
                 </span>
+                {plan === undefined && grantPaused(key, grants) ? <PausedNote /> : null}
               </td>
               {plan === undefined ? (
                 <td className="py-3 text-right text-xs text-muted-foreground">{note}</td>

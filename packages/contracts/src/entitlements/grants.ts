@@ -1,4 +1,5 @@
 import type { SubscriptionStatus } from '../billing/enums';
+import { VOUCHERS_AVAILABLE } from '../billing/vouchers';
 import type { EntitlementsRaisedData, EntitlementsReducedData } from '../notifications/data';
 import { PLATFORM_CEILINGS } from './ceilings';
 import type { LimitDimension } from './ceilings';
@@ -53,15 +54,16 @@ export type EntitlementsNarrowing = Omit<EntitlementsReducedData, 'entitlementsV
 /**
  * What narrowed from `previous` to `next` (api-endpoints-plan §10): smaller numeric grants, lost
  * auto-narration or vouchers, a smaller language scope, a lower analytics level. Null when nothing
- * did — a widening, or an unchanged set.
+ * did — a widening, or an unchanged set. While vouchers aren't sold, losing them narrows nothing.
  */
 export function narrowedDimensions(
   previous: Entitlements,
   next: Entitlements,
+  vouchersAvailable = VOUCHERS_AVAILABLE,
 ): EntitlementsNarrowing | null {
   const reduced = DIMENSIONS.filter((dimension) => next[dimension] < previous[dimension]);
   const autoNarrationLost = previous.autoNarration && !next.autoNarration;
-  const vouchersLost = previous.canSellVouchers && !next.canSellVouchers;
+  const vouchersLost = vouchersAvailable && previous.canSellVouchers && !next.canSellVouchers;
   const languagesReduced =
     SCOPE_RANK[next.narrationLanguageScope] < SCOPE_RANK[previous.narrationLanguageScope];
   const analyticsReduced =
@@ -91,10 +93,11 @@ export type EntitlementsWidening = Omit<EntitlementsRaisedData, 'entitlementsVer
 export function widenedDimensions(
   previous: Entitlements,
   next: Entitlements,
+  vouchersAvailable = VOUCHERS_AVAILABLE,
 ): EntitlementsWidening | null {
   const raised = DIMENSIONS.filter((dimension) => next[dimension] > previous[dimension]);
   const autoNarrationGained = !previous.autoNarration && next.autoNarration;
-  const vouchersGained = !previous.canSellVouchers && next.canSellVouchers;
+  const vouchersGained = vouchersAvailable && !previous.canSellVouchers && next.canSellVouchers;
   const languagesWidened =
     SCOPE_RANK[next.narrationLanguageScope] > SCOPE_RANK[previous.narrationLanguageScope];
   const analyticsRaised =

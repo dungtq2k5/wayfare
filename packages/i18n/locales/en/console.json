@@ -510,7 +510,7 @@
   "delete.done": "Place deleted",
   "delete.doneBody": "{name} is off the map; its stickers stopped working.",
   "error.PLACE_HAS_LIVE_VOUCHERS": "It has vouchers that haven't been used. Wait until they are used or expire.",
-  "delete.billingDown": "Billing can't confirm there are no live vouchers right now, so nothing was deleted. Try again in a few minutes.",
+  "delete.billingDown": "Billing can't confirm the Place can be deleted right now, so nothing was deleted. Try again in a few minutes.",
   "qr.title": "QR sticker",
   "qr.body": "Scanning it opens this place in Wayfare, or on the web without the app. The code printed under it is {code} — it never changes.",
   "qr.download": "Download SVG",
@@ -1412,7 +1412,7 @@
   "lock.reasonHelp": "Staff see it in the history. Up to 255 characters.",
   "lock.until": "Locked until",
   "lock.untilHelp": "Optional, at most a year away. Empty: until someone unlocks it.",
-  "lock.note": "Locking signs {name} out everywhere. Their venue staff can still redeem vouchers already sold — to stop a seller, deactivate instead.",
+  "lock.note": "Locking signs {name} out everywhere.",
   "lock.confirm": "Lock account",
   "lock.done": "Account locked",
   "lock.untilFar": "Choose a date within a year.",
@@ -1431,7 +1431,7 @@
   "deactivateUser.refund": "Refund the {issued} unused vouchers and cancel the checkout",
   "deactivateUser.confirmRefund": "Deactivate and refund",
   "restoreUser.title": "Restore {name}?",
-  "restoreUser.body": "They can sign in again. Their venue staff and paused voucher offers don't come back: they re-invite staff and resume offers themselves.",
+  "restoreUser.body": "They can sign in again.",
   "restoreUser.confirm": "Restore account",
   "restoreUser.done": "Account restored",
   "signOutAll.title": "Sign {name} out everywhere?",
@@ -2769,5 +2769,7 @@
   "audit.TOUR_DELETED": "Deleted",
   "audit.TOUR_RESTORED": "Restored",
   "auditAction.TOUR_ACTIVATION_REQUESTED": "Tour activation requested",
-  "tourForm.savedByYou": "Saved by you {when}."
+  "tourForm.savedByYou": "Saved by you {when}.",
+  "grants.vouchersPaused": "Vouchers aren't sold yet (paused until venues can be paid); this grant takes effect when they are.",
+  "grants.paused": "Paused"
 }
