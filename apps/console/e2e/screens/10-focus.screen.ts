@@ -59,6 +59,7 @@ test('the shell, desktop (C6)', async ({ page }) => {
     /^Narration jobs$/,
     /^Pronunciation$/,
     /^Translation corrections$/,
+    /^Analytics$/,
     /^Users and roles$/,
     /^Recoveries$/,
     /^Audit log$/,

@@ -13,7 +13,7 @@ export type AdminAnalyticsRuntimeParams = {
 areaId?: string;
 /**
  * @minimum 1
- * @maximum 72
+ * @maximum 168
  */
 hours?: number;
 current?: AdminAnalyticsRuntimeCurrent;

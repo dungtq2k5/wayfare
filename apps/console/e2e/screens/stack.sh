@@ -41,9 +41,10 @@ up() {
   # billing's plans go on those accounts, and catalog's Venues ask billing for them.
   # Billing seeds the fake Stripe's `price_dev_*` prices, never a developer's sandbox ones: the
   # baselines draw the same catalogue on every machine and in CI.
-  # Analytics last: its events name catalog's pilot Places.
+  # Analytics last: its events name catalog's pilot Places. Its last day is fixed, and catalog's
+  # Venues went live against it, so *My stats* and the dashboards draw the same dates every run.
   for s in identity billing narration catalog analytics; do
-    on "$s" env STRIPE_SECRET_KEY= STRIPE_PRICE_GROWTH_MONTHLY= STRIPE_PRICE_GROWTH_ANNUAL= \
+    on "$s" env ANALYTICS_SEED_END_DAY=2026-11-06 STRIPE_SECRET_KEY= STRIPE_PRICE_GROWTH_MONTHLY= STRIPE_PRICE_GROWTH_ANNUAL= \
       STRIPE_PRICE_PRO_MONTHLY= STRIPE_PRICE_PRO_ANNUAL= \
       pnpm --silent --filter "@wayfare/$s" seed:dev
   done

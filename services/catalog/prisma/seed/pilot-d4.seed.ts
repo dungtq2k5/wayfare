@@ -11,6 +11,7 @@ import {
   MIN_TRIGGER_RADIUS_M,
   NARRATION_PRIORITY_MAX,
   NARRATION_PRIORITY_MIN,
+  businessDay,
   SubmissionKind,
   SubmissionStatus,
   zPlaceSubmissionPayload,
@@ -361,6 +362,45 @@ async function reconcile(
   };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The analytics seed's little-data Venue (owner-2's): it went live five days before the seed's end
+ * day, and analytics gives it only three narrations (`services/analytics/prisma/seed`).
+ */
+export const LITTLE_DATA_VENUE_ID = '01a0b998-8eca-750d-9430-a9806a5c061e';
+
+/**
+ * Fixes when each live pilot Venue last changed status — "Live since" on *My stats* — against the
+ * analytics seed's end day (`ANALYTICS_SEED_END_DAY`, else yesterday): sixty days before it, the
+ * little-data Venue five. Without it every Venue went live when the stack was built.
+ */
+export async function pinLiveDates(
+  prisma: Pick<PrismaService, 'place'>,
+  venueIds: readonly string[],
+  endDay: string,
+  wait: SeedWait = { timeoutMs: 120_000, intervalMs: 1_000 },
+): Promise<void> {
+  // A Venue goes live once its audio is made, after the approval: its status changes then, so the
+  // dates are pinned once none is still processing (or the wait runs out).
+  const deadline = Date.now() + wait.timeoutMs;
+  while (
+    Date.now() < deadline &&
+    (await prisma.place.count({ where: { id: { in: [...venueIds] }, status: 'PROCESSING' } })) > 0
+  )
+    await new Promise((resolve) => setTimeout(resolve, wait.intervalMs));
+  const at = (days: number) => new Date(new Date(`${endDay}T02:00:00Z`).getTime() - days * DAY_MS);
+  const others = venueIds.filter((id) => id !== LITTLE_DATA_VENUE_ID);
+  await prisma.place.updateMany({
+    where: { id: { in: others }, status: 'ACTIVE' },
+    data: { statusChangedAt: at(60) },
+  });
+  await prisma.place.updateMany({
+    where: { id: LITTLE_DATA_VENUE_ID, status: 'ACTIVE' },
+    data: { statusChangedAt: at(5) },
+  });
+}
+
 async function main(): Promise<void> {
   assertNotProduction(process.env);
   config({ path: resolve(packageRoot(__dirname), '.env'), quiet: true });
@@ -382,6 +422,12 @@ async function main(): Promise<void> {
       },
       corpus,
       SEED_EDITOR_CONTEXT,
+    );
+    const endDay = process.env.ANALYTICS_SEED_END_DAY ?? businessDay(new Date(Date.now() - DAY_MS));
+    await pinLiveDates(
+      app.get(PrismaService),
+      corpus.venues.map((venue) => venue.id),
+      endDay,
     );
     console.log(`✓ ${report.area}`);
     for (const row of report.rows) {

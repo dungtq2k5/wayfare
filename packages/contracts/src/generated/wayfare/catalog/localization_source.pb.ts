@@ -33,6 +33,8 @@ export interface PlaceSummaryRef {
   status: PlaceStatus;
   inactiveReason?: PlaceInactiveReason | undefined;
   nameVi: string;
+  /** Its category, by code: what tells two like names apart on a ranked list. */
+  categoryCode: string;
 }
 
 /** Distance only, nearest first: boost never reaches narration (ADR 0007). */

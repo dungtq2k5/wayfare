@@ -109,6 +109,8 @@ describe('BatchGetPlaceSummaries', () => {
       ownerUserId,
       status: catalogGrpc.PlaceStatus.PLACE_STATUS_ACTIVE,
     });
+    // Its category's code, for the dashboards' ranked lines.
+    expect(byId.get(live.id)!.categoryCode).toMatch(/^[A-Z][A-Z0-9_]*$/);
     expect(byId.get(closed.id)).toMatchObject({
       ownerUserId,
       status: catalogGrpc.PlaceStatus.PLACE_STATUS_INACTIVE,

@@ -185,7 +185,7 @@ function HeaderCell({
       <th
         scope="col"
         aria-sort={active ? sort.direction : undefined}
-        className="px-4 py-3 font-medium text-muted-foreground"
+        className={cn('px-4 py-3 font-medium text-muted-foreground', column.className)}
       >
         {label}
       </th>
@@ -196,7 +196,11 @@ function HeaderCell({
     <th
       scope="col"
       aria-sort={active ? sort.direction : 'none'}
-      className={cn('px-4 py-3 font-medium', active ? 'text-foreground' : 'text-muted-foreground')}
+      className={cn(
+        'px-4 py-3 font-medium',
+        active ? 'text-foreground' : 'text-muted-foreground',
+        column.className,
+      )}
     >
       <button
         type="button"

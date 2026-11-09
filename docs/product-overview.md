@@ -229,7 +229,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 - Notifications: in-app bell + detail page for review outcomes, with the admin's note.
 - Subscription & billing: plan comparison, upgrade/downgrade, invoices, payment method, cancel — all via Stripe's hosted surfaces.
 - Payouts: connect a payout account, see voucher sales and transfers. *(P1)*
-- My stats: how many tourists heard my narration, listen-through rate, peak hours. *(P1)*
+- My stats: how often each Venue's story started and was heard to the end, average listening and QR scans (Growth); Pro adds how each story started, stories stopped early, page opens and a CSV export; Free shows no numbers. *(P1, built)*
 
 ### F7 — Admin Console (P0)
 
@@ -243,8 +243,8 @@ Four layers of defence, so the tourist never sees a blank screen:
 - **Stuck Places:** a Place left in `processing` for over an hour with no narration job queued, running or paused is listed on the console's Home and as the Places list's *Stuck*, with its last job and *Make narration again* — nothing else would move it.
 - Pronunciation dictionary editor for proper nouns (F3).
 - Audit log: who did what to which resource, when.
-- Analytics dashboards. *(P1)*
-- Runtime location observability: an aggregate, non-consent, coarse "how many devices are active where" window — deliberately kept in a **separate lane** from consented analytics. *(P1)*
+- Analytics dashboards: the overview, the top Places, a heatmap of 150 m squares (under 5 phones never shown) and the runtime activity. *(P1, built)*
+- Runtime location observability: an aggregate, non-consent, coarse "how many devices are active where" window — deliberately kept in a **separate lane** from consented analytics. *(P1, built)*
 
 ### F8 — Monetization & payments (P0) — see §8 for the full model
 
@@ -588,7 +588,7 @@ The Phase 1 demo is one video: someone walking a route with the screen off while
 - Vouchers + Stripe Connect payouts — **deferred** ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)): Stripe can't pay a Vietnamese venue; the chain waits for where Wayfare is set up, how venues are paid, and the VAT that follows.
 - Discovery boost.
 - Tours browser and progress.
-- Analytics (§F9): the `analytics` service, its rollup jobs and every dashboard read are built; the apps' consent question and the owner's and admin's dashboards follow.
+- Analytics (§F9): built — the `analytics` service and its rollup jobs, the consent question on Android and the web, the owner's *My stats* and the admin's dashboards.
 - Load test, OpenTelemetry traces, architecture diagrams.
 
 ### 12.1 Pilot area

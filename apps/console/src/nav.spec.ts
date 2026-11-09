@@ -15,6 +15,7 @@ describe('the navigation (K5)', () => {
       ['nav.group.review', ['nav.submissions', 'nav.registrations']],
       ['nav.group.catalog', ['nav.places', 'nav.tours', 'nav.categories', 'nav.areas']],
       ['nav.group.narration', ['nav.narrationJobs', 'nav.pronunciation', 'nav.corrections']],
+      ['nav.group.insights', ['nav.analytics']],
       ['nav.group.people', ['nav.users', 'nav.recoveries', 'nav.audit']],
       ['nav.group.billing', ['nav.billingAccounts', 'nav.stripeEvents']],
     ]);
@@ -31,7 +32,7 @@ describe('the navigation (K5)', () => {
     expect(labels(SYSTEM_ROLE_GRANTS[SystemRole.VENUE_OWNER], 'verified')).toEqual([
       [
         'nav.group.business',
-        ['nav.venues', 'nav.mySubmissions', 'nav.billing', 'nav.notifications'],
+        ['nav.venues', 'nav.myStats', 'nav.mySubmissions', 'nav.billing', 'nav.notifications'],
       ],
     ]);
   });
@@ -65,6 +66,12 @@ describe('the navigation (K5)', () => {
     expect(mayOpen(places!, ['submission.read'])).toBe(false);
     expect(mayOpen(places!, ['place.read'])).toBe(true);
     expect(navItemFor('/account')).toBeUndefined();
+    // Every tab of the dashboards, and a Venue's stats, guarded by their item.
+    expect(navItemFor('/analytics/heatmap')?.label).toBe('nav.analytics');
+    expect(mayOpen(navItemFor('/analytics/top')!, ['owner.access'])).toBe(false);
+    expect(navItemFor('/owner/stats/0190a0b0-0000-7000-8000-000000000000')?.label).toBe(
+      'nav.myStats',
+    );
   });
 });
 

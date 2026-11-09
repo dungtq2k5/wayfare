@@ -34,7 +34,16 @@ export const ownerStatsDaySchema = z
   .strict();
 
 const zVenue = z
-  .object({ placeId: z.uuid(), name: z.string(), status: z.enum(PlaceStatus) })
+  .object({
+    placeId: z.uuid(),
+    name: z.string(),
+    status: z.enum(PlaceStatus),
+    /** Its category and Area, by code: the console words them as *My venues* does. */
+    categoryCode: z.string(),
+    areaCode: z.string(),
+    /** Its last status change while it is `ACTIVE`, else null: "Live since" (not the first time live). */
+    liveSince: z.iso.datetime().nullable(),
+  })
   .strict();
 
 const zCommon = {

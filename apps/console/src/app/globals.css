@@ -29,3 +29,17 @@
     @apply outline-none;
   }
 }
+
+/* A chart's bars grow from the baseline once, on load; drawn at once with reduced motion. */
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@utility animate-bar-grow {
+  transform-origin: bottom;
+  animation: bar-grow var(--duration-slow) ease-out;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}

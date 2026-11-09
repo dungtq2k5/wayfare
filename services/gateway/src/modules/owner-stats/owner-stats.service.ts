@@ -7,7 +7,7 @@ import {
 } from '@wayfare/contracts';
 import { analyticsLevelProto, placeStatusProto } from '@wayfare/contracts/grpc';
 import type { analyticsGrpc, catalogGrpc } from '@wayfare/contracts/grpc';
-import { AppHttpException } from '@wayfare/nest-common';
+import { AppHttpException, fromProtoTimestamp } from '@wayfare/nest-common';
 import type { AccountContext } from '@wayfare/nest-common';
 import { AnalyticsServiceGrpcClient } from '../analytics-client/analytics-service-grpc.client';
 import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
@@ -223,6 +223,9 @@ interface Venue {
   readonly placeId: string;
   readonly name: string;
   readonly status: PlaceStatus;
+  readonly categoryCode: string;
+  readonly areaCode: string;
+  readonly liveSince: string | null;
 }
 
 /** A range of business days. */
@@ -315,11 +318,20 @@ export class OwnerStatsService {
   private async venues(context: AccountContext): Promise<Venue[]> {
     const { places } = await this.catalog.ownerPlaces.call('listMyPlaces', {}, context);
     return places
-      .map((place) => ({
-        placeId: place.id,
-        name: place.nameVi,
-        status: placeStatusProto.fromProto(place.status) ?? PlaceStatus.INACTIVE,
-      }))
+      .map((place) => {
+        const status = placeStatusProto.fromProto(place.status) ?? PlaceStatus.INACTIVE;
+        return {
+          placeId: place.id,
+          name: place.nameVi,
+          status,
+          categoryCode: place.categoryCode,
+          areaCode: place.areaCode,
+          liveSince:
+            status === PlaceStatus.ACTIVE && place.statusChangedAt !== undefined
+              ? fromProtoTimestamp(place.statusChangedAt, 'statusChangedAt').toISOString()
+              : null,
+        };
+      })
       .toSorted((a, b) => compareStrings(a.name, b.name) || compareStrings(a.placeId, b.placeId));
   }
 

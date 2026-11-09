@@ -200,6 +200,7 @@ export class AdminAnalyticsService {
             {
               placeId: place.placeId,
               name: summary.nameVi,
+              categoryCode: summary.categoryCode,
               status: placeStatusProto.fromProto(summary.status) ?? PlaceStatus.INACTIVE,
               narrationsStarted: place.narrationsStarted,
               narrationsCompleted: place.narrationsCompleted,
@@ -247,8 +248,9 @@ export class AdminAnalyticsService {
       from: query.from,
       to: query.to,
       hours: `${query.hours[0]}-${query.hours[1]}`,
+      // Absent with no square: over the wire it arrives as null, not undefined.
       computedThrough:
-        heat.computedThrough === undefined
+        heat.computedThrough?.seconds === undefined
           ? null
           : fromProtoTimestamp(heat.computedThrough, 'computedThrough').toISOString(),
       cells: {

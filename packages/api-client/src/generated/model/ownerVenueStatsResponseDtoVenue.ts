@@ -11,4 +11,7 @@ export type OwnerVenueStatsResponseDtoVenue = {
   placeId: string;
   name: string;
   status: OwnerVenueStatsResponseDtoVenueStatus;
+  categoryCode: string;
+  areaCode: string;
+  liveSince: string | null;
 };

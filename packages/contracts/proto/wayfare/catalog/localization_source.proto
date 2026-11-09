@@ -43,6 +43,8 @@ message PlaceSummaryRef {
   PlaceStatus status = 4;
   optional PlaceInactiveReason inactive_reason = 5;
   string name_vi = 6;
+  // Its category, by code: what tells two like names apart on a ranked list.
+  string category_code = 7;
 }
 
 // Distance only, nearest first: boost never reaches narration (ADR 0007).

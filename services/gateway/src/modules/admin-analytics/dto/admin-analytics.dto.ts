@@ -1,4 +1,9 @@
-import { withRangeChecks, zAnalyticsRangeFields, zHourBand } from '@wayfare/contracts';
+import {
+  RUNTIME_HOURS_MAX,
+  withRangeChecks,
+  zAnalyticsRangeFields,
+  zHourBand,
+} from '@wayfare/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -38,11 +43,11 @@ export const adminHeatmapQuerySchema = withRangeChecks(
 /** The heatmap's query. */
 export class AdminHeatmapQueryDto extends createZodDto(adminHeatmapQuerySchema) {}
 
-/** The runtime lane's query: one Area's last hours (≤ 72), or `current=true` for every Area now. */
+/** The runtime lane's query: one Area's last hours (≤ 168, a week), or `current=true` for every Area now. */
 export const adminRuntimeQuerySchema = z
   .object({
     areaId: z.uuid().optional(),
-    hours: z.coerce.number().int().min(1).max(72).default(24),
+    hours: z.coerce.number().int().min(1).max(RUNTIME_HOURS_MAX).default(24),
     current: z.enum(['true', 'false']).default('false'),
   })
   .strict()

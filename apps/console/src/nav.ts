@@ -20,7 +20,8 @@ export type NavIcon =
   | 'wallet'
   | 'bell'
   | 'package'
-  | 'webhook';
+  | 'webhook'
+  | 'chart-column';
 
 /** One navigation item: its route, its label, and the read permission that shows it (K5). */
 export interface NavItem {
@@ -43,6 +44,7 @@ const BUSINESS: NavGroup = {
   label: 'nav.group.business',
   items: [
     { href: '/owner/venues', label: 'nav.venues', icon: 'store', anyOf: ['owner.access'] },
+    { href: '/owner/stats', label: 'nav.myStats', icon: 'chart-column', anyOf: ['owner.access'] },
     {
       href: '/owner/submissions',
       label: 'nav.mySubmissions',
@@ -119,6 +121,17 @@ const STAFF: readonly NavGroup[] = [
         label: 'nav.corrections',
         icon: 'languages',
         anyOf: ['localization.edit'],
+      },
+    ],
+  },
+  {
+    label: 'nav.group.insights',
+    items: [
+      {
+        href: '/analytics',
+        label: 'nav.analytics',
+        icon: 'chart-column',
+        anyOf: ['analytics.read'],
       },
     ],
   },

@@ -5,6 +5,7 @@ import {
   geohashCentre,
   hourStart,
   nextBusinessDay,
+  RUNTIME_HOURS_MAX,
   runtimeKey,
   zAnalyticsRange,
 } from '@wayfare/contracts';
@@ -15,9 +16,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { REDIS } from '../redis/redis.module';
 
 const HOUR_MS = 60 * 60 * 1000;
-
-/** The most hours of A-5 one read covers. */
-export const RUNTIME_HOURS_MAX = 72;
 
 /** A `DATE` column's value as the business day it holds. */
 const dayOf = (date: Date): string => date.toISOString().slice(0, 10);

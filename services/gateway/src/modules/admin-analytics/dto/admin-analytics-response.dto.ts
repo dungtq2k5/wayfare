@@ -61,7 +61,9 @@ export const adminTopPlacesResponseSchema = z
       z
         .object({
           placeId: z.uuid(),
+          /** Its Vietnamese name, and its category's code: the row's line. */
           name: z.string(),
+          categoryCode: z.string(),
           status: z.enum(PlaceStatus),
           narrationsStarted: count,
           narrationsCompleted: count,

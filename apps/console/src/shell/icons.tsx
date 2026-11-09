@@ -1,6 +1,7 @@
 import {
   AudioLines,
   Bell,
+  ChartColumn,
   FileCheck,
   House,
   Languages,
@@ -41,4 +42,5 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   bell: Bell,
   package: Package,
   webhook: Webhook,
+  'chart-column': ChartColumn,
 };

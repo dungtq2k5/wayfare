@@ -300,11 +300,13 @@ export class LocalizationSourcesService {
         status: true,
         inactiveReason: true,
         nameVi: true,
+        category: { select: { code: true } },
       },
     });
     return {
       places: rows.map((row) => ({
         id: row.id,
+        categoryCode: row.category.code,
         kind: placeKindProto.toProto(parseEnum(PlaceKind, row.kind)),
         ...(row.ownerUserId === null ? {} : { ownerUserId: row.ownerUserId }),
         status: placeStatusProto.toProto(parseEnum(PlaceStatus, row.status)),

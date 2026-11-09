@@ -1,6 +1,8 @@
 // pnpm seed:dev — four weeks of consented events for the pilot's Places, so the dashboards
 // have numbers on a fresh stack: consents, raw events with cells, the runtime lane's last two days,
 // then the jobs for those days. Never in production; idempotent (fixed ids, fixed numbers).
+// `ANALYTICS_SEED_END_DAY` (a business day) fixes the last day, for the screen baselines; else it
+// is yesterday. The runtime lane always follows the real clock: its live keys are "now".
 import 'dotenv/config';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -36,10 +38,16 @@ const REPO_ROOT = resolve(__dirname, '../../../../..');
 const CATALOG_SEED = resolve(REPO_ROOT, 'services/catalog/prisma/seed');
 const HOUR_MS = 60 * 60 * 1000;
 
-/** How many days of events, ending yesterday. */
+/** How many days of events, ending on the end day. */
 const DAYS = 28;
 /** How many consenting phones. */
 const DEVICES = 150;
+
+/**
+ * Owner-2's little-data Venue: no narration but three in the last five days, so *My stats* shows
+ * too little to count. Catalog's seed makes it live five days before the end day (`pinLiveDates`).
+ */
+const LITTLE_DATA_VENUE_ID = '01a0b998-8eca-750d-9430-a9806a5c061e';
 
 interface SeedPlace {
   readonly id: string;
@@ -99,7 +107,12 @@ const TIERS = [
 
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') throw new Error('Not in production');
-  const { places, venues, areaIds } = pilot();
+  const pilotPlaces = pilot();
+  const { areaIds } = pilotPlaces;
+  const quiet = (place: SeedPlace) => place.id !== LITTLE_DATA_VENUE_ID;
+  const places = pilotPlaces.places.filter(quiet);
+  const venues = pilotPlaces.venues.filter(quiet);
+  const littleData = pilotPlaces.venues.find((venue) => !quiet(venue));
   const app = await NestFactory.createApplicationContext(AppModule.forRoot({ jobs: false }), {
     logger: ['error', 'warn'],
   });
@@ -108,10 +121,9 @@ async function main(): Promise<void> {
     const redis = app.get<Redis>(REDIS);
     const now = new Date();
     const next = random(40);
-    const yesterday = daysBefore(businessDay(now), 1);
-    const days = Array.from({ length: DAYS }, (_, index) =>
-      daysBefore(yesterday, DAYS - 1 - index),
-    );
+    const endDay = process.env.ANALYTICS_SEED_END_DAY ?? daysBefore(businessDay(now), 1);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endDay)) throw new Error('ANALYTICS_SEED_END_DAY: YYYY-MM-DD');
+    const days = Array.from({ length: DAYS }, (_, index) => daysBefore(endDay, DAYS - 1 - index));
     const devices = Array.from({ length: DEVICES }, (_, index) => seedId(`device:${index}`));
     const policy = LEGAL_DOCUMENT_VERSIONS[LegalDocument.PRIVACY_POLICY];
 
@@ -198,6 +210,40 @@ async function main(): Promise<void> {
         }
       }
     });
+    // The little-data Venue's three narrations, one a day in its last three: two finished, one stopped.
+    if (littleData !== undefined)
+      days.slice(-3).forEach((day, index) => {
+        const device = devices[index]!;
+        const base = {
+          analyticsDeviceId: device,
+          sessionId: seedId(`session:${day}:${device}`),
+          platform: Platform.ANDROID,
+          appVersion: '0.1.0',
+          placeId: littleData.id,
+          lang: 'en',
+        };
+        const started = new Date(businessDayStart(day).getTime() + 20 * HOUR_MS);
+        events.push(
+          {
+            ...base,
+            id: seedId(`little:${day}:started`),
+            eventType: AnalyticsEventType.NARRATION_STARTED,
+            trigger: AnalyticsTrigger.TAP,
+            audioTier: AudioTier.T1,
+            occurredAt: started,
+          },
+          {
+            ...base,
+            id: seedId(`little:${day}:ended`),
+            eventType:
+              index < 2
+                ? AnalyticsEventType.NARRATION_COMPLETED
+                : AnalyticsEventType.NARRATION_ABANDONED,
+            listenMs: index < 2 ? 100_000 : 20_000,
+            occurredAt: new Date(started.getTime() + 2 * 60_000),
+          },
+        );
+      });
     for (let start = 0; start < events.length; start += 2_000) {
       await prisma.event.createMany({
         data: events.slice(start, start + 2_000),
@@ -241,7 +287,7 @@ async function main(): Promise<void> {
     const rollup = app.get(DailyRollupJob);
     for (const day of days) await rollup.rebuildDay(day, now);
     console.log(
-      `✓ analytics: ${devices.length} phones, ${events.length} events over ${days.length} days (${days[0]} … ${yesterday})`,
+      `✓ analytics: ${devices.length} phones, ${events.length} events over ${days.length} days (${days[0]} … ${endDay})`,
     );
   } finally {
     await app.close();

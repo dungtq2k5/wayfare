@@ -86,6 +86,7 @@ export class FakeCatalog {
       ...(ownerUserId === null ? {} : { ownerUserId }),
       status: placeStatusProto.toProto(options.status ?? PlaceStatus.ACTIVE),
       nameVi: `Quán ${id.slice(-4)}`,
+      categoryCode: 'RESTAURANT',
     });
     return id;
   }

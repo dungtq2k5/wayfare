@@ -22,6 +22,9 @@ export const RUNTIME_KEY_TTL_SECONDS = 2 * 60 * 60;
 /** The longest range a dashboard read covers, in business days (api-endpoints-plan §7). */
 export const ANALYTICS_RANGE_MAX_DAYS = 93;
 
+/** The most finished hours one runtime-activity read covers: a week (api-endpoints-plan §7). */
+export const RUNTIME_HOURS_MAX = 168;
+
 const HOUR_MS = 60 * 60 * 1000;
 
 /** The start of the UTC hour an instant falls in. */

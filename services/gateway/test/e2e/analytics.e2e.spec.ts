@@ -189,8 +189,22 @@ describe('/owner/stats', () => {
     gateway.catalog.ownerPlaces.handlers.listMyPlaces = () =>
       Promise.resolve({
         places: [
-          { id: venueB, nameVi: 'Quán B', status: catalogGrpc.PlaceStatus.PLACE_STATUS_INACTIVE },
-          { id: venueA, nameVi: 'Quán A', status: catalogGrpc.PlaceStatus.PLACE_STATUS_ACTIVE },
+          {
+            id: venueB,
+            nameVi: 'Quán B',
+            status: catalogGrpc.PlaceStatus.PLACE_STATUS_INACTIVE,
+            categoryCode: 'street-food',
+            areaCode: 'hcmc-d4-vinh-khanh',
+            statusChangedAt: toProtoTimestamp(new Date('2026-10-20T02:00:00Z')),
+          },
+          {
+            id: venueA,
+            nameVi: 'Quán A',
+            status: catalogGrpc.PlaceStatus.PLACE_STATUS_ACTIVE,
+            categoryCode: 'restaurant',
+            areaCode: 'hcmc-d4-vinh-khanh',
+            statusChangedAt: toProtoTimestamp(new Date('2026-10-30T02:00:00Z')),
+          },
         ],
       });
     gateway.analytics.reads.handlers.getPlaceDailyStats = () =>
@@ -226,6 +240,13 @@ describe('/owner/stats', () => {
       'Quán B',
     ]);
     expect(data.venues[1]).toMatchObject({ status: 'INACTIVE', totals: { qrScans: 0 } });
+    // Each Venue's codes, and "live since" only while it is live.
+    expect(data.venues[0]).toMatchObject({
+      categoryCode: 'restaurant',
+      areaCode: 'hcmc-d4-vinh-khanh',
+      liveSince: '2026-10-30T02:00:00.000Z',
+    });
+    expect(data.venues[1]).toMatchObject({ categoryCode: 'street-food', liveSince: null });
     const [stats] = gateway.analytics.reads.calls;
     expect(stats!.request).toEqual({
       placeIds: [venueA, venueB],
@@ -361,6 +382,7 @@ describe('/admin/analytics', () => {
         places: [ids[1], ids[2], ids[3]].map((id) => ({
           id,
           nameVi: `Nơi ${id!.slice(-4)}`,
+          categoryCode: 'CHURCH',
           status: catalogGrpc.PlaceStatus.PLACE_STATUS_ACTIVE,
         })),
       });
@@ -374,6 +396,8 @@ describe('/admin/analytics', () => {
       ids[1],
       ids[2],
     ]);
+    // Each row's category, so two like names read apart.
+    expect(res.body.data.places[0]).toMatchObject({ categoryCode: 'CHURCH' });
   });
 
   it('the heatmap: the band converted to UTC, the Area’s box, squares as polygons, ten labelled', async () => {
@@ -429,6 +453,15 @@ describe('/admin/analytics', () => {
     expect(features[11].properties).toEqual({ cell: 'w3gv2cc', estimate: 39 });
     expect(features[0].geometry.coordinates[0]).toHaveLength(5);
     expect(gateway.catalog.insights.calls[0]!.request).toMatchObject({ radiusM: 300 });
+    // No square in the band: the stamp arrives as null over the wire, and the answer is empty.
+    gateway.analytics.reads.handlers.getHeatmap = () =>
+      Promise.resolve({ cells: [], computedThrough: null as never });
+    const quiet = await get(`/admin/analytics/heatmap${range}&areaId=${areaId}&hours=0-6`, admin());
+    expect(quiet.status).toBe(200);
+    expect(quiet.body.data).toMatchObject({
+      computedThrough: null,
+      cells: { type: 'FeatureCollection', features: [] },
+    });
     const unknown = await get(`/admin/analytics/heatmap${range}&areaId=${newId()}`, admin());
     expect(unknown.status).toBe(404);
   });
@@ -462,5 +495,11 @@ describe('/admin/analytics', () => {
     });
     const missing = await get('/admin/analytics/runtime-activity', admin());
     expect(missing.status).toBe(400);
+    // A week of hours is the most one read asks for.
+    const week = await get(`/admin/analytics/runtime-activity?areaId=${areaId}&hours=168`, admin());
+    expect(week.status).toBe(200);
+    expect(gateway.analytics.reads.calls.at(-1)!.request).toEqual({ areaId, hours: 168 });
+    const more = await get(`/admin/analytics/runtime-activity?areaId=${areaId}&hours=169`, admin());
+    expect(more.status).toBe(400);
   });
 });

@@ -103,6 +103,12 @@ describe('the runtime lane', () => {
     });
     const hours = await services.reads.runtimeActivity({ areaId: area, hours: 3 }, now);
     expect(hours.hours.map((hour) => hour.estimate)).toEqual([0, 0, 12]);
+    // A week is the most one read covers: 168 hours answer 168, more answer a week.
+    const week = await services.reads.runtimeActivity({ areaId: area, hours: 168 }, now);
+    expect(week.hours).toHaveLength(168);
+    expect(week.hours.at(-1)!.estimate).toBe(12);
+    const more = await services.reads.runtimeActivity({ areaId: area, hours: 500 }, now);
+    expect(more.hours).toHaveLength(168);
     await services.redis.pfadd(runtimeKey(area, now), 'x', 'y');
     const current = await services.reads.currentActivity({ areaIds: [area, newId()] }, now);
     expect(current.areas).toEqual([{ areaId: area, estimate: 2 }]);
