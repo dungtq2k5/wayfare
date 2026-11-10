@@ -166,6 +166,21 @@ describe('the other Google routes', () => {
     expect(gateway.identity.auth.calls.at(-1)?.request).toEqual({ linkTicket: 't' });
   });
 
+  it('confirm in a console session, which has no device: the wf_gn binding goes to identity', async () => {
+    gateway.identity.auth.handlers.googleConfirm = () => Promise.resolve({ confirmation: 'proof' });
+    const res = await request(server())
+      .post('/api/v1/auth/google/confirm')
+      .set('X-Wayfare-Client', 'console')
+      .set('Cookie', [`wf_at=${accountToken()}`, 'wf_gn=the-binding'])
+      .send({ idToken: 'x' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ confirmation: 'proof' });
+    expect(gateway.identity.auth.calls.at(-1)?.request).toEqual({
+      idToken: 'x',
+      binding: 'the-binding',
+    });
+  });
+
   it('link in a console session, which has no device: identity matches the ticket to it', async () => {
     gateway.identity.auth.handlers.googleLink = () => Promise.resolve({});
     const res = await request(server())

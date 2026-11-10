@@ -154,6 +154,9 @@ message GoogleSignInResponse {
 message GoogleConfirmRequest {
   // Secret: never logged.
   string id_token = 1;
+  // The binding value the nonce was issued against, for the console (no device).
+  // Secret: never logged.
+  optional string binding = 2;
 }
 
 message GoogleConfirmResponse {

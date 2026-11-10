@@ -68,6 +68,10 @@ message NarrationCandidate {
   // A Place with no row for the language is false, false — not omitted.
   bool text_ready = 3;
   bool audio_ready = 4;
+  // A Venue's languages are its owner's plan's: the hotset checks them before it warms one.
+  PlaceKind kind = 5;
+  // Absent for an Editorial Place.
+  optional string owner_user_id = 6;
 }
 
 message SearchLocalizedTextRequest {

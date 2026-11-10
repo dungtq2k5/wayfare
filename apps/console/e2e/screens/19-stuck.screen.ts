@@ -59,7 +59,7 @@ test('X1 Home’s Needs a look', async ({ page }) => {
   await as(page, PEOPLE.lan);
   await page.goto('/');
   const card = page.getByRole('region', { name: /^Needs a look/ });
-  // A loaded stack can time out Home's one read; Home then shows no card, so it is read again.
+  // A loaded stack can time out Home's one read; Home then says so instead, so it is read again.
   await expect(async () => {
     await page.reload();
     await expect(card.getByRole('link', { name: THEATRE.nameVi })).toBeVisible({ timeout: 10_000 });
@@ -71,7 +71,7 @@ test('X1 Home’s Needs a look', async ({ page }) => {
 test('X1b Places filtered on Stuck', async ({ page }) => {
   await as(page, PEOPLE.lan);
   await page.goto('/');
-  // As X1: Home's one read may time out on a loaded stack, and then shows no card.
+  // As X1: Home's one read may time out on a loaded stack, and then says so instead.
   const link = page.getByRole('link', { name: 'See in Places' });
   await expect(async () => {
     await page.reload();

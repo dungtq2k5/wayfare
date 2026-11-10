@@ -191,7 +191,8 @@ export class AuthController {
 
   @Post('google/confirm')
   @HttpCode(HttpStatus.OK)
-  @Auth('USER', { alsoDevice: true })
+  // The apps' nonce is their device's; the console, which has none, binds it to its `wf_gn` cookie.
+  @Auth('USER')
   @RateLimit('PASSWORD_CHECK')
   @NoStore()
   @ApiOperation({
@@ -204,8 +205,9 @@ export class AuthController {
   googleConfirm(
     @Ctx() context: AccountContext,
     @Body() body: GoogleConfirmDto,
+    @GoogleNonceCookie() binding: string | null,
   ): Promise<{ confirmation: string }> {
-    return this.auth.googleConfirm(context, body);
+    return this.auth.googleConfirm(context, body, binding);
   }
 
   @Post('google/link')

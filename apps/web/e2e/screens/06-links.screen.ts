@@ -61,6 +61,9 @@ test('WE1d undo an email change', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: /^Your email is back to m\*\*\*g@example\.com$/ }),
   ).toBeVisible();
+  // The undo signs every session out, this browser's too: the header shows it once its account
+  // read has answered, so the frame waits for that rather than catching the header before it.
+  await expect(page.getByRole('link', { name: 'Your account' })).toHaveCount(0);
   await look(page, 'we1d-undo-email-change');
 });
 

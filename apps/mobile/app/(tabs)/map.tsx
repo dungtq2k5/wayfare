@@ -1,10 +1,18 @@
 import { space } from '@wayfare/design-tokens/tokens';
 import { useAreasList, usePlacesNearby } from '@wayfare/api-client';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronDown, LocateFixed, Minus, Plus, ScanQrCode } from 'lucide-react-native';
+import {
+  ChevronDown,
+  CircleAlert,
+  LocateFixed,
+  Minus,
+  Plus,
+  ScanQrCode,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useAllPlaces } from '../../src/data/hooks';
+import { errorMessage } from '../../src/i18n';
 import { useTourist } from '../../src/i18n/use-tourist';
 import {
   locateOnce,
@@ -22,9 +30,11 @@ import type { MapView, PlacesMapHandle } from '../../src/map/places-map';
 import { useMapPack } from '../../src/map/use-map-pack';
 import { useNetworkStore } from '../../src/network/network-store';
 import { useAppStore } from '../../src/state/app-store';
-import { useSyncStore } from '../../src/sync/run-sync';
+import { syncFailureShown } from '../../src/sync/sync-failure';
+import { runSync, useSyncStore } from '../../src/sync/run-sync';
 import { useTheme } from '../../src/theme/appearance';
 import { Icon } from '../../src/theme/icon';
+import { InlineAlert } from '../../src/ui/inline-alert';
 import { InlineNote } from '../../src/ui/inline-note';
 import { useControlsBottom } from '../../src/player/mini-player';
 import { AreaSheet } from '../../src/map/area-sheet';
@@ -62,6 +72,7 @@ export default function MapScreen() {
   const permission = useLocationStore((state) => state.permission);
   const syncing = useSyncStore((state) => state.syncing);
   const lastChecked = useSyncStore((state) => state.lastCheckedAt);
+  const syncError = useSyncStore((state) => state.error);
   const position = usePosition();
   const areas = useAreasList();
   const allPlaces = useAllPlaces();
@@ -245,6 +256,13 @@ export default function MapScreen() {
 
   const noPlacesHere = area !== undefined && !allPlaces.isPending && inArea.length === 0;
   const firstSync = lastChecked === null && places.length === 0;
+  // K5: a failed sync with nothing on the phone is said, not shown as an empty area; offline, the
+  // offline banner says it instead.
+  const syncFailed = syncFailureShown(
+    syncError,
+    offline,
+    allPlaces.isSuccess && places.length === 0,
+  );
 
   return (
     <View className="flex-1 bg-background">
@@ -296,7 +314,23 @@ export default function MapScreen() {
         <WalkNotice />
         {offline && mapStyle.kind === 'blank' && <OfflineMapNote />}
         {firstSync && syncing && <InlineNote text={t('map.firstSync')} />}
-        {noPlacesHere && !firstSync && <InlineNote text={t('map.noPlaces')} />}
+        {allPlaces.isError ? (
+          <InlineAlert
+            message={errorMessage(allPlaces.error)}
+            onRetry={() => void allPlaces.refetch()}
+          />
+        ) : syncFailed ? (
+          <InlineNote
+            icon={CircleAlert}
+            text={t('map.loadFailed')}
+            action={{
+              label: t('action.retry'),
+              onPress: () => void runSync().catch(() => undefined),
+            }}
+          />
+        ) : (
+          noPlacesHere && !firstSync && <InlineNote text={t('map.noPlaces')} />
+        )}
         {explainer && (
           <View className="gap-2 rounded-xl bg-card p-4 elevation-2">
             <Text accessibilityRole="header" className="text-heading text-foreground">

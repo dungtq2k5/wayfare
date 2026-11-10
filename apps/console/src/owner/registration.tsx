@@ -15,7 +15,8 @@ import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { errorText } from '../client/errors';
+import { errorText, failureOf } from '../client/errors';
+import { ErrorView } from '../states/states';
 import { Facts } from '../content/place-sections';
 import { REGISTRATION_TONES } from '../content/registration-page';
 import { formatDate, formatPhone, formatTime } from '../i18n/format';
@@ -155,13 +156,25 @@ export function RegistrationView({
     );
   }
 
+  if (registrations.isError) {
+    // *Apply* only for an applicant the read says hasn't: a failed read is said, never "not yet".
+    return (
+      <>
+        {header}
+        <ErrorView
+          failure={failureOf(registrations.error)}
+          onRetry={() => void registrations.refetch()}
+        />
+      </>
+    );
+  }
   const list = registrations.data ?? [];
   const latest = list[0];
   if (latest === undefined) {
     return (
       <>
         {header}
-        {registrations.isPending ? null : (
+        {!registrations.isSuccess ? null : (
           <Card className="flex flex-col gap-4">
             <p className="text-sm text-foreground">{t('myReg.notYet')}</p>
             <ApplyLink>{t('myReg.start')}</ApplyLink>

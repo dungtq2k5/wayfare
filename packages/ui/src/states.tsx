@@ -78,9 +78,12 @@ export function ErrorState({
       <h2 className="text-lg font-semibold text-foreground">{title}</h2>
       <p className="text-sm text-muted-foreground">{message}</p>
       {requestId === undefined ? null : (
-        <div className="mt-2 flex items-center gap-2 rounded-md bg-muted px-3 py-1 text-xs">
-          <span className="text-muted-foreground">{labels.requestId}</span>
-          <code className="font-mono text-foreground">{requestId}</code>
+        // The label never wraps; the row may, as a whole, when the id doesn't fit beside it.
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 rounded-md bg-muted px-3 py-1 text-xs">
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground">
+            {labels.requestId}
+          </span>
+          <code className="min-w-0 font-mono break-all text-foreground">{requestId}</code>
           <Button
             variant="ghost"
             size="sm"

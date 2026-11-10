@@ -80,6 +80,7 @@ export function NotificationBell() {
     ];
   }, [feed.data]);
   const context = { placeName: (id: string) => places.data?.get(id) };
+  // Quiet: a failed count only hides the badge; the feed itself says when it can't load.
   const count = unread.data ?? 0;
   const heading = useRef<HTMLHeadingElement>(null);
   const now = new Date();

@@ -5,6 +5,7 @@ import { sharePosition } from '../analytics/shared-position';
 import type { AreaResponseDto, PlaceSummaryResponseDto } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { cn } from '@wayfare/ui/cn';
+import { FormAlert } from '@wayfare/ui/field';
 import {
   Check,
   ChevronDown,
@@ -148,7 +149,8 @@ export function MapPage({
     zoom?: number;
     offsetX?: number;
   } | null>(null);
-  const [style, setStyle] = useState<string | null>(null);
+  // Undefined until the effect below has read the theme the style depends on.
+  const [style, setStyle] = useState<string | null | undefined>(undefined);
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => setStyle(areaStyle(area)), [area]);
 
@@ -166,9 +168,17 @@ export function MapPage({
     setKept({ loadedAt: Date.now(), places: nearby.data });
   }, [offline, nearby.data, nearby.isPlaceholderData]);
   const fromKept = offline && kept !== null;
+  // Online, the read failed: said over the map, and the list keeps the last answer it had — never
+  // "none here", which only a successful read may say.
+  const failed = !offline && nearby.isError;
   const places: readonly PlaceSummaryResponseDto[] = useMemo(
-    () => (fromKept ? offlineList(kept.places) : (nearby.data ?? [])),
-    [fromKept, kept, nearby.data],
+    () =>
+      fromKept
+        ? offlineList(kept.places)
+        : failed && nearby.data === undefined
+          ? (kept?.places ?? [])
+          : (nearby.data ?? []),
+    [fromKept, failed, kept, nearby.data],
   );
   const selectedPlace = places.find((place) => place.id === selected) ?? null;
 
@@ -330,6 +340,19 @@ export function MapPage({
       zoomRightPx={desk && selectedPlace !== null ? 432 : 16}
     >
       {switcher}
+      {failed ? (
+        <div className="absolute top-16 right-3 left-3 z-10">
+          <FormAlert
+            action={
+              <Button variant="outline" size="sm" onClick={() => void nearby.refetch()}>
+                {t('common.tryAgain')}
+              </Button>
+            }
+          >
+            {t('map.loadFailed')}
+          </FormAlert>
+        </div>
+      ) : null}
       {loaded ? null : (
         <div
           role="status"
@@ -452,7 +475,9 @@ export function MapPage({
               ? t('map.nearYou')
               : t('map.nearCentre')}
         </h2>
-        <p className="text-xs text-muted-foreground">{t('map.count', { n: places.length })}</p>
+        {failed && places.length === 0 ? null : (
+          <p className="text-xs text-muted-foreground">{t('map.count', { n: places.length })}</p>
+        )}
       </div>
       {location.kind === 'on' && fromYou ? (
         <p role="status" className="sr-only">

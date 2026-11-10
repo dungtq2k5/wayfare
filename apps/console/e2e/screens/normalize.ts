@@ -17,6 +17,12 @@ export const RULES: readonly Rule[] = [
   // A Place's public code, as stickers print it (4 + 4): alone, after "code", "is" or "· ", or
   // before " ·".
   ['(^|[Cc]ode |is |· )[A-Z0-9]{4} [A-Z0-9]{4}(?=$| ·| —|,)', 'g', '$1AB12 CD34'],
+  // … a code set off by dashes ("printed under it — 7Q37 DFDG — never change"), and a link's,
+  // which may be a text node of its own;
+  ['(— )[A-Z0-9]{4} [A-Z0-9]{4}(?= —)', 'g', '$1AB12 CD34'],
+  ['(^|/[tp]/)[A-Z0-9]{4}-[A-Z0-9]{4}(?=$|\\b)', 'g', '$1AB12-CD34'],
+  // … a code a sentence goes on after (the web's "The code … belonged to a place"), as typed;
+  ['(^|[Cc]ode )[A-Z0-9]{4}[ -][A-Z0-9]{4}(?= belonged)', 'g', '$1AB12 CD34'],
   // … and a code kept whole by a no-break space (a card's facts line, which wraps between values).
   ['(^|· )[A-Z0-9]{4}\u00a0[A-Z0-9]{4}(?= ·|$)', 'g', '$1AB12\u00a0CD34'],
   // A range of dates (the audit log's Dates) keeps its length: the default seven days, ending on the

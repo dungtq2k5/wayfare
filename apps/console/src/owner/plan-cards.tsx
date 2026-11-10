@@ -8,7 +8,8 @@ import { Card } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
 import { CircleCheck } from 'lucide-react';
 import { useState } from 'react';
-import { errorText } from '../client/errors';
+import { errorText, failureOf } from '../client/errors';
+import { ErrorView } from '../states/states';
 import { useConsole } from '../i18n/provider';
 import { money } from './money';
 import { useBillingOverview, usePlans } from './queries';
@@ -99,6 +100,10 @@ export function PlanCards({
 
   const priceOf = (plan: PurchasablePlan, which: Interval) =>
     plan.prices.find((price) => price.isActive && price.billingInterval === which);
+
+  // A failed plans read is said: never a page with no paid plan to choose.
+  if (plans.isError)
+    return <ErrorView failure={failureOf(plans.error)} onRetry={() => void plans.refetch()} />;
 
   return (
     // The cards share the row, however many there are.

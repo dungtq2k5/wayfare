@@ -2943,5 +2943,11 @@
   "stats.card.tapping": "{n} tapping",
   "stats.card.scanning": "{n} scanning",
   "stats.card.finished": "{n} finished",
-  "stats.card.qr": "{n} QR scans"
+  "stats.card.qr": "{n} QR scans",
+  "account.confirmItsYou": "Confirm it's you",
+  "account.confirmedWithGoogle": "Confirmed with Google",
+  "account.googleMismatch": "That's not the Google account on this Wayfare account. Continue with {googleEmail}.",
+  "account.googleInvalid": "That didn't confirm it's you. Continue with Google again.",
+  "account.googleUnavailable": "Google didn't answer. Try again in a moment.",
+  "account.confirmExpired": "That took too long. Continue with Google again."
 }

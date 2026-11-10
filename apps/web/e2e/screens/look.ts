@@ -76,6 +76,20 @@ export async function look(
     for (const width of widths) {
       await page.setViewportSize(WIDTHS[width]);
       await page.evaluate(() => document.fonts.ready);
+      // A font stack whose variable is undefined is void, and the page falls to the system font:
+      // a capture then, or a baseline written from it, compares every frame against the wrong
+      // letters. The body's first family is the brand's, as its variable names it.
+      expect(
+        await page.evaluate(() => {
+          const unquote = (family: string) => family.trim().replace(/^["']|["']$/g, '');
+          const brand = getComputedStyle(document.documentElement)
+            .getPropertyValue('--font-be-vietnam-pro')
+            .split(',')[0]!;
+          const first = getComputedStyle(document.body).fontFamily.split(',')[0]!;
+          return unquote(brand) !== '' && unquote(first) === unquote(brand);
+        }),
+        `${name}: the page is not in its own font`,
+      ).toBe(true);
       await page.waitForFunction(() =>
         document.getAnimations().every((animation) => animation.playState !== 'running'),
       );

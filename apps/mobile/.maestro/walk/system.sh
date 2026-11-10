@@ -4,6 +4,7 @@
 #   sh apps/mobile/.maestro/walk/system.sh
 set -e
 cd "$(dirname "$0")"
+. ../common/stack-ready.sh
 . ../common/animations.sh
 FONT=$(adb shell settings get system font_scale)
 trap 'animations_back; adb shell settings put secure location_mode 3; adb shell settings put system font_scale "$FONT"; adb reverse tcp:13000 tcp:13000' EXIT

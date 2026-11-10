@@ -153,6 +153,11 @@ export interface GoogleSignInResponse {
 export interface GoogleConfirmRequest {
   /** Secret: never logged. */
   idToken: string;
+  /**
+   * The binding value the nonce was issued against, for the console (no device).
+   * Secret: never logged.
+   */
+  binding?: string | undefined;
 }
 
 export interface GoogleConfirmResponse {

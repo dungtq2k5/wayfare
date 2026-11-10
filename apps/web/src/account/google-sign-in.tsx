@@ -43,10 +43,13 @@ declare global {
 const GIS_SCRIPT = 'https://accounts.google.com/gsi/client';
 
 /**
- * The stack's fake issuer, in a development build only: NODE_ENV is folded at build time and the
- * whole conditional with it, so a production build has no import — and no chunk — of the fake.
+ * The stack's fake issuer, only where `DEVELOPMENT` holds — its flags read inline, since an imported
+ * constant is not folded: folded at build time, and the whole conditional with it, so a production build has no import — and no chunk — of the fake.
  */
-const loadFake = process.env.NODE_ENV !== 'production' ? () => import('./fake-google') : null;
+const loadFake =
+  process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEV_TOOLS === '1'
+    ? () => import('./fake-google')
+    : null;
 
 function loadGis(): Promise<GoogleIdentity> {
   if (window.google !== undefined) return Promise.resolve(window.google);

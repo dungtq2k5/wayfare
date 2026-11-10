@@ -16,6 +16,12 @@ test('AC3 the question ★', async ({ page }) => {
   await expect(
     page.getByRole('dialog', { name: "Help Wayfare learn what's heard?" }),
   ).toBeVisible();
+  // The dialog focuses *No thanks* as it opens, and whether Chrome draws that focus's ring
+  // (`:focus-visible`) differs by load: the frame is drawn without it, as the handoff's is.
+  await page.addStyleTag({
+    content:
+      '[role="dialog"] button:focus-visible { outline: none !important; box-shadow: none !important; }',
+  });
   // The week of opening hours varies by day; its mask would be drawn over the dialog, so the week
   // under the overlay is hidden instead.
   await page.evaluate(() => {

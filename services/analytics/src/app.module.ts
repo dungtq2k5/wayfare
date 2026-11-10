@@ -78,7 +78,7 @@ export class AppModule {
             redisUrl: config.get('REDIS_URL', { infer: true }),
             db: prisma,
             jobs: [heatmap, runtime, rollup, prune],
-            enabled: jobs,
+            enabled: jobs && config.get('JOBS_ENABLED', { infer: true }),
           }),
         }),
         OpsModule.forRootAsync({

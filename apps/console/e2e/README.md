@@ -14,7 +14,7 @@ Two Playwright projects (`playwright.config.ts`), one worker each run: the accou
   - At 1440, in light and dark, for every state.
   - At 720 (200 % zoom) and 360, in light only, for the states the handoffs draw at those widths (the ★ frames).
   - Full page, except a state fixed to the viewport (a dialog, a toast, the bell's panel) and a pattern on the patterns page, which is drawn as its own region.
-- **One renderer.** The baselines are drawn by Chromium in the official Playwright Docker image at the installed `@playwright/test` version (`screens/browser.ts`), on every machine and in CI, against the development server (the fake Google button and `/dev/patterns` exist only there).
+- **One renderer.** The baselines are drawn by Chromium in the official Playwright Docker image at the installed `@playwright/test` version (`screens/browser.ts`), on every machine and in CI, against the screens' build of the console: a production build with `NEXT_PUBLIC_DEV_TOOLS=1`, which keeps the fake Google button, `/dev/patterns` and the fake Checkout (`src/env.ts`). A development server would compile each route on its first visit and hold every one in memory, gigabytes over a run.
 - **What varies** is covered or fixed:
   - **Solid boxes** (Playwright's mask): the maps' canvases, the QR sticker's image, the nav's and the bell's counts, and the few clock times a spec masks.
   - **Fixed text** (`screens/normalize.ts`, with its spec): relative times, record and request IDs, a Place's public code.

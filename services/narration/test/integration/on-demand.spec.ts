@@ -160,6 +160,19 @@ describe('RequestOnDemand', () => {
       lang: 'fr',
     });
   });
+
+  it('answers UNAVAILABLE for a language with no voice once its text is current, and makes no job', async () => {
+    const base = services.catalog.place();
+    // Its French text is current, with no audio: nothing a new job could add.
+    const place = services.catalog.place({
+      id: base.id,
+      localizations: [
+        localizationState('fr', base.hash, { status: AudioStatus.FAILED, hash: null }),
+      ],
+    });
+    expect(status((await ask(place.id, 'fr')).status)).toBe(OnDemandStatus.UNAVAILABLE);
+    expect(await prisma.synthesisJob.count()).toBe(0);
+  });
 });
 
 describe('GetNarrationStatus', () => {

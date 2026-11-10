@@ -58,6 +58,10 @@ export interface NarrationCandidate {
   /** A Place with no row for the language is false, false — not omitted. */
   textReady: boolean;
   audioReady: boolean;
+  /** A Venue's languages are its owner's plan's: the hotset checks them before it warms one. */
+  kind: PlaceKind;
+  /** Absent for an Editorial Place. */
+  ownerUserId?: string | undefined;
 }
 
 export interface SearchLocalizedTextRequest {

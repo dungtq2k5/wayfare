@@ -44,6 +44,7 @@ export default async function ShellLayout({ children }: { children: ReactNode })
     throw error;
   }
   const locale = accountLocale(me.user.preferredLocale);
+  // Fail-open by decision: a failed read skips the new-terms gate rather than locking staff out.
   const acceptances = await serverCall((options) => usersAcceptances(options)).catch(() => null);
   const outdated =
     acceptances?.data

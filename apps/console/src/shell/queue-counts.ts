@@ -29,6 +29,7 @@ export function useQueueCounts(): { submissions?: number; registrations?: number
     refetchInterval: QUEUE_REFRESH_MS,
     refetchOnMount: 'always',
   });
+  // Quiet: a failed read drops the count beside the link; the link still works.
   return {
     ...(submissions.data === undefined ? {} : { submissions: submissions.data.meta.total }),
     ...(registrations.data === undefined ? {} : { registrations: registrations.data.meta.total }),

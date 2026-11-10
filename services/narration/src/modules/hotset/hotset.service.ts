@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   HOTSET_MAX_PLACES,
   HOTSET_RADIUS_M,
@@ -6,16 +6,19 @@ import {
   LocalizationTargetType,
   MAX_LANGUAGE_CODE_LENGTH,
   normalizeLang,
+  PlaceKind,
   PlaceStatus,
   PREFETCH_MAX_PLACES,
   SynthesisTrigger,
   zUuidV7,
 } from '@wayfare/contracts';
-import { placeStatusProto } from '@wayfare/contracts/grpc';
+import type { Language } from '@wayfare/contracts';
+import { placeKindProto, placeStatusProto } from '@wayfare/contracts/grpc';
 import type { narrationGrpc } from '@wayfare/contracts/grpc';
 import { parseRpcRequest, requireDeviceContext } from '@wayfare/nest-common';
 import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
+import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
 import { JobsService } from '../jobs/jobs.service';
 import { TasksService } from '../tasks/tasks.service';
@@ -41,8 +44,11 @@ const prefetchFields = langField.extend({
  */
 @Injectable()
 export class HotsetService {
+  private readonly logger = new Logger(HotsetService.name);
+
   constructor(
     private readonly catalog: CatalogServiceGrpcClient,
+    private readonly billing: BillingServiceGrpcClient,
     private readonly jobs: JobsService,
     private readonly tasks: TasksService,
   ) {}
@@ -61,15 +67,29 @@ export class HotsetService {
     const lang = normalizeLang(fields.lang);
     if (lang === null) return { ready: [], pending: [], requiredReadyCount: HOTSET_REQUIRED_READY };
 
-    const { candidates } = await this.catalog.listNarrationCandidates({
-      lat: fields.lat,
-      lng: fields.lng,
-      radiusM: HOTSET_RADIUS_M,
-      limit: HOTSET_MAX_PLACES,
-      lang,
-    });
-    const ready = candidates.filter((candidate) => candidate.audioReady);
-    const pending = candidates.filter((candidate) => !candidate.audioReady);
+    let candidates: Awaited<
+      ReturnType<CatalogServiceGrpcClient['listNarrationCandidates']>
+    >['candidates'];
+    try {
+      ({ candidates } = await this.catalog.listNarrationCandidates({
+        lat: fields.lat,
+        lng: fields.lng,
+        radiusM: HOTSET_RADIUS_M,
+        limit: HOTSET_MAX_PLACES,
+        lang,
+      }));
+    } catch (error) {
+      // api-endpoints-plan §12.2: catalog not answering, the hotset answers what it knows — nothing
+      // — and enqueues nothing; the client warms what it can on its own.
+      this.logger.warn(
+        { kind: error instanceof Error ? error.name : 'unknown' },
+        'catalog did not answer the narration candidates',
+      );
+      return { ready: [], pending: [], requiredReadyCount: HOTSET_REQUIRED_READY };
+    }
+    const entitled = await this.entitledOnly(candidates, lang);
+    const ready = entitled.filter((candidate) => candidate.audioReady);
+    const pending = entitled.filter((candidate) => !candidate.audioReady);
     for (const candidate of pending) {
       await this.warm(candidate.placeId, candidate.contentHash, lang, SynthesisTrigger.HOTSET, {
         deviceId,
@@ -110,8 +130,37 @@ export class HotsetService {
     return { queued, skipped };
   }
 
+  /**
+   * The candidates whose language the Place may have: every Editorial Place, and a Venue only when
+   * its owner's plan covers the language — billing failing skips it, a grant is never assumed
+   * (api-endpoints-plan §12.2). One billing read per owner.
+   */
+  private async entitledOnly<C extends { kind: number; ownerUserId?: string | undefined }>(
+    candidates: readonly C[],
+    lang: Language,
+  ): Promise<C[]> {
+    const owners = new Map<string, Promise<boolean>>();
+    const kept: C[] = [];
+    for (const candidate of candidates) {
+      if (placeKindProto.fromProto(candidate.kind) !== PlaceKind.VENUE) {
+        kept.push(candidate);
+        continue;
+      }
+      const owner = candidate.ownerUserId ?? null;
+      const key = owner ?? '';
+      if (!owners.has(key)) {
+        owners.set(
+          key,
+          this.billing.venueLanguage(owner, lang).then((answer) => answer === 'ENTITLED'),
+        );
+      }
+      if (await owners.get(key)) kept.push(candidate);
+    }
+    return kept;
+  }
+
   /** The Place's current hash when it is live and its audio is not ready yet; null otherwise. */
-  private async warmable(placeId: string, lang: string): Promise<string | null> {
+  private async warmable(placeId: string, lang: Language): Promise<string | null> {
     const source = await this.catalog.localizationSource(LocalizationTargetType.PLACE, placeId);
     const place = source.place ?? null;
     if (
@@ -121,6 +170,8 @@ export class HotsetService {
     ) {
       return null;
     }
+    // A Venue's language is its owner's plan's: not covered — or billing not answering — skipped.
+    if ((await this.entitledOnly([place], lang)).length === 0) return null;
     const row = place.localizations.find((state) => state.lang === lang);
     const audioReady =
       row !== undefined &&

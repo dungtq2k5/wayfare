@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { clearPageCookie } from '../client/cookies';
 import { useWeb } from '../i18n/provider';
+import { WebErrorState } from '../ui/error-state';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
 import { ME_KEY, useMe } from './me';
 import type { Me } from './me';
@@ -72,6 +73,7 @@ function FormDialog({
   onSave,
   children,
   error,
+  submitDisabled = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -83,6 +85,8 @@ function FormDialog({
   onSave: () => Promise<void>;
   children: ReactNode;
   error: string | null;
+  /** The confirm waits for what the dialog must say first (WA4b's count of saved places). */
+  submitDisabled?: boolean;
 }) {
   const { t } = useWeb();
   const [busy, setBusy] = useState(false);
@@ -103,6 +107,7 @@ function FormDialog({
           type="submit"
           size="lg"
           variant={destructive ? 'destructive' : 'default'}
+          disabled={submitDisabled}
           busy={busy ? busyLabel : undefined}
         >
           {destructive ? <Trash2 aria-hidden /> : null}
@@ -179,6 +184,7 @@ export function AccountView() {
   useEffect(() => {
     if (me.isSuccess && me.data === null) router.replace('/sign-in?next=/account');
   }, [me.isSuccess, me.data, router]);
+  if (me.isError) return <WebErrorState error={me.error} onRetry={() => void me.refetch()} />;
   if (me.data === null || me.data === undefined) return null;
   const account: Me = me.data;
   const user = account.user;
@@ -466,11 +472,13 @@ export function AccountView() {
         open={open === 'delete'}
         onOpenChange={(next) => setOpen(next ? 'delete' : null)}
         title={t('acc.deleteConfirmTitle')}
-        description={t('acc.deleteConfirmBody', { n: saved.data ?? 0 })}
+        // What goes includes the saved places: said only once counted, never as "0".
+        {...(saved.isSuccess ? { description: t('acc.deleteConfirmBody', { n: saved.data }) } : {})}
         submit={t('acc.deleteForGood')}
         busyLabel={t('acc.deleting')}
         destructive
         error={error}
+        submitDisabled={!saved.isSuccess}
         onSave={() =>
           usersErase({
             confirm: 'DELETE',
@@ -481,6 +489,22 @@ export function AccountView() {
           }, failed)
         }
       >
+        {saved.isError ? (
+          <FormAlert
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void saved.refetch()}
+              >
+                {t('common.tryAgain')}
+              </Button>
+            }
+          >
+            {t('error.generic')}
+          </FormAlert>
+        ) : null}
         {account.signIn.password ? (
           <Field label={t('auth.password')}>
             {(control) => (

@@ -432,5 +432,10 @@
   "settings.analytics.off": "Tắt · không đếm gì",
   "settings.analytics.offToast": "Đã tắt việc đếm. Những gì trình duyệt này đã gửi mà Wayfare chưa đếm đã bị xóa.",
   "consent.never.cookies": "Không dùng cookie cho việc này, và không chia sẻ với ai khác",
-  "settings.privacy": "Quyền riêng tư"
+  "settings.privacy": "Quyền riêng tư",
+  "state.errorTitle": "Không tải được nội dung này",
+  "state.requestId": "Mã yêu cầu",
+  "action.copy": "Sao chép",
+  "action.copied": "Đã sao chép",
+  "map.loadFailed": "Không tải được các địa điểm. Hãy thử lại."
 }

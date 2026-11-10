@@ -3,11 +3,13 @@
 import { PageHeader } from '@wayfare/ui/list';
 import { EmptyState } from '@wayfare/ui/states';
 import { Construction, House } from 'lucide-react';
+import { failureOf } from '../client/errors';
 import { useConsole } from '../i18n/provider';
 import type { PlainKey } from '../i18n/messages';
 import { StuckPlacesCard, useStuck } from '../operations/stuck';
 import { OwnerHome } from '../owner/home';
 import { RegistrationView } from '../owner/registration';
+import { ErrorView } from '../states/states';
 import { useMe } from './me';
 
 /** Home (C6, C7): the person's queues and activity will land here; for now, the way in. */
@@ -36,7 +38,14 @@ function StaffHome() {
         description={me.ownership === null ? t('home.leadStaff') : t('home.leadOwner')}
       />
       {/* X1: *Needs a look* first, only when a Place is stuck; no card and no empty line else. */}
-      {waiting ? null : stuck.length > 0 ? (
+      {waiting ? null : stuckQuery.isError ? (
+        // Never "nothing needs you" for a read that failed: it would hide stuck Places. Without
+        // `place.read` the read never runs (disabled, not failed), and the empty line stays.
+        <ErrorView
+          failure={failureOf(stuckQuery.error)}
+          onRetry={() => void stuckQuery.refetch()}
+        />
+      ) : stuck.length > 0 ? (
         <StuckPlacesCard stuck={stuck} />
       ) : (
         <EmptyState icon={<House />} title={t('home.emptyTitle')} body={t('home.emptyBody')} />

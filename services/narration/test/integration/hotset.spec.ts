@@ -3,6 +3,8 @@
 import {
   AudioStatus,
   HOTSET_MAX_PLACES,
+  NarrationLanguageScope,
+  PlaceKind,
   HOTSET_RADIUS_M,
   HOTSET_REQUIRED_READY,
   newId,
@@ -10,7 +12,7 @@ import {
   PREFETCH_MAX_PLACES,
   SynthesisTrigger,
 } from '@wayfare/contracts';
-import type { catalogGrpc } from '@wayfare/contracts/grpc';
+import { catalogGrpc } from '@wayfare/contracts/grpc';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { testPrisma, truncateAll } from '../setup/database';
 import { device, jobsOf } from '../setup/fixtures';
@@ -27,9 +29,26 @@ beforeEach(async () => {
 afterAll(() => prisma.$disconnect());
 
 /** A Place catalog would list among the candidates, with its readiness. */
-function candidate(audioReady: boolean, textReady = true): catalogGrpc.NarrationCandidate {
-  const made = services.catalog.place({ name: `Place ${newId().slice(-6)}` });
-  return { placeId: made.id, contentHash: made.hash, textReady, audioReady };
+function candidate(
+  audioReady: boolean,
+  textReady = true,
+  venueOf?: string,
+): catalogGrpc.NarrationCandidate {
+  const made = services.catalog.place({
+    name: `Place ${newId().slice(-6)}`,
+    ...(venueOf === undefined ? {} : { kind: PlaceKind.VENUE, ownerUserId: venueOf }),
+  });
+  return {
+    placeId: made.id,
+    contentHash: made.hash,
+    textReady,
+    audioReady,
+    kind:
+      venueOf === undefined
+        ? catalogGrpc.PlaceKind.PLACE_KIND_EDITORIAL
+        : catalogGrpc.PlaceKind.PLACE_KIND_VENUE,
+    ...(venueOf === undefined ? {} : { ownerUserId: venueOf }),
+  };
 }
 
 const hotset = (lang = 'ja') => services.hotset.hotset({ ...AT, lang }, device());
@@ -93,6 +112,46 @@ describe('hotset', () => {
     const answer = await hotset();
     expect(answer.pending).toEqual([]);
     expect(answer.ready).toHaveLength(3);
+    expect(await prisma.synthesisJob.count()).toBe(0);
+  });
+});
+
+describe("a Venue's languages, and catalog not answering", () => {
+  it("warms a Venue only in its owner's plan's languages, and skips it when billing can't say", async () => {
+    const owner = newId();
+    const editorial = candidate(false);
+    const venue = candidate(false, true, owner);
+    services.catalog.candidates = [editorial, venue];
+    services.billing.scopes.set(owner, NarrationLanguageScope.BASIC);
+
+    // Japanese is outside a basic plan: the Venue is neither listed nor made.
+    expect((await hotset('ja')).pending).toEqual([editorial.placeId]);
+    expect(await jobsOf(prisma, venue.placeId)).toEqual([]);
+
+    services.billing.scopes.set(owner, NarrationLanguageScope.LAUNCH);
+    expect((await hotset('ja')).pending).toEqual([editorial.placeId, venue.placeId]);
+
+    // A grant is never assumed: billing down skips the Venue, never the Editorial Place.
+    services.billing.down = true;
+    expect((await hotset('ko')).pending).toEqual([editorial.placeId]);
+  });
+
+  it('answers what it knows — nothing — when catalog does not answer, and enqueues nothing', async () => {
+    services.catalog.down = true;
+    expect(await hotset()).toEqual({
+      ready: [],
+      pending: [],
+      requiredReadyCount: HOTSET_REQUIRED_READY,
+    });
+    expect(await prisma.synthesisJob.count()).toBe(0);
+  });
+
+  it('skips an unentitled Venue in a prefetch too', async () => {
+    const owner = newId();
+    const venue = services.catalog.place({ kind: PlaceKind.VENUE, ownerUserId: owner });
+    services.billing.scopes.set(owner, NarrationLanguageScope.BASIC);
+    const answer = await services.hotset.prefetch({ placeIds: [venue.id], lang: 'ja' }, device());
+    expect(answer).toEqual({ queued: [], skipped: [venue.id] });
     expect(await prisma.synthesisJob.count()).toBe(0);
   });
 });

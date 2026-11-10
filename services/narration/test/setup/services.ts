@@ -15,7 +15,7 @@ import type { billingGrpc, catalogGrpc } from '@wayfare/contracts/grpc';
 import { OutboxService } from '@wayfare/nest-common';
 import type { Redis } from 'ioredis';
 import type { StorageProvider } from '@wayfare/nest-common/storage';
-import type { BillingServiceGrpcClient } from '../../src/modules/billing/billing-service-grpc.client';
+import { BillingServiceGrpcClient } from '../../src/modules/billing/billing-service-grpc.client';
 import type { CatalogServiceGrpcClient } from '../../src/modules/catalog/catalog-service-grpc.client';
 import { HotsetService } from '../../src/modules/hotset/hotset.service';
 import { UiBundleJobsService } from '../../src/modules/ui-bundle-jobs/ui-bundle-jobs.service';
@@ -394,6 +394,12 @@ export class FakeRedis {
   del(key: string): Promise<number> {
     return Promise.resolve(this.keys.delete(key) ? 1 : 0);
   }
+
+  pexpire(key: string, ttlMs: number): Promise<number> {
+    if (!this.live(key)) return Promise.resolve(0);
+    this.keys.set(key, Date.now() + ttlMs);
+    return Promise.resolve(1);
+  }
 }
 
 /** A Redis the voice cache can use: nothing cached, writes ignored. */
@@ -410,6 +416,9 @@ const noCache = {
 export class FakeBilling {
   readonly scopes = new Map<string, NarrationLanguageScope>();
   down = false;
+  /** The real decision over this fake's answers: what the services read is the client's own. */
+  readonly venueLanguage = BillingServiceGrpcClient.prototype.venueLanguage;
+  protected readonly logger = { warn: () => undefined };
 
   getEntitlements(ownerUserId: string): Promise<billingGrpc.GetEntitlementsResponse> {
     if (this.down) {
@@ -483,6 +492,7 @@ export function narrationServices(
     jobs,
     tasks,
     config,
+    synthesis,
   );
   const recover = new SynthesisRecoverJob(tasks, queue as unknown as TaskQueue);
   const fanoutQueue = new FakeFanoutQueue();
@@ -491,7 +501,12 @@ export function narrationServices(
   const pronunciations = new PronunciationsService(prisma, outbox, health, fanout);
   const corrections = new CorrectionsService(prisma, outbox, client, jobs, tasks);
   const overridesPrune = new LocalizationOverridesPruneJob(prisma);
-  const hotset = new HotsetService(client, jobs, tasks);
+  const hotset = new HotsetService(
+    client,
+    billing as unknown as BillingServiceGrpcClient,
+    jobs,
+    tasks,
+  );
   const bundleQueue = new FakeBundleQueue();
   const bundleJobs = new UiBundleJobsService(bundleQueue, prisma, synthesis);
   bundleQueue.run = (item) => bundleJobs.run(item);

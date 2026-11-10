@@ -9,6 +9,7 @@ import { LANGUAGE_NAMES } from '../i18n/languages';
 import { useTourist } from '../i18n/use-tourist';
 import { Icon } from '../theme/icon';
 import { BottomSheet } from '../ui/bottom-sheet';
+import { InlineAlert } from '../ui/inline-alert';
 import { showToast } from '../ui/toast';
 import type { Language } from '@wayfare/contracts';
 import { areaName } from './area-name';
@@ -76,7 +77,11 @@ function Sheet({ areaId, lang }: { areaId: string; lang: string }) {
           {t('pack.sheet.body', { language: LANGUAGE_NAMES[lang as Language] ?? lang })}
         </Text>
         {data === undefined ? (
-          <Text className="text-body text-muted-foreground">…</Text>
+          plan.isError ? (
+            <InlineAlert message={errorMessage(plan.error)} onRetry={() => void plan.refetch()} />
+          ) : (
+            <Text className="text-body text-muted-foreground">…</Text>
+          )
         ) : (
           <>
             <PartsList

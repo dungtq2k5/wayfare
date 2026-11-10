@@ -51,7 +51,20 @@ test('WN2 now playing', async ({ page }) => {
   await playingOnMap(page);
   await page.getByRole('button', { name: 'Open the player' }).click();
   await expect(page.getByRole('dialog', { name: 'Now playing' })).toBeVisible();
-  await look(page, 'wn2-now-playing', { viewportOnly: true });
+  // The playhead is drawn past the bar's box, where no mask reaches: hidden, under the bar's mask.
+  await page.addStyleTag({
+    content: '[role="dialog"] [data-progress] { visibility: hidden !important; }',
+  });
+  // The story plays while the frame is taken: its elapsed time is masked, and so is the bar it
+  // fills, a few pixels further on each run.
+  await look(page, 'wn2-now-playing', {
+    viewportOnly: true,
+    // The bar, and its playhead: a dot centred on the bar's end, half outside any box around it.
+    mask: [
+      page.getByRole('dialog', { name: 'Now playing' }).getByRole('slider').locator('..'),
+      page.getByRole('dialog', { name: 'Now playing' }).getByRole('slider').locator('*'),
+    ],
+  });
 });
 
 test('WN2b the transcript', async ({ page }) => {

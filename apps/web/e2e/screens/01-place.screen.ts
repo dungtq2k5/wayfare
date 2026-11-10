@@ -1,5 +1,6 @@
 // A Place from a code (round 37's WQ1–WQ4, WQ6) and languages (WL1–WL2b).
 import { expect, test } from '@playwright/test';
+import { admin } from '../support/places';
 import { resetRateLimits } from '../support/stack';
 import { state } from '../support/state';
 import { language, slowAudio } from './helpers';
@@ -32,6 +33,25 @@ test('WQ3 not in your language', async ({ page, context }) => {
 });
 
 test('WQ4 no longer on Wayfare', async ({ page }) => {
+  // *Near here* lists only Places whose story is ready in the page's language, and the seed's are
+  // still being translated when the run starts: the frame waits until no narration job is left.
+  const actor = await admin();
+  await expect
+    .poll(
+      async () => {
+        let left = 0;
+        for (const status of ['RUNNING', 'QUEUED']) {
+          const { meta } = await actor.call<{ meta: { total: number } }>(
+            'GET',
+            `/admin/narration/jobs?status=${status}&pageSize=1`,
+          );
+          left += meta.total;
+        }
+        return left;
+      },
+      { timeout: 600_000, intervals: [5_000] },
+    )
+    .toBe(0);
   await page.goto(`/p/${state().gone.code}`);
   await expect(
     page.getByRole('heading', { name: 'This place is no longer on Wayfare' }),
@@ -53,6 +73,18 @@ test('WL1 the language picker', async ({ page }) => {
   await page.goto('/map');
   await page.getByRole('button', { name: /^Language/ }).click();
   await expect(page.getByRole('listbox', { name: 'Language' })).toBeVisible();
+  // Each script's face loads lazily, a subset at a time, once its text is drawn: the picker's own
+  // names are loaded before the frame, so no capture catches a glyph in another script's face.
+  await page.evaluate(() =>
+    Promise.all(
+      [
+        ['Noto Sans JP', '日本語'],
+        ['Noto Sans KR', '한국어'],
+        ['Noto Sans SC', '简体中文'],
+        ['Noto Sans TC', '繁體中文'],
+      ].map(([family, text]) => document.fonts.load(`400 16px "${family}"`, text)),
+    ),
+  );
   await look(page, 'wl1-language-picker', { extra: ['720', '1440'], viewportOnly: true });
 });
 

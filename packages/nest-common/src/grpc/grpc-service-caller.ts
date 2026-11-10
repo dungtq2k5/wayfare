@@ -31,9 +31,19 @@ export interface GrpcCallOptions {
 /** A grpc-js channel state (grpc-js exports the enum as `connectivityState`). */
 type ChannelState = (typeof connectivityState)[keyof typeof connectivityState];
 
-/** The part of a grpc-js client `call()` needs to tell "down" from "slow". */
+/** The part of a grpc-js channel the caller uses: its state, and a wait for it to change. */
+interface CallerChannel {
+  getConnectivityState(tryToConnect: boolean): ChannelState;
+  watchConnectivityState(
+    currentState: ChannelState,
+    deadline: Date | number,
+    callback: (error?: Error) => void,
+  ): void;
+}
+
+/** A grpc-js client, as Nest holds one per stub. */
 interface ChannelOwner {
-  getChannel(): { getConnectivityState(tryToConnect: boolean): ChannelState };
+  getChannel(): CallerChannel;
 }
 
 /**
@@ -56,9 +66,37 @@ export class GrpcServiceCaller<Service extends object> {
     readonly serviceName: string,
   ) {}
 
-  /** Resolves the stub — once, from the owning client's `onModuleInit`. */
+  /** Resolves the stub — once, from the owning client's `onModuleInit` — and keeps it connected. */
   init(): void {
     this.service = this.grpc.getService<Service>(this.serviceName);
+    this.keepConnected();
+  }
+
+  /**
+   * Connects the stub's channel now, and again whenever it falls idle (grpc-js idles a channel
+   * after 30 minutes without a call). A lazy channel resolves the peer's name and connects inside
+   * the first call's deadline; on a loaded host, Docker's name lookup alone can outlast the 2 s,
+   * so every new or idle stub's first call failed `504` or `503`. Warm, a call waits for neither.
+   */
+  private keepConnected(): void {
+    const channel = this.channel();
+    if (channel === null) return;
+    const watch = (): void => {
+      const state = channel.getConnectivityState(true);
+      if (state === connectivityState.SHUTDOWN) return;
+      channel.watchConnectivityState(state, Infinity, (error) => {
+        if (error === undefined) watch();
+      });
+    };
+    watch();
+  }
+
+  private channel(): CallerChannel | null {
+    try {
+      return this.grpc.getClientByServiceName<ChannelOwner>(this.serviceName).getChannel();
+    } catch {
+      return null;
+    }
   }
 
   /** Calls one unary method of the peer, by name. */
@@ -100,12 +138,7 @@ export class GrpcServiceCaller<Service extends object> {
   }
 
   private channelState(): ChannelState | null {
-    try {
-      const client = this.grpc.getClientByServiceName<ChannelOwner>(this.serviceName);
-      return client.getChannel().getConnectivityState(false);
-    } catch {
-      // No client to ask: leave the error as the peer reported it.
-      return null;
-    }
+    // No client to ask: leave the error as the peer reported it.
+    return this.channel()?.getConnectivityState(false) ?? null;
   }
 }

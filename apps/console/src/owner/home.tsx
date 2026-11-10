@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { notificationsUnreadCount, ownerSubmissionsList } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { Progress } from '@wayfare/ui/content';
+import { FormAlert } from '@wayfare/ui/field';
 import { PageHeader } from '@wayfare/ui/list';
 import { Card } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
@@ -102,8 +103,35 @@ export function OwnerHome() {
     queryFn: async () => (await notificationsUnreadCount()).data.count,
   });
   const [opening, setOpening] = useState(false);
+  // A failed read is said above what did load; "nothing needs you" only when every read answered.
+  const reads = [places, recent, billing, unread];
+  const failed = reads.some((read) => read.isError);
+  const loadFailed = failed ? (
+    <FormAlert
+      action={
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            for (const read of reads) if (read.isError) void read.refetch();
+          }}
+        >
+          {t('action.retry')}
+        </Button>
+      }
+    >
+      {t('error.generic')}
+    </FormAlert>
+  ) : null;
 
-  if (places.data === undefined || recent.data === undefined) return null;
+  if (places.data === undefined || recent.data === undefined) {
+    return failed ? (
+      <>
+        <PageHeader title={t('home.title')} description={t('ownerHome.lead')} />
+        {loadFailed}
+      </>
+    ) : null;
+  }
   if (homeView(places.data.length, recent.data.length) === 'welcome') return <Welcome />;
 
   const names = new Map(places.data.map((place) => [place.id, place.nameVi]));
@@ -184,13 +212,16 @@ export function OwnerHome() {
   return (
     <>
       <PageHeader title={t('home.title')} description={t('ownerHome.lead')} />
+      {loadFailed}
       <section aria-labelledby="needs-heading">
         <Card className="flex flex-col gap-1">
           <h2 id="needs-heading" className="text-lg font-semibold text-foreground">
             {t('ownerHome.needs')}
           </h2>
           {needs.length === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">{t('ownerHome.clear')}</p>
+            failed ? null : (
+              <p className="py-2 text-sm text-muted-foreground">{t('ownerHome.clear')}</p>
+            )
           ) : (
             <ul className="flex flex-col divide-y divide-border">{needs}</ul>
           )}

@@ -31,7 +31,7 @@ import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/modules/prisma/prisma.service';
 import { REDIS } from '../../src/modules/redis/redis.module';
 import { DailyRollupJob } from '../../src/modules/scheduled/daily-rollup.job';
-import { daysBefore } from '../../src/modules/scheduled/domain/rollup-window';
+import { daysBefore, morningAfter } from '../../src/modules/scheduled/domain/rollup-window';
 import { HeatmapFlushJob } from '../../src/modules/scheduled/heatmap-flush.job';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
@@ -285,7 +285,9 @@ async function main(): Promise<void> {
     await live.exec();
 
     const rollup = app.get(DailyRollupJob);
-    for (const day of days) await rollup.rebuildDay(day, now);
+    // The rebuild's clock is the seed's own — the morning after its end day — so a fixed end day
+    // stays inside the rebuild's 90-day window however long after it the stack is made.
+    for (const day of days) await rollup.rebuildDay(day, morningAfter(endDay));
     console.log(
       `✓ analytics: ${devices.length} phones, ${events.length} events over ${days.length} days (${days[0]} … ${endDay})`,
     );

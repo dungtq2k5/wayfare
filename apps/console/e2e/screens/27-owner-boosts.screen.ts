@@ -5,12 +5,11 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
-import type { Actor } from '../support/stack';
-import { accountOf, seconds, sendStripeEvent, subscription, untilEvent } from '../support/stripe';
+import { accountOf, seconds, subscription } from '../support/stripe';
 import { actor, findPlace, ocOanh, untilStatus } from './content';
 import { look, tabsThrough } from './look';
-import { MINH_VENUES, OWNERS } from './owners';
-import { as } from './people';
+import { MINH_VENUES, OWNERS, sendOnce } from './owners';
+import { as, notificationsSettled } from './people';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
@@ -18,16 +17,6 @@ test.beforeEach(() => resetRateLimits());
 const MONTH = 30 * 86_400;
 /** Minh's records, filled by the setup. */
 const ids = { ocOanh: '', ocVu: '', banhXeo: '', account: '' };
-
-/** Sends an event unless the stack recorded it already, and waits until billing has settled it. */
-async function sendOnce(admin: Actor, event: Parameters<typeof sendStripeEvent>[0]): Promise<void> {
-  const { data } = await admin.call<{ data: { stripeEventId: string }[] }>(
-    'GET',
-    '/admin/billing/events?pageSize=100',
-  );
-  if (!data.some((row) => row.stripeEventId === event.id)) await sendStripeEvent(event);
-  await untilEvent(admin, event.id, ['PROCESSED']);
-}
 
 /** Minh's subscription at a price and status, by signed webhook (fixed ids, once). */
 async function minhOn(
@@ -89,6 +78,9 @@ test.beforeAll(async () => {
   }
   await untilStatus(lan, ids.ocVu, 'ACTIVE');
   await boosts([ids.ocOanh]);
+  // Ốc Vũ going live again notifies Minh by event, after the status above: read only once every
+  // notification the setup caused has arrived, or one lands after and the bell counts it.
+  await notificationsSettled(PEOPLE.minh, 3);
   await minh.call('POST', '/notifications/read-all');
 });
 

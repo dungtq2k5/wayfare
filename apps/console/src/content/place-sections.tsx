@@ -182,6 +182,7 @@ export function RecordHistory({
   const translator = useConsole();
   const { t, tDynamic } = translator;
   const me = useMe();
+  // Quiet: a failed read leaves the History card out; the record above it is whole.
   const log = useQuery({
     queryKey: ['history', resourceType, resourceId],
     queryFn: () => {

@@ -28,8 +28,20 @@ export const PLAY_STORE_URL =
 /** This build's version, as Settings shows it and a device registers with. */
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0';
 
-/** Development-only aids (the fake Google hook); dead code in a production build. */
-export const DEVELOPMENT = process.env.NODE_ENV !== 'production';
+/**
+ * Development-only aids (the fake Google hook): a development build, or the screens' build —
+ * `NEXT_PUBLIC_DEV_TOOLS=1`, set by the screens' Playwright config and nothing else. Both are
+ * folded at build time, so a production build has them as dead code.
+ */
+export const DEVELOPMENT =
+  process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEV_TOOLS === '1';
+
+/**
+ * How long the Next.js server keeps a shared read (the areas, a language's strings), in seconds.
+ * The screens' build keeps none: its stack's records are made during the run, and a read cached
+ * at build time — an area before its map pack — would be served all through it.
+ */
+export const SERVER_CACHE_SECONDS = DEVELOPMENT ? 0 : 300;
 
 /**
  * The build folder: `.next`, unless a second development server runs beside the first (the screen

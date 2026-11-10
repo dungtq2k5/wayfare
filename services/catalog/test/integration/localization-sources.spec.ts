@@ -145,6 +145,12 @@ describe('SearchLocalizedText', () => {
     expect((await search('Bến Thàn')).items).toEqual([]);
   });
 
+  it('matches only text made from the current version: a stale row is the content job’s', async () => {
+    const place = await localized('Nhà hát', 'The Opera House glows at night.');
+    await prisma.place.update({ where: { id: place.id }, data: { contentHash: 'b'.repeat(64) } });
+    expect((await search('Opera')).items).toEqual([]);
+  });
+
   it('searches menu items too, filters by language, and pages with a cursor', async () => {
     const place = await localized('Quán', 'Phở bò every morning.');
     const item = await prisma.menuItem.create({
@@ -243,16 +249,30 @@ describe('ListNarrationCandidates', () => {
     });
 
     const { candidates: found } = await candidates();
+    const editorial = { kind: catalogGrpc.PlaceKind.PLACE_KIND_EDITORIAL };
     expect(found).toEqual([
-      { placeId: heard.id, contentHash: heard.contentHash, textReady: true, audioReady: true },
+      {
+        placeId: heard.id,
+        contentHash: heard.contentHash,
+        textReady: true,
+        audioReady: true,
+        ...editorial,
+      },
       {
         placeId: textOnly.id,
         contentHash: textOnly.contentHash,
         textReady: true,
         audioReady: false,
+        ...editorial,
       },
       // No row for `ja` at all: answered, so the caller knows to warm it (api-endpoints-plan §12.2).
-      { placeId: silent.id, contentHash: silent.contentHash, textReady: false, audioReady: false },
+      {
+        placeId: silent.id,
+        contentHash: silent.contentHash,
+        textReady: false,
+        audioReady: false,
+        ...editorial,
+      },
     ]);
   });
 
@@ -280,10 +300,12 @@ describe('ListNarrationCandidates', () => {
       location: north(100),
     });
     // Only a Venue may carry boost, and it makes no difference here.
+    const owner = newId();
     const boosted = await insertPlace(prisma, {
       areaId: tax.area.id,
       categoryId: tax.any.id,
       kind: PlaceKind.VENUE,
+      ownerUserId: owner,
       location: north(400),
       discoveryBoost: 100,
     });
@@ -308,6 +330,11 @@ describe('ListNarrationCandidates', () => {
     // The boosted Place is further away, so it comes second: narration never sees boost (ADR 0007).
     const ordered = (await candidates({ radiusM: 500 })).candidates.map((row) => row.placeId);
     expect(ordered).toEqual([near.id, boosted.id]);
+    // A Venue carries its kind and owner, so the hotset can check its owner's plan.
+    expect((await candidates({ radiusM: 500 })).candidates[1]).toMatchObject({
+      kind: catalogGrpc.PlaceKind.PLACE_KIND_VENUE,
+      ownerUserId: owner,
+    });
     expect((await candidates({ limit: 1 })).candidates.map((row) => row.placeId)).toEqual([
       near.id,
     ]);

@@ -568,4 +568,5 @@ export interface ConsoleArguments {
   readonly "stats.card.scanning": { "n": string | number };
   readonly "stats.card.finished": { "n": string | number };
   readonly "stats.card.qr": { "n": string | number };
+  readonly "account.googleMismatch": { "googleEmail": string | number };
 }

@@ -432,6 +432,35 @@ describe('a password-less account', () => {
     ).toBe('VALIDATION_FAILED');
   });
 
+  it('confirms from the console, which has no device, through its binding cookie', async () => {
+    const { userId } = await continueWith({ email: freshEmail(), sub: 'g-console-confirm' });
+    // A console session: an account context with no device.
+    const consoleContext = buildAccountContext({ userId, sessionId: 'console-session' });
+    const { nonce } = await google.nonce({ binding: 'this-browser' }, anonymous);
+    const { idToken } = google.mintFake({
+      email: 'x@gmail.com',
+      sub: 'g-console-confirm',
+      emailVerified: true,
+      nonce,
+    });
+    const { confirmation } = await google.confirm(
+      { idToken, binding: 'this-browser' },
+      consoleContext,
+    );
+    expect(confirmation).toEqual(expect.any(String));
+    // Neither a device nor a binding: nothing to check the nonce against.
+    const again = await google.nonce({ binding: 'this-browser' }, anonymous);
+    const unbound = google.mintFake({
+      email: 'x@gmail.com',
+      sub: 'g-console-confirm',
+      emailVerified: true,
+      nonce: again.nonce,
+    }).idToken;
+    expect((await errorOf(google.confirm({ idToken: unbound }, consoleContext))).code).toBe(
+      'UNAUTHENTICATED',
+    );
+  });
+
   it('has no password to change, cannot sign in with one, and says how it signs in', async () => {
     const email = freshEmail();
     const { context } = await continueWith({ email });

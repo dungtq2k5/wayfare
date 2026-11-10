@@ -157,11 +157,11 @@ The distinction against `decisions/` is the one that keeps both useful: an ADR i
 
 | Document | Will describe |
 | :---- | :---- |
-| `reference/sys-flows.md` | The core cross-service flows, as mermaid, plus the cross-service ownership map |
-| `reference/flows/` | One document per end-to-end path — what happens, which components, which edge cases |
+| [reference/sys-flows.md](./reference/sys-flows.md) | The core cross-service flows, as mermaid, plus the cross-service ownership map. **Exists** |
+| [reference/flows/](./reference/flows/README.md) | One document per end-to-end path — what happens, which components, which edge cases. **Exists**: the walk, narration, a Place's lifecycle, sync and offline, billing and entitlements, identity and sessions, analytics |
 | `reference/caching.md` | What is cached, keyed how, invalidated by what |
 | `reference/scheduling.md` | Every scheduled job — cadence, steps, owner, and how you know one stopped |
-| [reference/known-gaps.md](./reference/known-gaps.md) | What is currently broken or inconsistent, with the file that proves it. **Exists** — the rest of this table is planned |
+| [reference/known-gaps.md](./reference/known-gaps.md) | What is currently broken or inconsistent, with the file that proves it. **Exists** — `caching.md`, `scheduling.md` and the generated `erd/` are planned |
 | `reference/erd/` | **Generated** — one entity-relationship diagram per service. Never hand-edited |
 
 ### Planned — integrator references

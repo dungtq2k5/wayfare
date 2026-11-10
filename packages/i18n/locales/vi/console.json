@@ -2943,5 +2943,11 @@
   "stats.card.tapping": "{n} chạm",
   "stats.card.scanning": "{n} quét",
   "stats.card.finished": "{n} nghe hết",
-  "stats.card.qr": "{n} lượt quét QR"
+  "stats.card.qr": "{n} lượt quét QR",
+  "account.confirmItsYou": "Xác nhận đó là bạn",
+  "account.confirmedWithGoogle": "Đã xác nhận với Google",
+  "account.googleMismatch": "Đó không phải tài khoản Google của tài khoản Wayfare này. Hãy tiếp tục với {googleEmail}.",
+  "account.googleInvalid": "Chưa xác nhận được đó là bạn. Hãy tiếp tục với Google lần nữa.",
+  "account.googleUnavailable": "Google không phản hồi. Hãy thử lại sau ít phút.",
+  "account.confirmExpired": "Đã quá lâu. Hãy tiếp tục với Google lần nữa."
 }

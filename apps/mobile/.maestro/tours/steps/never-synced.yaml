@@ -9,6 +9,8 @@ appId: app.wayfare
 - extendedWaitUntil:
     visible: 'Scan a code'
     timeout: 30000
+# Offline, the offline note says it — never the sync-failure line as well (K5).
+- assertNotVisible: "Couldn't load the places. Try again."
 - openLink: 'https://wayfare.app/t/T4QX-8MRK'
 - extendedWaitUntil:
     visible: "This tour isn't on your phone yet.*"

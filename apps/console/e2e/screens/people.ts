@@ -7,19 +7,22 @@ import { Actor, API } from '../support/stack';
 
 /**
  * Waits until a person's unread count stops changing: their notifications arrive by event, after
- * the change that sends them, and the bell's count is drawn.
+ * the change that sends them, and the bell's count is drawn. A setup about to mark them read asks
+ * for more quiet polls in a row: one event can lag the last change by seconds.
  */
-async function notificationsSettled(email: string): Promise<void> {
+export async function notificationsSettled(email: string, quietPolls = 1): Promise<void> {
   const person = new Actor();
   await person.signIn(email, PASSWORD);
   const unread = async () =>
     (await person.call<{ data: { count: number } }>('GET', '/notifications/unread-count')).data
       .count;
   let last = await unread();
-  for (let poll = 0; poll < 10; poll++) {
+  let quiet = 0;
+  for (let poll = 0; poll < 15; poll++) {
     await new Promise((done) => setTimeout(done, 2_000));
     const now = await unread();
-    if (now === last) return;
+    quiet = now === last ? quiet + 1 : 0;
+    if (quiet >= quietPolls) return;
     last = now;
   }
 }

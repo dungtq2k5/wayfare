@@ -8,6 +8,7 @@
 # Restores the network, the font scale and location, even on a failure; the app ends in English.
 set -e
 cd "$(dirname "$0")"
+. ../common/stack-ready.sh
 . ../common/animations.sh
 FONT=$(adb shell settings get system font_scale)
 LOCATION=$(adb shell settings get secure location_mode)

@@ -13,6 +13,9 @@ const config: NextConfig = {
   devIndicators: false,
   // The screen baselines' web app runs beside the developer's own: a build folder of its own.
   distDir: DIST_DIR,
+  // Always defined, so every build folds it: an unset NEXT_PUBLIC_ value is left to a runtime
+  // lookup, and the development aids it guards (src/env.ts) would stay in a production build.
+  env: { NEXT_PUBLIC_DEV_TOOLS: process.env.NEXT_PUBLIC_DEV_TOOLS ?? '' },
   images: { unoptimized: true },
 };
 
@@ -30,4 +33,8 @@ const withSerwist = withSerwistInit({
 });
 
 // Only a production build gets the plugin's webpack config: Turbopack in development refuses one.
-export default process.env.NODE_ENV === 'production' ? withSerwist(config) : config;
+// The screens' build (`NEXT_PUBLIC_DEV_TOOLS=1`) has no worker either: a worker answering the
+// app's requests would hide them from the specs' `page.route`.
+export default process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_DEV_TOOLS !== '1'
+  ? withSerwist(config)
+  : config;

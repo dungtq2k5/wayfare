@@ -9,9 +9,11 @@ import { EmptyState } from '@wayfare/ui/states';
 import { FileCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import { failureOf } from '../client/errors';
 import { Filter } from '../components/filter';
 import { formatDate } from '../i18n/format';
 import { useConsole } from '../i18n/provider';
+import { ErrorView } from '../states/states';
 import { useOwnerPlaces } from './queries';
 import type { OwnerSubmissionRow } from './queries';
 
@@ -48,6 +50,8 @@ export function SubmissionsView() {
       }),
     getNextPageParam: (last) => last.meta.nextCursor ?? undefined,
   });
+  // A decoration: without the Venues' names a row says its submission's own, and the filter
+  // offers no Venue — nothing false is said.
   const names = new Map((places.data ?? []).map((place) => [place.id, place.nameVi]));
   const venueOf = (row: OwnerSubmissionRow) =>
     (row.placeId === null ? undefined : names.get(row.placeId)) ?? row.payload.nameVi;
@@ -86,7 +90,9 @@ export function SubmissionsView() {
           onChange={(value) => setStatus(value as (typeof STATUSES)[number] | null)}
         />
       </div>
-      {rows !== undefined && rows.length === 0 ? (
+      {list.isError ? (
+        <ErrorView failure={failureOf(list.error)} onRetry={() => void list.refetch()} />
+      ) : rows !== undefined && rows.length === 0 ? (
         <EmptyState icon={<FileCheck />} title={t('mySubs.title')} body={t('mySubs.empty')} />
       ) : (
         <DataList

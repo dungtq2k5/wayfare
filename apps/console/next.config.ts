@@ -13,6 +13,9 @@ const config: NextConfig = {
   // The screen baselines' console runs beside the developer's own (e2e/README.md): a build folder
   // of its own, so the two development servers never share one.
   distDir: DIST_DIR,
+  // Always defined, so every build folds it: an unset NEXT_PUBLIC_ value is left to a runtime
+  // lookup, and the development aids it guards (src/env.ts) would stay in a production build.
+  env: { NEXT_PUBLIC_DEV_TOOLS: process.env.NEXT_PUBLIC_DEV_TOOLS ?? '' },
 };
 
 export default config;

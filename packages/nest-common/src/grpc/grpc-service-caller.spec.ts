@@ -64,9 +64,76 @@ function fakeGrpc(
   return {
     getService: () => ({ echo: implementation }) as never,
     getClientByServiceName: () =>
-      ({ getChannel: () => ({ getConnectivityState: () => channelState }) }) as never,
+      ({
+        getChannel: () => ({
+          getConnectivityState: () => channelState,
+          watchConnectivityState: () => undefined,
+        }),
+      }) as never,
   } as ClientGrpc;
 }
+
+/** A channel whose state the test moves, as grpc-js would, recording each ask to connect. */
+class FakeChannel {
+  connects = 0;
+  private watcher: (() => void) | null = null;
+
+  constructor(private state: ConnectivityState) {}
+
+  getConnectivityState(tryToConnect: boolean): ConnectivityState {
+    if (tryToConnect && this.state === ConnectivityState.IDLE) {
+      this.connects += 1;
+      this.state = ConnectivityState.CONNECTING;
+    }
+    return this.state;
+  }
+
+  watchConnectivityState(
+    _current: ConnectivityState,
+    deadline: number,
+    callback: () => void,
+  ): void {
+    expect(deadline).toBe(Infinity);
+    this.watcher = callback;
+  }
+
+  moveTo(state: ConnectivityState): void {
+    this.state = state;
+    const watcher = this.watcher;
+    this.watcher = null;
+    watcher?.();
+  }
+}
+
+const withChannel = (channel: FakeChannel): ClientGrpc =>
+  ({
+    getService: () => ({ echo: (request: { value: string }) => of(request) }) as never,
+    getClientByServiceName: () => ({ getChannel: () => channel }) as never,
+  }) as ClientGrpc;
+
+describe('GrpcServiceCaller keeps its channel connected', () => {
+  it('connects at init, not on the first call', () => {
+    const channel = new FakeChannel(ConnectivityState.IDLE);
+    new EchoClient(withChannel(channel)).onModuleInit();
+    expect(channel.connects).toBe(1);
+  });
+
+  it('connects again when the channel falls idle', () => {
+    const channel = new FakeChannel(ConnectivityState.IDLE);
+    new EchoClient(withChannel(channel)).onModuleInit();
+    channel.moveTo(ConnectivityState.READY);
+    channel.moveTo(ConnectivityState.IDLE);
+    expect(channel.connects).toBe(2);
+  });
+
+  it('stops watching once the channel shuts down', () => {
+    const channel = new FakeChannel(ConnectivityState.READY);
+    new EchoClient(withChannel(channel)).onModuleInit();
+    channel.moveTo(ConnectivityState.SHUTDOWN);
+    channel.moveTo(ConnectivityState.IDLE);
+    expect(channel.connects).toBe(0);
+  });
+});
 
 describe('GrpcServiceCaller.call', () => {
   it('attaches the caller as metadata and a deadline', async () => {

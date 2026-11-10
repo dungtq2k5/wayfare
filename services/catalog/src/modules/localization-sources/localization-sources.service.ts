@@ -44,6 +44,7 @@ import {
   toLocalizedTextMatch,
   toNarrationCandidate,
 } from './localization-source.mapper';
+import type { NarrationCandidateRow } from './localization-source.mapper';
 
 const sourceFields = z.object({ targetType: z.number(), targetId: zUuidV7 });
 
@@ -193,6 +194,9 @@ export class LocalizationSourcesService {
                l.lang, l.source_content_hash AS "sourceContentHash"
         FROM place_localizations l JOIN places p ON p.id = l.place_id
         WHERE p.status = ${live} AND p.deleted_at IS NULL
+          -- Only text made from the current version: a stale row is the content job's to remake,
+          -- and a fan-out job made from its old hash would supersede the live job for the new text.
+          AND l.source_content_hash = p.content_hash
           AND (l.name ~* ${pattern} OR l.description ~* ${pattern})
         UNION ALL
         SELECT ${LocalizationTargetType.MENU_ITEM}::text, m.menu_item_id, m.lang,
@@ -201,6 +205,7 @@ export class LocalizationSourcesService {
           JOIN menu_items i ON i.id = m.menu_item_id
           JOIN places p ON p.id = i.place_id
         WHERE p.status = ${live} AND p.deleted_at IS NULL
+          AND m.source_content_hash = i.content_hash
           AND (m.name ~* ${pattern} OR COALESCE(m.description, '') ~* ${pattern})
       )
       SELECT * FROM matches
@@ -241,13 +246,12 @@ export class LocalizationSourcesService {
     const live: string = PlaceStatus.ACTIVE;
     const ready: string = AudioStatus.READY;
     // longitude first
-    const rows = await this.prisma.$queryRaw<
-      { placeId: string; contentHash: string; textReady: boolean; audioReady: boolean }[]
-    >`
+    const rows = await this.prisma.$queryRaw<NarrationCandidateRow[]>`
       WITH origin AS (
         SELECT ST_SetSRID(ST_MakePoint(${fields.lng}, ${fields.lat}), 4326)::geography AS point
       )
-      SELECT p.id AS "placeId", p.content_hash AS "contentHash",
+      SELECT p.id AS "placeId", p.content_hash AS "contentHash", p.kind,
+             p.owner_user_id AS "ownerUserId",
              (l.source_content_hash = p.content_hash) IS TRUE AS "textReady",
              (l.source_content_hash = p.content_hash
                AND l.audio_status = ${ready}

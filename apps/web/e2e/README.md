@@ -17,7 +17,7 @@ The flows' setup (`global-setup.ts`) makes the fixture Places with fixed names (
   - At 360, in light and dark, for every state.
   - At 720 and 1440, in light only, for the ★ states (WQ1, WM1, WN1, WL1, WA1, WG1).
   - Full page, except a state fixed to the viewport: a sheet, a dialog, a player.
-- **One renderer:** the console's pinned Chromium in Playwright's Docker image (`screens/browser.ts` re-exports it), against the development server, where the fake Google button exists.
+- **One renderer:** the console's pinned Chromium in Playwright's Docker image (`screens/browser.ts` re-exports it), against the screens' build of the web app: a production build with `NEXT_PUBLIC_DEV_TOOLS=1`, which keeps the fake Google button and has no service worker (`src/env.ts`).
 - **What varies** is covered or fixed:
   - **Hidden:** the maps' canvases, so the panel, markers and controls above them stay in the picture.
   - **Solid boxes:** the week of opening hours (today is the run's weekday), and the players' progress lines, scrubber and elapsed time.

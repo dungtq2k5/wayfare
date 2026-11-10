@@ -2,15 +2,18 @@
 
 import {
   ApiError,
+  authLogout,
   authRefresh,
   emailChangeConfirmChange,
   emailChangeRevertChange,
   emailChangeVerify,
 } from '@wayfare/api-client';
+import { useQueryClient } from '@tanstack/react-query';
 import { Undo2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { clearPageCookie } from '../client/cookies';
 import { useWeb } from '../i18n/provider';
+import { ME_KEY } from './me';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
 import {
   ExpiredLink,
@@ -53,6 +56,7 @@ type Outcome =
  */
 export function LinkAction({ kind }: { kind: LinkKind }) {
   const { t } = useWeb();
+  const queries = useQueryClient();
   const token = useLinkToken();
   const [outcome, setOutcome] = useState<Outcome>({ state: 'working' });
   const started = useRef(false);
@@ -67,8 +71,16 @@ export function LinkAction({ kind }: { kind: LinkKind }) {
     void (async () => {
       try {
         const answer = await act(kind, token);
-        // An undone change signs every device out, this one included.
-        if (kind === 'revert') clearPageCookie(ACCOUNT_HINT_COOKIE);
+        // An undone change signs every session out, this browser's too: its own cookies go now, and
+        // the header says so at once. A read of who is signed in already on its way is cancelled
+        // first — the revoked session still answers it for a moment, until the gateway's cached
+        // cutoff catches up, and its answer would put the account back.
+        if (kind === 'revert') {
+          await queries.cancelQueries({ queryKey: ME_KEY });
+          await authLogout({}).catch(() => undefined);
+          clearPageCookie(ACCOUNT_HINT_COOKIE);
+          queries.setQueryData(ME_KEY, null);
+        }
         if (answer.sameAccount && kind === 'verify') await authRefresh({}).catch(() => undefined);
         const email = !answer.sameAccount && kind !== 'revert' ? await signedInEmail() : null;
         setOutcome(
@@ -80,7 +92,7 @@ export function LinkAction({ kind }: { kind: LinkKind }) {
         setOutcome(error instanceof ApiError ? { state: 'expired' } : { state: 'expired' });
       }
     })();
-  }, [token, kind]);
+  }, [token, kind, queries]);
 
   switch (outcome.state) {
     case 'working':

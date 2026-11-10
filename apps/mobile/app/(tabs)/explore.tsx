@@ -1,7 +1,15 @@
 import { NEARBY_LIMIT_MAX } from '@wayfare/contracts';
 import { useAreasList, usePlacesNearby } from '@wayfare/api-client';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { LocateOff, MapPin, MapPinned, Route, Search, WifiOff } from 'lucide-react-native';
+import {
+  CircleAlert,
+  LocateOff,
+  MapPin,
+  MapPinned,
+  Route,
+  Search,
+  WifiOff,
+} from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,10 +25,12 @@ import { joinNames } from '../../src/places/format-distance';
 import { NEARBY_LIST_RADIUS_M } from '../../src/places/limits';
 import { byAreaThenName, byDistance } from '../../src/places/place-order';
 import { useAppStore } from '../../src/state/app-store';
-import { useSyncStore } from '../../src/sync/run-sync';
+import { syncFailureShown } from '../../src/sync/sync-failure';
+import { runSync, useSyncStore } from '../../src/sync/run-sync';
 import { Icon } from '../../src/theme/icon';
 import { Button } from '../../src/ui/button';
 import { CategoryChip } from '../../src/ui/category-chip';
+import { InlineAlert } from '../../src/ui/inline-alert';
 import { InlineNote } from '../../src/ui/inline-note';
 import { areaName as packAreaName } from '../../src/packs/area-name';
 import { usePackIndex } from '../../src/packs/use-pack-files';
@@ -50,6 +60,7 @@ export default function ExploreScreen() {
   );
   const permission = useLocationStore((state) => state.permission);
   const lastChecked = useSyncStore((state) => state.lastCheckedAt);
+  const syncError = useSyncStore((state) => state.error);
   const position = usePosition();
   const local = useAllPlaces();
   const areas = useAreasList();
@@ -118,6 +129,12 @@ export default function ExploreScreen() {
   const when = 'count' in updated ? t(updated.key, { count: updated.count }) : t(updated.key);
   const loading = source === 'online' ? nearby.isPending : local.isPending;
   const failed = source === 'online' && nearby.isError && rows.length === 0;
+  // A failed read of the phone's own Places isn't "nothing near" (K1).
+  const localFailed = source !== 'online' && local.isError;
+  const nothingLocal = local.isSuccess && local.data.length === 0;
+  // K5: a failed sync with nothing on the phone; offline, the offline note alone says it.
+  const syncFailed = syncFailureShown(syncError, offline, nothingLocal && rows.length === 0);
+  const offlineEmpty = offline && nothingLocal;
   const anySponsored = rows.some((row) => row.sponsored);
 
   const areaList = areas.data?.data ?? [];
@@ -186,7 +203,7 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <FlatList
-        data={failed || loading ? [] : items}
+        data={failed || localFailed || loading ? [] : items}
         keyExtractor={(item) => (item.kind === 'header' ? item.id : item.row.id)}
         contentContainerClassName="gap-3 px-4"
         contentContainerStyle={{ paddingBottom: LIST_END_PADDING }}
@@ -237,6 +254,12 @@ export default function ExploreScreen() {
                 <Button label={t('action.retry')} onPress={() => void nearby.refetch()} />
               </View>
             )}
+            {localFailed && (
+              <InlineAlert
+                message={errorMessage(local.error)}
+                onRetry={() => void local.refetch()}
+              />
+            )}
           </View>
         }
         renderItem={({ item }) =>
@@ -249,7 +272,16 @@ export default function ExploreScreen() {
           )
         }
         ListEmptyComponent={
-          loading || failed ? null : (
+          loading || failed || localFailed || offlineEmpty ? null : syncFailed ? (
+            <InlineNote
+              icon={CircleAlert}
+              text={t('map.loadFailed')}
+              action={{
+                label: t('action.retry'),
+                onPress: () => void runSync().catch(() => undefined),
+              }}
+            />
+          ) : (
             <View className="items-center gap-4 py-10">
               <View className="rounded-full bg-accent p-5">
                 <Icon icon={Search} size="lg" color="accent-foreground" />
@@ -281,7 +313,7 @@ export default function ExploreScreen() {
         }
         ListFooterComponent={
           <View className="gap-2 pt-2">
-            {source === 'offline' && (
+            {(source === 'offline' || offlineEmpty) && (
               <InlineNote
                 icon={WifiOff}
                 text={

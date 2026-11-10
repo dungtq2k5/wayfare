@@ -1,4 +1,4 @@
-import { businessDay, RAW_EVENT_RETENTION_DAYS } from '@wayfare/contracts';
+import { businessDay, businessDayStart, RAW_EVENT_RETENTION_DAYS } from '@wayfare/contracts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,3 +25,10 @@ export function rebuildable(day: string, now: Date): boolean {
   const today = businessDay(now);
   return day < today && day >= daysBefore(today, RAW_EVENT_RETENTION_DAYS);
 }
+
+/**
+ * The morning after a business day, 03:00 in Vietnam: the clock a seed with a fixed last day
+ * rebuilds with, so its days stay `rebuildable` however long after them the stack is made.
+ */
+export const morningAfter = (day: string): Date =>
+  new Date(businessDayStart(daysBefore(day, -1)).getTime() + 3 * 60 * 60 * 1000);

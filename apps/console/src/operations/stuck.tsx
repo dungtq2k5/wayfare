@@ -201,6 +201,7 @@ export function StuckAlert({ placeId, name }: { placeId: string; name: string })
   const can = useCan();
   const who = useWho();
   const router = useRouter();
+  // Quiet: a failed read hides the stuck note; the job's own status still shows.
   const stuck = useStuck().data?.find((row) => row.place.id === placeId);
   if (stuck === undefined) return null;
   return (

@@ -7,21 +7,41 @@
 #     --profile apps up -d --build --wait <services>
 #
 # `apps/console/e2e/screens/stack.sh` runs it; nothing else should.
+#
+# Its databases are thrown away after every run, so they skip the flush to disk: on a nearly full
+# SSD a commit's WAL fsync can stall for seconds, and every service then misses the gateway's 2 s
+# deadline at once. Never for a database whose data must survive a crash.
+x-throwaway-postgres:
+  &throwaway-postgres [
+    'postgres',
+    '-c',
+    'fsync=off',
+    '-c',
+    'synchronous_commit=off',
+    '-c',
+    'full_page_writes=off',
+  ]
+
 services:
   identity-db:
     container_name: wayfare-screens-identity-db
+    command: *throwaway-postgres
     ports: !override ['127.0.0.1:25433:5432']
   catalog-db:
     container_name: wayfare-screens-catalog-db
+    command: *throwaway-postgres
     ports: !override ['127.0.0.1:25434:5432']
   narration-db:
     container_name: wayfare-screens-narration-db
+    command: *throwaway-postgres
     ports: !override ['127.0.0.1:25435:5432']
   billing-db:
     container_name: wayfare-screens-billing-db
+    command: *throwaway-postgres
     ports: !override ['127.0.0.1:25436:5432']
   analytics-db:
     container_name: wayfare-screens-analytics-db
+    command: *throwaway-postgres
     ports: !override ['127.0.0.1:25437:5432']
   redis:
     container_name: wayfare-screens-redis
@@ -78,6 +98,10 @@ services:
   analytics:
     container_name: wayfare-screens-analytics
     ports: !override ['127.0.0.1:23105:3105', '127.0.0.1:30055:20055']
+    environment:
+      # The numbers are the seed's, rebuilt with its own clock: the real-time jobs (the nightly
+      # rollup at 03:00, the hourly flushes) would move them mid-run.
+      JOBS_ENABLED: 'false'
   gateway:
     container_name: wayfare-screens-gateway
     environment:

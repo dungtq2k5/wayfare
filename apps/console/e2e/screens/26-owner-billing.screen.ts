@@ -6,20 +6,11 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
-import type { Actor } from '../support/stack';
-import {
-  accountOf,
-  checkout,
-  failedInvoice,
-  seconds,
-  sendStripeEvent,
-  subscription,
-  untilEvent,
-} from '../support/stripe';
+import { accountOf, failedInvoice, seconds, subscription } from '../support/stripe';
 import { hold, refuse } from './answers';
 import { actor, untilStatus } from './content';
 import { from, look, tabsThrough } from './look';
-import { freeOwner, liveVenue, OWNERS, venue } from './owners';
+import { freeOwner, liveVenue, OWNERS, sendOnce, subscribe, venue } from './owners';
 import { as } from './people';
 import { PEOPLE } from './setup';
 
@@ -28,55 +19,16 @@ test.beforeEach(() => resetRateLimits());
 const MONTH = 30 * 86_400;
 const ids: Record<string, string> = {};
 
-/** Sends an event unless the stack recorded it already, and waits until billing has settled it. */
-async function sendOnce(admin: Actor, event: Parameters<typeof sendStripeEvent>[0]): Promise<void> {
-  const { data } = await admin.call<{ data: { stripeEventId: string }[] }>(
-    'GET',
-    '/admin/billing/events?pageSize=100',
-  );
-  if (!data.some((row) => row.stripeEventId === event.id)) await sendStripeEvent(event);
-  await untilEvent(admin, event.id, ['PROCESSED']);
-}
-
-/** An owner subscribed to Growth by signed webhooks, as Stripe would (fixed ids, once). */
-async function onGrowth(
-  mai: Actor,
-  email: string,
-  tag: string,
-  cancelAtPeriodEnd = false,
-): Promise<void> {
-  const account = (await accountOf(mai, email)).id;
-  await sendOnce(mai, {
-    id: `evt_screens${tag}Checkout`,
-    type: 'checkout.session.completed',
-    created: seconds(-6),
-    object: checkout(account, `cus_screens${tag}`, `sub_screens${tag}`),
-  });
-  await sendOnce(mai, {
-    id: `evt_screens${tag}Created`,
-    type: 'customer.subscription.created',
-    created: seconds(-5),
-    object: subscription({
-      id: `sub_screens${tag}`,
-      customer: `cus_screens${tag}`,
-      status: 'active',
-      price: 'price_dev_growth_month',
-      periodEnd: seconds(MONTH),
-      cancelAtPeriodEnd,
-    }),
-  });
-}
-
 test.beforeAll(async () => {
   test.setTimeout(900_000);
   const mai = await actor(PEOPLE.mai);
   await freeOwner(OWNERS.khanh, 'Lý Quốc Khánh');
   // Y6: Vy's Growth cancels at the period's end.
   await freeOwner(OWNERS.vy, 'Nguyễn Tường Vy');
-  await onGrowth(mai, OWNERS.vy, 'Vy', true);
+  await subscribe(mai, OWNERS.vy, 'Vy', { cancelAtPeriodEnd: true });
   // Y6b: Lộc had Growth with two venues; it ended, and the newer left the map.
   const loc = await freeOwner(OWNERS.loc, 'Huỳnh Tấn Lộc');
-  await onGrowth(mai, OWNERS.loc, 'Loc');
+  await subscribe(mai, OWNERS.loc, 'Loc');
   await liveVenue(loc, venue('Cơm tấm Lộc', 10.7742, 106.7001));
   ids.locNewer = await liveVenue(loc, venue('Bò bía Lộc', 10.774, 106.7007));
   await sendOnce(mai, {
@@ -180,7 +132,7 @@ test('Y1c pinned', async ({ page }) => {
   // An owner-only account, so the navigation is an owner's (An, pinned in round 35a, is also staff).
   const mai = await actor(PEOPLE.mai);
   await freeOwner(OWNERS.hoa, 'Đặng Thị Hoa');
-  await onGrowth(mai, OWNERS.hoa, 'Hoa');
+  await subscribe(mai, OWNERS.hoa, 'Hoa');
   const account = (await accountOf(mai, OWNERS.hoa)).id;
   const { data } = await mai.call<{
     data: { pinned: boolean; entitlements: Record<string, unknown> };

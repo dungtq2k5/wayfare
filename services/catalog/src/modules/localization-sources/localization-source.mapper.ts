@@ -127,6 +127,8 @@ export interface NarrationCandidateRow {
   readonly contentHash: string;
   readonly textReady: boolean;
   readonly audioReady: boolean;
+  readonly kind: string;
+  readonly ownerUserId: string | null;
 }
 
 /** One nearby Place, as the hotset reads it (api-endpoints-plan §12.2). */
@@ -136,5 +138,7 @@ export function toNarrationCandidate(row: NarrationCandidateRow): catalogGrpc.Na
     contentHash: row.contentHash,
     textReady: row.textReady,
     audioReady: row.audioReady,
+    kind: placeKindProto.toProto(row.kind as PlaceKind),
+    ...(row.ownerUserId === null ? {} : { ownerUserId: row.ownerUserId }),
   };
 }

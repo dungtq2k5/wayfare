@@ -14,7 +14,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { errorText } from '../client/errors';
+import { errorText, failureOf } from '../client/errors';
+import { ErrorView } from '../states/states';
 import { Facts } from '../content/place-sections';
 import { formatDate } from '../i18n/format';
 import { languageName } from '../i18n/language-names';
@@ -255,7 +256,15 @@ export function OwnerBilling() {
       </>
     );
   }
-  if (data === undefined) return <PageHeader title={t('ob.title')} description={t('ob.lead')} />;
+  if (data === undefined)
+    return (
+      <>
+        <PageHeader title={t('ob.title')} description={t('ob.lead')} />
+        {overview.isError ? (
+          <ErrorView failure={failureOf(overview.error)} onRetry={() => void overview.refetch()} />
+        ) : null}
+      </>
+    );
 
   const subscribed = isSubscribed(data);
   const pinned = data.pinned ? pinnedLimits(data.entitlements, data.planGrants) : [];

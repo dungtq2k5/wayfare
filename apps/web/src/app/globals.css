@@ -14,11 +14,17 @@
   --breakpoint-desk: 75rem;
 }
 
+/* Each Google font's variable carries its family as a fallback. next/font/google fetches Google's
+   CSS once per compilation, and a build whose two answers differ gives the page a class the CSS
+   doesn't define: an undefined var() would void the whole stack and drop every page, Vietnamese
+   included, to the system font. With a fallback, only that script's variable falls to its name,
+   which still matches the @font-face the build ships. */
 @theme inline {
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-mono: var(--font-jetbrains-mono, 'JetBrains Mono'), ui-monospace, monospace;
   --font-sans:
-    var(--font-be-vietnam-pro), 'Be Vietnam Pro', var(--font-noto-jp), var(--font-noto-kr),
-    var(--font-noto-sc), var(--font-noto-tc), sans-serif;
+    var(--font-be-vietnam-pro), 'Be Vietnam Pro', var(--font-noto-jp, 'Noto Sans JP'),
+    var(--font-noto-kr, 'Noto Sans KR'), var(--font-noto-sc, 'Noto Sans SC'),
+    var(--font-noto-tc, 'Noto Sans TC'), sans-serif;
 }
 
 /* The Place page at 1200 px (WQ1 at 1440): the story's column, and the 400 px card beside it. */
@@ -60,17 +66,18 @@
   :focus-visible {
     @apply outline-none;
   }
-  /* Latin stays Be Vietnam Pro; a CJK run takes its language's Noto first, in its script's form. */
+  /* Latin stays Be Vietnam Pro; a CJK run takes its language's Noto first, in its script's form.
+     Each Google font's variable carries its family as a fallback, as in @theme above. */
   :lang(ja) {
-    font-family: var(--font-be-vietnam-pro), var(--font-noto-jp), sans-serif;
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-jp, 'Noto Sans JP'), sans-serif;
   }
   :lang(ko) {
-    font-family: var(--font-be-vietnam-pro), var(--font-noto-kr), sans-serif;
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-kr, 'Noto Sans KR'), sans-serif;
   }
   :lang(zh-Hans) {
-    font-family: var(--font-be-vietnam-pro), var(--font-noto-sc), sans-serif;
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-sc, 'Noto Sans SC'), sans-serif;
   }
   :lang(zh-Hant) {
-    font-family: var(--font-be-vietnam-pro), var(--font-noto-tc), sans-serif;
+    font-family: var(--font-be-vietnam-pro), var(--font-noto-tc, 'Noto Sans TC'), sans-serif;
   }
 }

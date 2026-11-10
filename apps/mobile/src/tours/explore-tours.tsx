@@ -2,7 +2,12 @@ import { useRouter } from 'expo-router';
 import { Info } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { FlatList, Text, View } from 'react-native';
+import { errorMessage } from '../i18n';
 import { useTourist } from '../i18n/use-tourist';
+import { useNetworkStore } from '../network/network-store';
+import { syncFailureShown } from '../sync/sync-failure';
+import { runSync, useSyncStore } from '../sync/run-sync';
+import { InlineAlert } from '../ui/inline-alert';
 import { LIST_END_PADDING } from '../ui/layout';
 import { InlineNote } from '../ui/inline-note';
 import { useLocalTours } from './hooks';
@@ -24,6 +29,14 @@ export function ExploreTours({
   const { t } = useTourist();
   const router = useRouter();
   const tours = useLocalTours(areaId);
+  const offline = useNetworkStore((state) => state.status === 'offline');
+  const syncError = useSyncStore((state) => state.error);
+  // Tours sync after Places: a failed pass may leave Places and no tours, which isn't "none" (K1).
+  const syncFailed = syncFailureShown(
+    syncError,
+    offline,
+    tours.isSuccess && tours.data.length === 0,
+  );
   return (
     <FlatList
       data={tours.data ?? []}
@@ -42,7 +55,14 @@ export function ExploreTours({
         <TourCard row={item} onPress={() => router.push(`/tour/${item.tour.record.id}`)} />
       )}
       ListEmptyComponent={
-        tours.isPending ? null : (
+        tours.isError ? (
+          <InlineAlert message={errorMessage(tours.error)} onRetry={() => void tours.refetch()} />
+        ) : syncFailed ? (
+          <InlineAlert
+            message={syncError ?? t('error.generic')}
+            onRetry={() => void runSync().catch(() => undefined)}
+          />
+        ) : tours.isPending ? null : (
           <Text className="px-1 text-body text-muted-foreground">{t('tours.none')}</Text>
         )
       }

@@ -19,6 +19,7 @@ export function FormDialog({
   submit,
   alert,
   onSubmit,
+  submitDisabled = false,
   children,
 }: {
   open: boolean;
@@ -28,6 +29,8 @@ export function FormDialog({
   submit: string;
   alert: string | null;
   onSubmit: () => Promise<boolean>;
+  /** *Send link* waits for something the form can't check itself (a Google confirmation). */
+  submitDisabled?: boolean;
   children: ReactNode;
 }) {
   const { t } = useConsole();
@@ -55,7 +58,11 @@ export function FormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('action.cancel')}
             </Button>
-            <Button type="submit" busy={busy ? t('action.saving') : undefined}>
+            <Button
+              type="submit"
+              disabled={submitDisabled}
+              busy={busy ? t('action.saving') : undefined}
+            >
               {submit}
             </Button>
           </DialogFooter>

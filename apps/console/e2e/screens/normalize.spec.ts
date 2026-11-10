@@ -37,6 +37,14 @@ describe('what varies, normalised', () => {
       'Submitted 2 Oct 2026 · decided 2 Oct 2026',
     );
     expect(normalizeText('J9P0 QGXC')).toBe('AB12 CD34');
+    expect(normalizeText('printed under it — 7Q37 DFDG — never change')).toBe(
+      'printed under it — AB12 CD34 — never change',
+    );
+    expect(normalizeText('wayfare.app/t/7Q37-DFDG')).toBe('wayfare.app/t/AB12-CD34');
+    expect(normalizeText('7Q37-DFDG')).toBe('AB12-CD34');
+    expect(normalizeText('The code 7Q37-DFDG belonged to a place')).toBe(
+      'The code AB12 CD34 belonged to a place',
+    );
     expect(normalizeText('J9P0 QGXC · Quận 1 · Temple')).toBe('AB12 CD34 · Quận 1 · Temple');
     expect(normalizeText('J9P0\u00a0QGXC · District\u00a01 · 1\u00a0h\u00a030')).toBe(
       'AB12\u00a0CD34 · District\u00a01 · 1\u00a0h\u00a030',

@@ -3,7 +3,10 @@
 import { expect, test } from '@playwright/test';
 import { Actor, mailTo, resetRateLimits } from '../support/stack';
 import { apply, PASSWORD, verifiedUser } from '../support/people';
+import { refuse } from './answers';
 import { look } from './look';
+import type { Page } from '@playwright/test';
+import { API } from '../support/stack';
 import { as, continueWithGoogle } from './people';
 import { PEOPLE } from './setup';
 
@@ -12,6 +15,14 @@ test.beforeEach(() => resetRateLimits());
 test('C6 the admin’s shell', async ({ page }) => {
   await as(page, PEOPLE.lan);
   await look(page, 'c6-admin-shell', { extra: ['720', '360'] });
+});
+
+test('C6b Home, the stuck Places unread', async ({ page }) => {
+  // A 500: a 503 says the servers can't be reached, the shell's own banner.
+  await refuse(page, 'GET', '/admin/places/stuck', 500, 'INTERNAL');
+  await as(page, PEOPLE.lan);
+  await expect(page.getByText("This page didn't load")).toBeVisible();
+  await look(page, 'c6b-home-stuck-failed');
 });
 
 test('C7 the owner’s shell', async ({ page }) => {
@@ -137,4 +148,64 @@ test('C11d the account page (owner, no Google)', async ({ page }) => {
   await page.goto('/account');
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
   await look(page, 'c11d-account-owner-no-google');
+});
+
+/** An account Google made, with no password (round 33 r9's C11f–C11h). */
+const GOOGLE_ONLY = 'phuong.ly@example.com';
+
+/** The fake issuer's answer for `email`, given to the Google button on the page now. */
+async function googleAnswers(page: Page, email: string): Promise<void> {
+  await page.waitForFunction(() => '__wayfareGoogleNonce' in window);
+  await page.evaluate(
+    async ({ api, address }) => {
+      const hooks = window as unknown as {
+        __wayfareGoogleNonce?: string;
+        __wayfareGoogleCallback?: (response: { credential: string }) => void;
+      };
+      const response = await fetch(`${api}/dev/google-token`, {
+        method: 'POST',
+        headers: { 'x-wayfare-client': 'console', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email: address,
+          emailVerified: true,
+          nonce: hooks.__wayfareGoogleNonce,
+        }),
+      });
+      const { data } = (await response.json()) as { data: { idToken: string } };
+      hooks.__wayfareGoogleCallback?.({ credential: data.idToken });
+    },
+    { api: API, address: email },
+  );
+}
+
+test('C11f change email, Google only; C11h another Google account; C11g confirmed', async ({
+  page,
+}) => {
+  // Continuing with Google makes the account the first time, and signs it in after; a new account
+  // lands on the application.
+  await page.goto('/sign-in');
+  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeEnabled();
+  await googleAnswers(page, GOOGLE_ONLY);
+  await expect(page.getByRole('button', { name: `Account menu: ${GOOGLE_ONLY}` })).toBeVisible();
+  await page.goto('/account');
+  await page.getByRole('button', { name: 'Change email' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Change email' });
+  await expect(dialog.getByText("Confirm it's you")).toBeVisible();
+  await expect(dialog.getByLabel('Password')).toHaveCount(0);
+  await dialog.getByRole('textbox', { name: 'New email' }).fill('phuong.ly@quanphuong.vn');
+  await expect(dialog.getByRole('button', { name: 'Send link' })).toBeDisabled();
+  await look(page, 'c11f-change-email-google', { viewportOnly: true });
+
+  await googleAnswers(page, 'someone.else@example.com');
+  await expect(
+    dialog.getByText(/^That's not the Google account on this Wayfare account/),
+  ).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Send link' })).toBeDisabled();
+  await look(page, 'c11h-google-mismatch', { viewportOnly: true });
+
+  await googleAnswers(page, GOOGLE_ONLY);
+  await expect(dialog.getByText('Confirmed with Google')).toBeVisible();
+  await expect(dialog.getByText(GOOGLE_ONLY)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Send link' })).toBeEnabled();
+  await look(page, 'c11g-confirmed-with-google', { viewportOnly: true });
 });

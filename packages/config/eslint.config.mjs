@@ -91,10 +91,11 @@ const I18N_PATHS = ['i18next', 'react-i18next'].map((name) => ({
 }));
 
 const WEB_PROCESS_ENV_SELECTOR = {
-  // NODE_ENV is the build's own constant, folded at compile time so development-only code is
-  // dropped from a production build; every other value is read in src/env.ts.
+  // NODE_ENV and NEXT_PUBLIC_DEV_TOOLS (the screens' build) are folded at compile time, so
+  // development-only code is dropped from a production build — read through an import, it would
+  // not be; every other value is read in src/env.ts.
   selector:
-    "MemberExpression[object.object.name='process'][object.property.name='env'][property.name!='NODE_ENV']",
+    "MemberExpression[object.object.name='process'][object.property.name='env'][property.name!=/^(NODE_ENV|NEXT_PUBLIC_DEV_TOOLS)$/]",
   message:
     'Read NEXT_PUBLIC_ and server values through src/env.ts, the only file that touches process.env (conventions §12.4).',
 };

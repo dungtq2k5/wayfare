@@ -87,6 +87,7 @@ export function NarrationSection({
     queryKey: jobsKey,
     queryFn: () => adminNarrationList({ targetType: 'PLACE', targetId: placeId, pageSize: 1 }),
   });
+  // Quiet: a failed read drops the "audio being made" note; each language's state still shows.
   const latest = jobs.data?.data[0] ?? null;
   useJobSubscription(latest !== null && !isFinished(latest.status) ? latest.id : null);
   useSocketEvent('narrationJobStatus', (payload) => {

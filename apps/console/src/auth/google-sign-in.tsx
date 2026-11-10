@@ -89,9 +89,13 @@ export function GoogleSignIn({
     let live = true;
     void (async () => {
       // A development build against the stack's fake issuer uses it even with a Web client set: a
-      // real Google token would not verify there. The fake's module exists in a development build
-      // only — NODE_ENV is folded at build time, so a production build drops the import.
-      const fake = process.env.NODE_ENV !== 'production' ? await import('./fake-google') : null;
+      // real Google token would not verify there. The fake's module exists only where `DEVELOPMENT`
+      // holds; its flags are read inline here, folded at build time, so a production build drops the
+      // import (an imported constant would not be).
+      const fake =
+        process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEV_TOOLS === '1'
+          ? await import('./fake-google')
+          : null;
       const next =
         fake !== null && (await fake.fakeIssuer())
           ? 'fake'
@@ -145,7 +149,12 @@ export function GoogleSignIn({
   }, [mode, nonce, credential, locale]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production' || mode !== 'fake' || nonce === null) return;
+    if (
+      (process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_DEV_TOOLS !== '1') ||
+      mode !== 'fake' ||
+      nonce === null
+    )
+      return;
     let undo: (() => void) | undefined;
     void import('./fake-google').then(({ exposeCallback }) => {
       undo = exposeCallback(nonce, credential);
@@ -163,7 +172,8 @@ export function GoogleSignIn({
           // Development only: the fake issuer's stand-in for Google's chooser.
           const email = window.prompt('Fake Google account (development)');
           if (email === null || email.trim() === '' || nonce === null) return;
-          if (process.env.NODE_ENV === 'production') return;
+          if (process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_DEV_TOOLS !== '1')
+            return;
           void import('./fake-google')
             .then(({ mintFake }) => mintFake(email.trim(), nonce))
             .then((idToken) => credential({ credential: idToken }));

@@ -95,6 +95,17 @@ describe('narration.localization.ready for a Place', () => {
     ]);
   });
 
+  it('never opens the gate of a deleted Place, nor audits it', async () => {
+    const { id, contentHash } = await processing();
+    await prisma.place.update({ where: { id }, data: { deletedAt: new Date() } });
+    await apply(ready({ placeId: id, lang: 'en', sourceContentHash: contentHash }));
+    expect((await place(id)).status).toBe(PlaceStatus.PROCESSING);
+    expect(await outboxPayloads(prisma, AUDIT_RECORD.subject)).toEqual([]);
+    expect(await outboxPayloads(prisma, CATALOG_PLACE_STATUS_CHANGED.subject)).toEqual([]);
+    // Its text is still kept, as for any Place.
+    expect(await row(id, 'en')).not.toBeNull();
+  });
+
   it('never opens without an activation request, nor for another language', async () => {
     const draft = await insertPlace(prisma, {
       areaId: tax.area.id,

@@ -2,7 +2,7 @@ import 'server-only';
 import type { Language } from '@wayfare/contracts';
 import { cookies, headers } from 'next/headers';
 import { cache } from 'react';
-import { GATEWAY_INTERNAL_URL } from '../env';
+import { GATEWAY_INTERNAL_URL, SERVER_CACHE_SECONDS } from '../env';
 import { LANGUAGE_COOKIE, pageLanguage } from './language';
 import { BUNDLED, createTranslator, ENGLISH, sharedNames } from './messages';
 import type { Messages, Translator } from './messages';
@@ -20,7 +20,7 @@ async function fetchBundle(namespace: 'web' | 'tourist', lang: Language): Promis
   try {
     const response = await fetch(
       `${GATEWAY_INTERNAL_URL}/api/v1/i18n/bundles/${namespace}/${lang}`,
-      { headers: { 'x-wayfare-client': 'web' }, next: { revalidate: 300 } },
+      { headers: { 'x-wayfare-client': 'web' }, next: { revalidate: SERVER_CACHE_SECONDS } },
     );
     if (!response.ok) return {};
     // A PENDING bundle carries the English strings: the page renders, and asks again later.

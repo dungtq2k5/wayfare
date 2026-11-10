@@ -29,8 +29,13 @@ export const LEGAL_BASE_URL = process.env.NEXT_PUBLIC_LEGAL_BASE_URL ?? 'https:/
 /** The tourist web's origin: a tour's or a Place's shareable link (`/t/<code>`, `/p/<code>`). */
 export const LINK_BASE_URL = process.env.NEXT_PUBLIC_LINK_BASE_URL ?? 'https://wayfare.app';
 
-/** Development-only aids (the fake Google hook, `/dev/patterns`); dead code in a production build. */
-export const DEVELOPMENT = process.env.NODE_ENV !== 'production';
+/**
+ * Development-only aids (the fake Google hook, `/dev/patterns`, the fake Checkout): a development
+ * build, or the screens' build — `NEXT_PUBLIC_DEV_TOOLS=1`, set by the screens' Playwright config
+ * and nothing else. Both are folded at build time, so a production build has them as dead code.
+ */
+export const DEVELOPMENT =
+  process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEV_TOOLS === '1';
 
 /**
  * The build folder: `.next`, unless a second development server runs beside the first (the screen

@@ -13,6 +13,7 @@ import { useWeb } from '../i18n/provider';
 import { insidePolygon } from '../map/geo';
 import { categoryIcon } from '../places/category-icon';
 import { linkCode } from '../places/format';
+import { WebErrorState } from '../ui/error-state';
 import { FavouriteToggle } from './favourite-toggle';
 import { FAVOURITES_KEY, favouriteKey } from './use-favourite';
 
@@ -74,7 +75,9 @@ export function FavouritesView() {
           </div>
         </div>
       ) : null}
-      {favourites.isSuccess && rows.length === 0 ? (
+      {favourites.isError ? (
+        <WebErrorState error={favourites.error} onRetry={() => void favourites.refetch()} />
+      ) : favourites.isSuccess && rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-12 text-center">
           <span className="flex size-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <Heart aria-hidden className="size-7" />

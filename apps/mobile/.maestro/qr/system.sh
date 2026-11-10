@@ -6,6 +6,7 @@
 # changes, even on a failure.
 set -e
 cd "$(dirname "$0")"
+. ../common/stack-ready.sh
 . ../common/animations.sh
 API=http://localhost:13000/api/v1
 JAR=$(mktemp)

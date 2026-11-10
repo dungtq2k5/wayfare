@@ -44,16 +44,21 @@ test('WO2 offline', async ({ page, context }) => {
 });
 
 test('WO2b offline, a page not saved', async ({ page, context }) => {
+  // Each page is kept as opened once it has drawn: the next is opened only after, or the message
+  // names one Place on some runs and both on others.
   await page.goto(`/p/${state().opera.code}`);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.waitForLoadState('networkidle');
   await page.goto(`/p/${state().church.code}`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.waitForLoadState('networkidle');
   // The service worker's fallback page, as it answers a page never opened here.
   await page.goto('/offline');
   await context.setOffline(true);
   await expect(
     page.getByRole('heading', { name: "This page isn't saved on this browser" }),
   ).toBeVisible();
-  await expect(page.getByText(/^You opened .+ while online/)).toBeVisible();
+  await expect(page.getByText(/^You opened .+ and .+ while online/)).toBeVisible();
   await look(page, 'wo2b-page-not-saved');
   await context.setOffline(false);
 });

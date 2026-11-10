@@ -62,6 +62,21 @@ test('TW1 tours in an area ★', async ({ page }) => {
   await look(page, 'tw1-tours-list', { extra: ['720', '1440'] });
 });
 
+test('TW1c tours in an area, unread', async ({ page }) => {
+  await page.route('**/api/v1/tours?*', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: { code: 'UPSTREAM_UNAVAILABLE', message: 'down', requestId: 'req_screens_0001' },
+      }),
+    }),
+  );
+  await page.goto('/map/hcmc-d1-core?view=tours');
+  await expect(page.getByText("Couldn't load this")).toBeVisible();
+  await look(page, 'tw1c-tours-failed', { extra: ['720', '1440'] });
+});
+
 test('TW2 a tour’s page ★; TW2b two stops played here', async ({ page }) => {
   await keepAudio(page);
   await page.goto(`/t/${LANDMARKS.code}`);

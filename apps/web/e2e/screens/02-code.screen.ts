@@ -32,5 +32,8 @@ test('WQ5c a code no longer listed', async ({ page }) => {
   await expect(
     page.getByRole('alert').getByText('This place is no longer on Wayfare'),
   ).toBeVisible();
-  await look(page, 'wq5c-no-longer-listed');
+  // The code is the stack's own, made fresh on every one: the field holds it as typed.
+  await look(page, 'wq5c-no-longer-listed', {
+    mask: [page.getByRole('textbox', { name: 'Code' })],
+  });
 });

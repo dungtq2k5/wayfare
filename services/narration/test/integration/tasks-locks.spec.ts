@@ -1,7 +1,12 @@
 // Jobs' row locks against tasks' updates: two tasks of one job finishing — or one finishing while
 // a sibling is claimed — must not deadlock; and a transaction Postgres aborts is run again whole,
 // never counted as a task's failed attempt.
-import { SynthesisJobStatus, SynthesisTaskStatus } from '@wayfare/contracts';
+import {
+  LocalizationTargetType,
+  SynthesisJobStatus,
+  SynthesisTaskStatus,
+  SynthesisTrigger,
+} from '@wayfare/contracts';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { afterCommit } from '../../src/modules/tasks/domain/after-commit';
 import { CLAIM_REQUEUE_MS } from '../../src/modules/tasks/tasks.service';
@@ -201,5 +206,64 @@ describe('a transaction Postgres aborted', () => {
     await expect
       .poll(() => services.queue.has(taskId, 0), { timeout: CLAIM_REQUEUE_MS * 8 })
       .toBe(true);
+  });
+});
+
+describe('a change following a task that had started', () => {
+  /** A human edit's job for the same key as `job`, made now. */
+  async function humanEdit(job: Awaited<ReturnType<typeof textJob>>) {
+    const id = await services.tasks.transact((tx, fx) =>
+      services.jobs.createJob(tx, fx, {
+        targetType: LocalizationTargetType.PLACE,
+        targetId: job.targetId!,
+        sourceContentHash: job.sourceContentHash,
+        langs: ['ja'],
+        includeAudio: false,
+        trigger: SynthesisTrigger.HUMAN_EDIT,
+        requestedByUserId: staff().userId,
+      }),
+    );
+    return jobOf(prisma, id);
+  }
+
+  it('runs again once the started task ends, rather than ending with its result', async () => {
+    const leader = await textJob(['ja']);
+    const leaderTask = leader.tasks[0]!;
+    // The leader has started: it read the old text already.
+    await prisma.synthesisTask.update({
+      where: { id: leaderTask.id },
+      data: { status: SynthesisTaskStatus.RUNNING, startedAt: new Date() },
+    });
+    const edit = await humanEdit(leader);
+    expect(edit.tasks[0]).toMatchObject({
+      status: SynthesisTaskStatus.COALESCED,
+      coalescedIntoTaskId: leaderTask.id,
+      rerunAfterLeader: true,
+    });
+
+    // The leader runs to its end; the edit is then the key's active task, queued for its own run.
+    await prisma.synthesisTask.update({
+      where: { id: leaderTask.id },
+      data: { status: SynthesisTaskStatus.QUEUED },
+    });
+    await services.queue.run(leaderTask.id);
+    const after = await jobOf(prisma, edit.id);
+    expect(after.tasks[0]).toMatchObject({
+      status: SynthesisTaskStatus.QUEUED,
+      coalescedIntoTaskId: null,
+      rerunAfterLeader: false,
+    });
+    await services.queue.drain();
+    expect((await jobOf(prisma, edit.id)).tasks[0]!.status).toBe(SynthesisTaskStatus.SUCCEEDED);
+    expect((await jobOf(prisma, edit.id)).tasks[0]!.startedAt).not.toBeNull();
+  });
+
+  it('follows a task that has not started: its run will read the change', async () => {
+    const leader = await textJob(['ja']);
+    const edit = await humanEdit(leader);
+    expect(edit.tasks[0]).toMatchObject({
+      status: SynthesisTaskStatus.COALESCED,
+      rerunAfterLeader: false,
+    });
   });
 });

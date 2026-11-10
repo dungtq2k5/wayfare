@@ -10,6 +10,12 @@ export const envSchema = z.object({
   // BullMQ (the rollup jobs) and the heatmap's and the runtime lane's counters.
   REDIS_URL: z.url(),
   GRPC_URL: z.string().min(1),
+  // The scheduled jobs (the nightly rollup, the hourly flushes). Off only on the screens' stack,
+  // whose numbers are the seed's: a job firing mid-run would move them under its baselines.
+  JOBS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   OPS_PORT: zPort,
   METRICS_PORT: zPort,
   APP_VERSION: z.string().default('0.0.0-dev'),

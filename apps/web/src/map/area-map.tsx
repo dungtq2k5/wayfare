@@ -55,7 +55,8 @@ export function AreaMap({
   sponsoredWords,
   onLoaded,
 }: {
-  style: string | null;
+  /** The pack's style; null for an area without one; undefined while it is still being chosen. */
+  style: string | null | undefined;
   center: { lat: number; lng: number };
   zoom: number;
   places: readonly MapPlace[];
@@ -92,7 +93,9 @@ export function AreaMap({
   });
 
   useEffect(() => {
-    if (container.current === null) return;
+    // No map until the style is chosen: a placeholder map would load at once and report the map
+    // drawn, and WM5's slow and offline states could never show.
+    if (container.current === null || style === undefined) return;
     registerPmtiles();
     const instance = new maplibregl.Map({
       container: container.current,

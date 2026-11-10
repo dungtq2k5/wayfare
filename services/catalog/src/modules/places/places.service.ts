@@ -1926,7 +1926,8 @@ export class PlacesService {
           location, address_vi, trigger_radius_m, narration_priority, auto_narration_enabled,
           discovery_boost, price_band, phone, website_url, status, activation_requested_at,
           sync_version, created_by_id, updated_at
-        ) VALUES (
+        )
+        SELECT
           ${place.id}::uuid, ${place.kind}, ${place.ownerUserId ?? null}::uuid, ${code},
           ${place.categoryId}::uuid, ${place.areaId}::uuid,
           ${text.nameVi}, ${text.descriptionVi}, ${place.contentHash},
@@ -1936,7 +1937,9 @@ export class PlacesService {
           0, ${text.priceBand ?? null}::smallint, ${text.phone ?? null}, ${text.websiteUrl ?? null},
           ${place.status}, ${place.activationRequestedAt}, nextval('catalog_sync_version_seq'),
           ${place.createdById}::uuid, clock_timestamp()
-        )
+        -- One code space with the tours: a tour's code is a collision too, retried like a Place's
+        -- (the public_codes trigger would otherwise raise an unhandled error).
+        WHERE NOT EXISTS (SELECT 1 FROM public_codes WHERE code = ${code})
         ON CONFLICT (public_code) DO NOTHING
         RETURNING id`;
       if (inserted.length === 1) return code;

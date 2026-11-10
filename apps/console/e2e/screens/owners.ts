@@ -1,9 +1,18 @@
-// Round 36's records (its people and their venues), made through the API with fixed names, in its own specs
-// (21–26) so nothing an earlier spec draws moves. Each helper finds its record first: a spec runs on
+// The owners the screens make for themselves (round 36's people and their venues, and billing's own
+// past-due and ended accounts), through the API with fixed names, so no file changes records another
+// reads. Each helper finds its record first: a spec runs on
 // its own after the others, and a fresh stack gets each record once.
 import { expect } from '@playwright/test';
 import { apply, owner, PASSWORD, verifiedUser } from '../support/people';
 import { Actor, mailTo } from '../support/stack';
+import {
+  accountOf,
+  checkout,
+  seconds,
+  sendStripeEvent,
+  subscription,
+  untilEvent,
+} from '../support/stripe';
 import { actor, findPlace, OC_OANH, untilStatus, upload } from './content';
 import { PEOPLE } from './setup';
 
@@ -25,6 +34,12 @@ export const OWNERS = {
   hoa: 'hoa.dang@example.com',
   /** An owner whose Growth ended, a venue off the map (Y6b). */
   loc: 'loc.huynh@example.com',
+  /** An owner on Growth whose card fails: past due (W2b). */
+  thuy: 'thuy.le@example.com',
+  /** An owner whose Pro subscription ended (W2c). */
+  phuc: 'phuc.vo@example.com',
+  /** The submissions' owner: his update of his venue is the queue's S2 and S3. */
+  binh: 'binh.tran@example.com',
 } as const;
 
 const exists = async (admin: Actor, email: string) =>
@@ -68,6 +83,51 @@ export async function freeOwner(email: string, fullName: string): Promise<Actor>
     await signedIn.call('GET', '/owner/places/limits');
   }).toPass({ timeout: 60_000 });
   return signedIn;
+}
+
+/** Sends a Stripe event unless the stack recorded it already, and waits until billing settled it. */
+export async function sendOnce(
+  admin: Actor,
+  event: Parameters<typeof sendStripeEvent>[0],
+): Promise<void> {
+  const { data } = await admin.call<{ data: { stripeEventId: string }[] }>(
+    'GET',
+    '/admin/billing/events?pageSize=100',
+  );
+  if (!data.some((row) => row.stripeEventId === event.id)) await sendStripeEvent(event);
+  await untilEvent(admin, event.id, ['PROCESSED']);
+}
+
+/**
+ * An owner subscribed by signed webhooks, as Stripe would — to Growth unless another price is
+ * named — with ids fixed by `tag`, once: `sub_screens<tag>`, `cus_screens<tag>`.
+ */
+export async function subscribe(
+  mai: Actor,
+  email: string,
+  tag: string,
+  { price = 'price_dev_growth_month', cancelAtPeriodEnd = false } = {},
+): Promise<void> {
+  const account = (await accountOf(mai, email)).id;
+  await sendOnce(mai, {
+    id: `evt_screens${tag}Checkout`,
+    type: 'checkout.session.completed',
+    created: seconds(-6),
+    object: checkout(account, `cus_screens${tag}`, `sub_screens${tag}`),
+  });
+  await sendOnce(mai, {
+    id: `evt_screens${tag}Created`,
+    type: 'customer.subscription.created',
+    created: seconds(-5),
+    object: subscription({
+      id: `sub_screens${tag}`,
+      customer: `cus_screens${tag}`,
+      status: 'active',
+      price,
+      periodEnd: seconds(30 * 86_400),
+      cancelAtPeriodEnd,
+    }),
+  });
 }
 
 /** The applicant's newest application, sent once with the frames' answers. */
@@ -221,6 +281,9 @@ export const MINH_VENUES = {
   /** A new venue waiting for review: it holds one of his places (K7). */
   soDiep: venue('Sò điệp Năm Đô', 10.7761, 106.7005),
 };
+
+/** Bình's venue, which only the submissions' frames (S1–S3) change. */
+export const BINH_VENUE = venue('Ốc Bình', 10.7752, 106.7012);
 
 /** Ngọc's venue, and the one she adds while it is closed (M4). */
 export const NGOC_VENUES = {

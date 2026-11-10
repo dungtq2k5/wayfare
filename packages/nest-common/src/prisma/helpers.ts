@@ -53,3 +53,11 @@ export interface RelayDb extends RawSqlTx {
     options?: { maxWait?: number; timeout?: number },
   ): Promise<R>;
 }
+
+/**
+ * The `pg` pool every service's Prisma adapter opens (architecture §12). Its connections stay
+ * open: `pg` closes an idle one after 10 s by default, and the next query then opens a new one —
+ * a name lookup and a handshake inside a call that has 2 s to answer, which a loaded host can
+ * outlast. Keep-alive finds a connection the network dropped. At most `max` (10) per service.
+ */
+export const PG_POOL_OPTIONS = { idleTimeoutMillis: 0, keepAlive: true } as const;

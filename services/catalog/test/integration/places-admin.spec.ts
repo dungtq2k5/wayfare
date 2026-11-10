@@ -131,6 +131,20 @@ describe('CreateEditorialPlace', () => {
     expect(await outboxPayloads(prisma, CATALOG_PLACE_STATUS_CHANGED.subject)).toEqual([]);
   });
 
+  it("treats a tour's code as a collision, never an unhandled error (one code space)", async () => {
+    const code = 'TQRA2345';
+    await prisma.$executeRaw`
+      INSERT INTO tours (id, public_code, area_id, title_vi, description_vi, content_hash,
+                         estimated_minutes, distance_m, status, sync_version, created_by_id)
+      VALUES (${newId()}::uuid, ${code}, ${tax.area.id}::uuid, 'x', 'y', ${'0'.repeat(64)},
+              30, 0, 'DRAFT', nextval('catalog_sync_version_seq'), ${newId()}::uuid)`;
+    // A committed code is tried once: taken by a tour, it is the collision, not a database error.
+    const refused = await errorOf(
+      places.createEditorialPlace(createRequest(), staff(), { publicCode: code }),
+    );
+    expect(refused.code).toBe('SHORT_CODE_COLLISION');
+  });
+
   it('hashes NFC text, so decomposed Vietnamese hashes the same', async () => {
     const composed = await processingPlace();
     const decomposed = await places.createEditorialPlace(

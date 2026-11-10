@@ -5,6 +5,7 @@ import { ApiError, ownerBoostsRead, ownerBoostsSet } from '@wayfare/api-client';
 import { Button } from '@wayfare/ui/button';
 import { cn } from '@wayfare/ui/cn';
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '@wayfare/ui/dialog';
+import { FormAlert } from '@wayfare/ui/field';
 import { Card } from '@wayfare/ui/surfaces';
 import { toast } from '@wayfare/ui/toaster';
 import { CircleDashed, Pencil, TriangleAlert } from 'lucide-react';
@@ -357,6 +358,17 @@ export function BoostChooser({
             );
           })}
         </fieldset>
+        {places.isError ? (
+          <FormAlert
+            action={
+              <Button size="sm" variant="outline" onClick={() => void places.refetch()}>
+                {t('action.retry')}
+              </Button>
+            }
+          >
+            {t('error.generic')}
+          </FormAlert>
+        ) : null}
         {over ? (
           <div role="alert">
             <Notice
@@ -400,7 +412,12 @@ export function BoostChooser({
           <Button variant="outline" onClick={onClose}>
             {t('boosts.cancel')}
           </Button>
-          <Button disabled={over} busy={busy ? t('boosts.saving') : undefined} onClick={save}>
+          {/* The whole set is sent, so it can't be saved before the Venues are known. */}
+          <Button
+            disabled={over || places.data === undefined}
+            busy={busy ? t('boosts.saving') : undefined}
+            onClick={save}
+          >
             {t('boosts.save')}
           </Button>
         </DialogFooter>

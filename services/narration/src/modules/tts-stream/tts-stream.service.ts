@@ -1,4 +1,3 @@
-import { status } from '@grpc/grpc-js';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   LocalizationTargetType,
@@ -7,19 +6,13 @@ import {
   normalizeLang,
   PlaceKind,
   PlaceStatus,
-  scopeCoversLanguage,
   TTS_STREAM_TIMEOUT_MS,
   zUuidV7,
 } from '@wayfare/contracts';
 import type { EventInput, Language } from '@wayfare/contracts';
+import { placeKindProto, placeStatusProto } from '@wayfare/contracts/grpc';
+import type { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
 import {
-  narrationLanguageScopeProto,
-  placeKindProto,
-  placeStatusProto,
-} from '@wayfare/contracts/grpc';
-import type { billingGrpc, catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
-import {
-  isGrpcServiceError,
   OutboxService,
   parseRpcRequest,
   requireDeviceContext,
@@ -55,6 +48,12 @@ const placeLangFields = z.object({
 
 /** How long one caller holds the right to synthesize a cache key (rdm-spec N-3). */
 const LOCK_TTL_MS = 30_000;
+
+/**
+ * The winner's own answer budget: under the waiters' `TTS_STREAM_TIMEOUT_MS` (25 s), and so under
+ * the gateway's 30 s deadline. Past it the caller is answered `503` while the work goes on.
+ */
+export const WINNER_BUDGET_MS = TTS_STREAM_TIMEOUT_MS - 2_000;
 
 /** How often a waiter looks for the winner's file. */
 const WAIT_POLL_MS = 200;
@@ -149,12 +148,43 @@ export class TtsStreamService {
     const held = await this.redis.set(lock, '1', 'PX', LOCK_TTL_MS, 'NX');
     if (held === null) return this.waitFor(lock, key.lang, body, speakers);
 
+    const work = this.synthesizeHolding(lock, key, body, text);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), WINNER_BUDGET_MS);
+    });
+    const made = await Promise.race([work, late]).finally(() => clearTimeout(timer));
+    if (made === null) {
+      // The chain can spend 20 s per provider: the caller hears `503` within budget, and the work
+      // finishes in the background, so its file still publishes for the next tourist.
+      work.catch(() => undefined);
+      streamAudioTotal.inc({ outcome: 'timeout' });
+      throw rpcError('UPSTREAM_UNAVAILABLE');
+    }
+    return this.answer(made);
+  }
+
+  /**
+   * Synthesizes and publishes under the lock, which is kept — refreshed while the chain runs —
+   * until the work ends: released early, the next caller would pay for a second synthesis of the
+   * same text. The providers take no abort signal, so nothing is aborted.
+   */
+  private async synthesizeHolding(
+    lock: string,
+    key: { targetType: string; targetId: string; lang: string; sourceContentHash: string },
+    body: string,
+    text: LocalizedText,
+  ): Promise<FoundAudio> {
+    const refresh = setInterval(() => {
+      void this.redis.pexpire(lock, LOCK_TTL_MS).catch(() => undefined);
+    }, LOCK_TTL_MS / 3);
     try {
       const made = await this.synthesis.synthesize(key.lang, body);
       await this.publish(key, made, text);
       streamAudioTotal.inc({ outcome: 'synthesized' });
-      return this.answer(made);
+      return made;
     } finally {
+      clearInterval(refresh);
       // Released whether it worked or not: a waiter must learn of a failure now, not in 30 s.
       await this.redis.del(lock).catch(() => undefined);
     }
@@ -229,26 +259,9 @@ export class TtsStreamService {
 
   /** A Venue's languages are its owner's plan's, exactly as the on-demand route reads them. */
   private async requireVenueLanguage(ownerUserId: string | null, lang: Language): Promise<void> {
-    if (ownerUserId === null) throw rpcError('LANGUAGE_NOT_ENTITLED');
-    let answer: billingGrpc.GetEntitlementsResponse;
-    try {
-      answer = await this.billing.getEntitlements(ownerUserId);
-    } catch (error) {
-      if (isGrpcServiceError(error) && error.code === status.NOT_FOUND) {
-        throw rpcError('LANGUAGE_NOT_ENTITLED');
-      }
-      this.logger.warn(
-        { ownerUserId, kind: error instanceof Error ? error.name : 'unknown' },
-        'billing did not answer the entitlements',
-      );
-      throw rpcError('ENTITLEMENTS_UNAVAILABLE');
-    }
-    const scope = narrationLanguageScopeProto.fromProto(
-      answer.entitlements?.narrationLanguageScope,
-    );
-    if (scope === null || !scopeCoversLanguage(scope, lang)) {
-      throw rpcError('LANGUAGE_NOT_ENTITLED');
-    }
+    const answer = await this.billing.venueLanguage(ownerUserId, lang);
+    if (answer === 'UNAVAILABLE') throw rpcError('ENTITLEMENTS_UNAVAILABLE');
+    if (answer === 'NOT_ENTITLED') throw rpcError('LANGUAGE_NOT_ENTITLED');
   }
 
   private async activePlace(placeId: string): Promise<catalogGrpc.LocalizationSourcePlace> {

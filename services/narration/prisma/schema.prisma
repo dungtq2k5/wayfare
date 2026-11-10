@@ -61,6 +61,8 @@ model SynthesisTask {
   cacheKey            String?   @map("cache_key") @db.Char(64)
   audioAssetId        String?   @map("audio_asset_id") @db.Uuid
   coalescedIntoTaskId String?   @map("coalesced_into_task_id") @db.Uuid
+  /// A change-carrying follower of a task that had already started: it runs again once that task ends.
+  rerunAfterLeader    Boolean   @default(false) @map("rerun_after_leader")
   /// Redacted.
   lastError           String?   @map("last_error") @db.Text
   /// `PROVIDER_UNAVAILABLE` while the task waits on a speech provider that could not be reached.

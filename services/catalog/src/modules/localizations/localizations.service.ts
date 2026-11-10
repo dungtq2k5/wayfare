@@ -226,7 +226,9 @@ export class LocalizationsService {
         });
       }
 
-      if (place.status === PlaceStatus.PROCESSING && payload.lang === 'en') {
+      // A deleted Place's gate is never evaluated: English arriving after its deletion makes it
+      // neither live nor audited.
+      if (place.status === PlaceStatus.PROCESSING && payload.lang === 'en' && !place.deleted) {
         const gate = await this.places.openGateIfReady(tx, payload.targetId, place);
         if (gate.open) {
           const now = new Date();

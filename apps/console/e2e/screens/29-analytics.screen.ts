@@ -8,8 +8,6 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { signIn } from '../support/console';
 import { Actor, envValue, resetRateLimits } from '../support/stack';
-import { accountOf } from '../support/stripe';
-import { actor } from './content';
 import { look } from './look';
 import { as } from './people';
 import { PEOPLE } from './setup';
@@ -21,30 +19,8 @@ const MORNING = new Date('2026-11-07T03:00:00Z');
 /** Owner-2's little-data Venue: three narrations, live five days before the end day. */
 const LITTLE_DATA_VENUE = '01a0b998-8eca-750d-9430-a9806a5c061e';
 
-/** The depth each frame's owner reads: the billing screens' webhooks move their seeded plans. */
-const LEVELS = { 'owner-2': 'BASIC', 'owner-3': 'FULL' } as const;
-
-/**
- * Pins an owner's grants at the analytics depth their frames need (round 35a's off-catalogue
- * grant), once: the earlier billing screens end the seed's synthetic subscriptions on purpose.
- */
-async function keepDepth(slug: keyof typeof LEVELS): Promise<void> {
-  // Mai, the screens' super admin, holds the override.
-  const mai = await actor(PEOPLE.mai);
-  const { id } = await accountOf(mai, `${slug}@wayfare.test`);
-  const account = await mai.call<{
-    data: { pinned: boolean; entitlements: Record<string, unknown> };
-  }>('GET', `/admin/billing/accounts/${id}`);
-  if (account.data.pinned && account.data.entitlements.analyticsLevel === LEVELS[slug]) return;
-  await mai.call('PATCH', `/admin/billing/accounts/${id}/entitlements`, {
-    grants: { ...account.data.entitlements, analyticsLevel: LEVELS[slug] },
-    reason: 'Pilot owner kept at their plan’s analytics depth for the stats screens.',
-  });
-}
-
 /** A pilot owner, their console in English as the frames are (the seed's owners read Vietnamese). */
 async function owner(page: Page, slug: 'owner-2' | 'owner-3' | 'owner-4'): Promise<void> {
-  if (slug !== 'owner-4') await keepDepth(slug);
   const email = `${slug}@wayfare.test`;
   const password = envValue('identity', 'SEED_ACCOUNT_PASSWORD');
   const person = new Actor();
@@ -152,6 +128,33 @@ test('AD3 the heatmap ★', async ({ page }) => {
 
 test('AD4 runtime activity', async ({ page }) => {
   await admin(page);
+  // *Active now* follows the server's real clock, so whether it lists areas depends on the moment:
+  // a fixed answer keeps the frame's height (its rows stay masked).
+  await page.route(/\/api\/v1\/admin\/analytics\/runtime-activity\?current=true$/, (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          current: {
+            hourStart: '2026-11-07T03:00:00.000Z',
+            areas: [
+              {
+                areaId: '01a00000-0000-7000-8000-000000000001',
+                code: 'hcmc-d1-core',
+                name: 'District 1 centre',
+                estimate: 42,
+              },
+              {
+                areaId: '01a00000-0000-7000-8000-000000000002',
+                code: 'hcmc-d4-vinh-khanh',
+                name: 'Vĩnh Khánh food street',
+                estimate: 17,
+              },
+            ],
+          },
+        },
+      },
+    }),
+  );
   await page.goto('/analytics/activity');
   await expect(page.getByText('Consent-free · an estimate')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Active now, by area' })).toBeVisible();

@@ -9,6 +9,7 @@ import {
   TranslationSource,
 } from '@wayfare/contracts';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WINNER_BUDGET_MS } from '../../src/modules/tts-stream/tts-stream.service';
 import { FakeSpeechProvider } from '../../src/providers/speech/fake.speech-provider';
 import { outboxPayloads, testPrisma, truncateAll } from '../setup/database';
 import { device } from '../setup/fixtures';
@@ -118,6 +119,43 @@ describe('two tourists tapping at once', () => {
     // The lock is released, so the next tourist tries again instead of waiting it out.
     expect(services.redis.keys.size).toBe(0);
     failing.mockRestore();
+  });
+});
+
+describe('a slow provider chain', () => {
+  it('answers 503 within its budget, keeps the lock, and still publishes the file', async () => {
+    const target = place();
+    let finish!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    // The gate holds the whole chain, so no provider's own timer runs while the clock is moved.
+    const real = services.synthesis.synthesize.bind(services.synthesis);
+    const slow = vi
+      .spyOn(services.synthesis, 'synthesize')
+      .mockImplementation(async (...args: Parameters<typeof real>) => {
+        await gate;
+        return real(...args);
+      });
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+      shouldAdvanceTime: true,
+    });
+    try {
+      const call = stream(target.id);
+      const answered = errorOf(call);
+      await vi.waitFor(() => expect(slow).toHaveBeenCalled());
+      await vi.advanceTimersByTimeAsync(WINNER_BUDGET_MS + 10);
+      expect((await answered).code).toBe('UPSTREAM_UNAVAILABLE');
+      // The work goes on under its lock: the next tourist waits for it, never pays twice.
+      expect(services.redis.keys.size).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+    finish();
+    await vi.waitFor(async () => expect(await readyEvents()).toHaveLength(1));
+    expect(services.redis.keys.size).toBe(0);
+    slow.mockRestore();
   });
 });
 

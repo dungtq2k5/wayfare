@@ -47,6 +47,9 @@ async function bootstrap(): Promise<void> {
   shutdown.add(shutdownTracing); // registered first, so it runs last and flushes every span
   const metrics = await startMetricsServer(config.get('METRICS_PORT', { infer: true }));
   shutdown.add(() => new Promise<void>((resolve) => metrics.close(() => resolve())));
+  // Initialised first — the database connected, the schema checked, each peer client ready — so
+  // gRPC never answers before the service could serve it (`listen()` would init only after).
+  await app.init();
   await app.startAllMicroservices();
   await app.listen(config.get('OPS_PORT', { infer: true }));
   new Logger('Bootstrap').log(`catalog listening on gRPC ${grpcUrl}, ops ${await app.getUrl()}`);

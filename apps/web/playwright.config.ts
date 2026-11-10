@@ -59,19 +59,23 @@ export default defineConfig({
   ],
   webServer: {
     // `E2E_PRODUCTION=1`: a production build, whose service worker the offline flow needs (K11).
+    // The screens: a production build that keeps the development aids and has no worker
+    // (`NEXT_PUBLIC_DEV_TOOLS=1`, src/env.ts) — a development server holds every compiled route in
+    // memory, gigabytes over a run, and a machine that swaps misses the gateway's deadlines.
     command:
-      process.env.E2E_PRODUCTION === '1'
+      process.env.E2E_PRODUCTION === '1' || SCREENS_STACK
         ? `pnpm build && pnpm exec next start --port ${port}`
         : `pnpm exec next dev --port ${port}`,
     url: `${WEB}/settings`,
     reuseExistingServer: true,
-    timeout: process.env.E2E_PRODUCTION === '1' ? 600_000 : 120_000,
+    timeout: process.env.E2E_PRODUCTION === '1' || SCREENS_STACK ? 600_000 : 120_000,
     // The screens' own stack has its own web app: its own build folder and its gateway.
     env: SCREENS_STACK
       ? {
           NEXT_DIST_DIR: '.next-screens',
           NEXT_PUBLIC_API_ORIGIN: GATEWAY,
           GATEWAY_INTERNAL_URL: GATEWAY,
+          NEXT_PUBLIC_DEV_TOOLS: '1',
         }
       : {},
   },

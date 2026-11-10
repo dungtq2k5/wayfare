@@ -16,7 +16,7 @@ import {
   OWNERS,
   sentVenue,
 } from './owners';
-import { as } from './people';
+import { as, notificationsSettled } from './people';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
@@ -61,6 +61,9 @@ test.beforeAll(async () => {
   ids.ocNgoc = await liveVenue(ngoc, NGOC_VENUES.ocNgoc);
   await closed(OWNERS.ngoc, ids.ocNgoc);
   ids.che = await liveVenue(ngoc, NGOC_VENUES.che);
+  // Chè Ngọc going live notifies Ngọc by event, after its status: read only once every notification
+  // the setup caused has arrived, or one lands after and Z1b's Home lists it under *Needs you*.
+  await notificationsSettled(OWNERS.ngoc, 3);
   await ngoc.call('POST', '/notifications/read-all');
 });
 

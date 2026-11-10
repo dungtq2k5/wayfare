@@ -9,6 +9,7 @@ import {
   NARRATION_LOCALIZATION_READY,
   SynthesisJobStatus,
   SynthesisStage,
+  SynthesisTrigger,
   SynthesisTaskStatus,
   TranslationSource,
 } from '@wayfare/contracts';
@@ -52,7 +53,7 @@ const ACTIVATABLE_SELECT = {
   lang: true,
   sourceContentHash: true,
   attempts: true,
-  job: { select: { priority: true, status: true } },
+  job: { select: { priority: true, status: true, trigger: true } },
 } as const;
 
 /** A task as `activate` takes it. */
@@ -62,7 +63,7 @@ export type ActivatableTask = Prisma.SynthesisTaskGetPayload<{ select: typeof AC
 const RUN_SELECT = {
   ...ACTIVATABLE_SELECT,
   stage: true,
-  job: { select: { priority: true, status: true, includeAudio: true } },
+  job: { select: { priority: true, status: true, trigger: true, includeAudio: true } },
 } as const;
 
 type RunningTask = Prisma.SynthesisTaskGetPayload<{ select: typeof RUN_SELECT }>;
@@ -86,6 +87,17 @@ type NarrationTarget =
   LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM | LocalizationTargetType.TOUR;
 
 const LIVE_UNPAUSED = new Set<string>([SynthesisJobStatus.QUEUED, SynthesisJobStatus.RUNNING]);
+
+/**
+ * The triggers that carry a change to what a task reads — the human text, the dictionary. A task
+ * read both when it started, so such a task never ends with a started task's result: it follows,
+ * and runs again once that task ends (rdm-spec N-2).
+ */
+const CHANGE_TRIGGERS = new Set<string>([
+  SynthesisTrigger.HUMAN_EDIT,
+  SynthesisTrigger.HUMAN_REVERT,
+  SynthesisTrigger.DICTIONARY_CHANGED,
+]);
 
 /** `text` cut to `max` UTF-16 units, never inside a surrogate pair. */
 function clamp(text: string, max: number): string {
@@ -173,6 +185,7 @@ export class TasksService implements OnApplicationBootstrap {
         id: true,
         jobId: true,
         status: true,
+        stage: true,
         attempts: true,
         job: { select: { status: true } },
       },
@@ -201,9 +214,16 @@ export class TasksService implements OnApplicationBootstrap {
       fx.jobChanged(active.jobId);
       return;
     }
+    // A change following a task that has already started — it read the old text or dictionary —
+    // runs again once that task ends, instead of ending with its result.
+    const started = active.status !== QUEUED || active.stage !== TRANSLATE;
     await tx.synthesisTask.update({
       where: { id: task.id },
-      data: { status: SynthesisTaskStatus.COALESCED, coalescedIntoTaskId: active.id },
+      data: {
+        status: SynthesisTaskStatus.COALESCED,
+        coalescedIntoTaskId: active.id,
+        rerunAfterLeader: started && CHANGE_TRIGGERS.has(task.job.trigger),
+      },
       select: { id: true },
     });
   }
@@ -211,7 +231,11 @@ export class TasksService implements OnApplicationBootstrap {
   private async makeQueued(tx: NarrationTx, task: ActivatableTask, fx: AfterCommit): Promise<void> {
     await tx.synthesisTask.update({
       where: { id: task.id },
-      data: { status: SynthesisTaskStatus.QUEUED, coalescedIntoTaskId: null },
+      data: {
+        status: SynthesisTaskStatus.QUEUED,
+        coalescedIntoTaskId: null,
+        rerunAfterLeader: false,
+      },
       select: { id: true },
     });
     // A paused job's task holds its slot without a queue item; resume adds it.
@@ -239,9 +263,10 @@ export class TasksService implements OnApplicationBootstrap {
       select: { status: true, coalescedIntoTaskId: true },
     });
     const head = after.status === COALESCED ? after.coalescedIntoTaskId! : candidate.id;
+    // Re-homed onto a task that starts from the beginning, a change is in its run: no rerun.
     await tx.synthesisTask.updateMany({
       where: { coalescedIntoTaskId: fromTaskId, status: SynthesisTaskStatus.COALESCED },
-      data: { coalescedIntoTaskId: head },
+      data: { coalescedIntoTaskId: head, rerunAfterLeader: false },
     });
     return head;
   }
@@ -326,7 +351,11 @@ export class TasksService implements OnApplicationBootstrap {
       status: outcome,
     });
     const followers = await tx.synthesisTask.findMany({
-      where: { coalescedIntoTaskId: task.id, status: SynthesisTaskStatus.COALESCED },
+      where: {
+        coalescedIntoTaskId: task.id,
+        status: SynthesisTaskStatus.COALESCED,
+        rerunAfterLeader: false,
+      },
       select: { jobId: true },
     });
     const copied = {
@@ -338,10 +367,26 @@ export class TasksService implements OnApplicationBootstrap {
       lastError: data.lastError,
     };
     await tx.synthesisTask.updateMany({
-      where: { coalescedIntoTaskId: task.id, status: SynthesisTaskStatus.COALESCED },
+      where: {
+        coalescedIntoTaskId: task.id,
+        status: SynthesisTaskStatus.COALESCED,
+        rerunAfterLeader: false,
+      },
       data: { ...copied, status: outcome, finishedAt: now },
     });
     for (const follower of followers) fx.jobChanged(follower.jobId);
+    // The changes that came after this task had started run now, in order: the first becomes the
+    // key's active task and the others follow it (the key's lock is this transaction's already).
+    const reruns = await tx.synthesisTask.findMany({
+      where: {
+        coalescedIntoTaskId: task.id,
+        status: SynthesisTaskStatus.COALESCED,
+        rerunAfterLeader: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: ACTIVATABLE_SELECT,
+    });
+    for (const rerun of reruns) await this.activate(tx, rerun, fx);
     if (outcome === SynthesisTaskStatus.FAILED && typeof data.lastError === 'string') {
       await tx.synthesisJob.updateMany({
         where: { id: { in: [task.jobId, ...followers.map((follower) => follower.jobId)] } },

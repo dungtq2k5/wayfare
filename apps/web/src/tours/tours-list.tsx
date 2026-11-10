@@ -6,6 +6,7 @@ import type { TourSummaryResponseDto } from '@wayfare/api-client';
 import { Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useWeb } from '../i18n/provider';
+import { WebErrorState } from '../ui/error-state';
 import { finishedStories, tourProgress, tourStartedAt } from './progress';
 import { TourCard } from './tour-card';
 
@@ -74,7 +75,10 @@ export function ToursList({
       {bare ? null : (
         <p className="text-sm text-muted-foreground">{t('tours.inArea', { area: areaName })}</p>
       )}
-      {tours.isSuccess && rows.length === 0 ? (
+      {tours.isError ? (
+        <WebErrorState error={tours.error} onRetry={() => void tours.refetch()} />
+      ) : tours.isSuccess && rows.length === 0 ? (
+        // "No tours" only as the answer to a read that succeeded, never its absence.
         <p className="text-sm text-muted-foreground">{t('tours.none')}</p>
       ) : (
         <ul className="flex flex-col gap-4">

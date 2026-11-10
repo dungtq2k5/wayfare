@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { serverTranslator } from '../../../../i18n/server';
 import { MapPage } from '../../../../map/map-page';
-import { loadAreas } from '../../../../places/load';
+import { loadAreasOrThrow } from '../../../../places/load';
 
 type Props = {
   params: Promise<{ area: string }>;
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AreaMapPage({ params, searchParams }: Props) {
   const { area: code } = await params;
   const { place } = await searchParams;
-  const areas = await loadAreas();
+  const areas = await loadAreasOrThrow();
   const area = areas.find((candidate) => candidate.code === code);
   if (area === undefined) notFound();
   const host = (await headers()).get('host')?.split(':')[0] ?? 'wayfare.app';

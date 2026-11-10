@@ -1,4 +1,3 @@
-import { status } from '@grpc/grpc-js';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -11,7 +10,6 @@ import {
   OnDemandStatus,
   PlaceKind,
   PlaceStatus,
-  scopeCoversLanguage,
   SynthesisTaskStatus,
   SynthesisTrigger,
   zUuidV7,
@@ -19,24 +17,19 @@ import {
 import type { Language } from '@wayfare/contracts';
 import {
   audioStatusProto,
-  narrationLanguageScopeProto,
   onDemandStatusProto,
   placeKindProto,
   placeStatusProto,
 } from '@wayfare/contracts/grpc';
-import type { billingGrpc, catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
+import type { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
 import { servedAudio } from '@wayfare/core';
-import {
-  isGrpcServiceError,
-  parseRpcRequest,
-  requireDeviceContext,
-  rpcError,
-} from '@wayfare/nest-common';
+import { parseRpcRequest, requireDeviceContext, rpcError } from '@wayfare/nest-common';
 import type { RequestContext } from '@wayfare/nest-common';
 import { z } from 'zod';
 import type { Env } from '../../config/env.schema';
 import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
 import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
+import { SynthesisService } from '../synthesis/synthesis.service';
 import { LIVE_JOB_STATUSES } from '../jobs/domain/job-status';
 import { JobsService } from '../jobs/jobs.service';
 import { TasksService } from '../tasks/tasks.service';
@@ -88,6 +81,7 @@ export class NarrationService {
     private readonly jobs: JobsService,
     private readonly tasks: TasksService,
     config: ConfigService<Env, true>,
+    private readonly synthesis: SynthesisService,
   ) {
     this.mediaBase = config.get('GCS_PUBLIC_BASE_URL', { infer: true });
   }
@@ -134,6 +128,16 @@ export class NarrationService {
         ...this.answer(OnDemandStatus.READY),
         audio: { ...audio, url: audioUrl(this.mediaBase, audio.objectPath) },
       };
+    }
+
+    // No voice for the language and its text already current: a job could only end `NO_VOICE`
+    // again (api-endpoints-plan §4.1) — the phone speaks it with its own voice instead.
+    if (
+      row !== undefined &&
+      row.sourceContentHash === place.contentHash &&
+      this.synthesis.speakersFor(lang).length === 0
+    ) {
+      return this.answer(OnDemandStatus.UNAVAILABLE);
     }
 
     const jobId = await this.tasks.transact(async (tx, fx) => {
@@ -189,26 +193,9 @@ export class NarrationService {
    * answer refuses (`ENTITLEMENTS_UNAVAILABLE`) — a grant is never assumed.
    */
   private async requireVenueLanguage(ownerUserId: string | null, lang: Language): Promise<void> {
-    if (ownerUserId === null) throw rpcError('LANGUAGE_NOT_ENTITLED');
-    let answer: billingGrpc.GetEntitlementsResponse;
-    try {
-      answer = await this.billing.getEntitlements(ownerUserId);
-    } catch (error) {
-      if (isGrpcServiceError(error) && error.code === status.NOT_FOUND) {
-        throw rpcError('LANGUAGE_NOT_ENTITLED');
-      }
-      this.logger.warn(
-        { ownerUserId, kind: error instanceof Error ? error.name : 'unknown' },
-        'billing did not answer the entitlements',
-      );
-      throw rpcError('ENTITLEMENTS_UNAVAILABLE');
-    }
-    const scope = narrationLanguageScopeProto.fromProto(
-      answer.entitlements?.narrationLanguageScope,
-    );
-    if (scope === null || !scopeCoversLanguage(scope, lang)) {
-      throw rpcError('LANGUAGE_NOT_ENTITLED');
-    }
+    const answer = await this.billing.venueLanguage(ownerUserId, lang);
+    if (answer === 'UNAVAILABLE') throw rpcError('ENTITLEMENTS_UNAVAILABLE');
+    if (answer === 'NOT_ENTITLED') throw rpcError('LANGUAGE_NOT_ENTITLED');
   }
 
   private async activePlace(placeId: string): Promise<catalogGrpc.LocalizationSourcePlace> {

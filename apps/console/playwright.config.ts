@@ -11,7 +11,7 @@ import { CONSOLE, GATEWAY, SCREENS_STACK } from './e2e/support/stack';
  * - `screens` (e2e/screens/), every state of every frame: axe and the scroll check at three widths
  *   in light and dark, and a baseline named by its frame, drawn by Chromium in the pinned Playwright
  *   image (screens/browser.ts) so it is the same on every machine and in CI. It needs a fresh stack:
- *   `pnpm test:screens` (e2e/README.md).
+ *   `pnpm test:screens` (e2e/README.md), against the screens' build of the console.
  */
 const port = new URL(CONSOLE).port;
 
@@ -62,16 +62,23 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm exec next dev --port ${port}`,
+    // The screens' console is a production build that keeps the development aids (the fake Google
+    // hook, `/dev/patterns`, the fake Checkout: `NEXT_PUBLIC_DEV_TOOLS=1`, src/env.ts): a
+    // development server compiles each route on its first visit and holds every one in memory,
+    // gigabytes over a run, and a machine that swaps misses the gateway's deadlines.
+    command: SCREENS_STACK
+      ? `pnpm exec next build && pnpm exec next start --port ${port}`
+      : `pnpm exec next dev --port ${port}`,
     url: `${CONSOLE}/sign-in`,
     reuseExistingServer: true,
-    timeout: 120_000,
+    timeout: SCREENS_STACK ? 600_000 : 120_000,
     // The screens' own stack has its own console: its own build folder and its gateway.
     env: SCREENS_STACK
       ? {
           NEXT_DIST_DIR: '.next-screens',
           NEXT_PUBLIC_API_ORIGIN: GATEWAY,
           GATEWAY_INTERNAL_URL: GATEWAY,
+          NEXT_PUBLIC_DEV_TOOLS: '1',
         }
       : {},
   },

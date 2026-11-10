@@ -17,7 +17,7 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { track } from '../../src/analytics/analytics';
 import { databaseReady } from '../../src/data/boot';
 import { useLocalAreas } from '../../src/data/hooks';
@@ -40,6 +40,7 @@ import { useFinishedStore } from '../../src/tours/finished';
 import { startWalk } from '../../src/walk/start';
 import { BottomSheet } from '../../src/ui/bottom-sheet';
 import { Button } from '../../src/ui/button';
+import { InlineAlert } from '../../src/ui/inline-alert';
 import { InlineNote } from '../../src/ui/inline-note';
 import {
   LIST_END_PADDING,
@@ -48,6 +49,7 @@ import {
   TOUR_PROGRESS_WIDTH,
 } from '../../src/ui/layout';
 import { ProgressBar } from '../../src/ui/progress-bar';
+import { ScreenHeader } from '../../src/ui/screen-header';
 
 /**
  * A tour on Android (TM2, TM2b, TM4b, TM5, TM6): read from the phone — whole offline once synced —
@@ -79,6 +81,17 @@ export default function TourScreen() {
   }, [row]);
 
   if (tour.isPending) return <View className="flex-1 bg-background" />;
+  // A failed read of the phone's own copy isn't a tour gone (K1).
+  if (tour.isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        <ScreenHeader title="" type="back" />
+        <View className="px-4 pt-4">
+          <InlineAlert message={t('tour.loadFailed')} onRetry={() => void tour.refetch()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
   if (row === null || row.tour.liveCount < 2) {
     return <TourUnavailable tourId={id ?? ''} />;
   }

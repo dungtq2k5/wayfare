@@ -432,5 +432,10 @@
   "settings.analytics.off": "Off · nothing is counted",
   "settings.analytics.offToast": "Counting is off. What this browser had sent and Wayfare hadn't counted yet is deleted.",
   "consent.never.cookies": "No cookies for this, and nothing shared with anyone else",
-  "settings.privacy": "Privacy"
+  "settings.privacy": "Privacy",
+  "state.errorTitle": "Couldn't load this",
+  "state.requestId": "Request ID",
+  "action.copy": "Copy",
+  "action.copied": "Copied",
+  "map.loadFailed": "Couldn't load the places. Try again."
 }

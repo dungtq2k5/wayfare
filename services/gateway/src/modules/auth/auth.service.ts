@@ -191,8 +191,13 @@ export class AuthService {
   async googleConfirm(
     context: AccountContext,
     body: GoogleConfirmDto,
+    binding: string | null,
   ): Promise<{ confirmation: string }> {
-    return this.identity.auth.call('googleConfirm', { idToken: body.idToken }, context);
+    return this.identity.auth.call(
+      'googleConfirm',
+      { idToken: body.idToken, ...(binding === null ? {} : { binding }) },
+      context,
+    );
   }
 
   /** Links the ticket's Google account after the password sign-in (ADR 0064). */

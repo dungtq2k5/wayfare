@@ -2,7 +2,8 @@
 // accounts in each subscription state, an off-catalogue grant and unpinning (on An's account: Minh
 // stays plain Growth for round 36's owner frames), the admin's read-only
 // page, and the Stripe events with a replay's two outcomes. Accounts and events come from signed
-// webhooks (K15) on the seed's owners; a replay's polled reads and the apply's numbers are answered
+// webhooks (K15) — the past-due and ended accounts on owners this file makes, so no other file's
+// owners change; a replay's polled reads and the apply's numbers are answered
 // by `page.route` (the stack's subscribers already hold their plans' grants).
 import { expect, test } from '@playwright/test';
 import en from '@wayfare/i18n/locales/en/console.json';
@@ -22,12 +23,13 @@ import {
 import { reply } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
+import { freeOwner, OWNERS, subscribe } from './owners';
 import { as } from './people';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
 
-/** The seed's sample owners (the pilot's plans: 1 and 2 on Growth, 3 on Pro, 4 on Free). */
+/** The seed's sample owners (the pilot's plans: 1 and 2 on Growth, 3 on Pro, 4 on Free), read only. */
 const OWNER = (n: number) => `owner-${n}@wayfare.test`;
 /** The plans this spec makes: an assigned one nobody is on, and a retired one. */
 const HOI_AN = { code: 'HOI_AN_PARTNERS', name: 'Hội An partners' };
@@ -50,9 +52,9 @@ const EVENTS = {
   minhCreated: 'evt_screensMinhCreated',
   anCheckout: 'evt_screensAnCheckout',
   anCreated: 'evt_screensAnCreated',
-  pastDue: 'evt_screensOwner2PastDue',
-  invoiceFailed: 'evt_screensOwner2InvoiceFailed',
-  cancelled: 'evt_screensOwner3Deleted',
+  pastDue: 'evt_screensThuyPastDue',
+  invoiceFailed: 'evt_screensThuyInvoiceFailed',
+  cancelled: 'evt_screensPhucDeleted',
   stale: 'evt_screensOwner1Stale',
   live: 'evt_screensLiveOnTest',
   failed: 'evt_screensCheckoutFails',
@@ -110,10 +112,15 @@ test.beforeAll(async () => {
   ids.hoiAn = await planOf(mai, HOI_AN.code);
   await planOf(mai, RETIRED.code, true);
 
-  // W2: owner-1 as the seed left it, active on Growth. W2b: owner-2's card fails.
+  // W2: owner-1 as the seed left it, active on Growth. W2b and W2c on owners of this file's own,
+  // so the pilot owners other screens read keep the seed's plans.
+  await freeOwner(OWNERS.thuy, 'Lê Thanh Thủy');
+  await subscribe(mai, OWNERS.thuy, 'Thuy');
+  await freeOwner(OWNERS.phuc, 'Võ Hoàng Phúc');
+  await subscribe(mai, OWNERS.phuc, 'Phuc', { price: 'price_dev_pro_month' });
   ids.owner1 = (await accountOf(mai, OWNER(1))).id;
-  ids.owner2 = (await accountOf(mai, OWNER(2))).id;
-  ids.owner3 = (await accountOf(mai, OWNER(3))).id;
+  ids.thuy = (await accountOf(mai, OWNERS.thuy)).id;
+  ids.phuc = (await accountOf(mai, OWNERS.phuc)).id;
   ids.owner4 = (await accountOf(mai, OWNER(4))).id;
   ids.minh = (await accountOf(mai, PEOPLE.minh)).id;
   ids.an = (await accountOf(mai, PEOPLE.an)).id;
@@ -124,7 +131,7 @@ test.beforeAll(async () => {
       id: EVENTS.invoiceFailed,
       type: 'invoice.payment_failed',
       created: seconds(-4),
-      object: failedInvoice('cus_seed_owner-2', 'sub_seed_owner-2', seconds(3 * 86_400)),
+      object: failedInvoice('cus_screensThuy', 'sub_screensThuy', seconds(3 * 86_400)),
     },
     ['PROCESSED'],
   );
@@ -135,8 +142,8 @@ test.beforeAll(async () => {
       type: 'customer.subscription.updated',
       created: seconds(-3),
       object: subscription({
-        id: 'sub_seed_owner-2',
-        customer: 'cus_seed_owner-2',
+        id: 'sub_screensThuy',
+        customer: 'cus_screensThuy',
         status: 'past_due',
         price: 'price_dev_growth_month',
         periodEnd: seconds(month),
@@ -144,7 +151,7 @@ test.beforeAll(async () => {
     },
     ['PROCESSED'],
   );
-  // W2c: owner-3's Pro subscription ends.
+  // W2c: Phúc's Pro subscription ends.
   await sendOnce(
     mai,
     {
@@ -152,8 +159,8 @@ test.beforeAll(async () => {
       type: 'customer.subscription.deleted',
       created: seconds(-3),
       object: subscription({
-        id: 'sub_seed_owner-3',
-        customer: 'cus_seed_owner-3',
+        id: 'sub_screensPhuc',
+        customer: 'cus_screensPhuc',
         status: 'canceled',
         price: 'price_dev_pro_month',
         periodEnd: seconds(-60),
@@ -462,13 +469,13 @@ test('W2 an account (active)', async ({ page }) => {
 });
 
 test('W2b past due', async ({ page }) => {
-  await open(page, PEOPLE.mai, `/billing/accounts/${ids.owner2}`);
+  await open(page, PEOPLE.mai, `/billing/accounts/${ids.thuy}`);
   await expect(page.getByText('Stripe is retrying the card.', { exact: false })).toBeVisible();
   await look(page, 'w2b-past-due');
 });
 
 test('W2c cancelled', async ({ page }) => {
-  await open(page, PEOPLE.mai, `/billing/accounts/${ids.owner3}`);
+  await open(page, PEOPLE.mai, `/billing/accounts/${ids.phuc}`);
   await expect(page.getByText("Free's grants apply", { exact: false }).first()).toBeVisible();
   await expect(page.getByText('Nothing was deleted', { exact: false })).toBeVisible();
   await look(page, 'w2c-cancelled');

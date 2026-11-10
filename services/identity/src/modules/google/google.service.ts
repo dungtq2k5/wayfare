@@ -305,8 +305,11 @@ export class GoogleService {
   ): Promise<identityGrpc.GoogleConfirmResponse> {
     const account = requireAccountContext(context);
     const idToken = parseRpcRequest(zGoogleToken, request.idToken);
-    if (account.deviceId === null) throw rpcError('UNAUTHENTICATED');
-    const claims = await this.verify(idToken, deviceOwner(account.deviceId));
+    // The nonce's owner, as sign-in reads it: the app's device, or the console's binding cookie.
+    const { binding } = parseRpcRequest(nonceFields, { binding: request.binding });
+    const owner = nonceOwner(context, binding);
+    if (owner === null) throw rpcError('UNAUTHENTICATED');
+    const claims = await this.verify(idToken, owner);
     const link = await this.prisma.userIdentity.findUnique({
       where: { provider_subject: { provider: IdentityProvider.GOOGLE, subject: claims.sub } },
       select: { userId: true },

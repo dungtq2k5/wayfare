@@ -4,11 +4,25 @@ import type { AreaResponseDto, PlaceDetailResponseDto } from '@wayfare/api-clien
 import { cache } from 'react';
 import '../server/api';
 import { visitorOptions } from '../server/api';
+import { SERVER_CACHE_SECONDS } from '../env';
 
-/** The areas, as `/areas` serves them (a public, cached read). */
+/**
+ * The areas, as `/areas` serves them (a public, cached read) — **strict**: a failure throws, for
+ * the map's pages, which `error.tsx` then answers with *Try again*; never "this page doesn't
+ * exist" for an area list that couldn't be read.
+ */
+export const loadAreasOrThrow = cache(
+  async (): Promise<AreaResponseDto[]> =>
+    (await areasList({ next: { revalidate: SERVER_CACHE_SECONDS } })).data,
+);
+
+/**
+ * The areas, **lenient**: `[]` on a failure. For a sticker's Place and tour, where the areas only
+ * name the breadcrumb — a sticker page never loses its Place because the area list failed.
+ */
 export const loadAreas = cache(async (): Promise<AreaResponseDto[]> => {
   try {
-    return (await areasList({ next: { revalidate: 300 } })).data;
+    return await loadAreasOrThrow();
   } catch {
     return [];
   }

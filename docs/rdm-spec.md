@@ -1109,6 +1109,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **cache_key** | CHAR(64) | Nullable | Set once the final SSML is known (N-3). |
 | **audio_asset_id** | UUID | Nullable, FK ➔ audio_assets.id, SET NULL | — |
 | **coalesced_into_task_id** | UUID | Nullable, FK ➔ synthesis_tasks.id, SET NULL | Set when this task found an identical active task and attached to it instead of running. |
+| **rerun_after_leader** | BOOLEAN | NOT NULL, false | Set when a `HUMAN_EDIT`, `HUMAN_REVERT` or `DICTIONARY_CHANGED` task meets an active task for the same text that has already **started** — its result would predate the change this task carries (a correction, a pronunciation). The task waits, then runs on its own once the leader finishes, instead of ending with the leader's result. |
 | **last_error** | TEXT | Nullable | Redacted. |
 | **started_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **finished_at** | TIMESTAMPTZ(3) | Nullable | — |

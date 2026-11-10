@@ -40,6 +40,7 @@ export function useToggleFavourite() {
     saving: add.isPending || remove.isPending,
     offline,
     toggle: (placeId: string, saved: boolean) => {
+      // Fail-open by decision: offline the heart stays tappable and says it needs a connection.
       if (offline) {
         showToast(t('favorites.needsConnection'));
         return;

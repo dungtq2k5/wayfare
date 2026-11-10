@@ -142,6 +142,7 @@ Rules that make this real rather than cosmetic:
 2. A service throws `RpcException` with a gRPC status and an `ErrorCode` (via `rpcError()`); the gateway translates the status to HTTP and passes the code to the client.
 3. Responses are explicit DTOs built by mappers. Returning a Prisma row leaks database columns (including `passwordHash`) into JSON.
 4. Services are unit-tested with `PrismaService` mocked, and every query that matters — raw SQL, partial indexes, `CHECK`s, transactions — is proven by an integration test against the `_test` database.
+5. **A service initialises before it opens gRPC:** each `main.ts` awaits `app.init()` — the database connection, the schema check, every peer client — before `startAllMicroservices()`, so no call reaches a half-started service (a guard spec checks the five). **Peer channels are connected at start-up and kept connected** (`GrpcServiceCaller` reconnects an idle one), so a name lookup and a connection never spend a call's 2 s deadline. **Database pools keep their connections open** (`PG_POOL_OPTIONS`: no idle timeout, TCP keep-alive), so a burst never reopens connections inside a deadline.
 
 📚 Project convention: the `nestjs-best-practices` skill in this workspace covers module boundaries, DI patterns and security specifics — consult it while writing services.
 
@@ -781,6 +782,7 @@ Every Nest service loads these through `@nestjs/config` and validates them with 
 | `GCS_PUBLIC_BASE_URL` | catalog, narration | where clients fetch media — photos and narration audio alike — the CDN in front of the media bucket; the emulator locally |
 | `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
 | `OPS_PORT` | backend services | The HTTP port for `/health*` and `/version`. The gateway has none — its ops routes are on `PORT` |
+| `JOBS_ENABLED` | analytics | `true` by default; `false` turns its scheduled jobs off — set only on the screens stack, whose numbers are the seed's, so a nightly rollup can't move them mid-run |
 | `METRICS_PORT` | every service | The separate internal `/metrics` port |
 | `NODE_ENV` | every service | `development`, `test` or `production`; drives `isProduction` (production silence, Swagger off) |
 | `SENTRY_DSN` | all apps + services | separate DSN per surface |
