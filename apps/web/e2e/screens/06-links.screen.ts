@@ -1,5 +1,5 @@
 // The emailed links (round 37's WE1–WE1f).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { mailTo, resetRateLimits } from '../support/stack';
 import { account, local, PASSWORD, signIn, who } from './accounts';

@@ -5,7 +5,7 @@
 // webhooks (K15) — the past-due and ended accounts on owners this file makes, so no other file's
 // owners change; a replay's polled reads and the apply's numbers are answered
 // by `page.route` (the stack's subscribers already hold their plans' grants).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import en from '@wayfare/i18n/locales/en/console.json';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';

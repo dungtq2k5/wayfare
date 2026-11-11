@@ -22,11 +22,20 @@ export async function signIn(
 
 /** No axe violation on the page as it stands (K20). */
 export async function expectAccessible(page: Page): Promise<void> {
-  // A toast fading in or out would be measured half-transparent.
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll('[data-sonner-toast]')].every(
-      (toast) => getComputedStyle(toast).opacity === '1',
-    ),
+  // A toast fading in or out, or a popover or dialog opening, would be measured half-transparent:
+  // every animation that ends has ended (a spinner's never does).
+  await page.waitForFunction(
+    () =>
+      [...document.querySelectorAll('[data-sonner-toast]')].every(
+        (toast) => getComputedStyle(toast).opacity === '1',
+      ) &&
+      document
+        .getAnimations()
+        .every(
+          (animation) =>
+            animation.playState !== 'running' ||
+            animation.effect?.getTiming().iterations === Infinity,
+        ),
   );
   const { violations } = await new AxeBuilder({ page }).analyze();
   expect(

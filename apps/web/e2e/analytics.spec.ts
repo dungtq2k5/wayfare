@@ -2,7 +2,7 @@
 // events → Settings off → nothing more; No thanks sends nothing; closing twice stops the question;
 // a double click grants once; a stored old policy asks again; a sticker's `?via=qr` is counted,
 // drives the first story's trigger and leaves the address; the question on a tour's page too.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page, Request } from '@playwright/test';
 import { hear, keepAudio, storeAnalytics, storedAnalytics } from './support/analytics';
 import { admin } from './support/places';

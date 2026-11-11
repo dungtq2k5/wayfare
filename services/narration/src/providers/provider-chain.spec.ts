@@ -6,6 +6,7 @@ import {
   ProviderChain,
   ProviderTimeoutError,
   redact,
+  TextFailedError,
 } from './provider-chain';
 
 interface Named {
@@ -111,6 +112,18 @@ describe('ProviderChain', () => {
     ).rejects.toBeInstanceOf(InputRefusedError);
     expect(calls).toEqual(['a']);
     expect(providers.states()[0]!.consecutiveFailures).toBe(0);
+  });
+
+  it('fails one text over without opening the breaker for every other text', async () => {
+    const providers = chain(['a'], { now: 0 });
+    const call = (text: string) => () =>
+      text === 'marked'
+        ? Promise.reject(new TextFailedError('this text fails'))
+        : Promise.resolve(text);
+    for (let i = 0; i < 5; i++)
+      await expect(providers.run(all, call('marked'))).rejects.toThrow(/a: this text fails/);
+    expect(providers.states()[0]).toMatchObject({ breaker: 'closed', consecutiveFailures: 0 });
+    await expect(providers.run(all, call('other'))).resolves.toMatchObject({ result: 'other' });
   });
 
   it('reports every provider when all fail', async () => {

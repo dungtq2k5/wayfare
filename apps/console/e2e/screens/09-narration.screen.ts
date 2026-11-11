@@ -1,7 +1,7 @@
 // The narration jobs (round 34's J1–J5). The stack's fake narration finishes every job at once, so
 // a job running with a waiting and a failed task, a paused one and a provider not answering are
 // the browser's own re-reads answered (a real job's id, its tasks as the frame draws them).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { reply } from './answers';

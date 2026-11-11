@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { businessDaysBetween, PlaceStatus, zBusinessDay } from '@wayfare/contracts';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { rpcError } from '@wayfare/nest-common';
+import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** The longest range one QR read covers, in business days (the dashboards ask at most 93). */
@@ -65,23 +66,29 @@ export class InsightsService {
       request.radiusM > MAX_RADIUS_M
     )
       throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/points', code: 'invalid' }] });
-    const found = await Promise.all(
-      request.points.map(async (point, index) => {
-        const [nearest] = await this.prisma.$queryRaw<{ id: string; nameVi: string }[]>`
-          WITH origin AS (
-            SELECT ST_SetSRID(ST_MakePoint(${point.lng}, ${point.lat}), 4326)::geography AS point
-          )
-          SELECT p.id, p.name_vi AS "nameVi"
-          FROM places p, origin
-          WHERE p.status = ${PlaceStatus.ACTIVE} AND p.deleted_at IS NULL
-            AND ST_DWithin(p.location, origin.point, ${request.radiusM})
-          ORDER BY p.location <-> origin.point, p.id
-          LIMIT 1`;
-        return nearest === undefined
-          ? []
-          : [{ index, placeId: nearest.id, nameVi: nearest.nameVi }];
-      }),
+    if (request.points.length === 0) return { places: [] };
+    // One statement for every point: a read that queried each point on its own connection took
+    // ten of the pool's at once, starving the event consumers and the outbox relay under load.
+    const points = Prisma.join(
+      request.points.map(
+        (point, index) => Prisma.sql`(${index}::int, ${point.lng}::float8, ${point.lat}::float8)`,
+      ),
     );
-    return { places: found.flat() };
+    const rows = await this.prisma.$queryRaw<{ index: number; id: string; nameVi: string }[]>`
+      SELECT o.index, nearest.id, nearest."nameVi"
+      FROM (VALUES ${points}) AS o(index, lng, lat)
+      CROSS JOIN LATERAL (
+        SELECT p.id, p.name_vi AS "nameVi"
+        FROM places p
+        WHERE p.status = ${PlaceStatus.ACTIVE} AND p.deleted_at IS NULL
+          AND ST_DWithin(p.location, ST_SetSRID(ST_MakePoint(o.lng, o.lat), 4326)::geography,
+                         ${request.radiusM})
+        ORDER BY p.location <-> ST_SetSRID(ST_MakePoint(o.lng, o.lat), 4326)::geography, p.id
+        LIMIT 1
+      ) AS nearest
+      ORDER BY o.index`;
+    return {
+      places: rows.map((row) => ({ index: row.index, placeId: row.id, nameVi: row.nameVi })),
+    };
   }
 }

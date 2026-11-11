@@ -1,6 +1,6 @@
 // The place form (round 34's L4–L5b): create an Editorial Place, its errors, edit a Venue, and an
 // edit someone else changed first.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { refuse } from './answers';
 import { ocOanh } from './content';

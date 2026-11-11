@@ -1,9 +1,9 @@
 // §3.2: the basic flows, desktop, in English unless said — and every page through axe (K20).
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { accounts } from './support/accounts';
 import { expectAccessible, expectNoEnglish, signIn } from './support/console';
-import { Actor, mailTo, resetRateLimits } from './support/stack';
+import { Actor, API, mailTo, resetRateLimits } from './support/stack';
 
 test.beforeEach(() => resetRateLimits());
 
@@ -25,11 +25,13 @@ test('C1 → C6: the admin signs in to every staff section, in order', async ({ 
     /^Submissions/,
     /^Registrations/,
     'Places',
+    'Tours',
     'Categories',
     'Areas and map packs',
     'Narration jobs',
     'Pronunciation',
     'Translation corrections',
+    'Analytics',
     'Users and roles',
     'Recoveries',
     'Audit log',
@@ -93,6 +95,7 @@ test('C7, C11d: the owner’s business, and Google not linked', async ({ page })
   await expect(navLinks(page)).toHaveText([
     'Home',
     'My venues',
+    'My stats',
     'My submissions',
     'Plan and billing',
     'Notifications',
@@ -249,13 +252,15 @@ test('Vietnamese: the switch on C1, then every frame with no English left', asyn
     }
   } finally {
     // The admin's language back to English, for the other flows.
-    await page.evaluate(() =>
-      fetch('http://localhost:13000/api/v1/users/me', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'x-wayfare-client': 'console', 'content-type': 'application/json' },
-        body: JSON.stringify({ preferredLocale: 'en' }),
-      }),
+    await page.evaluate(
+      (api) =>
+        fetch(`${api}/users/me`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'x-wayfare-client': 'console', 'content-type': 'application/json' },
+          body: JSON.stringify({ preferredLocale: 'en' }),
+        }),
+      API,
     );
   }
 });

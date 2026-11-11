@@ -1,6 +1,6 @@
 'use client';
 
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { useEffect, useRef } from 'react';
@@ -14,9 +14,14 @@ export interface MapPoint {
 
 let registered = false;
 
-/** The `pmtiles://` protocol a map pack's style names its archive with (ADR 0023), once. */
+/**
+ * Before any map, once: MapLibre's worker, and the `pmtiles://` protocol a map pack's style names
+ * its archive with (ADR 0023). MapLibre looks for its worker beside its own file, which the bundler
+ * moves; this names the copy the bundler emits, from this origin (the pages' `worker-src 'self'`).
+ */
 export function registerPmtiles(): void {
   if (registered) return;
+  maplibregl.setWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).href);
   maplibregl.addProtocol('pmtiles', new Protocol().tile);
   registered = true;
 }
@@ -116,7 +121,7 @@ export function PlaceMap({
       const data = circlePolygon(center, radiusM);
       const source = instance.getSource<maplibregl.GeoJSONSource>(RADIUS_SOURCE);
       if (source !== undefined) {
-        source.setData(data);
+        void source.setData(data);
         return;
       }
       instance.addSource(RADIUS_SOURCE, { type: 'geojson', data });

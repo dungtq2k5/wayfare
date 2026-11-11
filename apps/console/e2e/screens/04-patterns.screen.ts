@@ -1,7 +1,7 @@
 // The page patterns (round 33's P1–P5) on the development page that shows them all
 // (`/dev/patterns`): each pattern is drawn as its own region, the dialogs and toasts as the
 // viewport they open over.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { look } from './look';

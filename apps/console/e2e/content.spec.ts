@@ -1,6 +1,6 @@
 // The content and review basic flows (§3.2), desktop, in English unless said — every page
 // through axe. Serial: the Place made in the first flow is the one the next ones use.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { accounts } from './support/accounts';
 import {
@@ -13,7 +13,7 @@ import {
 } from './support/content';
 import { expectAccessible, expectNoEnglish, signIn } from './support/console';
 import { apply, verifiedUser } from './support/people';
-import { resetRateLimits } from './support/stack';
+import { API, resetRateLimits } from './support/stack';
 
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 test.beforeEach(() => resetRateLimits());
@@ -246,13 +246,15 @@ test('7: Vietnamese throughout the content and review pages, each through axe', 
       await expectAccessible(page);
     }
   } finally {
-    await page.evaluate(() =>
-      fetch('http://localhost:13000/api/v1/users/me', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'x-wayfare-client': 'console', 'content-type': 'application/json' },
-        body: JSON.stringify({ preferredLocale: 'en' }),
-      }),
+    await page.evaluate(
+      (api) =>
+        fetch(`${api}/users/me`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'x-wayfare-client': 'console', 'content-type': 'application/json' },
+          body: JSON.stringify({ preferredLocale: 'en' }),
+        }),
+      API,
     );
   }
 });

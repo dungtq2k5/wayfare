@@ -78,6 +78,8 @@ export default defineConfig({
           NEXT_DIST_DIR: '.next-screens',
           NEXT_PUBLIC_API_ORIGIN: GATEWAY,
           GATEWAY_INTERNAL_URL: GATEWAY,
+          // The screens stack's bucket (its own port), for the pages' Content Security Policy.
+          MEDIA_ORIGINS: 'http://localhost:24443',
           NEXT_PUBLIC_DEV_TOOLS: '1',
         }
       : {},

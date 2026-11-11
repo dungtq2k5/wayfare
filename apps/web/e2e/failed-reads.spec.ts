@@ -2,7 +2,7 @@
 // `503`, shows its error and *Try again* — never the empty state it used to — and *Try again*
 // recovers once the gateway answers again. The map's areas are read on the server, beyond
 // `page.route`: their spec is `src/places/load.spec.ts`.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import en from '@wayfare/i18n/locales/en/web.json';
 import { API, resetRateLimits } from './support/stack';
@@ -73,6 +73,10 @@ test('F2 the map: a failed nearby read is said over the map', async ({ page }) =
   const up = await down(page, '/places/nearby');
   await page.goto('/map/hcmc-d1-core');
   await expect(page.getByText(en['map.loadFailed'])).toBeVisible();
+  // Drawn first, and its view's read answered: once loaded, the map reports the view it shows,
+  // and that read, sent after `up()`, would answer by itself.
+  await expect(page.getByText(en['map.drawing'])).toHaveCount(0, { timeout: 30_000 });
+  await page.waitForLoadState('networkidle');
   await up();
   await retry(page).click();
   await expect(page.getByText(en['map.loadFailed'])).toHaveCount(0);

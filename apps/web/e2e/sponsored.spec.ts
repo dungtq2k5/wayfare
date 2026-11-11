@@ -1,7 +1,7 @@
 // Round 38's web flows (§3.2 basic 1, §3.3 edge 3): a Venue its owner boosted is labelled
 // Sponsored — the marker and the row — with the note after the list; offline, the list the page
 // kept is shown by distance with nothing sponsored.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { resetRateLimits } from './support/stack';
 import { state } from './support/state';
 import { expectAccessible } from './support/web';

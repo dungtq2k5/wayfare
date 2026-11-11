@@ -1,7 +1,7 @@
 // Recoveries (round 35's V1–V4c): the list's statuses, opening a case from an owner's page and its
 // refusals, a case's timeline for an admin, a case the owner cancelled, approving and rejecting as
 // a super admin, and one's own case.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { PASSWORD } from '../support/people';
 import { Actor, resetRateLimits } from '../support/stack';

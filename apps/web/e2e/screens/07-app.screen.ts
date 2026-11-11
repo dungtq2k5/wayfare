@@ -1,5 +1,6 @@
 // The app, offline, legal and Settings (round 37's WO1–WO2b, WG1, WS1).
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { state } from '../support/state';
 import { look, tabsThrough } from './look';

@@ -1,7 +1,7 @@
 // The billing edge flows (round 35a's §3.3): the plan form's refusals, Stripe's refusals of a price,
 // apply with a pinned subscriber and with nothing to change, retiring, an account's grant refused,
 // a replay of an event no longer failed, and the narrow widths.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { accounts } from './support/accounts';
 import { expectNoSidewaysScroll, signIn } from './support/console';

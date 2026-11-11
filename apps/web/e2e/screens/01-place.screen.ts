@@ -1,5 +1,5 @@
 // A Place from a code (round 37's WQ1–WQ4, WQ6) and languages (WL1–WL2b).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { admin } from '../support/places';
 import { resetRateLimits } from '../support/stack';
 import { state } from '../support/state';

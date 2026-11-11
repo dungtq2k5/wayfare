@@ -1,7 +1,7 @@
 // Edge 7 (§3.3): the narration controls against failing fakes (K16). Narration must run with
 // `TTS_PROVIDER_ORDER=fake` and `FAKE_PROVIDER_FAILURES` set, so each part runs only when the
 // suite is told which: E2E_FAKE_FAILURES=speech, then E2E_FAKE_FAILURES=speech-unreachable.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { accounts } from './support/accounts';
 import { adminActor } from './support/content';

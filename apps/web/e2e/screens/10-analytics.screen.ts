@@ -1,6 +1,6 @@
 // Analytics on the web (round 40's AC3, AC4): the question on a Place's page after a story — a
 // sheet at 360, a centred dialog from 720 — and Settings' *Help improve Wayfare*, on.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { storeAnalytics } from '../support/analytics';
 import { resetRateLimits } from '../support/stack';
 import { state } from '../support/state';

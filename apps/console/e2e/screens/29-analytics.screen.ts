@@ -4,7 +4,7 @@
 // browser's clock is fixed the next morning, so the quick ranges land on the same days every run.
 // The runtime lane follows the server's real clock: AD4's chart and *Active now*, and the heatmap's
 // freshness, are masked.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { signIn } from '../support/console';
 import { Actor, envValue, resetRateLimits } from '../support/stack';

@@ -47,6 +47,8 @@ const SIGN_IN_BUCKETS = [
 export const RATE_LIMITS = {
   PUBLIC_READ: one('ip', 120, MINUTE_MS),
   DEVICE_READ: one('deviceId', 300, MINUTE_MS),
+  // An install's own writes (its settings, its policy acceptance, its favourites): a person's taps.
+  DEVICE_WRITE: one('deviceId', 60, MINUTE_MS),
   // A link's page (api-endpoints-plan §2.1): read by its device once the browser has one, and by
   // the visitor's network while the server renders it without one.
   LINK_READ: {

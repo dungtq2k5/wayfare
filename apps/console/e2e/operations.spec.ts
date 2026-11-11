@@ -1,13 +1,13 @@
 // The operations basic flows (round 35's §3.2), desktop, in English unless said — every page
 // through axe. Serial: the area flow 2 draws is the one flows 3 and 8 use.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { registerMapPack } from './screens/map-pack';
 import { accounts } from './support/accounts';
 import { adminActor } from './support/content';
 import { expectAccessible, expectNoEnglish, signIn } from './support/console';
 import { PASSWORD, staff, roleId, SUPER_ADMIN } from './support/people';
-import { Actor, mailTo, resetRateLimits } from './support/stack';
+import { Actor, API, mailTo, resetRateLimits } from './support/stack';
 
 test.describe.configure({ mode: 'serial', timeout: 180_000 });
 test.beforeEach(() => resetRateLimits());
@@ -416,13 +416,15 @@ test('12: Vietnamese throughout the operations pages, each through axe', async (
       });
     }
   } finally {
-    await page.evaluate(() =>
-      fetch('http://localhost:13000/api/v1/users/me', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'x-wayfare-client': 'console', 'content-type': 'application/json' },
-        body: JSON.stringify({ preferredLocale: 'en' }),
-      }),
+    await page.evaluate(
+      (api) =>
+        fetch(`${api}/users/me`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'x-wayfare-client': 'console', 'content-type': 'application/json' },
+          body: JSON.stringify({ preferredLocale: 'en' }),
+        }),
+      API,
     );
   }
 });

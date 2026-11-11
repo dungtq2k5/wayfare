@@ -1,6 +1,6 @@
 // The only file that reads process.env (conventions §12.4). NEXT_PUBLIC_ values are inlined into
 // the browser's bundle at build time, so they are public by construction; only the server reads
-// GATEWAY_INTERNAL_URL.
+// GATEWAY_INTERNAL_URL and MEDIA_ORIGINS.
 
 /**
  * Where the browser finds the gateway: empty in a deployed environment, where the console's own
@@ -10,6 +10,15 @@ export const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN ?? 'http://localhos
 
 /** The gateway's API base for the browser, up to `/api/v1`. */
 export const API_BASE_URL = `${API_ORIGIN}/api/v1`;
+
+/**
+ * The origins the browser fetches media from and uploads to — the bucket's public base and the
+ * signed upload URLs' origin — for the Content Security Policy, space-separated. Server-only and
+ * read at start, so a deployment changes it without a rebuild.
+ */
+export const MEDIA_ORIGINS = (process.env.MEDIA_ORIGINS ?? 'http://localhost:4443')
+  .split(/[\s,]+/)
+  .filter((origin) => origin !== '');
 
 /** Where the Next.js server finds the gateway — inside the network in a deployed environment. */
 export const GATEWAY_INTERNAL_URL = process.env.GATEWAY_INTERNAL_URL ?? 'http://localhost:13000';

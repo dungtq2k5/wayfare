@@ -1,7 +1,7 @@
 // Proposing a change (round 36's F1–F6b): round 34's form for an owner — a new venue, an edit with
 // a change already waiting, Ngọc's plan limits in the form, the upload rows, sent, and the refusals.
 // The upload in flight is held by `page.route` (the browser's own storage PUT).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { photoFile } from '../support/content';
 import { resetRateLimits } from '../support/stack';

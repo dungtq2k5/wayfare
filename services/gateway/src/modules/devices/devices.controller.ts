@@ -67,6 +67,7 @@ export class DevicesController {
 
   @Patch('me')
   @Auth('DEVICE')
+  @RateLimit('DEVICE_WRITE')
   @ApiOperation({
     summary: 'Update this install. A push token held by another install moves here.',
   })
@@ -83,6 +84,7 @@ export class DevicesController {
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Auth('DEVICE')
+  @RateLimit('DEVICE_WRITE')
   @ApiOperation({
     summary: 'Forget this install and revoke its sessions. The account is untouched.',
   })
@@ -93,6 +95,7 @@ export class DevicesController {
 
   @Post('me/legal-acceptances')
   @Auth('DEVICE')
+  @RateLimit('DEVICE_WRITE')
   @ApiOperation({ summary: "Record this install's acceptance of a policy version." })
   @ApiEnvelope(LegalAcceptanceResponseDto)
   @ApiErrors('DEVICE_REVOKED', 'LEGAL_VERSION_OUTDATED')

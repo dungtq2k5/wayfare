@@ -3,7 +3,7 @@
 // Place), a draft, one an admin deactivated, one taken down — and *Sài Gòn 1900*, live, which the
 // list and its page draw while its English is translated (the fake translates in seconds, so that
 // read is held at Processing).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { photoFile } from '../support/content';
 import { resetRateLimits } from '../support/stack';

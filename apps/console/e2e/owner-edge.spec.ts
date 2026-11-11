@@ -1,6 +1,6 @@
 // The owner portal's edge flows (round 36's §3.3), each on its own accounts, made through the API;
 // Stripe's side by signed webhooks (round 35a's helpers). Desktop unless said; refusals through axe.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import {
   adminActor,

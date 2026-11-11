@@ -2,7 +2,7 @@
 // Growth, owner-3 on Pro, owner-4 on Free, owner-2's little-data Venue — and the seed's admin on
 // *Insights → Analytics*. The analytics seed counted the four weeks to yesterday.
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { expectAccessible, expectNoSidewaysScroll, signIn } from './support/console';
 import { API, Actor, envValue, resetRateLimits } from './support/stack';
@@ -94,7 +94,30 @@ test('owner, Free: no number at all, not even a zero', async ({ page }) => {
   await expectAccessible(page);
 });
 
+/**
+ * The little-data Venue went live five days before the analytics seed's last day, which is fixed on
+ * the screens' stack and the seeding day's yesterday elsewhere: the browser's clock is set to the
+ * morning after that last day, so the quick 7-day range holds the day it went live on any stack.
+ */
+async function morningAfterSeed(page: Page): Promise<void> {
+  const owner = new Actor();
+  await owner.signIn('owner-2@wayfare.test', seedPassword());
+  const day = (offset: number) =>
+    new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  const { data } = await owner.call<{ data: { venue: { liveSince: string | null } } }>(
+    'GET',
+    `/owner/stats/places/${LITTLE_DATA_VENUE}?from=${day(-90)}&to=${day(-1)}`,
+  );
+  const live = data.venue.liveSince;
+  if (live === null) throw new Error('the little-data Venue is not live');
+  // Five days to the seed's last day, then 10:00 in Vietnam the next morning.
+  await page.clock.setFixedTime(
+    new Date(Date.parse(live.slice(0, 10)) + 6 * 86_400_000 + 3 * 3_600_000),
+  );
+}
+
 test('little data: counts, "—", why the chart is quiet, a real zero', async ({ page }) => {
+  await morningAfterSeed(page);
   await as(page, 'owner-2@wayfare.test');
   await page.goto(`/owner/stats/${LITTLE_DATA_VENUE}?range=7`);
   await expect(page.getByText('2 of 3')).toBeVisible();

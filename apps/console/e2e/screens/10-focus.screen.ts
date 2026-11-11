@@ -3,7 +3,7 @@
 // every signed-in page and are checked once (the shell); a page's own order starts from its title.
 // Where the build differs on purpose (no Owner filter on L1, no place search on J1),
 // the order is the build's, pending the designer's review.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { refuse, reply } from './answers';
 import { actor, findPlace } from './content';

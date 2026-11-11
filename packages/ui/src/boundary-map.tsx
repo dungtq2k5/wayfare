@@ -1,6 +1,6 @@
 'use client';
 
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
@@ -304,7 +304,7 @@ export function BoundaryMap({
 
   useEffect(() => {
     const source = map.current?.getSource<maplibregl.GeoJSONSource>(SOURCE);
-    source?.setData(features(state, overlays));
+    void source?.setData(features(state, overlays));
   }, [state, overlays]);
 
   useEffect(() => {

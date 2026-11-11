@@ -1,7 +1,7 @@
 // Tours on the web (round 39's TW1–TW3): the seed's *Danh thắng Quận 1* in District 1's list and
 // on its page; the same page after two of its stops were played to their end on this browser; and
 // a tour taken down (made and deleted here, with a fixed title), whose link answers TW3.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { admin } from '../support/places';
 import { resetRateLimits } from '../support/stack';

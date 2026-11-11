@@ -1,6 +1,14 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiEnvelope, ApiErrors, Auth, Ctx, NoStore, UsesUpstream } from '@wayfare/nest-common';
+import {
+  ApiEnvelope,
+  ApiErrors,
+  Auth,
+  Ctx,
+  NoStore,
+  UsesUpstream,
+  RateLimit,
+} from '@wayfare/nest-common';
 import type { Paged, RequestContext } from '@wayfare/nest-common';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { FavoriteResponseDto } from './dto/favorite-response.dto';
@@ -33,6 +41,7 @@ export class FavoritesController {
   @Put(':placeId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Auth('DEVICE')
+  @RateLimit('DEVICE_WRITE')
   @NoStore()
   @ApiOperation({ summary: 'Save a live Place. Saving it again changes nothing.' })
   @ApiEnvelope(null)
@@ -44,6 +53,7 @@ export class FavoritesController {
   @Delete(':placeId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Auth('DEVICE')
+  @RateLimit('DEVICE_WRITE')
   @NoStore()
   @ApiOperation({ summary: 'Remove a saved Place. Removing it again changes nothing.' })
   @ApiEnvelope(null)

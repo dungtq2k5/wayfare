@@ -79,7 +79,7 @@
     "@babel/plugin-transform-react-jsx": "^7.29.7",
     "@types/react": "~19.2.2",
     "babel-preset-expo": "~57.0.13",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "typescript": "~6.0.3"
   },
   "expo": {

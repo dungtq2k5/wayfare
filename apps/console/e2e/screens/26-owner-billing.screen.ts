@@ -3,7 +3,7 @@
 // 35a's W2e); Vy cancels, Lộc's plan ends; Minh's card fails. Subscriptions by signed webhooks
 // (K17); by `page.route` only the browser's own reads: the return's waiting reads (Y3, Y3d), the
 // portal held (Y4) and Stripe's refusals (Y7).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { accountOf, failedInvoice, seconds, subscription } from '../support/stripe';

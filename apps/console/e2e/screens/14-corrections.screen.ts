@@ -1,7 +1,7 @@
 // Translation corrections (round 35's T1–T4): the list across targets, the way in from a Place's
 // narration, a target's languages, the editor, the Vietnamese changing meanwhile, a superseded
 // correction reviewed, and reverting.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
 import { refuse } from './answers';

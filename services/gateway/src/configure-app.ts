@@ -55,6 +55,9 @@ export function configureApp(app: NestExpressApplication, config: GatewayConfig)
       APP_VERSION_HEADER,
       'Idempotency-Key',
     ],
+    // The wait a 429 or 503 asks for, readable by a client that reads headers (ours read the same
+    // wait from the body's `details.retryAfterSeconds`).
+    exposedHeaders: ['Retry-After'],
   });
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalInterceptors(

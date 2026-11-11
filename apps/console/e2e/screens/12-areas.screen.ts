@@ -1,6 +1,6 @@
 // Areas and map packs (round 35's A1–A6b): the list, an area's page with its packs, publishing, the
 // boundary editor drawing and pasting, and the refusals — overlap, Places left outside, live Places.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';

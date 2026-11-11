@@ -1,6 +1,6 @@
 'use client';
 
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { cn } from './cn';
@@ -123,7 +123,7 @@ export function HeatMap({
           paint: { 'line-color': color('--background'), 'line-width': 1 },
         });
         instance.setPaintProperty(`${SOURCE}-fill`, 'fill-opacity', 0.85);
-      } else source.setData(data);
+      } else void source.setData(data);
       fit.current = () => {
         if (cells.length > 0) {
           const box = new maplibregl.LngLatBounds();

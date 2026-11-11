@@ -22,10 +22,13 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const jar = await cookies();
+  const requestHeaders = await headers();
   const locale = signedOutLocale(
     jar.get(LANGUAGE_COOKIE)?.value,
-    (await headers()).get('accept-language'),
+    requestHeaders.get('accept-language'),
   );
+  // This request's nonce, from the proxy: the theme script is the page's one inline script.
+  const nonce = requestHeaders.get('x-nonce') ?? undefined;
   const theme = themeOf(jar.get(THEME_COOKIE)?.value);
   return (
     <html
@@ -35,7 +38,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: SYSTEM_THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: SYSTEM_THEME_SCRIPT }} />
       </head>
       <body>
         <Providers locale={locale} theme={theme}>

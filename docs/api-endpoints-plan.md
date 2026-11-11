@@ -126,7 +126,7 @@ Every id in this API is a **UUIDv7** ([ADR 0055](./decisions/0055-every-identifi
 
 ### 0.9 Rate limits
 
-Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, keyed as shown — each key of a class is its own bucket, with its own limit, and every bucket that applies must pass. **One script checks them together: if any bucket is full, nothing is counted**, so a refused request costs no bucket anything, and the `429`'s wait is the longest remaining window. Numbers are defaults in `RATE_LIMITS`.
+Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, keyed as shown — each key of a class is its own bucket, with its own limit, and every bucket that applies must pass. **One script checks them together: if any bucket is full, nothing is counted**, so a refused request costs no bucket anything, and the `429`'s wait is the longest remaining window. Numbers are defaults in `RATE_LIMITS`. **A `PUBLIC` or `DEVICE` write always declares its class** (`@RateLimit`), never the read default — a gateway spec reads every handler and fails one that doesn't; the token-link routes declare `PUBLIC_READ` on purpose (their tokens are high-entropy).
 
 - **The IP key:** an IPv4-mapped address (`::ffff:a.b.c.d`, as Node reports IPv4 on a dual-stack socket) is unwrapped and keyed whole; a real IPv6 address is keyed by its `/64`. A class's IP buckets share one counter; only the limit differs by caller.
 - **The device key** comes only from a device or account token the gateway verified — never from a header or a body. An invalid or expired token is no device. A revoked device's token still counts as a device until it expires (at most 15 minutes): revocation is checked by identity at refresh, and a lookup per request would cost more than it saves.
@@ -136,6 +136,7 @@ Enforced by the gateway's `RateLimitGuard` with an atomic Redis counter script, 
 | :---- | :---- | :---- |
 | Public reads | IP | 120 / min |
 | Device reads | deviceId | 300 / min |
+| Device writes (`DEVICE_WRITE`: `PATCH` and `DELETE /devices/me`, `POST /devices/me/legal-acceptances`, `PUT` and `DELETE /me/favorites/:placeId`) | deviceId | 60 / min |
 | Device registration | IP | 60 / hour — a busy hotel's installs on one Wi-Fi |
 | Sign-in (`AUTH_LOGIN`: `POST /auth/login`, `POST /auth/google`) — **failed attempts only**: `401 INVALID_CREDENTIALS` on login, `401 INVALID_GOOGLE_TOKEN` on Google (whose body has no email, so its email bucket does not apply) | normalized email · deviceId (with a verified device token) · IP | email 10 · device 10 · IP 10 without a device token (the console, scripts), 30 with one — per 15 min |
 | Google nonces (`AUTH_NONCE`: `POST /auth/google/nonce`) | deviceId (with a device token) · IP (without one, the console) | 30 / 15 min each |

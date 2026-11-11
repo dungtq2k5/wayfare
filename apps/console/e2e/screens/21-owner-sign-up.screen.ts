@@ -1,7 +1,7 @@
 // Becoming an owner, the account (round 36's N1–N3b): registering, a taken address, checking the
 // email, an unverified account at *Your registration*, and Google's link that needs the password —
 // a real link ticket from the stack's fake issuer for an address Google doesn't own.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { signIn } from '../support/console';
 import { PASSWORD } from '../support/people';

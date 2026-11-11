@@ -54,6 +54,8 @@ const PAGE_SIZE = 20;
 const RECENT_SHOWN = 3;
 /** The audit log's widest read, for finding who pinned an account. */
 const LOG_WINDOW_MS = 93 * 86_400_000;
+/** How many times the pin's audit row is read before the box says only "pinned". */
+const PIN_READS = 10;
 /** The statuses a subscription's own plan grants under (rdm-spec B-3). */
 const GRANTING = new Set(['ACTIVE', 'TRIALING', 'PAST_DUE']);
 
@@ -300,6 +302,10 @@ function AccountAlert({
       return rows.data[0] ?? null;
     },
     enabled: account.pinned && can('audit.read'),
+    // The audit row is written after the pin, through the outbox: read just after *Save and pin*,
+    // it may not be there yet. Read again a few times before settling on the plain line.
+    refetchInterval: (query) =>
+      query.state.data === null && query.state.dataUpdateCount < PIN_READS ? 2_000 : false,
   });
   const box = (tone: 'info' | 'warning', title: string, body: ReactNode) => (
     <div

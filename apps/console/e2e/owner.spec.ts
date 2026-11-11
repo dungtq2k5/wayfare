@@ -1,7 +1,7 @@
 // The owner portal's basic flows (round 36's §3.2), desktop, in English unless said — every page
 // through axe. Serial: the account flow 1 registers is the owner every later flow uses. The
 // admin's decisions go through the API; Stripe is the stack's fake (K16).
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { adminActor, photoFile } from './support/content';
 import { expectAccessible, expectNoEnglish, signIn } from './support/console';
@@ -101,6 +101,7 @@ test('2: an admin approves → the full navigation and the welcome (N8)', async 
   await expect(navigation(page)).toHaveText([
     'Home',
     'My venues',
+    'My stats',
     'My submissions',
     'Plan and billing',
     'Notifications',
@@ -231,6 +232,8 @@ test('6: on Free → choose Growth → the fake Checkout → Pay → confirming 
   await expectAccessible(page);
   await page.getByRole('button', { name: 'Subscribe to Growth' }).click();
   await page.waitForURL(/\/dev\/fake-stripe\/checkout\//);
+  // The fake Checkout draws in the browser only (`ssr: false`): the URL comes before its heading.
+  await expect(page.getByRole('heading', { name: 'Fake Stripe Checkout', level: 1 })).toBeVisible();
   await expectAccessible(page);
   await page.getByRole('button', { name: 'Pay' }).click();
   await page.waitForURL(/\/owner\/billing/);

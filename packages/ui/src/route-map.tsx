@@ -1,6 +1,6 @@
 'use client';
 
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { cn } from './cn';
@@ -165,7 +165,7 @@ export function RouteMap({
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': color('--primary'), 'line-width': 4 },
         });
-      } else source.setData(line);
+      } else void source.setData(line);
       fit.current = () => {
         if (stops.length > 1) {
           const bounds = new maplibregl.LngLatBounds();

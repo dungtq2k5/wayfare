@@ -1,6 +1,6 @@
 // The submissions (round 34's S1–S6): the queue, an update's diff, a conflict, the approve and
 // reject dialogs, a creation, and one someone else decided first.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';

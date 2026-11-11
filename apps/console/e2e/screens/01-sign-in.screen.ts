@@ -1,6 +1,6 @@
 // The signed-out pages (round 33's C1–C5), every state: the real gateway where it can give the
 // state, a faked answer to the browser's own call where it can't (a refusal, a link's result).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { PASSWORD } from '../support/people';
 import { clearMail, mailTo, resetRateLimits } from '../support/stack';

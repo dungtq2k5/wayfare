@@ -2,7 +2,7 @@
 // editor makes a tour of three stops, orders and removes one, requests activation and sees it go
 // live; a stop's Place switched off hides the tour from tourists; the link and the sticker; the
 // form's three refusals; the gate's line while the English is pending. Serial: one tour throughout.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { editorialPlace, untilStatus } from './screens/content';
 import { accounts } from './support/accounts';
@@ -194,7 +194,12 @@ test('basic 5: Vietnamese, and 360, 720 and 1440 with no sideways scroll', async
   await page.getByRole('button', { name: /^Account menu:/ }).click();
   await page.getByRole('menuitem', { name: 'Language' }).click();
   await page.getByRole('menuitemradio', { name: 'Tiếng Việt' }).click();
-  await page.goto('/tours');
-  await expect(page.getByRole('heading', { name: 'Tour', level: 1 })).toBeVisible();
-  await expectAccessible(page);
+  try {
+    await page.goto('/tours');
+    await expect(page.getByRole('heading', { name: 'Tour', level: 1 })).toBeVisible();
+    await expectAccessible(page);
+  } finally {
+    // The admin's language back to English, for the flows of the next run on this stack.
+    await (await adminActor()).call('PATCH', '/users/me', { preferredLocale: 'en' });
+  }
 });

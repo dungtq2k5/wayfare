@@ -1,6 +1,6 @@
 // The categories (round 35's G1–G3b): the list with a code no release has named yet, create and
 // edit in a dialog, a taken code, and deactivating with its Undo.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';

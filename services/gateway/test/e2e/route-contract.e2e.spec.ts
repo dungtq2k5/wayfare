@@ -1,8 +1,13 @@
-import { Controller, Get, Module } from '@nestjs/common';
+import { Controller, Get, Module, RequestMethod } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
-import { effectiveAuth, RouteContractCheck, RouteContractError } from '@wayfare/nest-common';
+import {
+  effectiveAuth,
+  RATE_LIMIT_CLASS,
+  RouteContractCheck,
+  RouteContractError,
+} from '@wayfare/nest-common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { IdentityServiceGrpcClient } from '../../src/modules/identity/identity-service-grpc.client';
@@ -40,7 +45,13 @@ function routes() {
       .map((name) => ({
         name: `${metatype.name}.${name}`,
         handler: prototype[name]!,
+        method: Reflect.getMetadata(METHOD_METADATA, prototype[name]!) as RequestMethod,
         auth: effectiveAuth(reflector, prototype[name]!, metatype as never),
+        // A `@RateLimit` of its own or its controller's; `undefined` when the rule's default applies.
+        explicitClass: reflector.getAllAndOverride<string | null | undefined>(RATE_LIMIT_CLASS, [
+          prototype[name]!,
+          metatype as never,
+        ]),
       }));
   });
 }
@@ -55,6 +66,27 @@ function headersOf(handler: object): Record<string, string> {
 }
 
 describe('route contract', () => {
+  it('never lets a public or device write ride its rule’s read class', () => {
+    // Architecture §10: every public write is rate-limited as a write. A `PUBLIC` or `DEVICE` route
+    // defaults to its read class, so a write there names its class itself (api-endpoints-plan §0.9).
+    const writes = new Set([
+      RequestMethod.POST,
+      RequestMethod.PUT,
+      RequestMethod.PATCH,
+      RequestMethod.DELETE,
+    ]);
+    const unnamed = routes()
+      .filter(
+        (route) =>
+          writes.has(route.method) &&
+          route.auth.kind === 'marker' &&
+          (route.auth.rule.marker === 'PUBLIC' || route.auth.rule.marker === 'DEVICE') &&
+          route.explicitClass === undefined,
+      )
+      .map((route) => route.name);
+    expect(unnamed).toEqual([]);
+  });
+
   it('holds for every gateway route', () => {
     const check = gateway.app.get(RouteContractCheck);
     expect(check.problems()).toEqual([]);

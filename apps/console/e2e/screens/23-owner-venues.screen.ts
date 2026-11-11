@@ -2,7 +2,7 @@
 // three this spec makes — each in its own state, and a new one waiting; Ngọc on Free at her plan's
 // limit, her first venue closed while a second went live. Z1 itself is drawn last, by spec 26, once
 // Minh's payment fails.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { actor, findPlace, ocOanh, untilStatus } from './content';

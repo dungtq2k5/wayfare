@@ -1,6 +1,6 @@
 // Submissions and notifications (round 36's Q1, Q2, Q2b, I1): Minh's every new venue and change,
 // Bánh xèo's change waiting, a change to Ốc Oanh not approved, and his bell's outcomes at page width.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { actor, findPlace, OC_OANH } from './content';

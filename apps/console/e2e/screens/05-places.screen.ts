@@ -1,6 +1,6 @@
 // The Places (round 34's L1–L3 and L6–L9): the list, an Editorial Place and a Venue, as an admin
 // and as a moderator, the narration, the editorial controls, the gate, and the actions' dialogs.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { refuse, reply, rewrite } from './answers';

@@ -1,5 +1,5 @@
 // The map (round 37's WM1–WM5b).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { state } from '../support/state';
 import { look } from './look';

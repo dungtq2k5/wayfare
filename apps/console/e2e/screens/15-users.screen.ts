@@ -1,7 +1,7 @@
 // Users (round 35's U1–U9): the list with deactivated and erased accounts, a user's page, a staff
 // account, roles of a user, lock, deactivate with live vouchers, restore, sign out everywhere, email
 // deliveries, and an account above the viewer's level.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { PASSWORD, verifiedUser } from '../support/people';
 import { resetRateLimits } from '../support/stack';

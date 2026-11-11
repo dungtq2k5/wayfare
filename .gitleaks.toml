@@ -1,0 +1,23 @@
+# Secret scanning (architecture §10: secrets are never in source). gitleaks' default rules and one
+# allowlist: files that are wholly test data, by path; and, anywhere else, the exact values known
+# not to be secrets — so a real key added to one of those other files is still caught.
+title = "wayfare"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test data by path; known non-secrets by exact value"
+paths = [
+  # Made-up keys, passwords and tokens for specs and flows.
+  '''^services/(billing|identity)/test/setup/[^/]+$''',
+  '''^services/[^/]+/src/config/env\.schema\.spec\.ts$''',
+  '''^services/billing/src/providers/payments/stripe\.payments-provider\.spec\.ts$''',
+  '''^apps/(console|web)/e2e/(support|screens)/[^/]+$''',
+  '''^apps/mobile/\.maestro/''',
+]
+regexTarget = "line"
+regexes = [
+  # SonarQube Cloud's project key: public, not a credential.
+  '''dungtq2k5_wayfare''',
+]

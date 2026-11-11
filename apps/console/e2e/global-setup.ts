@@ -13,7 +13,17 @@ import {
   SUPER_ADMIN,
   verifiedUser,
 } from './support/people';
-import { Actor, clearMail, envValue, identitySql, REPO, resetRateLimits } from './support/stack';
+import {
+  Actor,
+  clearMail,
+  envValue,
+  identitySql,
+  REPO,
+  resetRateLimits,
+  SCREENS_STACK,
+  untilSettled,
+} from './support/stack';
+import { publishMapPacks } from './screens/map-pack';
 import { screensSetup } from './screens/setup';
 import type { Accounts } from './support/accounts';
 import { ACCOUNTS_FILE } from './support/accounts';
@@ -23,22 +33,30 @@ export default async function globalSetup(): Promise<(() => void) | void> {
   const stamp = Date.now().toString(36);
   resetRateLimits();
   await clearMail();
-  execFileSync('pnpm', ['--silent', 'seed:dev'], { cwd: REPO, stdio: 'ignore' });
-  execFileSync('pnpm', ['--silent', '--filter', '@wayfare/identity', 'bootstrap:super-admin'], {
-    cwd: REPO,
-    stdio: 'ignore',
-    env: {
-      ...process.env,
-      BOOTSTRAP_SUPER_ADMIN_EMAIL: SUPER_ADMIN.email,
-      BOOTSTRAP_SUPER_ADMIN_PASSWORD: SUPER_ADMIN.password,
-    },
-  });
+  // The screens' stack is seeded, with the suite's super admin, by its `stack.sh`; the seeds here
+  // read each service's `.env`, which names the developer's stack.
+  if (!SCREENS_STACK) {
+    execFileSync('pnpm', ['--silent', 'seed:dev'], { cwd: REPO, stdio: 'ignore' });
+    execFileSync('pnpm', ['--silent', '--filter', '@wayfare/identity', 'bootstrap:super-admin'], {
+      cwd: REPO,
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        BOOTSTRAP_SUPER_ADMIN_EMAIL: SUPER_ADMIN.email,
+        BOOTSTRAP_SUPER_ADMIN_PASSWORD: SUPER_ADMIN.password,
+      },
+    });
+  }
 
   const seedPassword = envValue('identity', 'SEED_ACCOUNT_PASSWORD');
   const admin = new Actor();
   await admin.signIn('admin@wayfare.test', seedPassword);
   const superAdmin = new Actor();
   await superAdmin.signIn(SUPER_ADMIN.email, SUPER_ADMIN.password);
+  await untilSettled(superAdmin);
+  // A published map pack per area, as the tiles build leaves them: the boundary editor (A3) and
+  // the Places' maps draw on one. Areas that have one already keep it.
+  await publishMapPacks(superAdmin);
 
   // C7, C10: an owner with two notifications — a rejection, then the approval.
   const ownerEmail = `owner-${stamp}@example.com`;

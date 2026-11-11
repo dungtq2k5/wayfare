@@ -1,7 +1,7 @@
 // A failed read never looks like nothing (conventions §12.8): each owner and staff read the browser
 // makes, answered `503`, shows its error and *Try again* — never the empty state it used to — and
 // *Try again* recovers once the gateway answers again.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import en from '@wayfare/i18n/locales/en/console.json';
 import { signIn } from './support/console';

@@ -1,7 +1,7 @@
 // The billing basic flows (round 35a's §3.2), desktop, in English unless said — every page through
 // axe. Serial: the plan flow 1 makes is the one flow 2 applies, and flow 3's account is flow 5's.
 // Accounts and events come from signed webhooks (K15); prices from the stack's fake Stripe (K14).
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { accounts } from './support/accounts';
 import { expectAccessible, expectNoEnglish, signIn } from './support/console';
@@ -279,10 +279,14 @@ test('4: a failed event (the marker) → Replay… → Received, then Failed aga
   const dialog = page.getByRole('dialog', { name: 'Replay customer.subscription.updated?' });
   await expect(dialog.getByText(/skipped as stale/)).toBeVisible();
   await dialog.getByRole('button', { name: 'Replay' }).click();
-  await expect(page.getByRole('main').getByText('Received', { exact: true })).toBeVisible();
+  // The status badge (the facts have a *Received* row too): the replay answered, so the next wait
+  // sees the replay's own outcome, not the failure before it.
+  const status = page.getByRole('main').locator('[aria-live="polite"]');
+  await expect(status.getByText('Received', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Replay…' })).toHaveCount(0);
   await untilEvent(admin, id, ['FAILED'], 150_000);
   await page.reload();
-  await expect(page.getByRole('main').getByText('Failed', { exact: true })).toBeVisible();
+  await expect(status.getByText('Failed', { exact: true })).toBeVisible();
 });
 
 test('5: as an admin — Billing accounts and Stripe events, no Plans; an account without grant actions; the user page opens it (W1, W5, U2)', async ({

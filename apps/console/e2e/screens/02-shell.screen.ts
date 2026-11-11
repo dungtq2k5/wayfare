@@ -1,6 +1,6 @@
 // The shell and Home (round 33's C6–C11): each person's navigation, the drawer, the bell's panel,
 // the account menu and the account page.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { Actor, mailTo, resetRateLimits } from '../support/stack';
 import { apply, PASSWORD, verifiedUser } from '../support/people';
 import { refuse } from './answers';

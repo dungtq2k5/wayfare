@@ -3,7 +3,7 @@
 // Venue tells the owner; an admin reads it all; more than the slots is refused, before and after a
 // save; a downgrade to Free ends the boost without a second notice. Serial: one owner throughout.
 // Plans by signed webhooks (K11); the Places through the API.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { untilStatus } from './screens/content';
 import { adminActor, approvedVenue, venuePayload } from './support/content';

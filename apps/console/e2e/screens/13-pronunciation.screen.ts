@@ -1,6 +1,6 @@
 // Pronunciation (round 35's D1–D5): the dictionary for an admin and for a moderator, an entry, a
 // duplicate term, hearing it first — playing, no voice, too many — saved, and delete.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { actor } from './content';

@@ -1,6 +1,7 @@
 import { SpeechProvider } from './speech-provider';
 import type { VoiceSpec } from './speech-provider';
 import { FAKE_SPEECH_FAILS_MARKER, fakeFailureError } from '../fake-failure';
+import { TextFailedError } from '../provider-chain';
 import type { FakeFailure } from '../fake-failure';
 
 /** MPEG-2 Layer III, 32 kbps, 24 kHz, mono, no CRC: one 96-byte frame is 24 ms. */
@@ -41,7 +42,7 @@ export class FakeSpeechProvider extends SpeechProvider {
     const failure = fakeFailureError('speech', this.failing);
     if (failure !== null) return Promise.reject(failure);
     if (input.ssml.includes(FAKE_SPEECH_FAILS_MARKER)) {
-      return Promise.reject(new Error('fake speech failure (marked text)'));
+      return Promise.reject(new TextFailedError('fake speech failure (marked text)'));
     }
     if (Buffer.byteLength(input.ssml, 'utf8') > this.maxInputBytes) {
       return Promise.reject(new Error('input over the fake limit'));

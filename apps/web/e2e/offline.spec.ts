@@ -1,6 +1,6 @@
 // Round 37's edge flow 7 (§3.3, K11): what was opened stays. The service worker exists only in a
 // production build, so this flow runs with `E2E_PRODUCTION=1` (playwright.config.ts).
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { resetRateLimits } from './support/stack';
 import { state } from './support/state';
 

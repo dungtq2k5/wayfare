@@ -1,6 +1,6 @@
 // The audit log (round 35's H1–H3): the last 7 days, names resolved; more than 93 days refused in the
 // form; a row's details; and the log filtered from a record's history.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { rewrite } from './answers';
 import { actor } from './content';

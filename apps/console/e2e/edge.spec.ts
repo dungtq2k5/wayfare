@@ -1,5 +1,5 @@
 // §3.3: the edge flows.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { accounts } from './support/accounts';
 import { expectAccessible, expectNoSidewaysScroll, signIn } from './support/console';

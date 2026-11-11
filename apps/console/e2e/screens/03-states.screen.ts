@@ -1,6 +1,6 @@
 // The system states (round 33's C12–C17): loading, an action in flight, an error with its request
 // ID, no permission, not found, the API down, offline, a bounced address.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { hold, refuse } from './answers';
 import { look } from './look';

@@ -1,5 +1,5 @@
 // A code typed by hand (round 37's WQ5, WQ5b, WQ5c).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { state } from '../support/state';
 import { look, tabsThrough } from './look';

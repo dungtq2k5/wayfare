@@ -1,6 +1,6 @@
 // Round 37's basic flows (§3.2): a sticker to its story, the map, a story made on demand, saving
 // with an account, the account page, languages, and every page through axe at three widths.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { GATEWAY, mailTo, resetRateLimits } from './support/stack';
 import { state } from './support/state';

@@ -15,6 +15,17 @@ export class InputRefusedError extends Error {
   }
 }
 
+/**
+ * A provider failing one text, and only that one: the call fails over and the task counts the
+ * attempt as usual, but the provider's breaker doesn't — every other text keeps being spoken.
+ */
+export class TextFailedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'TextFailedError';
+  }
+}
+
 /** The network codes of a provider that could not be reached at all (rdm-spec N-2). */
 const UNREACHABLE_CODES = new Set([
   'EAI_AGAIN',
@@ -166,9 +177,13 @@ export class ProviderChain<P extends { readonly name: string }> {
         return { result, provider };
       } catch (error) {
         if (error instanceof InputRefusedError) throw error;
+        reasons.push(`${provider.name}: ${redact(error)}`);
+        if (error instanceof TextFailedError) {
+          unreachable.push(false);
+          continue;
+        }
         this.record(provider.name, false, isUnreachable(error));
         unreachable.push(isUnreachable(error));
-        reasons.push(`${provider.name}: ${redact(error)}`);
       }
     }
     throw new NoProviderAnsweredError(

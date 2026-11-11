@@ -1,6 +1,6 @@
 // The content and review edge flows (§3.3). Edge 7 (the narration faults) needs narration
 // restarted with its fake providers failing, so it lives in narration-faults.spec.ts.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { accounts } from './support/accounts';
 import {

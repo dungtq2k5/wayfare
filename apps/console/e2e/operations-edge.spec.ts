@@ -1,6 +1,6 @@
 // The operations edge flows (round 35's §3.3): refusals said where the frames say them, the API's
 // answers the stack can't reach given in the browser (K28), and the narrow widths.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { refuse } from './screens/answers';
 import { accounts } from './support/accounts';

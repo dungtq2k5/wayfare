@@ -1,6 +1,6 @@
 // The registrations (round 34's R1–R4b): the queue, an application, the reveal and what it shows,
 // a redacted one, the approve dialog, and one's own application.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { apply } from '../support/people';
 import { identitySql, resetRateLimits } from '../support/stack';

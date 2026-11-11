@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import { FONT_VARIABLES } from '../fonts';
 import { messagesFor, requestLanguage, serverTranslator } from '../i18n/server';
@@ -28,6 +28,8 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const jar = await cookies();
+  // This request's nonce, from the proxy: the theme script is the page's one inline script.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   const { lang, unsupported } = await requestLanguage();
   const messages = await messagesFor(lang);
   const { t } = await serverTranslator();
@@ -40,7 +42,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: SYSTEM_THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: SYSTEM_THEME_SCRIPT }} />
       </head>
       <body className="flex min-h-dvh flex-col">
         <Providers locale={lang} messages={messages} theme={theme}>

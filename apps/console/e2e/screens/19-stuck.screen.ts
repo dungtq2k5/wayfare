@@ -1,7 +1,7 @@
 // The stuck-Places check (round 35's X1–X2), last of the specs (K29): a Place whose narration fails
 // on purpose — the fake speech provider fails a text holding its marker — stays Processing past the
 // stack's threshold, so Home names it, the Places list filters on it, and its page says so.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
 import { actor, findPlace, untilNarrationIdle } from './content';

@@ -1,5 +1,5 @@
 // The player (round 37's WN1–WN4b). WN5 has no state of its own to draw.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { state } from '../support/state';

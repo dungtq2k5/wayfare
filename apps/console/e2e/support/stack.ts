@@ -16,6 +16,9 @@ export const GATEWAY =
 export const API = `${GATEWAY}/api/v1`;
 export const MAILPIT =
   process.env.E2E_MAILPIT ?? `http://localhost:${SCREENS_STACK ? 28025 : 8025}`;
+/** NATS's monitoring endpoint, as the stack publishes it. */
+const NATS_MONITOR =
+  process.env.E2E_NATS_MONITOR ?? `http://localhost:${SCREENS_STACK ? 28222 : 18222}`;
 /** The stack's containers are named `<prefix>-redis`, `<prefix>-identity-db`, … */
 const CONTAINERS = SCREENS_STACK ? 'wayfare-screens' : 'wayfare';
 
@@ -153,4 +156,40 @@ export function identitySql(sql: string): string {
       encoding: 'utf8',
     },
   ).trim();
+}
+
+/**
+ * Waits until the stack has absorbed what the seeds started: narration has no job queued or
+ * running, and no event waits for any service's consumer. A fresh stack keeps catalog busy with the
+ * seed's narration for a while after `seed:dev` returns, and its reads miss their deadlines until
+ * it is done.
+ */
+export async function untilSettled(admin: Actor, timeoutMs = 15 * 60_000): Promise<void> {
+  const jobs = async (status: string) =>
+    (
+      await admin.call<{ meta: { total: number } }>(
+        'GET',
+        `/admin/narration/jobs?status=${status}&pageSize=1`,
+      )
+    ).meta.total;
+  const waiting = async () => {
+    const response = await fetch(`${NATS_MONITOR}/jsz?consumers=true`);
+    const { account_details: accounts = [] } = (await response.json()) as {
+      account_details?: {
+        stream_detail?: { consumer_detail?: { num_pending: number }[] }[];
+      }[];
+    };
+    return accounts
+      .flatMap((account) => account.stream_detail ?? [])
+      .flatMap((stream) => stream.consumer_detail ?? [])
+      .reduce((sum, consumer) => sum + consumer.num_pending, 0);
+  };
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const busy = (await jobs('QUEUED')) + (await jobs('RUNNING')) + (await waiting());
+    if (busy === 0) return;
+    if (Date.now() > deadline)
+      throw new Error(`the stack is still busy (${busy}) after ${timeoutMs} ms`);
+    await new Promise((done) => setTimeout(done, 2_000));
+  }
 }

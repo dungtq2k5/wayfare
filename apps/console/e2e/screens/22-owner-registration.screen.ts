@@ -1,7 +1,7 @@
 // Becoming an owner, the application (round 36's N4–N8): Trần Bảo Ngọc applies, is refused on two
 // fields, sends it and is approved onto Free; Hải's application waits (round 34's R1), Trang's was not
 // approved, Tuấn withdrew his. The admin's decisions through round 34's routes.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { signIn } from '../support/console';
 import { PASSWORD } from '../support/people';

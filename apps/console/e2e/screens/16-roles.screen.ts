@@ -1,6 +1,6 @@
 // Roles (round 35's O1–O4b): the roles, a system role and a custom one, the role editor with the
 // codes its viewer lacks, a taken name, too many holders, and deleting — held and not.
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { customRole } from '../support/people';
 import { resetRateLimits } from '../support/stack';

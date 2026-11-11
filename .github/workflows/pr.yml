@@ -4,13 +4,33 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Run by hand for the secrets job's full-history scan.
+  workflow_dispatch:
 
 concurrency:
   group: pr-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # gitleaks (.gitleaks.toml): on a pull request, its commits; on a push, the pushed ones; run by
+  # hand, the whole history. A real secret found is rotated, not just deleted.
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # v3.0.0, pinned to its commit.
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_VERSION: 8.24.3
+
   verify:
+    # The full-history scan alone when run by hand.
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -35,6 +55,10 @@ jobs:
 
       # strictDepBuilds: an unlisted dependency build script fails here.
       - run: pnpm install --frozen-lockfile
+
+      # A known hole in a shipped package fails the pull request; accepted advisories are listed,
+      # each with its reason, under auditConfig in pnpm-workspace.yaml.
+      - run: pnpm audit --prod --audit-level=high
 
       # The .env.example files are complete and hold no secrets.
       - name: Use the example environment

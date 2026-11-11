@@ -13,7 +13,7 @@ import {
   addRole,
   signsIn,
 } from '../support/people';
-import { Actor, clearMail, identitySql, resetRateLimits } from '../support/stack';
+import { Actor, clearMail, identitySql, resetRateLimits, untilSettled } from '../support/stack';
 import { startBrowserServer, stopBrowserServer } from './browser';
 import { publishMapPacks } from './map-pack';
 
@@ -51,25 +51,6 @@ const HA_ROLE = {
   more: ['user.role.assign', 'role.create', 'role.update'],
 };
 
-/**
- * Waits for narration to finish the seed's Places: a fresh stack is busy with them for minutes,
- * and its answers come slowly until it is done.
- */
-async function narrationIdle(admin: Actor): Promise<void> {
-  const busy = async (status: string) =>
-    (
-      await admin.call<{ meta: { total: number } }>(
-        'GET',
-        `/admin/narration/jobs?status=${status}&pageSize=1`,
-      )
-    ).meta.total;
-  const deadline = Date.now() + 15 * 60_000;
-  while ((await busy('QUEUED')) + (await busy('RUNNING')) > 0) {
-    if (Date.now() > deadline) throw new Error('narration is still busy after 15 minutes');
-    await new Promise((done) => setTimeout(done, 5_000));
-  }
-}
-
 async function named(actor: Actor, fullName: string): Promise<void> {
   await actor.call('PATCH', '/users/me', { fullName });
 }
@@ -86,7 +67,7 @@ export async function screensSetup(): Promise<() => void> {
   await clearMail();
   const superAdmin = new Actor();
   await superAdmin.signIn(SUPER_ADMIN.email, SUPER_ADMIN.password);
-  await narrationIdle(superAdmin);
+  await untilSettled(superAdmin);
   const exists = async (email: string) =>
     (
       await superAdmin.call<{ data: unknown[] }>(

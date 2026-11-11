@@ -1,7 +1,7 @@
 // Tours on the web (round 39's §3.2 item 4, §3.3 edge 3): the area's *Tours* → a tour's page →
 // two stops played to their end → a reload keeps "2 of 6 played here"; a taken-down tour's link
 // answers TW3; every page through axe, at three widths. The seeded *Danh thắng Quận 1* is the tour.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { admin } from './support/places';
 import { resetRateLimits } from './support/stack';

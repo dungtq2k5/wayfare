@@ -1,7 +1,8 @@
 // Round 37's edge flows (§3.3): a Place not in the tourist's language and one no longer listed;
 // codes typed wrong; location refused; reading live and the browser's voice; switching language
 // while a story plays; the emailed links; Android and iPhone; and no sideways scroll.
-import { devices, expect, test } from '@playwright/test';
+import { devices } from '@playwright/test';
+import { expect, test } from './support/test';
 import type { Page } from '@playwright/test';
 import { API, mailTo, resetRateLimits } from './support/stack';
 import { state } from './support/state';

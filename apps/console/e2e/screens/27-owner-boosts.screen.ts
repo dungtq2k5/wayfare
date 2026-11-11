@@ -2,7 +2,7 @@
 // 36's failed payment, his boosts set through `PUT /owner/boosts`, a boost ended by closing its
 // Venue, then Pro, then a downgrade to Free — subscriptions by signed webhooks (K11). Ngọc stays on
 // Free (BO3). The admin reads Minh's account (Mai Anh) and Ốc Oanh's page and list (Lan).
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { accountOf, seconds, subscription } from '../support/stripe';
