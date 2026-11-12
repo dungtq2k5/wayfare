@@ -14,7 +14,7 @@ let base = 0;
 export function startSimulation(): void {
   cursor = 0;
   base = Date.now();
-  useWalkStore.setState({ simulated: true, fix: null, retry: [] });
+  useWalkStore.setState({ simulated: true, fix: null, retry: [], reconciledAt: undefined });
   // A walk already on (started for real, permissions and all) carries on, fed by the simulation.
   dispatch({ type: 'begin', areaId: null });
   dispatch({ type: 'ready', background: true });

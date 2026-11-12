@@ -25,6 +25,8 @@ interface WalkState {
   motion: MotionState;
   /** Places the player refused, retried by `reconcile`. */
   retry: readonly string[];
+  /** When `reconcile` last ran for a confirmed Place still waiting (fix time). */
+  reconciledAt: number | undefined;
   weak: boolean;
   noPosition: boolean;
   locationOff: boolean;
@@ -47,6 +49,7 @@ export const useWalkStore = create<WalkState>(() => ({
   intervalMs: 5_000,
   motion: initialMotion,
   retry: [],
+  reconciledAt: undefined,
   weak: false,
   noPosition: false,
   locationOff: false,

@@ -81,6 +81,11 @@ export const NARRATION_LOCALIZATION_READY = defineEvent({
     translationSource: z.enum(TranslationSource),
     text: z.union(Object.values(LOCALIZED_TEXT)),
     audio: zNarrationAudio.optional(),
+    /**
+     * The language has no pinned voice, so this text is all its narration will ever be — read by
+     * the phone's own voice. Set only for a Place, never with `audio`.
+     */
+    noVoice: z.literal(true).optional(),
   }).superRefine((payload, ctx) => {
     // `text` must be the shape of its own target type, not merely one of the four.
     if (!LOCALIZED_TEXT[payload.targetType].safeParse(payload.text).success) {
@@ -99,16 +104,24 @@ export const NARRATION_LOCALIZATION_READY = defineEvent({
         message: 'A voucher offer is never HUMAN',
       });
     }
-    // A human correction of a Place re-voices it: text and audio arrive together.
+    if (payload.noVoice === true && payload.targetType !== LocalizationTargetType.PLACE) {
+      ctx.addIssue({ code: 'custom', path: ['noVoice'], message: 'Only a PLACE has a voice' });
+    }
+    if (payload.noVoice === true && payload.audio !== undefined) {
+      ctx.addIssue({ code: 'custom', path: ['noVoice'], message: 'A voiceless text has no audio' });
+    }
+    // A human correction of a Place re-voices it: text and audio arrive together — unless its
+    // language has no voice, where the text is what the phone's own voice reads.
     if (
       payload.targetType === LocalizationTargetType.PLACE &&
       payload.translationSource === TranslationSource.HUMAN &&
-      payload.audio === undefined
+      payload.audio === undefined &&
+      payload.noVoice !== true
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['audio'],
-        message: 'A HUMAN Place localization carries its audio',
+        message: 'A HUMAN Place localization carries its audio, or says its language has no voice',
       });
     }
   }),

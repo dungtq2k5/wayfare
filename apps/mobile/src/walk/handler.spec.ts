@@ -139,4 +139,60 @@ describe('handleFix', () => {
     // At the 30 s cadence the gap is 60 s: the entry survives and confirms.
     expect(run(slow, 30_000).state.engine.lastFiredAt.a).toBe(30_000);
   });
+
+  describe('a Place confirmed beside another, or while it may not fire', () => {
+    /** A walk fed through `handleFix`, as the app feeds it: no reconcile of the test's own. */
+    function walk(places: readonly GeofencePlace[]) {
+      const calls: EngineCall[] = [];
+      const offered: { id: string; t: number }[] = [];
+      let now = 0;
+      const deps: HandlerDeps = {
+        places: () => places,
+        offer: (id) => {
+          offered.push({ id, t: now });
+          return 'accepted';
+        },
+        log: (call) => calls.push(call),
+      };
+      let state: HandlerState = { engine: initialGeofenceState(), retry: [] };
+      const feed = (t: number) => {
+        now = t;
+        state = handleFix({ fix: fixAt(t), now: t, intervalMs: 5_000, config, state, deps }).state;
+      };
+      return { feed, calls, offered };
+    }
+
+    it('tells both of two Places at one spot, one after the other, on later fixes', () => {
+      const w = walk([place('a', 10.77), { ...place('b', 10.77), narrationPriority: 40 }]);
+      for (let t = 0; t <= 60_000; t += 5_000) w.feed(t);
+      expect(w.offered.map((offer) => offer.id)).toEqual(['a', 'b']);
+      // `b` waits out the cooldown that `a` started, then plays while the tourist is still there.
+      expect(w.offered[1]!.t).toBeGreaterThan(w.offered[0]!.t);
+    });
+
+    it('tells a capped Venue once its window reopens, the tourist still inside', () => {
+      const venue = (id: string) => ({ ...place(id, 10.77), kind: PlaceKind.VENUE });
+      const w = walk([venue('v1'), { ...venue('v2'), narrationPriority: 40 }]);
+      for (let t = 0; t <= 700_000; t += 5_000) w.feed(t);
+      expect(w.offered.map((offer) => offer.id)).toEqual(['v1', 'v2']);
+      expect(w.offered[1]!.t - w.offered[0]!.t).toBeGreaterThanOrEqual(
+        config.commercialNarrationWindowMs,
+      );
+    });
+
+    it('reconciles at most once per interval of fix time while one waits, never when none does', () => {
+      const w = walk([place('a', 10.77), { ...place('b', 10.77), narrationPriority: 40 }]);
+      // Fixes every second: `b` waits behind `a`'s cooldown the whole time.
+      for (let t = 0; t <= 60_000; t += 1_000) w.feed(t);
+      const reconciles = w.calls
+        .filter((call) => call.kind === 'reconcile')
+        .map((call) => call.now);
+      const gaps = reconciles.slice(1).map((t, index) => t - reconciles[index]!);
+      expect(reconciles.length).toBeGreaterThan(0);
+      expect(gaps.every((gap) => gap >= config.safetyReconcileIntervalMs)).toBe(true);
+      const alone = walk([A]);
+      for (let t = 0; t <= 30_000; t += 5_000) alone.feed(t);
+      expect(alone.calls.some((call) => call.kind === 'reconcile')).toBe(false);
+    });
+  });
 });

@@ -9,6 +9,7 @@ import {
   PlaceKind,
   PlaceStatus,
   SynthesisStage,
+  TranslationSource,
 } from '@wayfare/contracts';
 import type { EventPayload } from '@wayfare/contracts';
 import { localizationReadyFixture } from '@wayfare/contracts/testing';
@@ -301,6 +302,37 @@ describe('narration.localization.failed', () => {
       audioSourceContentHash: null,
       audioObjectPath: null,
     });
+  });
+
+  it('keeps a staff correction in a voiceless language as the text, with no audio and no notice', async () => {
+    const venue = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.venueOnly.id,
+      kind: PlaceKind.VENUE,
+      status: PlaceStatus.ACTIVE,
+    });
+    await apply(
+      NARRATION_LOCALIZATION_READY.schema.parse({
+        ...localizationReadyFixture({
+          placeId: venue.id,
+          lang: 'fr',
+          sourceContentHash: venue.contentHash,
+          audioContentHash: null,
+          name: 'Marché Ben Thanh',
+        }),
+        translationSource: TranslationSource.HUMAN,
+        noVoice: true,
+      }),
+    );
+    await failed(venue.id, 'fr', true, 'NO_VOICE');
+    expect(await row(venue.id, 'fr')).toMatchObject({
+      name: 'Marché Ben Thanh',
+      translationSource: TranslationSource.HUMAN,
+      sourceContentHash: venue.contentHash,
+      audioStatus: 'FAILED',
+      audioObjectPath: null,
+    });
+    expect(await outboxPayloads(prisma, NOTIFICATION_CREATE.subject)).toEqual([]);
   });
 
   it("tells a Venue's owner once per text, never for NO_VOICE, and no one for an Editorial Place", async () => {

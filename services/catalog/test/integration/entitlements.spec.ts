@@ -105,6 +105,30 @@ describe('billing.entitlements.changed', () => {
     });
   });
 
+  it('never brings a Venue back into an inactive Area, and does once the Area returns', async () => {
+    const oldest = await venue(PlaceStatus.ACTIVE, 30, { autoNarration: true });
+    const newer = await venue(PlaceStatus.ACTIVE, 20, { autoNarration: true });
+    await insertLocalization(prisma, newer.id, 'en', newer.contentHash);
+    await places.applyEntitlements(changed(2, GROWTH, FREE_PLAN_GRANTS));
+    await places.applyEntitlements(changed(3, FREE_PLAN_GRANTS, GROWTH));
+    expect((await row(newer.id)).inactiveReason).toBe(PlaceInactiveReason.ENTITLEMENT_LIMIT);
+
+    // The wider plan arrives while the Area is inactive: the Venue waits, as an admin's
+    // activation would be refused (`AREA_INACTIVE`).
+    await prisma.area.update({ where: { id: tax.area.id }, data: { isActive: false } });
+    await places.applyEntitlements(changed(4, GROWTH, FREE_PLAN_GRANTS));
+    expect(await row(newer.id)).toMatchObject({
+      status: PlaceStatus.INACTIVE,
+      inactiveReason: PlaceInactiveReason.ENTITLEMENT_LIMIT,
+    });
+    expect((await row(oldest.id)).status).toBe(PlaceStatus.ACTIVE);
+
+    // The Area returns; the next change brings it back.
+    await prisma.area.update({ where: { id: tax.area.id }, data: { isActive: true } });
+    await places.applyEntitlements(changed(5, GROWTH, GROWTH));
+    expect(await row(newer.id)).toMatchObject({ status: PlaceStatus.ACTIVE, inactiveReason: null });
+  });
+
   it('unpublishes the newest live Venue beyond the limit, then brings it back', async () => {
     const oldest = await venue(PlaceStatus.ACTIVE, 30, { autoNarration: true });
     const newer = await venue(PlaceStatus.ACTIVE, 20, { autoNarration: true });

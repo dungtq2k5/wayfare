@@ -86,7 +86,12 @@ export function dispatch(event: WalkEvent): void {
 async function carryOut(effect: WalkEffect): Promise<void> {
   switch (effect) {
     case 'start-updates':
-      set({ motion: { anchor: null, cadence: 'moving' }, retry: [], noPosition: false });
+      set({
+        motion: { anchor: null, cadence: 'moving' },
+        retry: [],
+        reconciledAt: undefined,
+        noPosition: false,
+      });
       await startUpdates('moving');
       break;
     case 'stop-updates':
@@ -193,7 +198,11 @@ async function onFix(fix: LocationFix): Promise<void> {
     now: fix.t,
     intervalMs: current.intervalMs,
     config: geofenceConfig,
-    state: { engine: current.walk.engine, retry: current.retry },
+    state: {
+      engine: current.walk.engine,
+      retry: current.retry,
+      reconciledAt: current.reconciledAt,
+    },
     deps: {
       places: () => walkPlaces().geofence,
       offer: offerToPlayer,
@@ -203,7 +212,11 @@ async function onFix(fix: LocationFix): Promise<void> {
       },
     },
   });
-  set({ retry: result.state.retry, weak: result.weak });
+  set({
+    retry: result.state.retry,
+    reconciledAt: result.state.reconciledAt,
+    weak: result.weak,
+  });
   dispatch({ type: 'engine', engine: result.state.engine });
 
   if (!prefetching) {
@@ -361,6 +374,7 @@ export async function resetWalk(): Promise<void> {
     walk: initialWalk(),
     fix: null,
     retry: [],
+    reconciledAt: undefined,
     weak: false,
     noPosition: false,
     locationOff: false,

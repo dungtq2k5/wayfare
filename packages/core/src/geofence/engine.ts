@@ -32,6 +32,17 @@ const firedThisVisit = (state: GeofenceState, id: string, entry: GeofenceEntry):
   return firedAt !== undefined && firedAt >= entry.firstSeenAt;
 };
 
+/**
+ * Whether a confirmed Place is still waiting to fire this visit — confirmed beside the Place that
+ * won, or while it wasn't eligible. `evaluateGeofences` offers only newly confirmed Places, so only
+ * `reconcile` offers these again.
+ */
+export function hasWaitingConfirmed(state: GeofenceState): boolean {
+  return Object.entries(state.entries).some(
+    ([id, entry]) => entry.confirmed && !firedThisVisit(state, id, entry),
+  );
+}
+
 const MAX_VENUE_WINDOW_ENTRIES = 64;
 
 function fire(

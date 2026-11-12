@@ -1257,6 +1257,8 @@ export class PlacesService {
         deletedAt: null,
         status: PlaceStatus.INACTIVE,
         inactiveReason: PlaceInactiveReason.ENTITLEMENT_LIMIT,
+        // A Venue in an inactive Area stays as it is, and the room goes to one that can come back.
+        area: { isActive: true },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: room,
@@ -1306,6 +1308,9 @@ export class PlacesService {
     ) {
       return;
     }
+    // As every human path to live (`requireActiveArea`): never back into an inactive Area. It
+    // stays `INACTIVE (ENTITLEMENT_LIMIT)` until the Area returns and a later change re-evaluates it.
+    if (!(await this.areaIsActive(tx, current.areaId))) return;
     let status = transition(current.status, PlaceLifecycleEvent.ACTIVATION_REQUESTED);
     await tx.place.update({
       where: { id: current.id },
@@ -1860,12 +1865,17 @@ export class PlacesService {
    * is the way out. Holds the areas lock shared, so no deactivation interleaves.
    */
   private async requireActiveArea(tx: CatalogTx, areaId: string): Promise<void> {
+    if (!(await this.areaIsActive(tx, areaId))) throw rpcError('AREA_INACTIVE');
+  }
+
+  /** Whether the Area is active, holding the areas lock shared so no deactivation interleaves. */
+  private async areaIsActive(tx: CatalogTx, areaId: string): Promise<boolean> {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtext(${AREAS_LOCK_KEY}))`;
     const area = await tx.area.findUniqueOrThrow({
       where: { id: areaId },
       select: { isActive: true },
     });
-    if (!area.isActive) throw rpcError('AREA_INACTIVE');
+    return area.isActive;
   }
 
   /**

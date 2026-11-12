@@ -676,8 +676,9 @@ export class TasksService implements OnApplicationBootstrap {
         return;
       }
       if (speakers.length === 0) {
-        // No voice for this language: text-only, reported in the same transaction, text first.
-        if (text.source !== TranslationSource.HUMAN) await this.publishReady(tx, task, text, null);
+        // No voice for this language: text-only, reported in the same transaction, text first — a
+        // staff correction too, which says so (`noVoice`): its text is what the phone will read.
+        await this.publishReady(tx, task, text, null, { noVoice: true });
         await this.outbox.add(tx, NARRATION_LOCALIZATION_FAILED, {
           occurredAt: new Date().toISOString(),
           targetType: LocalizationTargetType.PLACE,
@@ -810,6 +811,7 @@ export class TasksService implements OnApplicationBootstrap {
     task: RunningTask,
     text: LocalizedText,
     audio: Audio | null,
+    options: { readonly noVoice?: true } = {},
   ): Promise<void> {
     const targetType = task.targetType as NarrationTarget;
     const input: EventInput<typeof NARRATION_LOCALIZATION_READY> = {
@@ -829,6 +831,7 @@ export class TasksService implements OnApplicationBootstrap {
                 ...(text.description === null ? {} : { description: text.description }),
               },
       ...(audio === null ? {} : { audio: { ...audio, sourceContentHash: task.sourceContentHash } }),
+      ...(options.noVoice === true ? { noVoice: true as const } : {}),
     };
     await this.outbox.add(tx, NARRATION_LOCALIZATION_READY, input);
   }

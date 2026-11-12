@@ -6,6 +6,7 @@ import {
   AuditAction,
   LOCALIZATION_OVERRIDE_RETENTION_DAYS,
   LocalizationTargetType,
+  NARRATION_LOCALIZATION_FAILED,
   NARRATION_LOCALIZATION_READY,
   OverrideStatus,
   SynthesisTrigger,
@@ -110,6 +111,23 @@ describe('a correction', () => {
       text: { name: 'Ben Thanh Market' },
     });
     expect(published.at(-1)!.audio).toBeDefined();
+  });
+
+  it('in a language with no voice, publishes its text as the narration, then NO_VOICE', async () => {
+    const target = place();
+    await put(target.id, target.hash, { lang: 'fr', name: 'Marché Ben Thanh' });
+    await services.queue.drain();
+    const published = (await readyEvents()).filter((event) => event.lang === 'fr');
+    expect(published.at(-1)).toMatchObject({
+      translationSource: TranslationSource.HUMAN,
+      text: { name: 'Marché Ben Thanh' },
+      noVoice: true,
+    });
+    expect(published.at(-1)!.audio).toBeUndefined();
+    const failed = (await outboxPayloads(prisma, NARRATION_LOCALIZATION_FAILED.subject)).filter(
+      (event) => event.lang === 'fr',
+    );
+    expect(failed.at(-1)).toMatchObject({ reason: 'NO_VOICE', final: true });
   });
 
   it("corrects a tour's text, published as text only (rdm-spec N-7)", async () => {

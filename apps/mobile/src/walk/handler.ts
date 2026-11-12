@@ -1,4 +1,4 @@
-import { distanceMeters, evaluateGeofences, reconcile } from '@wayfare/core';
+import { distanceMeters, evaluateGeofences, hasWaitingConfirmed, reconcile } from '@wayfare/core';
 import type {
   GeofenceConfig,
   GeofencePlace,
@@ -38,6 +38,8 @@ export interface HandlerState {
   readonly engine: GeofenceState;
   /** Confirmed Places the player refused, retried by `reconcile` on the following fixes. */
   readonly retry: readonly string[];
+  /** When `reconcile` last ran for a confirmed Place still waiting (fix time), to pace it. */
+  readonly reconciledAt?: number;
 }
 
 export interface FixResult {
@@ -52,7 +54,9 @@ export interface FixResult {
  * the state is kept **except** `lastFiredAt` and `venueDecisionsAt`, restored from before, so the
  * Place stays a confirmed, unfired entry and nothing else of the fix is lost; because
  * `evaluateGeofences` only offers newly confirmed Places, `reconcile` then runs on each following
- * fix until the offer is taken or the entry is gone (the tourist left). A fix worse than
+ * fix until the offer is taken or the entry is gone (the tourist left). A Place confirmed beside the
+ * one that won, or while it wasn't eligible, is offered by `reconcile` too, at most once per
+ * `safetyReconcileIntervalMs` of fix time while one waits. A fix worse than
  * `locateMaxAccuracyM` never reaches `evaluateGeofences`: it sets *weak GPS* and `reconcile` runs.
  */
 export function handleFix(input: {
@@ -103,7 +107,7 @@ export function handleFix(input: {
     }
     // A Place whose entry is gone (the tourist left) is not retried.
     retry = retry.filter((id) => engine.entries[id]?.confirmed === true);
-    state = { engine, retry };
+    state = { ...state, engine, retry };
     deps.log({
       type: 'engineCall',
       kind,
@@ -117,6 +121,20 @@ export function handleFix(input: {
   };
 
   const decided = run(weak ? 'reconcile' : 'evaluate');
-  if (decided === null && state.retry.length > 0) run('reconcile');
+  if (decided === null && !weak) {
+    if (state.retry.length > 0) {
+      run('reconcile');
+    } else if (
+      hasWaitingConfirmed(state.engine) &&
+      (state.reconciledAt === undefined ||
+        now - state.reconciledAt >= config.safetyReconcileIntervalMs)
+    ) {
+      // A Place confirmed beside the one that won, or while it wasn't eligible (its cooldown, the
+      // Venue window): nothing else offers it again. Paced by fix time — no timer runs in the
+      // background — and a walk with nothing waiting never pays for it.
+      run('reconcile');
+      state = { ...state, reconciledAt: now };
+    }
+  }
   return { state, weak };
 }

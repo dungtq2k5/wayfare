@@ -132,6 +132,23 @@ describe('events refinements', () => {
     ).toBe(true);
   });
 
+  it('narration.localization.ready lets a HUMAN place through without audio only when its language has no voice', () => {
+    const { audio, ...withoutAudio } = readyPayload;
+    expect(ready.schema.safeParse({ ...withoutAudio, noVoice: true }).success).toBe(true);
+    // Never with audio, and never on a target with no voice to lack.
+    expect(ready.schema.safeParse({ ...withoutAudio, audio, noVoice: true }).success).toBe(false);
+    const { audio: _audio, ...base } = readyPayload;
+    expect(
+      ready.schema.safeParse({
+        ...base,
+        targetType: LocalizationTargetType.TOUR,
+        targetId: FIXTURE_IDS.place,
+        text: { title: 'A tour', description: 'x' },
+        noVoice: true,
+      }).success,
+    ).toBe(false);
+  });
+
   it('narration.localization.ready refuses text shaped for another target', () => {
     const result = ready.schema.safeParse({
       ...readyPayload,
