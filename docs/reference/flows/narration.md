@@ -37,7 +37,8 @@ flowchart TD
 | Rule | How |
 | :---- | :---- |
 | **Newer text wins** | a new job supersedes every live job of the same target made from a **different** source hash; their tasks are cancelled |
-| **The same work runs once** | an advisory lock on `target:lang:hash` and a unique index (`synthesis_tasks_one_active`): a second identical request becomes a **follower** of the active task and ends with its result — twenty phones asking at once cost one synthesis |
+| **The same work runs once** | an advisory lock on `target:lang:hash` (`lockKey`) and a check for an active task with that key in `activate`: a second identical request becomes a **follower** of the active task and ends with its result — twenty phones asking at once cost one synthesis |
+| **…unless it carries a change the leader predates** | a `HUMAN_EDIT`, `HUMAN_REVERT` or `DICTIONARY_CHANGED` task meeting a leader that has already **started** doesn't follow it — its correction or pronunciation would be lost in the leader's result; it waits (`rerun_after_leader`) and runs on its own once the leader finishes |
 | **The tourist waiting goes first** | BullMQ priority by trigger (`SYNTHESIS_PRIORITY`): on-demand 1, hotset 2, staff edits 4, approval and content changes 5, prefetch 7, dictionary and entitlement fan-outs 9 |
 | **Three at a time** | `SYNTHESIS_CONCURRENCY` (1–3) per process |
 | **Text that changed under a task** | each task re-reads its source (`GetLocalizationSource`) before working and cancels itself if the Place was edited or deleted — never counted as a failure, never published |
@@ -85,7 +86,7 @@ A job's status is **recomputed from its tasks** in the same transaction as any t
 | **The speech providers are all unreachable** (timeouts, network) | **not counted**: the task waits 1, 5, then every 15 minutes, for up to 24 hours (`PROVIDER_OUTAGE_*`) before it is final |
 | Anything else — a provider that answered with an error, translation down, catalog's gRPC down, storage | counted: retried after 5 s and 30 s; final at the third |
 
-Every failed attempt publishes `localization.failed` (`final` on the last). **The provider chain fails over** on a timeout, a network error, a `5xx`, a `429` or an empty answer, and a provider that failed three times in a row rests for 60 s (per process; `GET /admin/narration/providers` shows it).
+Every failed attempt publishes `localization.failed` (`final` on the last). **The provider chain fails over** on a timeout, a network error, a `5xx`, a `429` or an empty answer, and a provider that failed three times in a row rests for 60 s (per process; `GET /admin/narration/providers` shows it). **A failure about the text itself** (`TextFailedError`) fails over without counting, so one text a provider refuses can't switch it off for every other.
 
 **A crashed worker** loses nothing: a running job's heartbeat (every 5 s) goes stale, and `synthesis-recover` (every 5 minutes and at boot) re-queues its tasks uncounted, re-adds tasks whose queue item was lost, and rehomes orphaned followers. Postgres, not Redis, is the record.
 
@@ -95,11 +96,11 @@ Every failed attempt publishes `localization.failed` (`final` on the last). **Th
 
 | Route | Does | Answers |
 | :---- | :---- | :---- |
-| `POST /narration/on-demand` | served audio for the current text → `READY` with its URL; else joins or creates an `ON_DEMAND` job (priority 1); a Venue's language must be in its owner's plan (`LANGUAGE_NOT_ENTITLED`; billing unreachable → `503`) | `200 READY`, `202 PENDING` with `retryAfterMs`, `200 UNAVAILABLE` for a language Wayfare doesn't serve |
-| `GET /narration/places/:id/status` | what is ready for a language, and whether it is stale | the phone polls it while it waits (at most 5 s, then falls to the stream) |
-| `GET /narration/tts/stream` (and its single-use, 60-second ticket for the web's `<audio>`) | the same text and SSML as a task would make; the cached file if there is one, else one synthesis per cache key (a Redis lock), the others waiting up to 25 s; the result stored and published, so the next tourist gets a file | the MP3, or `503` if the synthesis failed or took too long; `409` for no voice or a language outside the plan |
-| `POST /narration/hotset` | the 10 nearest live Places within 1.5 km (no boost); a `HOTSET` job for each without ready audio | `ready`, `pending`, `requiredReadyCount` — a language switch waits for 3 ready |
-| `POST /narration/prefetch` | up to 3 named Places; a `PREFETCH` job for each without ready audio | `queued`, `skipped` |
+| `POST /narration/on-demand` | served audio for the current text → `READY` with its URL; a language with no voice whose text is current → `UNAVAILABLE` (no job — the phone uses its own voice); else joins or creates an `ON_DEMAND` job (priority 1); a Venue's language must be in its owner's plan (`LANGUAGE_NOT_ENTITLED`; billing unreachable → `503`) | `200 READY`, `202 PENDING` with `retryAfterMs` (`ON_DEMAND_RETRY_AFTER_MS`, 1 s), `200 UNAVAILABLE` |
+| `GET /narration/places/:id/status` | what is ready for a language, and whether it is stale | the app polls it every `retryAfterMs` while it waits — at most 5 s, then it falls to the stream |
+| `GET /narration/tts/stream` (and its single-use, 60-second ticket for the web's `<audio>`) | the same text and SSML as a task would make; the cached file if there is one, else one synthesis per cache key (a Redis lock), the others waiting up to 25 s; past a 23 s budget the winner answers `503` while its synthesis **finishes in the background, the lock kept**, so the file is still stored and published and the next tourist gets it | the MP3, or `503` if the synthesis failed or ran past its budget; `409` for no voice or a language outside the plan |
+| `POST /narration/hotset` | the 10 nearest live Places within 1.5 km (no boost); a `HOTSET` job for each without ready audio — **a Venue whose owner's plan doesn't cover the language is skipped, and so is any Venue when billing can't answer** (a grant is never assumed); if catalog can't list the candidates, an empty answer and no job | `ready`, `pending`, `requiredReadyCount` — a language switch waits for 3 ready |
+| `POST /narration/prefetch` | up to 3 named Places; a `PREFETCH` job for each without ready audio, Venues checked against their owner's plan as for the hotset | `queued`, `skipped` |
 
 All of them share the `NARRATION_ON_DEMAND` rate limit (30 per 10 minutes per device). The phone's side of this — its ladder from file to on-demand to stream to its own voice — is in [the-walk](./the-walk.md).
 
@@ -107,7 +108,7 @@ All of them share the `NARRATION_ON_DEMAND` rate limit (30 per 10 minutes per de
 
 ## 6. Staff changing how things sound
 
-- **The pronunciation dictionary**: saving, editing or deleting an entry queues a **fan-out** (`narration-dictionary-fanout`) that pages catalog's `SearchLocalizedText` for every live localization containing the term as a whole word, and creates a `DICTIONARY_CHANGED` job per target — stopping at 2,000 targets with a metric and a log ("re-save the entry to continue"). Only texts whose SSML actually changed are re-synthesized. A failed page resumes from its cursor, four tries.
+- **The pronunciation dictionary**: saving, editing or deleting an entry queues a **fan-out** (`narration-dictionary-fanout`) that pages catalog's `SearchLocalizedText` for every live localization **made from the Place's current text** containing the term as a whole word (a stale one is left to the content job already in flight — matching it once superseded that job and lost the audio), and creates a `DICTIONARY_CHANGED` job per target — stopping at 2,000 targets with a metric and a log ("re-save the entry to continue"). Only texts whose SSML actually changed are re-synthesized. A failed page resumes from its cursor, four tries.
 - **Translation corrections**: a correction is checked against the current source hash (`LOCALIZATION_SOURCE_CHANGED` otherwise), replaces the active one, and creates a `HUMAN_EDIT` job; a revert creates `HUMAN_REVERT`.
 - **Job controls** (`/admin/narration/jobs`): pause, resume, cancel, retry the failed tasks (from the stage they reached; caches make earlier stages free), and a manual job — each audited, each refused from the wrong status (`SYNTHESIS_JOB_NOT_ACTIVE`).
 

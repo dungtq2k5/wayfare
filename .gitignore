@@ -22,6 +22,8 @@ docs/archive/
 cspell.json
 # The tile pipeline's downloads and builds (`pnpm tiles:build`).
 infra/tiles/.cache/
+# The load test's summaries (infra/load/README.md).
+infra/load/results/
 graphify-out/
 # The closing run's reports (`pnpm closing-run`).
 /.cache/

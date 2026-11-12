@@ -39,7 +39,7 @@ describe('RequestOnDemand', () => {
     const jobIds = new Set(answers.map((answer) => answer.jobId));
     expect(jobIds.size).toBe(1);
     expect(answers.every((answer) => status(answer.status) === OnDemandStatus.PENDING)).toBe(true);
-    expect(answers[0]!.retryAfterMs).toBe(5_000);
+    expect(answers[0]!.retryAfterMs).toBe(1_000);
     const jobs = await jobsOf(prisma, place.id);
     expect(jobs).toHaveLength(1);
     expect(jobs[0]!.trigger).toBe(SynthesisTrigger.ON_DEMAND);

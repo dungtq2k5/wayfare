@@ -1,3 +1,4 @@
+import { ON_DEMAND_RETRY_AFTER_MS } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
 import { resolveSource } from './ladder';
 import type { LadderDeps, OnDemandAnswer, StoredAudio } from './ladder';
@@ -50,6 +51,18 @@ describe('the audio ladder (K6)', () => {
     const { value, calls } = deps({ answers: [null, null, null, null, null, null, null] });
     expect(await resolveSource(null, value)).toEqual({ kind: 'stream' });
     expect(calls.status).toBe(5);
+  });
+
+  it("plays a story made in a second, at the server's own retry pace", async () => {
+    // The server's pace, not the fake's: at 5 s the ladder would ask once, at the wait's end.
+    const { value, calls } = deps({
+      onDemand: () =>
+        Promise.resolve({ status: 'PENDING', retryAfterMs: ON_DEMAND_RETRY_AFTER_MS }),
+      answers: [stored],
+    });
+    expect(await resolveSource(null, value)).toEqual({ kind: 'file', audio: stored, tier: 'T1_5' });
+    expect(calls.status).toBe(1);
+    expect(value.now()).toBe(1_000);
   });
 
   it('takes a ready answer straight away', async () => {

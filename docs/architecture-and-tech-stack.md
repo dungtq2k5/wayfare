@@ -610,7 +610,13 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 | E2E (web) | **Playwright** | `_test` | Console flows: login, place CRUD, submission review, Stripe Checkout in test mode. |
 | E2E (mobile) | **Maestro** ([ADR 0035](./decisions/0035-maestro-for-mobile-e2e.md)) | `_test` | Onboarding, language switch, QR scan, playback. |
 | Payments | **Stripe CLI** + test clocks | `_test` | Subscription lifecycle, renewal, failed payment, dunning, webhook replay and idempotency. |
-| Load | **k6** | `_test` | The nearby query and the sync endpoint under concurrency. |
+| Load | **k6** (`grafana/k6` in Docker, `infra/load/`) | the development databases, with `seed:load`'s 2,000 Places | A crowd of tourists (300 held, a 900 spike) against the Compose stack — nearby, sync, prefetch, on-demand, the stream, analytics, QR. **Run by hand** (`pnpm load`), never in CI; the budgets and the latest numbers are in `infra/load/README.md`. |
+
+### 12.0 The load test
+
+- **`pnpm load`** runs k6 (`infra/load/crowd.js`) on the Compose network against the gateway, with `compose.load.yaml` applied for the run — the gateway trusts one `X-Forwarded-For` hop (each simulated install sends its own address, so every per-IP limit applies per install) and keeps one trace in ten — and the normal gateway restored on exit. `pnpm load -- --smoke` checks every call of the contract first. `pnpm seed:load` adds 2,000 Editorial Places through the normal creation path and waits until they are live.
+- **Budgets fail only during the steady hold**: nearby p95 < 150 ms (product §10), a Place < 200 ms, a delta page < 300 ms, a whole full sync < 1.5 s, prefetch < 300 ms, analytics < 200 ms, QR < 100 ms, on-demand text ready < 5 s, errors < 0.5 % (a `429` counts), a delta's body < 50 KB. The spike and recovery are reported and fail only past 1 % errors.
+- **The first run** (2026-11-12, the screens stack): every latency budget held with a wide margin — nearby 48 ms, a Place 21 ms, a delta page 42 ms, a full sync 142 ms — spikes under 110 ms, no error in any phase. **The delta's size missed** (known-gaps row 13).
 
 ### 12.1 The test database
 

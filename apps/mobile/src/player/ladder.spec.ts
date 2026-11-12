@@ -1,3 +1,4 @@
+import { ON_DEMAND_RETRY_AFTER_MS } from '@wayfare/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveSource } from './ladder';
 import type { LadderDeps, OnDemandAnswer } from './ladder';
@@ -64,6 +65,25 @@ describe('resolveSource', () => {
       tier: 'T1_5',
     });
     expect(status).toHaveBeenCalledTimes(2);
+  });
+
+  it("PENDING at the server's own retry pace plays a story made in a second", async () => {
+    // The server's pace, not a fake's: at 5 s the ladder would ask once, at the wait's end.
+    const status = vi.fn().mockResolvedValueOnce(audio);
+    const deps = fake({
+      onDemand: () =>
+        Promise.resolve<OnDemandAnswer>({
+          status: 'PENDING',
+          retryAfterMs: ON_DEMAND_RETRY_AFTER_MS,
+        }),
+      status,
+    });
+    expect(await resolveSource(place(false), 'en', 'file', deps)).toMatchObject({
+      kind: 'file',
+      tier: 'T1_5',
+    });
+    expect(status).toHaveBeenCalledOnce();
+    expect(deps.now()).toBe(1_000);
   });
 
   it('PENDING past the wait streams instead, without calling it a failure', async () => {
