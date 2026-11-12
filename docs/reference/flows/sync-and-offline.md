@@ -24,10 +24,10 @@ sequenceDiagram
 
 - **One sequence for everything** (`catalog_sync_version_seq`, shared by Places and tours). **Every write a tourist could observe** — the Place, its photos, menu, hours, a localization, the auto-narration flag — ends with the bump, in the same transaction (`withSyncWrite`). A discovery boost does **not** bump it: paid ranking never reaches a phone's records.
 - **The cap** is the newest version whose row is more than 5 s old (`SYNC_SAFETY_LAG_MS`), never below `since`. A slow transaction that commits a lower number late is therefore never skipped: the lag plus the transaction's own 4 s limit cover it.
-- **A page** is up to 500 changes across all areas: live Places of the asked area come back as full records; **every other changed id comes back as removed** — deleted, paused, or moved to another area. The phone deletes only within the area it asked about, so a Place that moved isn't lost from the area it moved to.
+- **A page** is up to 500 changes across all areas: live Places of the asked area come back as full records; **every other changed id comes back as removed** — deleted, paused, or moved to another area (a first sync, from `since=0`, has no removed ids). The phone deletes only within the area it asked about, so a Place that moved isn't lost from the area it moved to.
 - **Each record carries one language**, resolved down the content chain — the asked language, else English, else the Vietnamese source — with `contentTier` and `stale` saying which ([conventions](../../development-conventions.md) §11.2), and audio only when it matches its text.
 - **`304`**: the ETag is `"<areaId>:<lang>:<datasetVersion>"`; it matches only when nothing changed anywhere since the cursor.
-- **On the phone**, `place_records` (one row per Place and language) and `sync_state` (the cursor per area and language). A page that doesn't move the cursor forward throws — a loop, not a hang. Tours sync the same way (`/sync/tours`), and the phone decides which stops are live.
+- **On the phone**, `place_records` (one row per Place and language) and `sync_state` (the cursor per area and language). An **incomplete** page that doesn't move the cursor forward throws — the guard against looping on the same page; a complete page at the same version is normal. Tours sync the same way (`/sync/tours`), and the phone decides which stops are live.
 
 ---
 
@@ -45,7 +45,7 @@ flowchart LR
 ```
 
 - **The manifest** lists every file with its size and SHA-256: the area's published map pack, a **snapshot** of its live Places in one language (generated once per version, under a lock, and reused), each card photo, and each story's audio. It is cached by the area, language, cap and map pack version.
-- **The phone downloads in order** — map, places, photos, audio — one file at a time, each into a `.part` file, hashed, and kept only on a match (a mismatch is fetched once more, then the pack fails *check*). It waits for a connection or Wi-Fi as the tourist chose, and checks for 1.1× the space left before each file.
+- **The phone downloads in order** — map, places, photos, audio — one file at a time, each into a `.part` file, hashed, and kept only on a match (a mismatch is fetched once more, then the pack fails *check*). It waits for a connection or Wi-Fi as the tourist chose, and checks for 1.1× the space it needs once before the run (after clearing caches), then 1.0× before each file.
 - **Activating** replaces the area's rows for that language — **only if the snapshot is newer than the phone's cursor**; an older snapshot leaves the synced rows alone.
 - **Updates** take the manifest's diff (what changed since the phone's version); an old map pack already pruned answers `DIFF_UNAVAILABLE`, and the phone falls back to the full manifest.
 - **Map packs** are registered by staff from a build in the bucket (every file re-hashed, at most 60 MB), then published — one published pack per area; the previous one retires and is pruned after 30 days.
@@ -54,12 +54,13 @@ flowchart LR
 
 ## 3. Codes and QR stickers
 
-One code space for Places and tours (C-19 `public_codes`, written only by triggers): 8 Crockford characters, never reused, forgiving to type (`canonicalPublicCode`: case, spaces, dashes, O→0, I/L→1).
+One code space for Places and tours (C-19 `public_codes`, written only by triggers): 8 Crockford characters, never reused — a new Place's or tour's random code is inserted only if no code of either kind holds it, else another is drawn — forgiving to type (`canonicalPublicCode`: case, spaces, dashes, O→0, I/L→1).
 
 ```mermaid
 flowchart TD
-  CAM[phone camera] --> Q[GET /q/:code<br/>PUBLIC · no-store]
-  APP[in-app scanner · a typed code] -->|X-Wayfare-Client| Q
+  CAM[phone camera,<br/>the app not installed] --> Q[GET /q/:code<br/>PUBLIC · no-store]
+  CAMAPP[phone camera opening the app<br/>— it claims go.wayfare.app/q/] --> APP
+  APP[the app, from its scanner or the camera,<br/>a /q/ link, online by its verdict] -->|X-Wayfare-Client| Q
   Q --> CNT[count a Place's scan<br/>C-15 per business day]
   CNT --> R{client header?}
   R -->|no| RD[302 → /p/:code?via=qr<br/>or /t/:code?via=qr]
@@ -84,6 +85,7 @@ flowchart TD
 | A downloaded file's hash differs | fetched once more, then the pack fails *check* | a corrupt story never plays |
 | Two phones ask for the same new snapshot | written once | an advisory lock on its path |
 | A sticker scanned while catalog is down | redirected, not counted | the tourist still gets somewhere |
+| A Place translated into another language | it comes back in **every** language's delta, unchanged for them | one `sync_version` per Place — known-gaps row 13; under load an English delta reached 247 KB |
 
 ---
 
@@ -91,11 +93,13 @@ flowchart TD
 
 | Symptom | Look at |
 | :---- | :---- |
-| A phone never sees a change | was `sync_version` bumped as the write's last statement? the phone's `sync_state` cursor; the removed ids' area scoping |
-| Sync always `304`, or never | the ETag's language against the phone's (`syncTag`) |
-| A pack fails *check* | the bucket object against the manifest's SHA-256 (a snapshot's hash covers its gzipped bytes); a stale manifest cache |
+| A phone never sees a change | was `sync_version` bumped as the write's last statement? the phone's `sync_state` cursor; the removed ids' area scoping. **On a walk**, nothing syncs in the background and the walk re-reads its Places every 5 minutes: a pocketed phone sees a change only on return to the front (15 minutes after its last check) or on reconnect |
+| Sync never `304` | the ETag's language against the phone's (`syncTag`) |
+| Sync always `304` | the cap isn't moving past the cursor (`SyncService.cap`): a row's `updated_at` still inside the 5 s lag, or a write whose bump is missing or not its last statement |
+| A pack fails *check* | the bucket object against the manifest's SHA-256 (a snapshot's hash covers its gzipped bytes); a stale manifest cache; Diagnostics' pack holds (`failNext`, a damaged file) fail one on purpose |
+| A pack never finishes | its state: `waiting-connection`, `waiting-wifi` (the tourist chose Wi-Fi only), `no-space`, or `failed` with `server` after three `5xx` (`SERVER_BACKOFF_MS`) |
 | A diff answers `409` | the old map pack was pruned (`objects_deleted_at`) |
-| QR scans not counted | the gateway's "a QR scan went uncounted"; a non-canonical code; the business day |
+| QR scans not counted | on the server: the gateway's "a QR scan went uncounted" (catalog failing), a non-canonical code, the business day. **On the phone** a scan counts only for a `/q/` link — from the in-app scanner, or the phone's camera opening the app (it claims `go.wayfare.app/q/`) — while the app thought it was online: a typed code, a scanned `/p/` link or bare code, or a scan while (thought) offline is never counted, and an offline scan isn't retried |
 | A tour answers `TOUR_UNAVAILABLE` | fewer than two live stops; the tour's status; its area |
 
 ---

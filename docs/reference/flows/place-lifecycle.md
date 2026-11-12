@@ -25,8 +25,8 @@ stateDiagram-v2
 | `inactive_reason` | Set by | Lifted by |
 | :---- | :---- | :---- |
 | `ADMIN` | staff's *Deactivate* | staff's *Activate* |
-| `OWNER` | the owner's *Pause*; an owner's erasure | the owner's *Reactivate* (a limit check first) |
-| `ENTITLEMENT_LIMIT` | a plan that allows fewer Places | a wider plan (oldest first), or the owner's *Reactivate* if there is room |
+| `OWNER` | the owner's *Pause*; an owner's erasure | the owner's *Reactivate* (a limit check first) — never after an erasure, which no route lifts |
+| `ENTITLEMENT_LIMIT` | a plan that allows fewer Places | a wider plan (oldest first, its Area active), or the owner's *Reactivate* if there is room |
 
 **Deletion is a flag, not a status** (`deleted_at`): the row stays as a tombstone for sync, its localizations are kept, and *Restore* brings it back with its status. A Place on a live tour can't be deleted (`PLACE_IN_ACTIVE_TOUR`), nor a Venue with live vouchers — and if billing can't say, the delete is refused (`UPSTREAM_UNAVAILABLE`).
 
@@ -61,7 +61,7 @@ sequenceDiagram
 - **Limits are checked twice**, at submit and at approve, against billing's live answer (`ENTITLEMENTS_UNAVAILABLE` if it can't say). A pending CREATE reserves a slot, and the owner's advisory lock (`lockOwner`) serialises two approvals racing for the last one.
 - **An update is checked for conflicts:** if the live Venue changed since the owner started (`editableHash`), submit answers `SUBMISSION_CONFLICT`; at review, the reviewer sees the changed fields and must acknowledge them.
 - **Two reviewers at once:** one decision wins, the other gets `INVALID_STATE`.
-- **An unverified or departed owner** can't have a submission approved (`OWNER_NOT_VERIFIED`).
+- **An unverified or departed owner** can't have a submission approved (`INVALID_STATE` with `status: OWNER_NOT_VERIFIED`).
 
 ---
 
@@ -75,11 +75,11 @@ sequenceDiagram
 | `en.audio` | its audio isn't `READY`, or was made from older text |
 | `activation` | nobody asked for it to go public (`activation_requested_at`) |
 
-It is evaluated when activation is requested, on reactivation, after a wider plan, and **whenever narration delivers English** (`LocalizationsService.applyPlace`). Opening stamps `published_at` the first time — that is the owner's *first publication* notification.
+It is evaluated when activation is requested, on reactivation, after a wider plan, and **whenever narration delivers English** (`LocalizationsService.applyPlace`). Opening stamps `published_at` the first time — that is the owner's *first publication* notification. **A deleted Place's gate is never evaluated**: English arriving for one that was deleted while `PROCESSING` doesn't make it `ACTIVE`, and nothing is audited.
 
 **Editing a name or description re-closes it by hash, not by clearing anything:** the new `content_hash` makes the English row stale, the Place returns to `PROCESSING` and **disappears from tourists** until narration catches up; non-text edits (photos, menu, hours, category, location, radius) change nothing. A stale localization is still served in the meantime to anyone with the Place open, marked `stale`, and audio is served only when it matches the text it reads (`servedAudio`).
 
-**When narration gives up** (`narration.localization.failed`, final): the audio is marked `FAILED`, the owner is told (unless the language simply has no voice), and the Place stays `PROCESSING` — listed after an hour with no job as **stuck** on the console's Home and the Places list, with *Make narration again*.
+**When narration gives up** (`narration.localization.failed`, final): that language's audio is marked `FAILED` and a Venue's owner is told (`PLACE_NARRATION_FAILED`, through `notification.create` from `applyFailed` — unless the language simply has no voice), **for any language**; only English keeps the Place `PROCESSING` — listed after an hour with no job as **stuck** on the console's Home and the Places list, with *Make narration again*.
 
 ---
 
@@ -88,8 +88,8 @@ It is evaluated when activation is requested, on reactivation, after a wider pla
 `billing.entitlements.changed` → `applyEntitlements`, **ignored if its version isn't newer** than the one recorded in `owner_entitlements` (written last, so a crash and redelivery finish the work):
 
 1. **Auto-narration** set on each Venue whose flag differs.
-2. **The place limit:** Venues counted are `DRAFT`, `PROCESSING` and `ACTIVE`, oldest first. Over the limit, **the newest published ones** become `INACTIVE` (`ENTITLEMENT_LIMIT`) — drafts count but are never unpublished. With room, **the oldest** `ENTITLEMENT_LIMIT` Venues return to `PROCESSING` and through the gate.
-3. **A wider language scope** asks narration for the new languages on every live Venue (`ENTITLEMENT_EXPANDED`).
+2. **The place limit:** Venues counted are `DRAFT`, `PROCESSING` and `ACTIVE`, oldest first. Over the limit, **the newest by creation** — `ACTIVE` and `PROCESSING` alike — become `INACTIVE` (`ENTITLEMENT_LIMIT`); drafts count but are never unpublished. With room, **the oldest** `ENTITLEMENT_LIMIT` Venues return to `PROCESSING` and through the gate — **without asking narration again**, so one whose English audio had `FAILED` waits in `PROCESSING` for *Make narration again*; and never into an inactive Area — those are skipped, and the room goes to Venues that can return.
+3. **A wider language scope** asks narration for the new languages on every Venue that isn't a draft or deleted, `INACTIVE` ones included (`ENTITLEMENT_EXPANDED`).
 
 ---
 
@@ -100,7 +100,7 @@ It is evaluated when activation is requested, on reactivation, after a wider pla
 | Listener | Does |
 | :---- | :---- |
 | a tourist's phone | sees the change on its next sync — a live Place as a record, anything else as a removed id ([sync-and-offline](./sync-and-offline.md)) |
-| identity | tells a Venue's owner about changes they didn't make |
+| identity | tells a Venue's owner (`placeStatusNotification`): `PLACE_ACTIVATED` on a first publication and on any `INACTIVE → ACTIVE` — their own *Reactivate* included — and **`PLACE_UNPUBLISHED`** (with its reason) on a move into `INACTIVE` by `ADMIN` or `ENTITLEMENT_LIMIT`; nothing for a return through `PROCESSING`, a return after an edit, their own pause, `OWNER` reasons, or a deletion |
 | billing | ends the Place's boost when it stops being live |
 | the owner's open console | a socket frame (`ownerPlaceStatus`), after commit, best effort |
 
@@ -120,7 +120,7 @@ It is evaluated when activation is requested, on reactivation, after a wider pla
 | Deleted while `PROCESSING`, then restored | narration asked again | narration drops work for deleted Places |
 | An owner erased | Venues paused as `OWNER` (drafts deleted); pending submissions withdrawn | nothing of theirs stays public |
 | An old entitlements event redelivered | ignored by version | the projection is written last |
-| An area deactivated | activation, reactivation and restore refused (`AREA_INACTIVE`) | nothing goes live where no tourist can go |
+| An area deactivated | activation, reactivation and restore refused (`AREA_INACTIVE`); a wider plan's return skips a Venue in an inactive Area — it comes back on the owner's next **plan change** after its Area returns, or on their *Reactivate* — nothing runs when an Area is reactivated | nothing goes live where no tourist can go |
 
 ---
 
@@ -131,9 +131,11 @@ It is evaluated when activation is requested, on reactivation, after a wider pla
 | A Place stuck in `PROCESSING` | *Activate*'s `missing[]`; the English row's hashes against `content_hash`; `audio_status = FAILED`; the stuck list and narration's jobs; the consumer `catalog-narration-localization-ready` and its dead letters |
 | A Place vanished after an edit | by design until English text and audio return (§3) |
 | A Venue went `INACTIVE` by itself | `inactive_reason`: `ENTITLEMENT_LIMIT` (`owner_entitlements`' version, the plan) or `OWNER` after an erasure |
-| A Venue didn't come back after an upgrade | it is `PROCESSING` with stale audio; the consumer's dead letters |
-| An owner wasn't told | `outbox_events` for `catalog.place.status_changed`; identity's consumer |
-| Delete refused | `PLACE_IN_ACTIVE_TOUR` (a live tour lists it), `PLACE_HAS_LIVE_VOUCHERS`, or billing unreachable |
+| A Venue didn't come back after an upgrade | still `INACTIVE` for lack of room (drafts count); its Area inactive, so the reactivation skipped it; its reason is `OWNER` or `ADMIN`, which no plan lifts; the event ignored by version (`owner_entitlements`); or `PROCESSING` with English audio `FAILED` — nothing asks narration again (*Make narration again*); the consumer `catalog-billing-entitlements-changed` and its dead letters |
+| *Reactivate* refused `PLACE_LIMIT_REACHED` | pending CREATE submissions reserve slots (`placeLimitUsage`) — the limit counts them, unlike the plan change's count |
+| *Activate* refused `INVALID_STATE` | the Place is `INACTIVE` for `OWNER` or `ENTITLEMENT_LIMIT` — only the owner or a wider plan lifts those |
+| An owner wasn't told | `placeStatusNotification`'s choices (§5) — many changes are deliberately silent; then `outbox_events` for `catalog.place.status_changed` and identity's consumer; a narration failure's notice comes from `applyFailed` via `notification.create`, and the `catalog-narration-localization-failed` consumer can dead-letter too |
+| Delete refused | `PLACE_IN_ACTIVE_TOUR` (a live tour lists it), `PLACE_HAS_LIVE_VOUCHERS`, billing unreachable, or `INVALID_STATE` (`DELETED` — already deleted) |
 
 ---
 

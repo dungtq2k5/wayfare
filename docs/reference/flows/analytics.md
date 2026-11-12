@@ -37,7 +37,8 @@ flowchart TD
 
   A4 & A6 & A3 & A7 --> RD[analytics ReadsService]
   RD --> GW2[gateway compositions<br/>owner-stats · admin-analytics]
-  CQ[catalog InsightService<br/>QR scans C-15 · nearest Places] --> GW2
+  CQ[catalog InsightsService<br/>QR scans C-15 · nearest Places] --> GW2
+  BE[billing GetEntitlements<br/>the owner's level] --> GW2
   GW2 --> D([My stats · Overview · Top Places · Heatmap])
 ```
 
@@ -51,7 +52,7 @@ The phone asks once, after the first story that played sound ends, then once mor
 
 - `EventsService.ingest` reads the id's newest A-1 row **inside its own insert transaction**, after taking `pg_advisory_xact_lock` on the id's hash; `recordConsent` takes the same lock. A batch racing a withdrawal either commits first (and the withdrawal deletes it) or reads `WITHDRAWN` and stores nothing. There is **no consent cache** to go stale.
 - A grant must name the current privacy policy (`LEGAL_DOCUMENT_VERSIONS`), else `409 LEGAL_VERSION_OUTDATED`; a withdrawal never checks the version.
-- An events batch without a current grant answers `403 CONSENT_REQUIRED`, and the app stops counting until the tourist chooses again (a new policy re-asks those who had allowed).
+- An events batch without a current grant answers `403 CONSENT_REQUIRED`: the app marks its grant pending and **re-sends it with the next flush**, and counting resumes by itself. The tourist is needed only when the grant answers `409` — a newer privacy policy re-asks those who had allowed.
 
 **Withdrawing deletes the id's raw events in the same transaction.** The app withdraws **every id it used in the last 90 days** — the id rotates every 30 days (`ANALYTICS_ID_ROTATION_DAYS`), and older ids' raw events may still be held. The next `daily-rollup` then removes the id from every day it still rebuilds. The heatmap's counters hold no id, so nothing there needs removing.
 
@@ -62,7 +63,7 @@ The phone asks once, after the first story that played sound ends, then once mor
 | What arrives | What happens |
 | :---- | :---- |
 | a coordinate field anywhere, more than `ANALYTICS_BATCH_MAX` events, a malformed envelope | **the whole batch** `400` — a client bug, loudly (`hasCoordinateField`) |
-| one event failing its type's `props` (`ANALYTICS_EVENT_PROPS`), or a `VOUCHER_VIEWED` while vouchers aren't available | that event dropped and counted in one log line; the rest stored |
+| one event failing `zAnalyticsEvent` — its type's `props` (`ANALYTICS_EVENT_PROPS`), a narration or `PLACE_OPENED` without its `placeId`, a bad `cell` — or a `VOUCHER_VIEWED` while vouchers aren't available | that event dropped — `readEvent`'s `malformed`, or `deferred` for the voucher event, counted apart in one "analytics events dropped" log line; the rest stored |
 | an event id already stored | dropped — a retried batch is safe |
 | `occurredAt` a week old or in the future | clamped to `[received − 7 d, received + 5 min]` (`clampOccurredAt`) |
 | a `cell` (geohash-7, snapped on the device) | the id added to the HyperLogLog of that cell and the event's **`occurred_at` hour** (`heatmapKey`); no row stores the cell |
@@ -80,7 +81,7 @@ The phone asks once, after the first story that played sound ends, then once mor
 | `daily-rollup` | 03:00 | rebuilds **yesterday and the 7 days before** from A-2 into A-4 and A-6, each day replaced in one transaction; records the day in A-7 | the 7-day clamp; a rebuild replaces, so re-running changes nothing |
 | `raw-prune` | 04:00 | A-2 after `RAW_EVENT_RETENTION_DAYS`; A-1 400 days after an id's newest row | everything durable is a rollup |
 
-The crons run in the business time zone (`BUSINESS_TIME_ZONE` in the shared jobs module). **A day more than 90 days back can't be rebuilt** (`rebuildable` in `rollup-window.ts`): its raw events are gone. `pnpm --filter @wayfare/analytics job <name> [--day D]` runs one job by hand (`scripts/run-job.ts`) — never a route.
+The crons run in the business time zone (`BUSINESS_TIME_ZONE`, from contracts' `common/time.ts`, applied by the shared jobs module). **`rebuildable`** (`rollup-window.ts`) refuses **today** (not yet over) and **a day more than 90 days back**, whose raw events are gone. `pnpm --filter @wayfare/analytics job <name> [--day D]` runs one job by hand (`scripts/run-job.ts` — built first, it runs `dist/`, and refuses production) — never a route. **`JOBS_ENABLED=false`** turns the four off — set only on the screens stack, whose numbers are the seed's.
 
 **A-6 is never summed over languages.** Per day and platform, the totals (sessions, active devices, pack installs, searches) are on the `lang = '*'` row; the per-language rows carry narrations only. Active devices are an exact distinct count of the day's ids — an upper bound, since rotation counts an install twice — and **a range shows the daily mean**, because distinct ids can't be added across days.
 
@@ -90,7 +91,7 @@ The crons run in the business time zone (`BUSINESS_TIME_ZONE` in the shared jobs
 
 | Read | Composed by the gateway from | Freshness it shows |
 | :---- | :---- | :---- |
-| *My stats* (owner) | the owner's Venues (catalog `ListMyPlaces`), A-4, QR scans (`GetQrScans`) | `dataThrough` — the newest A-7 day |
+| *My stats* (owner) | the owner's level (billing `GetEntitlements`), the owner's Venues (catalog `ListMyPlaces`), A-4, QR scans (`GetQrScans`) | `dataThrough` — the newest A-7 day |
 | Overview, Top Places (admin) | A-4, A-6, QR scans; Top Places' names and categories from `BatchGetPlaceSummaries` (deleted Places dropped) | `dataThrough` |
 | Heatmap | A-3 over the range and an hour band in Vietnam time (converted to UTC); the ten busiest squares labelled by `NearestLivePlaces` | `computedThrough` — when the squares were last re-counted |
 | Activity | A-5, and **this hour so far** from the live counters | none — it is the current hour |
@@ -109,12 +110,12 @@ The Android app reports `POST /telemetry/activity { areaId }` at most every 15 m
 
 | Situation | What happens | Why that, and not an error |
 | :---- | :---- | :---- |
-| A phone offline for a month | it sends its last week; older events were dropped on the phone | the server would clamp them anyway, and a clamped event lands on the wrong day |
+| A phone offline for a month | it sends its last week — the queue trims to 7 days whenever it records an event; one that records nothing before its first send may send older ones, which the server clamps | the server would clamp them anyway, and a clamped event lands on the wrong day |
 | A batch arrives while its id is withdrawn | nothing stored | the advisory lock orders the two (§2) |
 | A cell reaches 5 phones only after late uploads | the square appears then | the hourly re-count over 8 days |
 | A Venue moved to another owner | its earlier days go with it | A-4 is per Place, not per owner |
 | A Place deleted | dropped from Top Places, the list still filled | catalog no longer returns it |
-| The owner's plan drops below Pro mid-session | the export answers `403`; the page refreshes to the new depth | the level is read per request |
+| The owner's plan drops below Pro mid-session | the export answers `403` and a toast says so; the page shows the new depth on its next read | the level is read per request |
 | An Area with no squares | an empty heatmap, never `500` | `computedThrough` arrives as `null` over gRPC |
 | A rollup day older than 90 days requested by hand | refused, saying so | its raw events are pruned |
 
@@ -124,12 +125,13 @@ The Android app reports `POST /telemetry/activity { areaId }` at most every 15 m
 
 | Symptom | Look at |
 | :---- | :---- |
-| Dashboards stopped moving | `/admin/jobs` for `daily-rollup`, then `rollup_days` — `dataThrough` is its newest day |
-| No events arrive from a test phone | Diagnostics' *Analytics* block (consent, queue, last send); a `403` means the consent is missing or on an old policy |
+| Dashboards stopped moving | `daily-rollup`'s row in analytics' `job_runs` and its "scheduled job failed" lines, then `rollup_days` — `dataThrough` is its newest day; on the screens stack the jobs are off (`JOBS_ENABLED=false`), so `dataThrough` stays the seed's |
+| Recent days' numbers keep changing | by design: each night rebuilds yesterday and the 7 days before (`REBUILD_EXTRA_DAYS`) |
+| No events arrive from a test phone | Diagnostics' *Analytics* block (consent, queue, last send): `403` — the grant missing or on an old policy (re-sent by itself); `409` — a newer policy, the tourist must choose; `429` — `ANALYTICS_INGEST` (60 an hour) or `ANALYTICS_CONSENT` (10 an hour) |
 | A Venue's numbers look low | consent: only tourists who agreed are counted; QR scans are the one exact figure |
-| The heatmap is empty for a busy area | squares under 5 phones are never written; then `heatmap-flush` in `/admin/jobs` |
-| A withdrawn tourist still appears | days older than the rebuild window keep their totals by design (§2) |
-| *Last 7 days* on Activity shows fewer hours | `RUNTIME_HOURS_MAX` — one constant in contracts for the gateway and the service |
+| The heatmap is empty for a busy area | squares under 5 phones are never written; events without a `cell` (only a fix under 5 minutes old gives one, `CELL_FIX_MAX_AGE_MS`); Redis down at ingest ("heatmap counters unavailable — cells not counted": events kept, cells lost); the hour band and the Area's box; `heatmap-flush`'s row in `job_runs`. An Area not live answers `404`, not an empty map |
+| A withdrawn tourist still appears | days older than the rebuild window keep their totals by design (§2); inside it, the withdrawal may still be pending on the phone (`withdrawalsPending`), or the next 03:00 rollup hasn't run yet — a withdrawal after 03:00 waits for the following night's |
+| Activity's hours at **0** for a busy area | an hour's counter lives `RUNTIME_KEY_TTL_SECONDS` (2 h): an hour `runtime-flush` didn't reach in time (jobs off, a worker down) is lost. (*Last 7 days* asks a fixed 168 hours; a lowered `RUNTIME_HOURS_MAX` would answer `400`, not fewer hours) |
 
 ---
 

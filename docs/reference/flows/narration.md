@@ -28,7 +28,7 @@ flowchart TD
   R1 & R2 & F --> CAT[catalog: localizations,<br/>the activation gate, sync]
 ```
 
-**A job** is one request for one target (a Place, a menu item, a tour) in several languages; **a task** is one language of it, moving through the stages. Vietnamese is always included: it is the source, voiced without translation.
+**A job** is one request for one target (a Place, a menu item, a tour) in several languages; **a task** is one language of it, moving through the stages. A job made from `catalog.place.content_changed` always includes Vietnamese — the source, voiced without translation; on-demand, hotset, prefetch, correction, manual and dictionary jobs carry only the languages asked.
 
 ---
 
@@ -55,13 +55,15 @@ stateDiagram-v2
   RUNNING --> FAILED: all failed
   QUEUED --> SUPERSEDED: newer text
   RUNNING --> SUPERSEDED: newer text
-  QUEUED --> CANCELLED: staff cancel
-  RUNNING --> CANCELLED: staff cancel
+  QUEUED --> CANCELLED: staff cancel · every task cancelled itself
+  PAUSED --> CANCELLED: staff cancel
+  PAUSED --> SUPERSEDED: newer text
+  RUNNING --> CANCELLED: staff cancel · every task cancelled itself
   FAILED --> QUEUED: staff retry
   PARTIALLY_FAILED --> QUEUED: staff retry
 ```
 
-A job's status is **recomputed from its tasks** in the same transaction as any task change (`settle`), its row locked `FOR NO KEY UPDATE` in a fixed order — two tasks finishing together can't leave a job running forever or deadlock (conventions §8.8). A transaction that hits a deadlock or serialization failure is retried whole, up to three times, and never counted as an attempt.
+A job's status is **recomputed from its tasks** in the same transaction as any task change (`settle`), its row locked `FOR NO KEY UPDATE` in a fixed order — two tasks finishing together can't leave a job running forever or deadlock (conventions §8.8). A transaction that hits a deadlock or serialization failure is retried whole — three tries in all (`TRANSACTION_TRIES`) — and never counted as an attempt.
 
 ---
 
@@ -74,7 +76,7 @@ A job's status is **recomputed from its tasks** in the same transaction as any t
 5. **Store**: `audio/<cacheKey>.mp3`, immutable, and an `audio_assets` row (the first writer wins).
 6. **Publish**: `narration.localization.ready` with text and audio.
 
-**A language with no pinned voice** (`speakersFor` empty — the long-tail languages) publishes its text and then `localization.failed` with `NO_VOICE`, final; the task counts as succeeded, and catalog tells no owner — it isn't a fault.
+**A language with no voice under any configured provider** (`speakersFor` empty — the long-tail languages) publishes its text and then `localization.failed` with `NO_VOICE`, final — every such text marked `noVoice: true`, a staff correction's included (the event's schema requires the mark only of a human Place correction, which otherwise must carry its audio); the task counts as succeeded, and catalog tells no owner — it isn't a fault.
 
 ---
 
@@ -82,13 +84,13 @@ A job's status is **recomputed from its tasks** in the same transaction as any t
 
 | Failure | What happens |
 | :---- | :---- |
-| The input is refused (an unsupported language, a sentence too long for any provider) | final at once |
+| The input is refused (an unsupported language; a sentence too long for the **first** provider tried — the chain rethrows without trying the others) | final at once |
 | **The speech providers are all unreachable** (timeouts, network) | **not counted**: the task waits 1, 5, then every 15 minutes, for up to 24 hours (`PROVIDER_OUTAGE_*`) before it is final |
 | Anything else — a provider that answered with an error, translation down, catalog's gRPC down, storage | counted: retried after 5 s and 30 s; final at the third |
 
-Every failed attempt publishes `localization.failed` (`final` on the last). **The provider chain fails over** on a timeout, a network error, a `5xx`, a `429` or an empty answer, and a provider that failed three times in a row rests for 60 s (per process; `GET /admin/narration/providers` shows it). **A failure about the text itself** (`TextFailedError`) fails over without counting, so one text a provider refuses can't switch it off for every other.
+Every failed attempt publishes `localization.failed` (`final` on the last). **The provider chain fails over** on a timeout, a network error, a `5xx`, a `429` or an empty answer, and a provider that failed three times in a row rests for 60 s (per process; `GET /admin/narration/providers` shows it). **A failure about the text itself** (`TextFailedError`) fails over **without counting toward the breaker**, so one text a provider refuses can't switch it off for every other — the task's attempt still counts as usual. Only the fake speech provider throws it today; Google's and Edge's report no such failure.
 
-**A crashed worker** loses nothing: a running job's heartbeat (every 5 s) goes stale, and `synthesis-recover` (every 5 minutes and at boot) re-queues its tasks uncounted, re-adds tasks whose queue item was lost, and rehomes orphaned followers. Postgres, not Redis, is the record.
+**A crashed worker** loses nothing: a running job's heartbeat (every 5 s) goes stale after `JOB_STALE_AFTER_MS` (5 minutes) — so recovery can take about ten — and `synthesis-recover` (every 5 minutes and at boot) re-queues its tasks uncounted, re-adds tasks whose queue item was lost, and rehomes orphaned followers. Postgres, not Redis, is the record.
 
 ---
 
@@ -102,7 +104,7 @@ Every failed attempt publishes `localization.failed` (`final` on the last). **Th
 | `POST /narration/hotset` | the 10 nearest live Places within 1.5 km (no boost); a `HOTSET` job for each without ready audio — **a Venue whose owner's plan doesn't cover the language is skipped, and so is any Venue when billing can't answer** (a grant is never assumed); if catalog can't list the candidates, an empty answer and no job | `ready`, `pending`, `requiredReadyCount` — a language switch waits for 3 ready |
 | `POST /narration/prefetch` | up to 3 named Places; a `PREFETCH` job for each without ready audio, Venues checked against their owner's plan as for the hotset | `queued`, `skipped` |
 
-All of them share the `NARRATION_ON_DEMAND` rate limit (30 per 10 minutes per device). The phone's side of this — its ladder from file to on-demand to stream to its own voice — is in [the-walk](./the-walk.md).
+On-demand, hotset, prefetch, the stream and its ticket's `POST` share the `NARRATION_ON_DEMAND` rate limit (30 per 10 minutes per device); the status poll is `LINK_READ`, and the ticket's `GET` is `PUBLIC_READ`, by IP (known-gaps row 14). The phone's side of this — its ladder from file to on-demand to stream to its own voice — is in [the-walk](./the-walk.md).
 
 ---
 
@@ -121,11 +123,11 @@ All of them share the `NARRATION_ON_DEMAND` rate limit (30 per 10 minutes per de
 | A catalog event redelivered | a no-op (`processed_events`) | idempotent consumers |
 | An event for text catalog no longer holds | recorded, no job | the source is re-read first |
 | The Place edited while a task runs | the old job superseded; the running task cancels at its next check, publishing nothing | never a story about old text |
-| A paused job's task is claimed | it goes back to the queue | pause holds work, not workers |
+| A paused job's task is claimed, or a running one meets the pause | it waits as `QUEUED` with **no queue item**; only *Resume* enqueues it again | pause holds work, not workers |
 | The leader of followers is cancelled | the oldest live follower is promoted | other requests still get their audio |
 | A cached audio row whose file is gone | treated as a miss and made again | the cache is a hint; storage is the truth |
 | Machine text and audio | text served first, audio after | a tourist reads while the voice is made |
-| A failure event before its text row | catalog redelivers it | the row must exist to be marked |
+| A failure event before its text row | catalog redelivers it — up to ten times (`MAX_DELIVER`), then it is dead-lettered | the row must exist to be marked |
 | Two streams of the same text at once | one synthesis | a lock per cache key |
 
 ---
@@ -135,13 +137,16 @@ All of them share the `NARRATION_ON_DEMAND` rate limit (30 per 10 minutes per de
 | Symptom | Look at |
 | :---- | :---- |
 | A Place stuck in `PROCESSING` | the stuck list (`/admin/places/stuck`), its last job's status and `error_summary`; whether `content_changed` left catalog's outbox and reached narration's `processed_events`; the two consumers' dead letters |
-| A job `RUNNING` forever | `heartbeat_at`; `synthesis-recover` in `/admin/jobs`; the tasks' stage and `next_attempt_at` |
+| A job `RUNNING` forever | `heartbeat_at` (stale after 5 minutes, swept every 5); `synthesis-recover`'s row in narration's `job_runs`; the tasks' stage and `next_attempt_at` |
 | A task waiting for hours | `failure_reason = PROVIDER_UNAVAILABLE`, `provider_down_since`; `/admin/narration/providers` |
 | Text shown, no audio | a machine-translated Place between its two `ready` events: the task's stage |
-| Audio `FAILED` for one language | its `localization.failed` events; `NO_VOICE` means no pinned voice (`services/narration/src/config/voices.ts`) |
-| On-demand stays `PENDING` | the task's leader (`coalesced_into_task_id`) and that job — paused? |
-| Stream `503` | `narration_tts_stream_total{outcome}`; the Redis lock `narration:tts:<cacheKey>`; the speech chain |
-| A dictionary edit changed nothing | the fan-out's logs (gave up, or stopped at the cap) |
+| Audio `FAILED` for one language | the task's `last_error` and the job's `error_summary` (`"<lang>: <reason>"`), or narration's `outbox_events` — catalog keeps no failure events; `NO_VOICE` means no voice under any configured provider (`speakersFor`) |
+| Every task of a language fails at once | `UNSUPPORTED_LANGUAGE` from the translation chain (`translateField`) |
+| On-demand stays `PENDING` | the task's leader (`coalesced_into_task_id`) and that job — paused? waiting out a speech outage (`failure_reason`, `next_attempt_at`)? in its retry back-off? the queue full at `SYNTHESIS_CONCURRENCY` |
+| Stream `503` | `narration_tts_stream_total{outcome}`; the Redis lock `narration:tts:<cacheKey>`; the speech chain — and, uncounted by that metric, `ENTITLEMENTS_UNAVAILABLE` (billing down, a Venue) or catalog failing to read the Place |
+| A dictionary edit changed nothing | the fan-out's logs (gave up, or stopped at the cap); an entry never changes Vietnamese audio (`rulesFor('vi')` is empty); only `ACTIVE`, non-deleted targets are searched; a term matches its diacritics exactly |
+| Cached audio made again | `narration_audio_cache_missing_total` and "a cached audio object is gone; synthesizing again" — the row outlived its file |
+| `/admin/narration/providers` differs between two reads | the breaker's state is per process; each replica answers its own |
 
 ---
 

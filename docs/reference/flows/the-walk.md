@@ -22,10 +22,10 @@ sequenceDiagram
   T->>S: pushFix — and return
   S-->>C: onStore (one fix at a time)
   C->>C: loadWalkPlaces · stepMotion
-  C->>E: handleFix
+  C->>E: handleFix (walk/handler.ts) →<br/>evaluateGeofences, then reconcile<br/>when it decided nothing and a Place waits
   E-->>C: a Place, or none
   C->>P: offer(place)
-  P-->>C: start · queued · refused · duplicate
+  P-->>C: start · queued · refused · duplicate<br/>(via offerToPlayer)
   P->>L: file → on-demand → stream → device
   L-->>P: a source, or unavailable
   P-->>S: current changed → heard
@@ -50,7 +50,9 @@ stateDiagram-v2
   foreground_only --> on: background granted
   on --> ended: stop · idle · killed
   foreground_only --> ended: stop · idle · killed
-  ended --> on: undo within 6 s
+  ended --> on: undo within 6 s (to its earlier phase)
+  ended --> foreground_only: undo within 6 s (to its earlier phase)
+  ended --> starting: begin
   ended --> off: settle · dismiss notice
 ```
 
@@ -73,6 +75,7 @@ stateDiagram-v2
 | Eligible | auto-narration on; not within `narrationCooldownMs` of its last decision; a Venue only if no Venue was chosen in the last `commercialNarrationWindowMs` | `isEligible` (`priority.ts`) |
 | Order | Editorial before Venue, then `narrationPriority`, then nearer, then id | `byPriority` |
 | Weak fix | not evaluated; `reconcile` re-checks confirmed entries against the last good fix | `handleFix` (`walk/handler.ts`) |
+| A confirmed Place not yet told | one confirmed on the same fix as the winner, or while it was ineligible, is offered by `reconcile` on a later fix while the tourist stays inside: after a fix that decided nothing, whenever a confirmed Place is still waiting (`hasWaitingConfirmed`), at most once per `safetyReconcileIntervalMs` of fix time — never when nothing waits | `handleFix` |
 
 **Eligibility filters before ordering**, so a capped Venue never blocks an Editorial Place. **The cooldown counts from the decision**, not from the audio's end, and a stopped story doesn't give it back.
 
@@ -84,8 +87,10 @@ stateDiagram-v2
 
 ```mermaid
 flowchart LR
-  F[file<br/>pack · cache · download<br/>T1] -->|missing or failed| O[on-demand<br/>wait ≤ 5 s<br/>T1_5]
-  F -->|offline| D
+  F[file<br/>pack · cache · download<br/>T1] -->|no file for the Place| O[on-demand<br/>ask every 1 s, ≤ 5 s<br/>T1_5]
+  F -->|cache miss and the download failed| ST
+  F -->|… and offline| D
+  O -->|404| U
   O -->|pending too long · error| ST[stream<br/>T2]
   O -->|not entitled · unavailable · offline| D[device voice<br/>T3]
   ST -->|offline · error · silent 15 s| D
@@ -98,7 +103,8 @@ flowchart LR
 - **An auto offer with nothing to play is skipped silently**, and *Up next* starts; a tap that finds nothing shows *unavailable*.
 - **Pauses** (`nextPause`): the tourist's, the headphones coming out, or the system's (a call). Only a system pause resumes by itself.
 - **The lock-screen card** shows the Place, its area and its photo — for a file and the stream; the device voice has none (known-gaps).
-- **What it records:** heard when a narration begins (`markHeard`, table `heard_places`; Explore's badge and the map read it); finished when it plays to its end (`markStoryFinished`, `stories_finished`; a tour's progress reads it); and, with consent, the analytics events (`narration-tracker.ts` — [analytics](./analytics.md)).
+- **"Offline" is the probe's last verdict** (`useNetworkStore.status`), which changes only when `checkNetwork()` runs — at launch, on return to the front after 15 minutes, on reconnect, at a language switch, the code sheet — and while a pack waits for a connection, `use-pack-boot.ts` probes on its own (once at boot, then every 30 s, `WAITING_PROBE_MS`). **Losing the connection mid-walk doesn't flip it**, and a walk started headless never probes (`unknown`): the ladder then tries on-demand and the stream (up to `START_TIMEOUT_MS`) before the phone's voice, and prefetch (online only) doesn't run.
+- **What it records:** heard when the player **accepts** a narration — before the ladder finds a source, so a Place whose ladder ends `unavailable` is marked heard too (`markHeard`, table `heard_places`; Explore's badge and the map read it, and prefetch skips it); finished when it plays to its end (`markStoryFinished`, `stories_finished`; a tour's progress reads it); and, with consent, the analytics events (`narration-tracker.ts` — [analytics](./analytics.md)).
 
 ---
 
@@ -119,9 +125,9 @@ flowchart LR
 | GPS jitter across a radius | a good fix outside resets the debounce | a story for a Place the tourist only grazed is the false trigger product §13 caps at 5 % |
 | Several Places in range | one decision per fix; the others follow on later fixes while still inside | one story at a time |
 | Sitting inside a radius for an hour | never fires twice | once per visit |
-| A cluster of Venues | at most one Venue per window; Editorial Places unaffected | commercial pressure never crowds the audio channel |
+| A cluster of Venues | at most one Venue per window, the next once it reopens while the tourist is inside; Editorial Places unaffected | commercial pressure never crowds the audio channel |
 | *Up next* full | the offer is refused, the decision undone, and retried each fix | nothing is lost while the tourist is still there |
-| Background permission revoked mid-walk | `foreground-only`, a notice, the updates restarted | the walk keeps what it can |
+| Background permission revoked mid-walk | noticed on the app's return to the front (not with the screen off): `foreground-only`, a notice, the updates restarted | the walk keeps what it can |
 | App swiped away | the service keeps running; a headless task restores the walk | `killServiceOnDestroy: false` |
 | Stop, then *Undo* within 6 s | the walk resumes in its earlier phase | an accidental stop costs nothing; Undo doesn't survive a relaunch |
 | Language switched while a story prepares | the stale result is discarded and the story restarts in the new language | never the wrong language |
@@ -133,12 +139,13 @@ flowchart LR
 
 | Symptom | Look at |
 | :---- | :---- |
-| Nothing played while walking | the walk log (Diagnostics → *Share walk log*, `walk-log.jsonl`): `engineCall` lines — `decision` null? `accepted` false? only `reconcile` lines (weak fixes)? Replay with `packages/core/scripts/replay-walk.mjs` |
+| Nothing played while walking | the walk log, `walk-log.jsonl`, written in every build — shared from Diagnostics builds (*Share walk log*), where `adb logcat -s ReactNativeJS` also shows its `WALKLOG` lines: `engineCall` lines — `decision` null? `accepted` false? only `reconcile` lines (weak fixes)? Replay with `node packages/core/scripts/replay-walk.mjs <log> <places.json>` |
 | No `engineCall` lines at all | the task (`walk/task.ts` imported by `app/_layout.tsx`); an `error` line from `startUpdates`; a `foreground-only` walk with the screen off |
-| A decision, but no sound | a `narration` line; the player's notice; the ladder's inputs — network status, the device voice for the language, the pack index |
-| One Place never fires | is it in `place_records` for this language? auto-narration, cooldown, the Venue window, its radius |
+| A decision, but no sound | **the `narration` line is written when the player accepts, before any source is found**, and an auto offer with nothing to play is cleared without a notice — the log has no line for the ladder's outcome; check its inputs: the network verdict, the device voice for the language, the pack index |
+| A long silence before the phone's own voice, or no prefetch after the app was swiped away | the network verdict (§4): the connection dropped mid-walk or the walk started headless, so the ladder tried on-demand and the stream first |
+| One Place never fires | a confirmed Place waits for the next `reconcile` — at most one per `safetyReconcileIntervalMs` of fixes — so look for its `reconcile` line; is it in `place_records` for this language, and has the walk re-read them (`walkPlaces` is cached 5 minutes)? auto-narration, cooldown, the Venue window, its radius; `offerToPlayer` returns `skipped` for a record it can't find |
 | The walk ended by itself | `walk` lines with `endReason`: `idle` (still 30 minutes), `system` (the phone stopped it) |
-| A language switch hangs | Diagnostics' switch state; its holds (`i18n/switch-holds.ts`) |
+| A language switch hangs | the switch's state — `useSwitchStore` (`language/switch.ts`) and `useAppStore`'s `pendingLanguage` and `switchStartedAt`; Diagnostics' three holds (`i18n/switch-holds.ts`) can stall it on purpose |
 
 The Diagnostics screen (`app/settings/diagnostics.tsx`) exists in builds with `EXPO_PUBLIC_DIAGNOSTICS=1`: *Simulate walk* (a recorded trace through `pushFix`), *Weak GPS*, *No position*, *Stand still 31 min*, the queue test and the switch holds.
 

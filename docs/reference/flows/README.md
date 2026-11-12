@@ -18,19 +18,22 @@ One document per path through Wayfare. Each answers the same four questions: **w
 | *An owner paid and is still on Free* | [billing-and-entitlements](./billing-and-entitlements.md) §3 and §8 |
 | *A boost isn't showing* | [billing-and-entitlements](./billing-and-entitlements.md) §5 |
 | *Account routes answer 503* | [identity-and-sessions](./identity-and-sessions.md) §4 |
-| *Signed in elsewhere, with no other device* | [identity-and-sessions](./identity-and-sessions.md) §3 |
-| *The dashboards stopped moving* | [analytics](./analytics.md) §4 and §8 |
+| *The phone says "You were signed out"* | [identity-and-sessions](./identity-and-sessions.md) §3 |
+| *The dashboards stopped moving* | [analytics](./analytics.md) §4 and §8 — the jobs' `job_runs` |
 
 ## Find the flow from a route
 
+Prefixes are written as the routes are, after `/api/v1` (the webhooks sit outside it, under `/api/webhooks`, and `/q` at the root).
+
 | Route prefix | Flow |
 | :---- | :---- |
-| `/devices`, `/auth`, `/users`, `/owner/registration`, `/notifications` | [identity-and-sessions](./identity-and-sessions.md) |
+| `/devices`, `/auth`, `/users/me`, `/owner/registration`, `/notifications`, `/admin/users`, `/admin/owner-registrations` | [identity-and-sessions](./identity-and-sessions.md) |
 | `/owner/submissions`, `/admin/submissions`, `/admin/places`, `/owner/places` | [place-lifecycle](./place-lifecycle.md) |
-| `/sync`, `/offline`, `/q`, `/codes`, `/places/by-code` | [sync-and-offline](./sync-and-offline.md) |
+| `/sync`, `/offline`, `/q`, `/codes`, `/places` (`nearby`, `:id`, `by-code`), `/tours` (with `by-code`), `/areas`, `/admin/map-packs` | [sync-and-offline](./sync-and-offline.md) |
 | `/narration`, `/admin/narration` | [narration](./narration.md) |
 | `/owner/billing`, `/owner/boosts`, `/admin/plans`, `/admin/billing`, `/api/webhooks/stripe` | [billing-and-entitlements](./billing-and-entitlements.md) |
 | `/analytics`, `/telemetry`, `/owner/stats`, `/admin/analytics` | [analytics](./analytics.md) |
+| `/me/favorites`, `/account-recoveries`, `/admin/email-recoveries`, `/admin/roles`, `/admin/permissions`, `/admin/audit-logs`, `/api/webhooks/resend`, `/uploads`, `/admin/tours`, `/categories`, `/admin/areas`, `/admin/categories`, `/i18n`, `/dev` | no flow of their own — Swagger; favourites move with a device's claim ([identity-and-sessions](./identity-and-sessions.md) §3) |
 
 The walk itself runs on the phone and enters no route; [the-walk](./the-walk.md) names the routes the player calls.
 
