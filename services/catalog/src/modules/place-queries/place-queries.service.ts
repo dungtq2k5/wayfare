@@ -121,7 +121,11 @@ export class PlaceQueriesService {
     requireDeviceContext(context);
     const fields = parseRpcRequest(syncFields, request);
     await this.requireActiveArea(fields.areaId);
-    const page = await this.sync.changes({ areaId: fields.areaId, since: fields.since });
+    const page = await this.sync.changes({
+      areaId: fields.areaId,
+      since: fields.since,
+      lang: fields.lang.lang,
+    });
     const live = page.changes.filter((change) => change.live).map((change) => change.id);
     const records = await this.syncRecords(live, fields.lang.lang);
     return {

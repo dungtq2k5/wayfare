@@ -158,11 +158,17 @@ model PlaceLocalization {
   audioDurationMs        Int?     @map("audio_duration_ms")
   voiceId                String?  @map("voice_id") @db.VarChar(64)
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// From catalog_sync_version_seq, taken by `stampLocalizationVersion` (rdm-spec §1.7); 0 when
+  /// never stamped (a row from before per-language versions, which its Place's bump carried).
+  syncVersion            BigInt   @default(0) @map("sync_version")
+  /// Written only by `stampLocalizationVersion`, with the database's clock — no @updatedAt.
+  updatedAt              DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
 
   place Place @relation(fields: [placeId], references: [id], onDelete: Cascade)
 
   @@id([placeId, lang])
+  @@index([syncVersion], map: "place_localizations_sync_version_idx")
+  @@index([lang, syncVersion], map: "place_localizations_lang_sync_version_idx")
   @@map("place_localizations")
 }
 
@@ -213,11 +219,16 @@ model MenuItemLocalization {
   description       String?  @db.VarChar(500)
   sourceContentHash String   @map("source_content_hash") @db.Char(64)
   translationSource String   @map("translation_source") @db.VarChar(16)
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// As a Place localization's: 0 when never stamped. Read only by the detail's ETag — no sync
+  /// carries a menu.
+  syncVersion       BigInt   @default(0) @map("sync_version")
+  /// Written only by `stampLocalizationVersion`, with the database's clock — no @updatedAt.
+  updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
 
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
   @@id([menuItemId, lang])
+  @@index([syncVersion], map: "menu_item_localizations_sync_version_idx")
   @@map("menu_item_localizations")
 }
 
@@ -267,11 +278,16 @@ model TourLocalization {
   description       String   @db.Text
   sourceContentHash String   @map("source_content_hash") @db.Char(64)
   translationSource String   @map("translation_source") @db.VarChar(16)
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// As a Place localization's: 0 when never stamped.
+  syncVersion       BigInt   @default(0) @map("sync_version")
+  /// Written only by `stampLocalizationVersion`, with the database's clock — no @updatedAt.
+  updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
 
   tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
 
   @@id([tourId, lang])
+  @@index([syncVersion], map: "tour_localizations_sync_version_idx")
+  @@index([lang, syncVersion], map: "tour_localizations_lang_sync_version_idx")
   @@map("tour_localizations")
 }
 

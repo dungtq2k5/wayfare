@@ -414,13 +414,19 @@ describe('SyncPlaces', () => {
     for (let index = 0; index < 5; index++) ids.push((await live()).id);
     await settle();
     const { sync: service } = catalogServices(prisma);
-    const page = await service.changes({ areaId: tax.area.id, since: 0n, pageSize: 2 });
+    const page = await service.changes({
+      areaId: tax.area.id,
+      since: 0n,
+      lang: 'en',
+      pageSize: 2,
+    });
     expect(page.complete).toBe(false);
     expect(page.changes.map((change) => change.id)).toEqual(ids.slice(0, 2));
     expect(page.datasetVersion).toBe(page.changes[1]!.syncVersion);
     const rest = await service.changes({
       areaId: tax.area.id,
       since: page.datasetVersion,
+      lang: 'en',
       pageSize: 3,
     });
     expect(rest.complete).toBe(true);

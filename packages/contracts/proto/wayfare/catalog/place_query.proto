@@ -121,10 +121,13 @@ message PlaceDetail {
   optional int32 price_band = 15;
   optional string phone = 16;
   optional string website_url = 17;
-  // The ETag's version.
+  // The Place's own version.
   int64 sync_version = 18;
   // The calling device, or the signed-in account on any of its devices, has saved this Place.
   bool is_favorite = 19;
+  // The ETag's version: the Place's version for the detail's language — its own and the served
+  // localization's — raised to its menu lines' by the same rule (rdm-spec §1.7).
+  int64 etag_version = 20;
 }
 
 // One photo in display order.

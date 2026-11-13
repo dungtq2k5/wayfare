@@ -141,7 +141,9 @@ function syncAll(get, path, areaId, since) {
   for (;;) {
     const query = `areaId=${areaId}&lang=en${version === null ? '' : `&since=${version}`}`;
     const response = get(`${path}?${query}`);
-    if (response.status !== 200) return { places, version, bytes, ok: false };
+    if (response.status !== 200) {
+      return { places, version, bytes, ok: false, failure: `${response.status} ${response.body}` };
+    }
     bytes += response.body.length;
     const page = response.json();
     places.push(...(page.data.places ?? page.data.tours ?? []));
@@ -174,7 +176,7 @@ export function setup() {
     area.id,
     null,
   );
-  if (!full.ok) throw new Error('setup: the full sync failed');
+  if (!full.ok) throw new Error(`setup: the full sync failed: ${full.failure}`);
   if (!SMOKE && full.places.length < 2_000) {
     throw new Error(`setup: ${full.places.length} live Places — run pnpm seed:load first`);
   }

@@ -1,6 +1,6 @@
 import { ContentTier } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
-import { resolveContentTier } from './content-tier';
+import { contentRows, resolveContentTier } from './content-tier';
 
 const CURRENT = 'a'.repeat(64);
 const OLD = 'b'.repeat(64);
@@ -66,5 +66,29 @@ describe('resolveContentTier', () => {
     expect(
       resolveContentTier({ requested: 'vi', localizations: [row('en')], source }),
     ).toMatchObject({ tier: ContentTier.REQUESTED, lang: 'vi', name: source.name, stale: false });
+  });
+});
+
+describe('contentRows', () => {
+  it('names exactly the rows resolveContentTier can serve each language from', () => {
+    const langs = ['en', 'vi', 'ja', 'fr'];
+    // Every subset of rows, for every requested language: what is served is one of contentRows'.
+    for (const requested of [null, 'en', 'vi', 'ja', 'fr']) {
+      const { own, fallback } = contentRows(requested);
+      for (let mask = 0; mask < 1 << langs.length; mask++) {
+        const localizations = langs.filter((_, bit) => mask & (1 << bit)).map((lang) => row(lang));
+        const served = resolveContentTier({ requested, localizations, source }).localization?.lang;
+        if (served === undefined) continue;
+        const ownStored = localizations.some((candidate) => candidate.lang === own);
+        expect(served).toBe(ownStored ? own : fallback);
+      }
+    }
+  });
+
+  it('falls back to English only from a third language', () => {
+    expect(contentRows('fr')).toEqual({ own: 'fr', fallback: 'en' });
+    expect(contentRows('en')).toEqual({ own: 'en', fallback: null });
+    expect(contentRows('vi')).toEqual({ own: 'vi', fallback: null });
+    expect(contentRows(null)).toEqual({ own: 'en', fallback: null });
   });
 });

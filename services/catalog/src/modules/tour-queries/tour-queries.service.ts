@@ -166,19 +166,17 @@ export class TourQueriesService {
   ): Promise<catalogGrpc.SyncToursResponse> {
     requireDeviceContext(context);
     const fields = parseRpcRequest(syncFields, request);
-    const cap = await this.sync.cap(fields.since);
-    const changes = await this.prisma.$queryRaw<
-      { id: string; syncVersion: bigint; live: boolean }[]
-    >`
-      SELECT id, sync_version AS "syncVersion",
-             (status = ${TourStatus.ACTIVE} AND deleted_at IS NULL
-              AND area_id = ${fields.areaId}::uuid) AS live
-      FROM tours
-      WHERE sync_version > ${fields.since}::bigint AND sync_version <= ${cap}::bigint
-      ORDER BY sync_version
-      LIMIT ${SYNC_PAGE + 1}`;
-    const page = changes.slice(0, SYNC_PAGE);
-    const complete = changes.length <= SYNC_PAGE;
+    // By the tour's own version and its localizations' for this language (rdm-spec §1.7).
+    const {
+      changes: page,
+      datasetVersion,
+      complete,
+    } = await this.sync.tourChanges({
+      areaId: fields.areaId,
+      since: fields.since,
+      lang: fields.lang.lang,
+      pageSize: SYNC_PAGE,
+    });
     const live = page.filter((change) => change.live).map((change) => change.id);
     const rows = await this.prisma.tour.findMany({
       where: { id: { in: live } },
@@ -208,7 +206,7 @@ export class TourQueriesService {
       }),
       removedTourIds:
         fields.since === 0n ? [] : page.filter((change) => !change.live).map((change) => change.id),
-      datasetVersion: (complete ? cap : page.at(-1)!.syncVersion).toString(),
+      datasetVersion: datasetVersion.toString(),
       complete,
     };
   }
@@ -276,6 +274,7 @@ export class TourQueriesService {
             audioSha256: true,
             audioBytes: true,
             audioDurationMs: true,
+            syncVersion: true,
           },
         },
         photos: {

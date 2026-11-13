@@ -22,11 +22,11 @@ sequenceDiagram
   P->>G: next page while not complete
 ```
 
-- **One sequence for everything** (`catalog_sync_version_seq`, shared by Places and tours). **Every write a tourist could observe** — the Place, its photos, menu, hours, a localization, the auto-narration flag — ends with the bump, in the same transaction (`withSyncWrite`). A discovery boost does **not** bump it: paid ranking never reaches a phone's records.
+- **One sequence for everything** (`catalog_sync_version_seq`, shared by Places and tours). **Every write a tourist could observe** — the Place, its photos, menu, hours, the auto-narration flag — ends with the Place's bump, in the same transaction (`withSyncWrite`). **A localization stamps its own version instead** (`stampLocalizationVersion`), and **a Place's version for a language** is the greater of its own and that of the row its records are served from — the language's own row, or English's when it has none (rdm-spec §1.7) — so a translation reaches only the phones that show it. A discovery boost moves nothing: paid ranking never reaches a phone's records.
 - **The cap** is the newest version whose row is more than 5 s old (`SYNC_SAFETY_LAG_MS`), never below `since`. A slow transaction that commits a lower number late is therefore never skipped: the lag plus the transaction's own 4 s limit cover it.
 - **A page** is up to 500 changes across all areas: live Places of the asked area come back as full records; **every other changed id comes back as removed** — deleted, paused, or moved to another area (a first sync, from `since=0`, has no removed ids). The phone deletes only within the area it asked about, so a Place that moved isn't lost from the area it moved to.
 - **Each record carries one language**, resolved down the content chain — the asked language, else English, else the Vietnamese source — with `contentTier` and `stale` saying which ([conventions](../../development-conventions.md) §11.2), and audio only when it matches its text.
-- **`304`**: the ETag is `"<areaId>:<lang>:<datasetVersion>"`; it matches only when nothing changed anywhere since the cursor.
+- **`304`**: the ETag is `"<areaId>:<lang>:<datasetVersion>"`; it matches only when nothing changed anywhere since the cursor; a cursor past changes only other languages saw gets a complete, empty page.
 - **On the phone**, `place_records` (one row per Place and language) and `sync_state` (the cursor per area and language). An **incomplete** page that doesn't move the cursor forward throws — the guard against looping on the same page; a complete page at the same version is normal. Tours sync the same way (`/sync/tours`), and the phone decides which stops are live.
 
 ---
@@ -85,7 +85,7 @@ flowchart TD
 | A downloaded file's hash differs | fetched once more, then the pack fails *check* | a corrupt story never plays |
 | Two phones ask for the same new snapshot | written once | an advisory lock on its path |
 | A sticker scanned while catalog is down | redirected, not counted | the tourist still gets somewhere |
-| A Place translated into another language | it comes back in **every** language's delta, unchanged for them | one `sync_version` per Place — known-gaps row 13; under load an English delta reached 247 KB |
+| A Place translated into another language | only that language's delta carries it; an English pack isn't offered an update | each localization has its own version, and a language's delta follows the row its records are served from (rdm-spec §1.7) |
 
 ---
 

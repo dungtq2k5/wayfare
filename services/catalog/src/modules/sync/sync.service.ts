@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { SYNC_PAGE_SIZE, SYNC_SAFETY_LAG_MS } from '@wayfare/contracts';
+import { LocalizationTargetType, SYNC_PAGE_SIZE, SYNC_SAFETY_LAG_MS } from '@wayfare/contracts';
+import { contentRows } from '@wayfare/core';
 import { rpcError } from '@wayfare/nest-common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -84,9 +85,83 @@ export async function bumpTourSyncVersion(tx: CatalogTx, tourId: string): Promis
   return row.sync_version;
 }
 
+/** The localization tables a version is stamped on, and the column naming their parent. */
+const LOCALIZATION_TABLES = {
+  [LocalizationTargetType.PLACE]: { table: 'place_localizations', parent: 'place_id' },
+  [LocalizationTargetType.MENU_ITEM]: { table: 'menu_item_localizations', parent: 'menu_item_id' },
+  [LocalizationTargetType.TOUR]: { table: 'tour_localizations', parent: 'tour_id' },
+} as const;
+
+/**
+ * Takes a localization's next `sync_version` (rdm-spec §1.7) — the last write of its transaction,
+ * as a Place's bump is (when a transaction also bumps the Place or tour, this comes first, then the
+ * bump). `updated_at` is the database's clock at that moment: the only writer of the column.
+ */
+export async function stampLocalizationVersion(
+  tx: CatalogTx,
+  targetType: keyof typeof LOCALIZATION_TABLES,
+  targetId: string,
+  lang: string,
+): Promise<bigint> {
+  const { table, parent } = LOCALIZATION_TABLES[targetType];
+  const [row] = await tx.$queryRaw<{ sync_version: bigint }[]>`
+    UPDATE ${Prisma.raw(table)}
+    SET sync_version = nextval('catalog_sync_version_seq'), updated_at = clock_timestamp()
+    WHERE ${Prisma.raw(parent)} = ${targetId}::uuid AND lang = ${lang}
+    RETURNING sync_version`;
+  if (row === undefined) {
+    throw new Error(`stampLocalizationVersion: no ${targetType} ${targetId} in ${lang}`);
+  }
+  return row.sync_version;
+}
+
+/** A versioned table and its localizations, as `changes` reads them. */
+interface VersionedSource {
+  readonly table: string;
+  readonly localizations: string;
+  readonly parent: string;
+}
+const PLACES: VersionedSource = {
+  table: 'places',
+  localizations: 'place_localizations',
+  parent: 'place_id',
+};
+const TOURS: VersionedSource = {
+  table: 'tours',
+  localizations: 'tour_localizations',
+  parent: 'tour_id',
+};
+
+/**
+ * A row's version for a language (rdm-spec §1.7), over `t` and its localization joins `o` (the
+ * language's own row) and `f` (the one the content chain falls back to): the greatest of its own
+ * version and the served row's — counting only versions at or below the cap.
+ */
+function languageVersion(cap: bigint): Prisma.Sql {
+  const counted = (column: Prisma.Sql) =>
+    Prisma.sql`CASE WHEN ${column} <= ${cap}::bigint THEN ${column} ELSE 0 END`;
+  return Prisma.sql`GREATEST(
+    ${counted(Prisma.sql`t.sync_version`)},
+    CASE WHEN o.lang IS NOT NULL THEN ${counted(Prisma.sql`o.sync_version`)}
+         WHEN f.lang IS NOT NULL THEN ${counted(Prisma.sql`f.sync_version`)}
+         ELSE 0 END)`;
+}
+
+/** The joins `languageVersion` reads: `o`, the language's own row, and `f`, its fallback's. */
+function languageJoins(source: VersionedSource, lang: string | null): Prisma.Sql {
+  const { own, fallback } = contentRows(lang);
+  const localizations = Prisma.raw(source.localizations);
+  const parent = Prisma.raw(source.parent);
+  return Prisma.sql`
+    LEFT JOIN ${localizations} o ON o.${parent} = t.id AND o.lang = ${own}
+    LEFT JOIN ${localizations} f ON f.${parent} = t.id AND f.lang = ${fallback ?? own}
+                                 AND ${fallback !== null}`;
+}
+
 /** One changed Place in a sync page. */
 export interface SyncChange {
   readonly id: string;
+  /** Its version for the page's language (`changes`). */
   readonly syncVersion: bigint;
   /** Active, not deleted, and in the requested area — served in full; else removed. */
   readonly live: boolean;
@@ -105,40 +180,122 @@ export class SyncService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * The highest settled version, never below `since`: one number across every area. A row is
-   * settled once its version is older than the lag, which no bumping transaction outlives.
+   * The highest settled version, never below `since`: one number across every area and language.
+   * A row is settled once its version is older than the lag, which no bumping transaction outlives.
+   * Over the four tables a sync reads — Places, tours and their localizations; menu translations
+   * would move the cursor past nothing — each probed down its `sync_version` index to its newest
+   * settled row, since every sync request asks.
    */
   async cap(since: bigint = 0n): Promise<bigint> {
-    // Tours take their versions from the same sequence: one cap over both (rdm-spec §1.7).
+    const settled = (table: string) => Prisma.sql`
+      COALESCE((SELECT sync_version FROM ${Prisma.raw(table)}
+                WHERE updated_at < bounds.settled ORDER BY sync_version DESC LIMIT 1), 0)`;
     const [row] = await this.prisma.$queryRaw<{ cap: bigint }[]>`
-      SELECT GREATEST(COALESCE(MAX(sync_version), 0), ${since}::bigint) AS cap
-      FROM (
-        SELECT sync_version, updated_at FROM places
-        UNION ALL
-        SELECT sync_version, updated_at FROM tours
-      ) versions
-      WHERE updated_at < clock_timestamp() - make_interval(secs => ${SYNC_SAFETY_LAG_MS / 1000})`;
+      SELECT GREATEST(${settled('places')}, ${settled('tours')},
+                      ${settled('place_localizations')}, ${settled('tour_localizations')},
+                      ${since}::bigint) AS cap
+      FROM (SELECT clock_timestamp() - make_interval(secs => ${SYNC_SAFETY_LAG_MS / 1000})
+              AS settled) bounds`;
     return row?.cap ?? since;
   }
 
   /**
-   * Every Place with `since < sync_version <= cap`, in version order, across **all** areas — a
-   * Place that left the area is a removal there. A full page ends at its last version.
+   * The Places whose version for `lang` is above `since` and at or below the cap, in that order,
+   * across **all** areas — a Place that left the area is a removal there. A full page ends at its
+   * last version.
    */
-  async changes(input: {
+  changes(input: {
     readonly areaId: string;
     readonly since: bigint;
+    /** The served language; null for one Wayfare doesn't serve (it reads English). */
+    readonly lang: string | null;
     readonly pageSize?: number;
   }): Promise<SyncChanges> {
+    return this.languageChanges(PLACES, input);
+  }
+
+  /** `changes` for tours: by their own version and their localizations', as Places are. */
+  tourChanges(input: {
+    readonly areaId: string;
+    readonly since: bigint;
+    readonly lang: string | null;
+    readonly pageSize?: number;
+  }): Promise<SyncChanges> {
+    return this.languageChanges(TOURS, input);
+  }
+
+  /**
+   * An area's Places for an offline snapshot in `lang` (api-endpoints-plan §2.4): the live ones whose
+   * own version is settled, in their language's version order, and the area's greatest version for
+   * the language — the snapshot's name, so another language's translation doesn't make a new one.
+   */
+  async areaSnapshot(input: {
+    readonly areaId: string;
+    readonly lang: string | null;
+    readonly cap: bigint;
+  }): Promise<{ readonly live: readonly string[]; readonly version: bigint }> {
+    const rows = await this.prisma.$queryRaw<{ id: string; live: boolean; version: bigint }[]>`
+      SELECT t.id,
+             (t.status = 'ACTIVE' AND t.deleted_at IS NULL) AS live,
+             ${languageVersion(input.cap)} AS version
+      FROM places t
+      ${languageJoins(PLACES, input.lang)}
+      WHERE t.area_id = ${input.areaId}::uuid AND t.sync_version <= ${input.cap}::bigint
+      ORDER BY version, t.id`;
+    return {
+      live: rows.filter((row) => row.live).map((row) => row.id),
+      version: rows.reduce(
+        (greatest, row) => (row.version > greatest ? row.version : greatest),
+        0n,
+      ),
+    };
+  }
+
+  /**
+   * A language's version of each row (rdm-spec §1.7): the greatest of its own version and the
+   * version of the localization a record in that language is served from — its own row, or, with
+   * none, the row the content chain falls back to (`contentRows`). Only versions at or below the cap
+   * count: a newer one is the next delta's. Candidates come from the `sync_version` and
+   * `(lang, sync_version)` indexes, then each one's version is worked out.
+   */
+  private async languageChanges(
+    source: VersionedSource,
+    input: {
+      readonly areaId: string;
+      readonly since: bigint;
+      readonly lang: string | null;
+      readonly pageSize?: number;
+    },
+  ): Promise<SyncChanges> {
     const pageSize = input.pageSize ?? SYNC_PAGE_SIZE;
     const cap = await this.cap(input.since);
+    const { own, fallback } = contentRows(input.lang);
+    const table = Prisma.raw(source.table);
+    const changedRows = (lang: string) => Prisma.sql`
+      UNION
+      SELECT ${Prisma.raw(source.parent)} FROM ${Prisma.raw(source.localizations)}
+      WHERE lang = ${lang} AND sync_version > ${input.since}::bigint
+        AND sync_version <= ${cap}::bigint`;
     const rows = await this.prisma.$queryRaw<SyncChange[]>`
-      SELECT id,
-             sync_version AS "syncVersion",
-             (status = 'ACTIVE' AND deleted_at IS NULL AND area_id = ${input.areaId}::uuid) AS live
-      FROM places
-      WHERE sync_version > ${input.since}::bigint AND sync_version <= ${cap}::bigint
-      ORDER BY sync_version
+      WITH candidates AS (
+        SELECT id FROM ${table}
+        WHERE sync_version > ${input.since}::bigint AND sync_version <= ${cap}::bigint
+        ${changedRows(own)}
+        ${fallback === null ? Prisma.empty : changedRows(fallback)}
+      ),
+      versions AS (
+        SELECT t.id,
+               (t.status = 'ACTIVE' AND t.deleted_at IS NULL
+                AND t.area_id = ${input.areaId}::uuid) AS live,
+               ${languageVersion(cap)} AS version
+        FROM candidates c
+        JOIN ${table} t ON t.id = c.id
+        ${languageJoins(source, input.lang)}
+      )
+      SELECT id, version AS "syncVersion", live
+      FROM versions
+      WHERE version > ${input.since}::bigint
+      ORDER BY version
       LIMIT ${pageSize + 1}`;
     if (rows.length > pageSize) {
       const page = rows.slice(0, pageSize);

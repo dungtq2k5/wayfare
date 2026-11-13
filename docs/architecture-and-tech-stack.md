@@ -616,7 +616,7 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 
 - **`pnpm load`** runs k6 (`infra/load/crowd.js`) on the Compose network against the gateway, with `compose.load.yaml` applied for the run — the gateway trusts one `X-Forwarded-For` hop (each simulated install sends its own address, so every per-IP limit applies per install) and keeps one trace in ten — and the normal gateway restored on exit. `pnpm load -- --smoke` checks every call of the contract first. `pnpm seed:load` adds 2,000 Editorial Places through the normal creation path and waits until they are live.
 - **Budgets fail only during the steady hold**: nearby p95 < 150 ms (product §10), a Place < 200 ms, a delta page < 300 ms, a whole full sync < 1.5 s, prefetch < 300 ms, analytics < 200 ms, QR < 100 ms, on-demand text ready < 5 s, errors < 0.5 % (a `429` counts), a delta's body < 50 KB. The spike and recovery are reported and fail only past 1 % errors.
-- **The first run** (2026-11-12, the screens stack): every latency budget held with a wide margin — nearby 48 ms, a Place 21 ms, a delta page 42 ms, a full sync 142 ms — spikes under 110 ms, no error in any phase. **The delta's size missed** (known-gaps row 13).
+- **The first run** (2026-11-12, the screens stack): every latency budget held with a wide margin — nearby 48 ms, a Place 21 ms, a delta page 42 ms, a full sync 142 ms — spikes under 110 ms, no error in any phase. **The delta's size missed** (247 KB) until each language's delta carried only its own changes; the rerun (2026-11-13) measured an empty 91-byte page, a delta page at 18 ms and a full sync at 164 ms.
 
 ### 12.1 The test database
 

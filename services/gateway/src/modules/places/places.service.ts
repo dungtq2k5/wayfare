@@ -30,7 +30,8 @@ export class PlacesService {
   }
 
   /**
-   * A live Place, tagged `"<id>:<lang>:<sync_version>:<isFavorite>"` — favouriting changes no
+   * A live Place, tagged `"<id>:<lang>:<etagVersion>:<isFavorite>"` — its version for the language
+   * (rdm-spec §1.7), so another language's translation leaves it alone. Favouriting changes no
    * content, and the tag must still move, or a re-read after toggling it answers `304` with the
    * caller's own stale value (api-endpoints-plan §2.1).
    */
@@ -46,7 +47,7 @@ export class PlacesService {
     );
     return ETaggedResult.of(
       toPlaceDetailResponseDto(response.place),
-      `${placeId}:${lang.tag}:${response.place?.syncVersion ?? ''}:${response.place?.isFavorite ?? false}`,
+      `${placeId}:${lang.tag}:${response.place?.etagVersion ?? ''}:${response.place?.isFavorite ?? false}`,
     );
   }
 

@@ -134,10 +134,15 @@ export interface PlaceDetail {
   websiteUrl?:
     | string
     | undefined;
-  /** The ETag's version. */
+  /** The Place's own version. */
   syncVersion: string;
   /** The calling device, or the signed-in account on any of its devices, has saved this Place. */
   isFavorite: boolean;
+  /**
+   * The ETag's version: the Place's version for the detail's language — its own and the served
+   * localization's — raised to its menu lines' by the same rule (rdm-spec §1.7).
+   */
+  etagVersion: string;
 }
 
 /** One photo in display order. */

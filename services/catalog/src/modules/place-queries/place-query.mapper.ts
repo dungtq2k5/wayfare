@@ -32,6 +32,7 @@ export const SERVED_LOCALIZATION_SELECT = {
   audioSha256: true,
   audioBytes: true,
   audioDurationMs: true,
+  syncVersion: true,
 } as const satisfies Prisma.PlaceLocalizationSelect;
 
 /** A localization as `SERVED_LOCALIZATION_SELECT` loads it. */
@@ -107,7 +108,13 @@ export const DETAIL_PLACE_SELECT = {
       priceMinor: true,
       isAvailable: true,
       localizations: {
-        select: { lang: true, name: true, description: true, sourceContentHash: true },
+        select: {
+          lang: true,
+          name: true,
+          description: true,
+          sourceContentHash: true,
+          syncVersion: true,
+        },
       },
     },
     orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
@@ -235,6 +242,42 @@ export function toPlaceSummary(
   };
 }
 
+/**
+ * The detail's ETag version (rdm-spec §1.7): the Place's own version raised to the row each part of
+ * the page is served from in the asked language — its text's and, for a Venue, each menu line's,
+ * by the content chain. Another language's translation leaves it unchanged.
+ */
+function etagVersion(row: DetailPlaceRow, requested: string | null): bigint {
+  const served = (
+    localizations: readonly {
+      lang: string;
+      name: string;
+      description: string | null;
+      sourceContentHash: string;
+      syncVersion: bigint;
+    }[],
+    source: { name: string; description: string | null; contentHash: string },
+  ) => resolveContentTier({ requested, localizations, source }).localization?.syncVersion ?? 0n;
+  const versions = [
+    row.syncVersion,
+    served(row.localizations, {
+      name: row.nameVi,
+      description: row.descriptionVi,
+      contentHash: row.contentHash,
+    }),
+    ...(row.kind === VENUE
+      ? row.menuItems.map((item) =>
+          served(item.localizations, {
+            name: item.nameVi,
+            description: item.descriptionVi,
+            contentHash: item.contentHash,
+          }),
+        )
+      : []),
+  ];
+  return versions.reduce((greatest, version) => (version > greatest ? version : greatest), 0n);
+}
+
 /** A Place's full tourist view; billing's offers are the gateway's to compose. */
 export function toPlaceDetail(
   row: DetailPlaceRow,
@@ -292,6 +335,7 @@ export function toPlaceDetail(
     ...(row.phone === null ? {} : { phone: row.phone }),
     ...(row.websiteUrl === null ? {} : { websiteUrl: row.websiteUrl }),
     syncVersion: row.syncVersion.toString(),
+    etagVersion: etagVersion(row, requested).toString(),
     isFavorite,
   };
 }

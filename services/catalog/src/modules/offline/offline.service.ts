@@ -6,7 +6,6 @@ import {
   AuditResourceType,
   datasetVersionFromWire,
   MapPackStatus,
-  PlaceStatus,
   TourStatus,
   zOfflineManifest,
   zOfflineManifestDiff,
@@ -184,7 +183,8 @@ export class OfflineService {
       });
     }
     for (;;) {
-      const page = await this.sync.changes({ areaId: area.id, since });
+      // The pack's language's changes: another language's translation lists nothing here.
+      const page = await this.sync.changes({ areaId: area.id, since, lang: fields.lang.lang });
       for (const change of page.changes) {
         if (change.syncVersion > cap) continue;
         if (change.live) changed.push(change.id);
@@ -286,18 +286,14 @@ export class OfflineService {
     lang: RequestedLanguage,
     cap: bigint,
   ): Promise<Snapshot> {
-    const live: string = PlaceStatus.ACTIVE;
-    const [rows, [latest]] = await Promise.all([
-      this.prisma.$queryRaw<{ id: string }[]>`
-        SELECT id FROM places
-        WHERE area_id = ${area.id}::uuid AND status = ${live} AND deleted_at IS NULL
-          AND sync_version <= ${cap}::bigint
-        ORDER BY sync_version`,
-      this.prisma.$queryRaw<{ version: bigint }[]>`
-        SELECT COALESCE(MAX(sync_version), 0) AS version FROM places
-        WHERE area_id = ${area.id}::uuid AND sync_version <= ${cap}::bigint`,
-    ]);
-    const path = snapshotPath(area.code, langKey(lang), latest!.version, rows.length);
+    // Named by the area's greatest version for this language: another language's translation
+    // reuses the file rather than generating a new one.
+    const { live, version } = await this.sync.areaSnapshot({
+      areaId: area.id,
+      lang: lang.lang,
+      cap,
+    });
+    const path = snapshotPath(area.code, langKey(lang), version, live.length);
     return this.prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catalog:snapshot:${path}`}))`;
@@ -311,10 +307,7 @@ export class OfflineService {
             .filter((line) => line !== '')
             .map((line) => zPlaceSyncRecord.parse(JSON.parse(line)));
         } else {
-          records = await this.records(
-            rows.map((row) => row.id),
-            lang,
-          );
+          records = await this.records(live, lang);
           const ndjson = records.map((record) => `${JSON.stringify(record)}\n`).join('');
           data = gzipSync(Buffer.from(ndjson, 'utf8'));
           await this.storage.upload(path, data, {

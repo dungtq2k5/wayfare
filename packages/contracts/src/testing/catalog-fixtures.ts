@@ -189,6 +189,7 @@ export function placeDetailFixture(overrides: Partial<PlaceDetail> = {}): PlaceD
     websiteUrl: undefined,
     syncVersion: '42',
     isFavorite: false,
+    etagVersion: '42',
     ...overrides,
   };
 }

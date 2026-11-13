@@ -121,14 +121,15 @@ DRAFT ──approve──▶ PROCESSING ──en text+audio READY──▶ ACTIV
 
 The tourist client holds the whole active corpus for its area locally (product-overview §F5). It stays current through one monotonic number.
 
-- `catalog` owns a Postgres sequence, `catalog_sync_version_seq`. **Every change that a tourist client could observe** takes `nextval()` into the changed row's `sync_version`: a Place's own columns, any of its localizations, photos or menu items, a status transition into or out of `ACTIVE`, a soft delete. Child-row changes bump the **parent Place's** `sync_version`, because the client syncs Places, not photos.
+- `catalog` owns a Postgres sequence, `catalog_sync_version_seq`. **Every change that a tourist client could observe** takes `nextval()` into the changed row's `sync_version`: a Place's own columns, its photos or menu items, its opening hours, a status transition into or out of `ACTIVE`, a soft delete — child-row changes bump the **parent Place's** `sync_version`, because the client syncs Places, not photos. **A localization carries its own `sync_version`** (C-4, C-7, C-9), stamped by `stampLocalizationVersion` and **not** bumping its Place — unless the same write changes the Place itself (the activation gate opening), when the stamp comes first and then the Place's bump. A translation into one language therefore reaches only the phones that show it.
+- **A Place's version for a language follows the content chain** (`contentRows` beside `resolveContentTier`, in `packages/core`): the greatest of the Place's own version and the version of the row the record is served from — the language's own row whenever one exists, stale or not; English's when it has none; for `vi` its own row, never English; for an unsupported language English's. A menu translation is in no sync record, so it moves no sync version — only the detail's ETag (api-endpoints-plan §2.1). Tours follow the same rule with C-9.
 - `GET /sync/places?since=N` returns every Place with `sync_version > N`: `ACTIVE` ones as full records, everything else as ids in `removedPlaceIds`. The response's `datasetVersion` is the highest `sync_version` it covered.
 - **This is why Places are never hard-deleted.** A hard delete leaves no row to carry a `sync_version`, so a client would keep a deleted Place forever. The soft-deleted row *is* the tombstone; no separate tombstone table exists.
 - A sequence, not `updated_at`: two transactions committing in the same millisecond, or a clock step backwards on a replica, silently lose a change under timestamp sync. A sequence value is never reused.
 - ⚠️ A sequence value is taken at write time but visible at commit time, so a long transaction can commit a *lower* `sync_version` after a client has already synced past it. The sync query therefore reads with a small **safety lag**: it only returns rows up to `max(sync_version)` among transactions already older than `SYNC_SAFETY_LAG_MS` (default 5 s), and the client re-requests from its last `datasetVersion`. Without the lag the failure is a Place that silently never appears on one phone.
 - **How the lag is made safe.** Every transaction that bumps a `sync_version` opens with `SET LOCAL transaction_timeout = '4s'` as its **first** statement (Postgres starts that timer at the `SET`, not at `BEGIN`) and bumps through one helper, `bumpSyncVersion`, as its last write — `sync_version = nextval(…)` and `updated_at = clock_timestamp()` **in the same statement** — the moment the version is taken, not the transaction's start. With `now()`, a long transaction could take a higher version after a shorter, still-open one took a lower one, and the settled cap could pass the lower, uncommitted row; with both stamped together, a lower version always has an earlier stamp. The client-side transaction timeout is lower (3.5 s), so an overrun normally rolls back politely; the server timeout is the backstop, and it **closes the connection**, which the service answers as a retryable `503`. No such transaction outlives 4 s past its start, so it ends within 4 s of any stamp it wrote, and any row whose `updated_at` is older than the 5 s lag is settled.
-- **The sync read.** Changes are read across **every** area — `since < sync_version <= cap` — and a Place that is not active, deleted, or **no longer in the requested area** is listed in `removedPlaceIds`, so a Place moved to another area leaves the old area's phones. `cap = max(largest settled sync_version, since)`, so `datasetVersion` never goes backwards, and it is one number across all areas.
-- **Only `bumpSyncVersion` writes `places.updated_at`** (no ORM auto-stamp, which would use the application's clock), and an insert takes its first `sync_version` from `nextval` in the same statement. No column default references the sequence: it is created by the schema-objects file, after the migration.
+- **The sync read.** Changes are read **per language**, across **every** area — `since <` the Place's version for that language `<= cap` — and a Place that is not active, deleted, or **no longer in the requested area** is listed in `removedPlaceIds`, so a Place moved to another area leaves the old area's phones. `cap = max(largest settled sync_version, since)` over **four** tables — Places, tours, and their localizations (not menu translations) — each probed down its `(sync_version)` index to its first settled row; `datasetVersion` never goes backwards, and it is one number across all areas and languages. A delta with nothing for its language is a complete, empty page at the new cap.
+- **Only `bumpSyncVersion` writes `places.updated_at`, and only the stamp writes a localization's** (no ORM auto-stamp, which would use the application's clock), and an insert takes its first `sync_version` from `nextval` in the same statement. No column default references the sequence: it is created by the schema-objects file, after the migration.
 
 ### 1.8 Deletion policy
 
@@ -691,7 +692,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **activation_requested_at** | TIMESTAMPTZ(3) | Nullable | Set when a Place is approved for publication. The activation gate needs it (§1.6); a Place whose localizations become ready without it stays `PROCESSING`. |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | First time the Place became `ACTIVE`. Never cleared. |
 | **status_changed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | When `status` last changed — stamped by the trigger `places_status_changed_at_trg` (`schema-objects.sql`) on every write that changes it, raw SQL included; untouched by any other edit. Says how long a Place has been `PROCESSING` (api-endpoints-plan §3.5's stuck Places). |
-| **sync_version** | BIGINT | NOT NULL, Indexed | From `catalog_sync_version_seq`, re-taken on every tourist-observable change to the Place or its children (§1.7). |
+| **sync_version** | BIGINT | NOT NULL, Indexed | From `catalog_sync_version_seq`, re-taken on every tourist-observable change to the Place or its children — not its localizations, which carry their own (§1.7). |
 | **created_by_id** | UUID | NOT NULL, ref ➔ identity.users.id | The admin, or the approving admin for an owner-created Venue. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
@@ -768,7 +769,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **audio_duration_ms** | INT | Nullable | Shown in the player before playback. |
 | **voice_id** | VARCHAR(64) | Nullable | The voice that produced it. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
-| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+| **sync_version** | BIGINT | NOT NULL, 0; Indexed, and `(lang, sync_version)` | From `catalog_sync_version_seq`, stamped last by every write of this row (§1.7). `0` means never stamped — a row from before the version existed, or one an older image inserted during a deploy (that image also bumped the Place). |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | Written only by the stamp, with the database's clock (§1.7). |
 
 - `CHECK ((audio_status = 'READY') = (audio_object_path IS NOT NULL AND audio_sha256 IS NOT NULL AND audio_source_content_hash IS NOT NULL))`.
 - **The activation gate reads this table** (§1.6): the `en` row must exist with `source_content_hash = places.content_hash`, `audio_status = 'READY'` and `audio_source_content_hash = places.content_hash`.
@@ -820,7 +822,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **description** | VARCHAR(500) | Nullable | — |
 | **source_content_hash** | CHAR(64) | NOT NULL | — |
 | **translation_source** | VARCHAR(16) | NOT NULL | `SOURCE \| MACHINE \| HUMAN` — same rule as C-4. |
-| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+| **sync_version** | BIGINT | NOT NULL, 0; Indexed | Stamped as C-4's. Read only by the detail's ETag — no sync record carries a menu. |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | Written only by the stamp, with the database's clock (§1.7). |
 
 #### Table C-8: tours
 
@@ -860,7 +863,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **description** | TEXT | NOT NULL | — |
 | **source_content_hash** | CHAR(64) | NOT NULL | — |
 | **translation_source** | VARCHAR(16) | NOT NULL | `SOURCE \| MACHINE \| HUMAN`. |
-| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+| **sync_version** | BIGINT | NOT NULL, 0; Indexed, and `(lang, sync_version)` | Stamped as C-4's; a tour's version for a language follows the same chain (§1.7). |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | Written only by the stamp, with the database's clock (§1.7). |
 
 #### Table C-10: tour_stops
 

@@ -65,12 +65,17 @@ export function totalBytes(groups: readonly (readonly { readonly bytes: number }
 }
 
 /**
- * The shape of a snapshot's lines. A snapshot is never rewritten, so a change to the record's
- * shape (`addressVi` made it 2) must change the file's name, or the old file would be read back.
+ * The shape of a snapshot's lines, and what names it. A snapshot is never rewritten, so a change to
+ * either must change the file's name, or the old file would be read back: `addressVi` made it 2;
+ * naming by the language's version (rdm-spec §1.7) made it 3 — every snapshot is generated again
+ * once, on the server; no phone downloads one for it.
  */
-export const SNAPSHOT_FORMAT = 2;
+export const SNAPSHOT_FORMAT = 3;
 
-/** A snapshot's file name: the area's own last change and its live count (api-endpoints-plan §2.4). */
+/**
+ * A snapshot's file name: the area's greatest version for its language and its live count
+ * (api-endpoints-plan §2.4).
+ */
 export function snapshotPath(areaCode: string, lang: string, areaVersion: bigint, live: number) {
   return `offline/${areaCode}/${lang}/v${SNAPSHOT_FORMAT}-${areaVersion}-${live}.ndjson.gz`;
 }

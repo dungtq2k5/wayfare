@@ -61,11 +61,15 @@ describe('narration.localization.ready for a Place', () => {
       ready({ placeId: id, lang: 'en', sourceContentHash: contentHash, audioContentHash: null }),
     );
     expect((await place(id)).status).toBe(PlaceStatus.PROCESSING);
-    expect((await place(id)).syncVersion).toBeGreaterThan(before);
+    // Text that doesn't open the gate is its own row's version, not the Place's (rdm-spec §1.7).
+    expect((await place(id)).syncVersion).toBe(before);
+    expect((await row(id, 'en'))!.syncVersion).toBeGreaterThan(before);
 
     await apply(ready({ placeId: id, lang: 'en', sourceContentHash: contentHash }));
     const opened = await place(id);
     expect(opened.status).toBe(PlaceStatus.ACTIVE);
+    // The gate opened: the row's stamp, then the Place's bump — its status changed for everyone.
+    expect(opened.syncVersion).toBeGreaterThan((await row(id, 'en'))!.syncVersion);
     expect(opened.publishedAt).not.toBeNull();
     expect(await outboxPayloads(prisma, CATALOG_PLACE_STATUS_CHANGED.subject)).toEqual([
       expect.objectContaining({
@@ -206,7 +210,7 @@ describe('narration.localization.ready for a Place', () => {
 });
 
 describe('narration.localization.ready for a menu item', () => {
-  it('writes the current text, bumps the Place, and ignores a removed item', async () => {
+  it('writes the current text, stamps its own row but not the Place, and ignores a removed item', async () => {
     const venue = await insertPlace(prisma, {
       areaId: tax.area.id,
       categoryId: tax.venueOnly.id,
@@ -230,7 +234,15 @@ describe('narration.localization.ready for a menu item', () => {
         where: { menuItemId_lang: { menuItemId: item.id, lang: 'en' } },
       }),
     ).toMatchObject({ name: 'Beef pho', description: null, sourceContentHash: hash });
-    expect((await place(venue.id)).syncVersion).toBeGreaterThan(before);
+    // No sync carries a menu: the line's own version (the detail's ETag reads it), not the Place's.
+    expect((await place(venue.id)).syncVersion).toBe(before);
+    expect(
+      (
+        await prisma.menuItemLocalization.findUniqueOrThrow({
+          where: { menuItemId_lang: { menuItemId: item.id, lang: 'en' } },
+        })
+      ).syncVersion,
+    ).toBeGreaterThan(before);
     await expect(apply(event(newId(), hash, 'Gone'))).resolves.toBeUndefined();
   });
 });

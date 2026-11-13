@@ -500,7 +500,7 @@ These are **product** decisions, not implementation details. They must be config
 - Cold start to interactive map: **< 3 s** on a mid-range Android with a warm cache.
 - Narration start latency: **< 200 ms** tier 1, **< 5 s** tier 1.5 — tier 1.5 for the five launch languages; a long-tail language has no voice yet and is served as text.
 - Nearby query (server): p95 **< 150 ms**.
-- Delta sync payload for a typical daily change set: **< 50 KB** (missed under load — known-gaps row 13).
+- Delta sync payload for a typical daily change set: **< 50 KB** — met under load once each language's delta carried only its own changes (an English delta from 247 KB to an empty 91-byte page).
 - **Measured by the load test** (architecture §12.0), with these budgets beside the nearby query's: a Place's detail p95 < 200 ms, a delta page < 300 ms, a whole full sync < 1.5 s, errors < 0.5 %.
 
 **Battery** — a 4-hour walking session must cost **< 15%** battery on top of screen-off baseline. Non-negotiable: if the app eats the battery, the tourist uninstalls it, and the whole product dies. Enforce with throttling, distance filters, reduced accuracy when stationary, and no network chatter while idle.

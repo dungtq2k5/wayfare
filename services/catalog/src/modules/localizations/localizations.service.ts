@@ -22,7 +22,12 @@ import { netVisibilityChange } from '../places/domain/place-lifecycle';
 import { PlacesService } from '../places/places.service';
 import type { OwnerPlaceFrame } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { bumpSyncVersion, bumpTourSyncVersion, withSyncWrite } from '../sync/sync.service';
+import {
+  bumpSyncVersion,
+  bumpTourSyncVersion,
+  stampLocalizationVersion,
+  withSyncWrite,
+} from '../sync/sync.service';
 import { ToursService } from '../tours/tours.service';
 import type { CatalogTx } from '../sync/sync.service';
 
@@ -105,7 +110,7 @@ export class LocalizationsService {
         UPDATE place_localizations l
         SET audio_status = ${AudioStatus.FAILED}, audio_source_content_hash = NULL,
             audio_asset_id = NULL, audio_object_path = NULL, audio_sha256 = NULL,
-            audio_bytes = NULL, audio_duration_ms = NULL, voice_id = NULL, updated_at = now()
+            audio_bytes = NULL, audio_duration_ms = NULL, voice_id = NULL
         FROM places p
         WHERE l.place_id = p.id AND p.id = ${payload.targetId}::uuid AND l.lang = ${payload.lang}
           AND l.source_content_hash = p.content_hash
@@ -130,7 +135,13 @@ export class LocalizationsService {
             });
           }
         }
-        await bumpSyncVersion(tx, payload.targetId);
+        // Only this language's record shows its audio: its row's version, not the Place's.
+        await stampLocalizationVersion(
+          tx,
+          LocalizationTargetType.PLACE,
+          payload.targetId,
+          payload.lang,
+        );
         return;
       }
       // Its text's event may still be on its way (the relay's order is best-effort): redeliver
@@ -228,8 +239,10 @@ export class LocalizationsService {
 
       // A deleted Place's gate is never evaluated: English arriving after its deletion makes it
       // neither live nor audited.
+      let opened = false;
       if (place.status === PlaceStatus.PROCESSING && payload.lang === 'en' && !place.deleted) {
         const gate = await this.places.openGateIfReady(tx, payload.targetId, place);
+        opened = gate.open;
         if (gate.open) {
           const now = new Date();
           await this.outbox.add(
@@ -268,7 +281,15 @@ export class LocalizationsService {
           }
         }
       }
-      await bumpSyncVersion(tx, payload.targetId);
+      // The row's own version — only this language's records show it — then, when the gate
+      // opened, the Place's: its status changed for every language (rdm-spec §1.7).
+      await stampLocalizationVersion(
+        tx,
+        LocalizationTargetType.PLACE,
+        payload.targetId,
+        payload.lang,
+      );
+      if (opened) await bumpSyncVersion(tx, payload.targetId);
     });
     if (frame !== null) this.places.announceStatus(frame);
   }
@@ -310,7 +331,13 @@ export class LocalizationsService {
         update: data,
         select: { lang: true },
       });
-      await bumpSyncVersion(tx, item.placeId);
+      // No sync carries a menu: the line's own version, read by the detail's ETag — not the Place's.
+      await stampLocalizationVersion(
+        tx,
+        LocalizationTargetType.MENU_ITEM,
+        payload.targetId,
+        payload.lang,
+      );
     });
   }
 
@@ -358,8 +385,16 @@ export class LocalizationsService {
         update: data,
         select: { lang: true },
       });
-      if (payload.lang === 'en') await this.tours.openGateIfReady(tx, payload.targetId);
-      await bumpTourSyncVersion(tx, payload.targetId);
+      const opened =
+        payload.lang === 'en' && (await this.tours.openGateIfReady(tx, payload.targetId));
+      // The row's own version, then the tour's when its gate opened (its status changed).
+      await stampLocalizationVersion(
+        tx,
+        LocalizationTargetType.TOUR,
+        payload.targetId,
+        payload.lang,
+      );
+      if (opened) await bumpTourSyncVersion(tx, payload.targetId);
     });
   }
 

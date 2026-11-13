@@ -31,6 +31,20 @@ export interface ResolvedContent<L extends LocalizedText> {
 const ENGLISH = 'en';
 
 /**
+ * The rows `resolveContentTier` can serve `requested` from: its own, then the one it falls back to
+ * (null when it falls back to the source alone). A record in that language changes only when one
+ * of these rows or the source does, so delta sync versions it by them (rdm-spec §1.7).
+ */
+export function contentRows(requested: string | null): {
+  readonly own: string;
+  readonly fallback: string | null;
+} {
+  if (requested === null || requested === ENGLISH) return { own: ENGLISH, fallback: null };
+  if (requested === SOURCE_LANGUAGE) return { own: SOURCE_LANGUAGE, fallback: null };
+  return { own: requested, fallback: ENGLISH };
+}
+
+/**
  * The one content fallback chain (conventions §11.2): the requested language's row, else the
  * English row, else the Vietnamese source. `requested` is null for a tag Wayfare does not serve.
  * Vietnamese asked for and not yet stored is the source itself — it is already Vietnamese.
