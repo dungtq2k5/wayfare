@@ -1,0 +1,46 @@
+import {
+  AudioLines,
+  Bell,
+  ChartColumn,
+  FileCheck,
+  House,
+  Languages,
+  Layers,
+  LifeBuoy,
+  MapPin,
+  Route,
+  Package,
+  ScrollText,
+  Speech,
+  Store,
+  Tags,
+  UserCheck,
+  Users,
+  Wallet,
+  Webhook,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { NavIcon } from '../nav';
+
+/** The navigation's icons, by the name the table gives (round 33's icon set). */
+export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
+  house: House,
+  'file-check': FileCheck,
+  'user-check': UserCheck,
+  'map-pin': MapPin,
+  route: Route,
+  tags: Tags,
+  layers: Layers,
+  'audio-lines': AudioLines,
+  speech: Speech,
+  languages: Languages,
+  users: Users,
+  'life-buoy': LifeBuoy,
+  'scroll-text': ScrollText,
+  store: Store,
+  wallet: Wallet,
+  bell: Bell,
+  package: Package,
+  webhook: Webhook,
+  'chart-column': ChartColumn,
+};

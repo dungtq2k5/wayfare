@@ -1,0 +1,8 @@
+# The app launched as it was left, its probe answered and its sync run.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 30000

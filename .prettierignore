@@ -1,0 +1,23 @@
+docs/
+dist/
+coverage/
+pnpm-lock.yaml
+**/generated/
+.turbo/
+**/prisma/migrations/
+.kilo/
+cspell.json
+# markdownlint owns markdown (MD060 compact tables); prettier would re-pad them.
+*.md
+# Emitted by the gateway's emitter spec as JSON.stringify(document, null, 2) (pnpm api:generate).
+packages/api-client/openapi.json
+# Written by expo prebuild / expo start, never by hand.
+apps/mobile/android/
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts
+# The designer's export is replaced as a whole (pnpm build turns it into the theme).
+packages/design-tokens/tokens.json
+
+# What Gradle writes inside a local native module when the app is built.
+apps/mobile/modules/*/android/build/
+apps/mobile/modules/*/android/.gradle/

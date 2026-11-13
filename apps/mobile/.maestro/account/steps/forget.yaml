@@ -1,0 +1,24 @@
+# Edge 9 (frame S2): signed in, *Forget this install* says the account stays; after it the app
+# starts over as a new install, signed out. B is signed in first.
+appId: app.wayfare
+---
+- runFlow:
+    file: sign-in.yaml
+    env:
+      EMAIL: ${B}
+      PASSWORD: ${NEWPASS}
+- scrollUntilVisible:
+    element: 'Forget this install'
+- tapOn: 'Forget this install'
+- assertVisible: '.*Your account stays — sign in again on any phone.'
+- tapOn: 'FORGET|Forget'
+# The language stays with the phone: a new install starts at the privacy screen.
+- extendedWaitUntil:
+    visible: 'Your privacy'
+    timeout: 30000
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Settings'
+- assertVisible: 'Keep your favourites on every phone'

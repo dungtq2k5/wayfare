@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+// An owner's effective grants — api-endpoints-plan §12.2, rdm-spec B-1, B-3.
+package wayfare.billing;
+
+// Which languages a plan narrates (rdm-spec B-1).
+enum NarrationLanguageScope {
+  NARRATION_LANGUAGE_SCOPE_UNSPECIFIED = 0;
+  NARRATION_LANGUAGE_SCOPE_BASIC = 1;
+  NARRATION_LANGUAGE_SCOPE_LAUNCH = 2;
+  NARRATION_LANGUAGE_SCOPE_EXTENDED = 3;
+}
+
+// How much of the analytics dashboard a plan shows (rdm-spec B-1).
+enum AnalyticsLevel {
+  ANALYTICS_LEVEL_UNSPECIFIED = 0;
+  ANALYTICS_LEVEL_NONE = 1;
+  ANALYTICS_LEVEL_BASIC = 2;
+  ANALYTICS_LEVEL_FULL = 3;
+}
+
+// Every limit check asks this (api-endpoints-plan §12.2). Callers fail closed.
+service EntitlementService {
+  rpc GetEntitlements(GetEntitlementsRequest) returns (GetEntitlementsResponse);
+}
+
+// A grant set: a plan's, or an account's effective one.
+message Entitlements {
+  int32 max_places = 1;
+  bool auto_narration = 2;
+  NarrationLanguageScope narration_language_scope = 3;
+  int32 max_photos_per_place = 4;
+  int32 max_menu_items_per_place = 5;
+  int32 discovery_boost_slots = 6;
+  int32 ai_credits_per_day = 7;
+  AnalyticsLevel analytics_level = 8;
+  bool can_sell_vouchers = 9;
+  // Set exactly when vouchers can be sold.
+  optional int32 voucher_commission_bps = 10;
+}
+
+message GetEntitlementsRequest {
+  string owner_user_id = 1;
+}
+
+message GetEntitlementsResponse {
+  int64 entitlements_version = 1;
+  Entitlements entitlements = 2;
+}

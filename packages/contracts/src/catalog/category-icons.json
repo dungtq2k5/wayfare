@@ -1,0 +1,13 @@
+{
+  "STREET_FOOD": "soup",
+  "RESTAURANT": "utensils",
+  "CAFE": "coffee",
+  "MARKET": "store",
+  "TEMPLE": "landmark",
+  "CHURCH": "church",
+  "MUSEUM": "amphora",
+  "LANDMARK": "landmark",
+  "VIEWPOINT": "binoculars",
+  "PARK": "trees",
+  "OTHER": "map-pin"
+}

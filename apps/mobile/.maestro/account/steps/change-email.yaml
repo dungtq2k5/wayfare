@@ -1,0 +1,44 @@
+# Edge 8 (frames A3, A3b, L3, L4): a change waits for its link; the confirm link moves the
+# address; the old address's revert link brings it back and signs out. B signs in first.
+appId: app.wayfare
+---
+- runFlow:
+    file: sign-in.yaml
+    env:
+      EMAIL: ${B}
+      PASSWORD: ${NEWPASS}
+- tapOn:
+    id: 'account-entry'
+- tapOn: 'Change email'
+- tapOn:
+    id: 'email-new'
+- inputText: ${B2}
+- tapOn:
+    id: 'email-current'
+- inputText: ${NEWPASS}
+- hideKeyboard
+- tapOn: 'Send link'
+- runFlow: ../../common/no-password-save.yaml
+- extendedWaitUntil:
+    visible: 'Waiting for your new address'
+    timeout: 15000
+- runFlow:
+    file: open-link.yaml
+    env:
+      EMAIL: ${B2}
+      PAGE: 'confirm-email-change'
+- extendedWaitUntil:
+    visible: 'Your email is now .*'
+    timeout: 15000
+- tapOn: 'Done'
+- runFlow:
+    file: open-link.yaml
+    env:
+      EMAIL: ${B}
+      PAGE: 'revert-email-change'
+- extendedWaitUntil:
+    visible: 'Your old email is back'
+    timeout: 15000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+- assertVisible: 'Keep your favourites on every phone'

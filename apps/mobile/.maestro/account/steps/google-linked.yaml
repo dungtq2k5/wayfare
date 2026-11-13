@@ -1,0 +1,26 @@
+# Edge 4 (frame K5b): an account with a verified address and a password, picked as Workspace —
+# linked by itself, signed in; Change password stays, as Google or a password.
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- runFlow:
+    file: google-pick.yaml
+    env:
+      EMAIL: ${B}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible: 'Signed in.*'
+    timeout: 15000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element:
+      id: 'account-entry'
+    direction: UP
+- tapOn:
+    id: 'account-entry'
+- assertVisible: 'Google or a password'
+- assertVisible: 'Change password'

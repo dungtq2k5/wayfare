@@ -1,0 +1,111 @@
+import * as Location from 'expo-location';
+import { create } from 'zustand';
+
+export interface Position {
+  readonly lat: number;
+  readonly lng: number;
+  readonly accuracyM: number;
+  /** When it was read, in ms — what decides whether it's fresh enough for analytics' cell. */
+  readonly at?: number;
+}
+
+interface LocationState {
+  /** `unknown` until the system has been asked, or the first read says. */
+  permission: 'unknown' | 'granted' | 'denied';
+  position: Position | null;
+}
+
+export const useLocationStore = create<LocationState>(() => ({
+  permission: 'unknown',
+  position: null,
+}));
+
+let watcher: Location.LocationSubscription | null = null;
+let watching = 0;
+
+/** Reads the permission without asking, so a returning user's dot appears with no prompt. */
+export async function refreshPermission(): Promise<LocationState['permission']> {
+  const { granted, canAskAgain } = await Location.getForegroundPermissionsAsync();
+  const permission = granted ? 'granted' : canAskAgain ? 'unknown' : 'denied';
+  useLocationStore.setState({ permission });
+  return permission;
+}
+
+/**
+ * Asks for foreground location, the first time the tourist taps *locate me* or *Turn on*: never at
+ * launch, and never background (the walking loop asks for that in its own context).
+ */
+export async function requestForegroundLocation(): Promise<boolean> {
+  const { granted, canAskAgain } = await Location.requestForegroundPermissionsAsync();
+  // One "Don't allow" is not the end: Android asks again until the user says "don't ask again".
+  useLocationStore.setState({
+    permission: granted ? 'granted' : canAskAgain ? 'unknown' : 'denied',
+  });
+  return granted;
+}
+
+/**
+ * Watches the position while a screen that shows it is in front. Calls nest: the watch starts at the
+ * first and stops at the last release.
+ */
+export async function acquireWatch(): Promise<() => void> {
+  if ((await refreshPermission()) !== 'granted') return () => undefined;
+  // With the phone's location switched off a watch would raise Google's own prompt on every screen
+  // that shows the dot; only the tourist's tap on *locate me* may ask for that.
+  if (!(await Location.hasServicesEnabledAsync())) return () => undefined;
+  watching += 1;
+  if (watcher === null) {
+    watcher = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, distanceInterval: 10, timeInterval: 5_000 },
+      (fix) =>
+        useLocationStore.setState({
+          position: {
+            lat: fix.coords.latitude,
+            lng: fix.coords.longitude,
+            accuracyM: fix.coords.accuracy ?? 50,
+            at: fix.timestamp,
+          },
+        }),
+    );
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    watching -= 1;
+    if (watching === 0) {
+      watcher?.remove();
+      watcher = null;
+    }
+  };
+}
+
+/** What *locate me* found: a position, or why there is none. */
+export type LocateResult = Position | 'services-off' | 'no-fix';
+
+/**
+ * One position, for the tourist's tap on *locate me*: asks the phone to switch location on when it
+ * is off (Android shows its own question), then reads a fix. Permission is the caller's to settle first.
+ */
+export async function locateOnce(): Promise<LocateResult> {
+  if (!(await Location.hasServicesEnabledAsync())) {
+    try {
+      await Location.enableNetworkProviderAsync();
+    } catch {
+      return 'services-off';
+    }
+    if (!(await Location.hasServicesEnabledAsync())) return 'services-off';
+  }
+  try {
+    const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    const position = {
+      lat: fix.coords.latitude,
+      lng: fix.coords.longitude,
+      accuracyM: fix.coords.accuracy ?? 50,
+    };
+    useLocationStore.setState({ position });
+    return position;
+  } catch {
+    return 'no-fix';
+  }
+}

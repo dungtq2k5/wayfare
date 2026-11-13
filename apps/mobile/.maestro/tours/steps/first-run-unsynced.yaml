@@ -1,0 +1,32 @@
+# The first run of a fresh install whose first sync fails: run with catalog stopped (the privacy
+# step registers the install through identity; the sync, which needs catalog, doesn't land). Online
+# with nothing on the phone, the Map and Explore say the sync failed, never "no places". Then
+# steps/never-synced.yaml, offline. SHOT=yes captures both, named with THEME.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Continue in English'
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Couldn't load the places. Try again."
+    timeout: 30000
+- assertNotVisible: 'No places in this area yet.'
+- runFlow:
+    when:
+      true: ${SHOT == 'yes'}
+    commands:
+      - takeScreenshot: map-sync-failed-${THEME}
+- tapOn: 'Explore'
+- extendedWaitUntil:
+    visible: "Couldn't load the places. Try again."
+    timeout: 10000
+- assertNotVisible: 'Nothing within walking distance'
+- runFlow:
+    when:
+      true: ${SHOT == 'yes'}
+    commands:
+      - takeScreenshot: explore-sync-failed-${THEME}

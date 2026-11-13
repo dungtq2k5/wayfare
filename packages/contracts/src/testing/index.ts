@@ -1,0 +1,7 @@
+// Test-only helpers: `@wayfare/contracts/testing`. Never imported by production code — a lint
+// rule allows it only in specs, test/ and scripts/ (conventions §17).
+export * from './fixtures';
+export * from './identity-rpc-fixtures';
+export * from './catalog-fixtures';
+export * from './narration-fixtures';
+export * from './seed-ids';

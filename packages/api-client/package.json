@@ -1,0 +1,38 @@
+{
+  "name": "@wayfare/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The typed API client generated from the gateway's OpenAPI document (ADR 0028), plus the one fetch every request goes through.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -w -p tsconfig.build.json --preserveWatchOutput",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "generate": "orval --config orval.config.ts"
+  },
+  "dependencies": {
+    "@wayfare/contracts": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.101.0",
+    "@types/react": "~19.2.2",
+    "@wayfare/config": "workspace:*",
+    "orval": "^8.39.0",
+    "react": "19.2.3"
+  }
+}

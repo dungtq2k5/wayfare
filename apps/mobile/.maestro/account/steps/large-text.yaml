@@ -1,0 +1,42 @@
+# Edge 10: at the largest font scale (the script sets it), every form's label shows and its
+# button can be reached; Appearance becomes rows. B is signed in first.
+appId: app.wayfare
+---
+- runFlow:
+    file: sign-in.yaml
+    env:
+      EMAIL: ${B}
+      PASSWORD: ${NEWPASS}
+- takeScreenshot: s1-large
+- scrollUntilVisible:
+    element: 'Dark'
+- takeScreenshot: s1-appearance-large
+- scrollUntilVisible:
+    element: 'Account'
+    direction: UP
+- tapOn:
+    id: 'account-entry'
+- takeScreenshot: a1-large
+- scrollUntilVisible:
+    element:
+      id: 'account-delete'
+- tapOn:
+    id: 'account-delete'
+- scrollUntilVisible:
+    element:
+      id: 'delete-submit'
+- takeScreenshot: a7-large
+- runFlow: signed-out.yaml
+- tapOn: 'Create an account'
+- takeScreenshot: g1-large
+- scrollUntilVisible:
+    element:
+      id: 'create-submit'
+- tapOn: 'Back'
+- tapOn:
+    id: 'account-sign-in'
+- takeScreenshot: g4-large
+- scrollUntilVisible:
+    element:
+      id: 'sign-in-submit'
+- tapOn: 'Back'

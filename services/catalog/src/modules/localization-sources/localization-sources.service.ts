@@ -1,0 +1,328 @@
+import { Injectable } from '@nestjs/common';
+import {
+  AudioStatus,
+  HOTSET_MAX_PLACES,
+  HOTSET_RADIUS_M,
+  LocalizationTargetType,
+  MAX_PRONUNCIATION_TERM_LENGTH,
+  parseEnum,
+  PLACE_LIMIT_STATUSES,
+  PlaceInactiveReason,
+  PlaceKind,
+  PlaceStatus,
+  SUPPORTED_LANGUAGES,
+  TourStatus,
+  TranslationSource,
+  zCursorQuery,
+  zLanguage,
+  zUuidV7,
+} from '@wayfare/contracts';
+import {
+  localizationTargetTypeProto,
+  placeInactiveReasonProto,
+  placeKindProto,
+  placeStatusProto,
+  tourStatusProto,
+  translationSourceProto,
+} from '@wayfare/contracts/grpc';
+import type { catalogGrpc } from '@wayfare/contracts/grpc';
+import {
+  decodeCursor,
+  encodeCursor,
+  parseRpcRequest,
+  requireProtoEnum,
+  rpcError,
+} from '@wayfare/nest-common';
+import type { RequestContext } from '@wayfare/nest-common';
+import { z } from 'zod';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  SOURCE_MENU_ITEM_SELECT,
+  SOURCE_PLACE_SELECT,
+  toLocalizationSourceMenuItem,
+  toLocalizationSourcePlace,
+  toLocalizedTextMatch,
+  toNarrationCandidate,
+} from './localization-source.mapper';
+import type { NarrationCandidateRow } from './localization-source.mapper';
+
+const sourceFields = z.object({ targetType: z.number(), targetId: zUuidV7 });
+
+/** `BatchGetPlaceSummaries`: a boost set's Places, or an account's boosts of the last 90 days. */
+const placeIdsField = z.object({ placeIds: z.array(zUuidV7).max(100) });
+
+/** `SearchLocalizedText`: the term as the dictionary holds it (rdm-spec N-5's `term` column). */
+const searchFields = zCursorQuery.extend({
+  term: z.string().trim().min(2).max(MAX_PRONUNCIATION_TERM_LENGTH),
+  langs: z.array(zLanguage).max(SUPPORTED_LANGUAGES.length).optional(),
+});
+
+/** Where a word boundary can be asserted: `\m` and `\M` need a word character beside them. */
+const WORD_EDGE = /[\p{L}\p{N}_]/u;
+
+/**
+ * A term inside Postgres word boundaries, with every regex character of its own escaped. A term
+ * whose own edge is not a word character (`C++`) takes no boundary on that side — `\M` after `+`
+ * would match nothing at all.
+ */
+const wholeWord = (term: string): string => {
+  const escaped = term.replaceAll(/[\\^$.|?*+()[\]{}]/g, String.raw`\$&`);
+  const left = WORD_EDGE.test(term.slice(0, 1)) ? String.raw`\m` : '';
+  const right = WORD_EDGE.test(term.slice(-1)) ? String.raw`\M` : '';
+  return `${left}${escaped}${right}`;
+};
+const ownerField = z.object({ ownerUserId: zUuidV7 });
+
+/** `ListNarrationCandidates`: a point, how far around it, and how many (api-endpoints-plan §4.1). */
+const candidateFields = z
+  .object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    radiusM: z.number().int().min(1).max(HOTSET_RADIUS_M),
+    limit: z.number().int().min(1).max(HOTSET_MAX_PLACES),
+    lang: zLanguage,
+  })
+  .strict();
+
+/**
+ * What narration reads before localizing (api-endpoints-plan §12.2): the target's text as it is
+ * now. Internal and read-only; its callers are consumers with a system context, so it asks for no
+ * account. Tours and offers answer `not_found` until their tables exist.
+ */
+@Injectable()
+export class LocalizationSourcesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getLocalizationSource(
+    request: catalogGrpc.GetLocalizationSourceRequest,
+    _context: RequestContext,
+  ): Promise<catalogGrpc.GetLocalizationSourceResponse> {
+    const fields = parseRpcRequest(sourceFields, request);
+    const targetType = requireProtoEnum(
+      localizationTargetTypeProto,
+      fields.targetType,
+      '/targetType',
+    );
+    if (targetType === LocalizationTargetType.PLACE) {
+      const place = await this.prisma.place.findUnique({
+        where: { id: fields.targetId },
+        select: SOURCE_PLACE_SELECT,
+      });
+      return place === null ? { notFound: {} } : { place: toLocalizationSourcePlace(place) };
+    }
+    if (targetType === LocalizationTargetType.MENU_ITEM) {
+      const item = await this.prisma.menuItem.findUnique({
+        where: { id: fields.targetId },
+        select: SOURCE_MENU_ITEM_SELECT,
+      });
+      return item === null ? { notFound: {} } : { menuItem: toLocalizationSourceMenuItem(item) };
+    }
+    if (targetType === LocalizationTargetType.TOUR) {
+      const tour = await this.prisma.tour.findUnique({
+        where: { id: fields.targetId },
+        select: {
+          status: true,
+          deletedAt: true,
+          contentHash: true,
+          titleVi: true,
+          descriptionVi: true,
+          localizations: {
+            select: {
+              lang: true,
+              sourceContentHash: true,
+              translationSource: true,
+              title: true,
+              description: true,
+            },
+          },
+        },
+      });
+      if (tour === null) return { notFound: {} };
+      return {
+        tour: {
+          status: tourStatusProto.toProto(tour.status as TourStatus),
+          deleted: tour.deletedAt !== null,
+          contentHash: tour.contentHash,
+          titleVi: tour.titleVi,
+          descriptionVi: tour.descriptionVi,
+          localizations: tour.localizations.map((row) => ({
+            lang: row.lang,
+            sourceContentHash: row.sourceContentHash,
+            translationSource: translationSourceProto.toProto(
+              row.translationSource as TranslationSource,
+            ),
+            title: row.title,
+            description: row.description,
+          })),
+        },
+      };
+    }
+    return { notFound: {} };
+  }
+
+  /**
+   * Live localizations whose text holds `term`, whole-word (api-endpoints-plan §12.2): what a
+   * dictionary edit has to re-voice. Case-insensitive and diacritic-exact — `Bến Thành` and
+   * `Ben Thanh` are different terms, as N-5 says — over both localization tables, for `ACTIVE`,
+   * non-deleted targets. Ordered and paged by `(targetType, targetId, lang)`.
+   */
+  async searchLocalizedText(
+    request: catalogGrpc.SearchLocalizedTextRequest,
+    _context: RequestContext,
+  ): Promise<catalogGrpc.SearchLocalizedTextResponse> {
+    const query = parseRpcRequest(searchFields, {
+      term: request.term,
+      langs: request.langs.length === 0 ? undefined : request.langs,
+      cursor: request.page?.cursor,
+      limit: request.page?.limit === 0 ? undefined : request.page?.limit,
+    });
+    const after = query.cursor === undefined ? null : decodeCursor(query.cursor);
+    if (query.cursor !== undefined && after?.key === undefined) {
+      throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/cursor', code: 'invalid_value' }] });
+    }
+    const pattern = wholeWord(query.term);
+    const langs = query.langs ?? null;
+    const live: string = PlaceStatus.ACTIVE;
+    // The cursor's position, as the order reads it: target type, then language, then id.
+    const [cursorType, cursorLang] = after === null ? [null, null] : after.key!.split(':');
+    const cursorId = after === null ? null : after.id;
+    const rows = await this.prisma.$queryRaw<
+      { targetType: string; targetId: string; lang: string; sourceContentHash: string }[]
+    >`
+      WITH matches AS (
+        SELECT ${LocalizationTargetType.PLACE}::text AS "targetType", l.place_id AS "targetId",
+               l.lang, l.source_content_hash AS "sourceContentHash"
+        FROM place_localizations l JOIN places p ON p.id = l.place_id
+        WHERE p.status = ${live} AND p.deleted_at IS NULL
+          -- Only text made from the current version: a stale row is the content job's to remake,
+          -- and a fan-out job made from its old hash would supersede the live job for the new text.
+          AND l.source_content_hash = p.content_hash
+          AND (l.name ~* ${pattern} OR l.description ~* ${pattern})
+        UNION ALL
+        SELECT ${LocalizationTargetType.MENU_ITEM}::text, m.menu_item_id, m.lang,
+               m.source_content_hash
+        FROM menu_item_localizations m
+          JOIN menu_items i ON i.id = m.menu_item_id
+          JOIN places p ON p.id = i.place_id
+        WHERE p.status = ${live} AND p.deleted_at IS NULL
+          AND m.source_content_hash = i.content_hash
+          AND (m.name ~* ${pattern} OR COALESCE(m.description, '') ~* ${pattern})
+      )
+      SELECT * FROM matches
+      WHERE (${langs}::text[] IS NULL OR lang = ANY(${langs}::text[]))
+        AND (
+          ${cursorType}::text IS NULL
+          OR ("targetType", lang, "targetId") >
+             (${cursorType}::text, ${cursorLang}::text, ${cursorId}::uuid)
+        )
+      ORDER BY "targetType", lang, "targetId"
+      LIMIT ${query.limit + 1}`;
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+    return {
+      items: page.map(toLocalizedTextMatch),
+      page: {
+        nextCursor:
+          rows.length > query.limit && last !== undefined
+            ? encodeCursor({ id: last.targetId, key: `${last.targetType}:${last.lang}` })
+            : undefined,
+      },
+    };
+  }
+
+  /**
+   * The nearest live Places and what exists for one language (api-endpoints-plan §12.2): what a
+   * language switch warms up. **Distance only** — `NearbyPlaces` reorders by discovery boost, and
+   * boost never reaches narration (ADR 0007), so this is its own query. Readiness follows C-4: the
+   * text counts when its row was made from the Place's current version, the audio when the served
+   * file was too; a Place with no row for the language answers `false, false` rather than dropping
+   * out, so the caller sees every Place it must warm.
+   */
+  async listNarrationCandidates(
+    request: catalogGrpc.ListNarrationCandidatesRequest,
+    _context: RequestContext,
+  ): Promise<catalogGrpc.ListNarrationCandidatesResponse> {
+    const fields = parseRpcRequest(candidateFields, request);
+    const live: string = PlaceStatus.ACTIVE;
+    const ready: string = AudioStatus.READY;
+    // longitude first
+    const rows = await this.prisma.$queryRaw<NarrationCandidateRow[]>`
+      WITH origin AS (
+        SELECT ST_SetSRID(ST_MakePoint(${fields.lng}, ${fields.lat}), 4326)::geography AS point
+      )
+      SELECT p.id AS "placeId", p.content_hash AS "contentHash", p.kind,
+             p.owner_user_id AS "ownerUserId",
+             (l.source_content_hash = p.content_hash) IS TRUE AS "textReady",
+             (l.source_content_hash = p.content_hash
+               AND l.audio_status = ${ready}
+               AND l.audio_source_content_hash = p.content_hash
+               AND l.audio_object_path IS NOT NULL
+               AND l.audio_sha256 IS NOT NULL) IS TRUE AS "audioReady"
+      FROM places p
+      CROSS JOIN origin
+      LEFT JOIN place_localizations l ON l.place_id = p.id AND l.lang = ${fields.lang}
+      WHERE p.status = ${live} AND p.deleted_at IS NULL
+        AND ST_DWithin(p.location, origin.point, ${fields.radiusM})
+      ORDER BY p.location <-> origin.point, p.id
+      LIMIT ${fields.limit}`;
+    return { candidates: rows.map(toNarrationCandidate) };
+  }
+
+  /**
+   * An owner's Venues that count against their place limit (rdm-spec C-1): live, and `DRAFT`,
+   * `PROCESSING` or `ACTIVE`. billing's overview and plan dry run read it.
+   */
+  async countOwnerPlaces(
+    request: catalogGrpc.CountOwnerPlacesRequest,
+  ): Promise<catalogGrpc.CountOwnerPlacesResponse> {
+    const { ownerUserId } = parseRpcRequest(ownerField, request);
+    const count = await this.prisma.place.count({
+      where: {
+        ownerUserId,
+        kind: PlaceKind.VENUE,
+        deletedAt: null,
+        status: { in: [...PLACE_LIMIT_STATUSES] },
+      },
+    });
+    return { count };
+  }
+
+  /**
+   * Each Place's kind, owner and status (api-endpoints-plan §12.2) — what billing checks before a
+   * boost write. Unknown and deleted ids are absent.
+   */
+  async batchGetPlaceSummaries(
+    request: catalogGrpc.BatchGetPlaceSummariesRequest,
+  ): Promise<catalogGrpc.BatchGetPlaceSummariesResponse> {
+    const { placeIds } = parseRpcRequest(placeIdsField, request);
+    const rows = await this.prisma.place.findMany({
+      where: { id: { in: placeIds }, deletedAt: null },
+      select: {
+        id: true,
+        kind: true,
+        ownerUserId: true,
+        status: true,
+        inactiveReason: true,
+        nameVi: true,
+        category: { select: { code: true } },
+      },
+    });
+    return {
+      places: rows.map((row) => ({
+        id: row.id,
+        categoryCode: row.category.code,
+        kind: placeKindProto.toProto(parseEnum(PlaceKind, row.kind)),
+        ...(row.ownerUserId === null ? {} : { ownerUserId: row.ownerUserId }),
+        status: placeStatusProto.toProto(parseEnum(PlaceStatus, row.status)),
+        ...(row.inactiveReason === null
+          ? {}
+          : {
+              inactiveReason: placeInactiveReasonProto.toProto(
+                parseEnum(PlaceInactiveReason, row.inactiveReason),
+              ),
+            }),
+        nameVi: row.nameVi,
+      })),
+    };
+  }
+}

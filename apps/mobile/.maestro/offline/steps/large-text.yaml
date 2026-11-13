@@ -1,0 +1,44 @@
+# Run by offline/system.sh at the largest font scale on a fresh install (edge 10): the offer, the
+# sheet, the progress and Offline downloads, each readable and tappable. Screenshots for the eye.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: 'Take District 1 centre offline'
+    timeout: 20000
+- takeScreenshot: offline-large-o1
+- tapOn: 'Download'
+- extendedWaitUntil:
+    visible: 'Download District 1 centre'
+    timeout: 10000
+- takeScreenshot: offline-large-d1
+- tapOn: 'Cancel'
+- runFlow:
+    file: toggle.yaml
+    env:
+      LABEL: 'Slow downloads'
+      TO: 'on'
+- runFlow: sheet-from-downloads.yaml
+- tapOn:
+    id: 'pack-sheet-download'
+- extendedWaitUntil:
+    visible: 'Downloading · .*'
+    timeout: 10000
+- takeScreenshot: offline-large-d2
+- scrollUntilVisible:
+    element: 'Cancel'
+- tapOn: 'Cancel'
+- extendedWaitUntil:
+    visible: 'Offline downloads'
+    timeout: 10000
+- takeScreenshot: offline-large-m1
+- runFlow:
+    file: toggle.yaml
+    env:
+      LABEL: 'Slow downloads'
+      TO: 'off'

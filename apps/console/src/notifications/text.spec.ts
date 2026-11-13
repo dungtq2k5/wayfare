@@ -1,0 +1,97 @@
+import { NotificationType } from '@wayfare/contracts';
+import { describe, expect, it } from 'vitest';
+import { createTranslator } from '../i18n/messages';
+import { notificationTarget, notificationText, relativeTime, splitNotification } from './text';
+
+const en = createTranslator('en');
+const vi = createTranslator('vi');
+const PLACE = '0190a0b0-0000-7000-8000-000000000001';
+const context = { placeName: (id: string) => (id === PLACE ? 'Phở Hòa Pasteur' : undefined) };
+
+describe('the notification text (K10)', () => {
+  it('renders each type with its data as the handoff’s line', () => {
+    for (const type of Object.values(NotificationType)) {
+      const line = notificationText(
+        { type, data: { placeId: PLACE, planCode: 'GROWTH' } },
+        context,
+        en,
+      );
+      expect(line, type).not.toBe(en.t('error.generic'));
+      expect(line, type).not.toMatch(/[{}]/);
+    }
+    expect(
+      notificationText({ type: 'PLACE_ACTIVATED', data: { placeId: PLACE } }, context, en),
+    ).toBe('Phở Hòa Pasteur is live for tourists.');
+    expect(
+      notificationText(
+        { type: 'SUBSCRIPTION_ACTIVATED', data: { planCode: 'GROWTH' } },
+        context,
+        vi,
+      ),
+    ).toBe('Gói Growth của bạn đã được kích hoạt.');
+  });
+
+  it('falls back to "your venue" for a Place the reader has not loaded', () => {
+    expect(
+      notificationText(
+        { type: 'SUBMISSION_APPROVED', data: { placeId: '0190a0b0-0000-7000-8000-000000000009' } },
+        context,
+        en,
+      ),
+    ).toBe('your venue is approved. It goes live once its audio is ready.');
+  });
+
+  it('opens what it is about', () => {
+    expect(notificationTarget({ type: 'PLACE_ACTIVATED', data: { placeId: PLACE } })).toBe(
+      `/owner/venues/${PLACE}`,
+    );
+    expect(notificationTarget({ type: 'SUBSCRIPTION_PAYMENT_FAILED', data: {} })).toBe(
+      '/owner/billing',
+    );
+    expect(notificationTarget({ type: 'ACCOUNT_RECOVERY_PENDING', data: {} })).toBe('/account');
+    expect(notificationTarget({ type: 'SUBMISSION_REJECTED', data: { submissionId: PLACE } })).toBe(
+      `/owner/submissions/${PLACE}`,
+    );
+    expect(notificationTarget({ type: 'OWNER_REGISTRATION_REJECTED', data: {} })).toBe(
+      '/owner/registration',
+    );
+  });
+
+  it('says when, relatively', () => {
+    const now = new Date('2026-10-23T12:00:00Z');
+    expect(relativeTime('2026-10-23T11:59:40Z', now, en)).toBe('Just now');
+    expect(relativeTime('2026-10-23T11:55:00Z', now, en)).toBe('5 minutes ago');
+    expect(relativeTime('2026-10-23T09:00:00Z', now, en)).toBe('3 hours ago');
+    expect(relativeTime('2026-10-22T09:00:00Z', now, en)).toBe('Yesterday');
+    expect(relativeTime('2026-10-19T09:00:00Z', now, vi)).toBe('4 ngày trước');
+  });
+});
+
+describe('a notification in two lines', () => {
+  it('is what happened, then what to do', () => {
+    expect(
+      splitNotification("Your change to Ốc Oanh wasn't approved. See the note from our team."),
+    ).toEqual(["Your change to Ốc Oanh wasn't approved.", 'See the note from our team.']);
+    expect(splitNotification('Ốc Oanh is live for tourists.')).toEqual([
+      'Ốc Oanh is live for tourists.',
+      '',
+    ]);
+  });
+});
+
+describe("a Venue's lost boost", () => {
+  it('says why it left: closed by its owner, or off the map', () => {
+    const closed = { placeId: PLACE, reason: 'PLACE_UNAVAILABLE', placeInactiveReason: 'OWNER' };
+    expect(notificationText({ type: 'BOOST_ENDED', data: closed }, context, en)).toBe(
+      "Phở Hòa Pasteur's boost ended. You closed Phở Hòa Pasteur for now, so its boost ended. Reopen it, then choose it again on Plan and billing.",
+    );
+    expect(
+      notificationText(
+        { type: 'BOOST_ENDED', data: { ...closed, placeInactiveReason: 'ADMIN' } },
+        context,
+        en,
+      ),
+    ).toBe("Phở Hòa Pasteur's boost ended. Phở Hòa Pasteur left the map, so its boost ended.");
+    expect(notificationTarget({ type: 'BOOST_ENDED', data: closed })).toBe('/owner/billing');
+  });
+});

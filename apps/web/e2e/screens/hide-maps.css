@@ -1,0 +1,7 @@
+/*
+ * The maps' canvases (their tiles) hidden rather than masked: a mask is painted over everything,
+ * and the panel, the markers and the controls drawn above a map are part of the state.
+ */
+.maplibregl-canvas {
+  visibility: hidden !important;
+}

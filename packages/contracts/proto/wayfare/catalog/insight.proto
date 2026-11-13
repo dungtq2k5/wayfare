@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+// What the analytics dashboards read from catalog — api-endpoints-plan §7. Never a tourist route;
+// the gateway calls it for staff and owners.
+package wayfare.catalog;
+
+import "wayfare/common/geo.proto";
+
+service InsightService {
+  // QR scans per Place and business day (rdm-spec C-15): every scan, with nobody's details.
+  rpc GetQrScans(GetQrScansRequest) returns (GetQrScansResponse);
+  // For each point, the nearest ACTIVE Place within the radius — the heatmap's square labels.
+  rpc NearestLivePlaces(NearestLivePlacesRequest) returns (NearestLivePlacesResponse);
+}
+
+message GetQrScansRequest {
+  // Empty: every Place, summed per day.
+  repeated string place_ids = 1;
+  // Business days, `YYYY-MM-DD`, inclusive.
+  string from_day = 2;
+  string to_day = 3;
+}
+
+message QrScanDay {
+  // Empty when the request named no Place.
+  string place_id = 1;
+  string day = 2;
+  int32 scans = 3;
+}
+
+message GetQrScansResponse {
+  // Only the days with a scan.
+  repeated QrScanDay days = 1;
+}
+
+message NearestLivePlacesRequest {
+  repeated wayfare.common.GeoPoint points = 1;
+  int32 radius_m = 2;
+}
+
+message NearestLivePlace {
+  // The point's index in the request.
+  int32 index = 1;
+  string place_id = 2;
+  string name_vi = 3;
+}
+
+message NearestLivePlacesResponse {
+  // Only the points with a Place within the radius.
+  repeated NearestLivePlace places = 1;
+}

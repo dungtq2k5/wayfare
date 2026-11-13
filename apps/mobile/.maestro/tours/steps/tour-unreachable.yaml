@@ -1,0 +1,17 @@
+# A tour on the phone that dropped below two live stops, opened while the gateway can't be reached
+# (tours/screens-unreachable.sh stages it with stale-tour.mjs and cuts the mapping after launch, so
+# the app still believes it is online): a failed ask, never "no longer on Wayfare" — the inline
+# alert with *Try again*. TOUR_CODE is the staged tour's code; SHOT=yes captures it with THEME.
+appId: app.wayfare
+---
+- openLink: 'https://wayfare.app/t/${TOUR_CODE}'
+- extendedWaitUntil:
+    visible: "Couldn't load the tour. Try again."
+    timeout: 20000
+- assertVisible: 'Try again'
+- assertNotVisible: 'This tour is no longer on Wayfare'
+- runFlow:
+    when:
+      true: ${SHOT == 'yes'}
+    commands:
+      - takeScreenshot: tour-failed-read-${THEME}

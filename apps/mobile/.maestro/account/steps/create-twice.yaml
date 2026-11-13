@@ -1,0 +1,60 @@
+# Edges 1–2: *Create account* tapped twice makes one account, signed in once; the same address
+# again is taken; a 9-character password is refused before the call. C is new; A exists.
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn: 'Create an account'
+- tapOn:
+    id: 'create-email'
+- inputText: ${C}
+- tapOn:
+    id: 'create-password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: 'create-terms'
+- tapOn:
+    id: 'create-submit'
+    repeat: 2
+    delay: 100
+- extendedWaitUntil:
+    visible: 'Save password to Google\?|Check your email'
+    timeout: 15000
+- runFlow: ../../common/no-password-save.yaml
+- assertVisible: 'Check your email'
+# The same address again.
+- runFlow: signed-out.yaml
+- tapOn: 'Create an account'
+- tapOn:
+    id: 'create-email'
+- inputText: ${A}
+- tapOn:
+    id: 'create-password'
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: 'create-terms'
+- tapOn:
+    id: 'create-submit'
+- extendedWaitUntil:
+    visible: 'This email already has an account.'
+    timeout: 15000
+- assertVisible: 'Sign in with this email'
+- tapOn: 'Back'
+- runFlow: ../../common/no-password-save.yaml
+# Nine characters: said beside the field, before any call.
+- tapOn: 'Create an account'
+- tapOn:
+    id: 'create-email'
+- inputText: ${C}
+- tapOn:
+    id: 'create-password'
+- inputText: 'nine-char'
+- hideKeyboard
+- tapOn:
+    id: 'create-terms'
+- tapOn:
+    id: 'create-submit'
+- assertVisible: 'Too short: 9 characters. Use at least 10.'
+- tapOn: 'Back'
+- runFlow: ../../common/no-password-save.yaml

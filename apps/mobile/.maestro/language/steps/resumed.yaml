@@ -1,0 +1,20 @@
+# Run by language/system.sh: with the network back, or after a cold start, the switch under way
+# (NAME) completes by itself, then English again.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+    stopApp: false
+# Waited for by a lasting sign of the new language, not the 4 s toast a long wait can miss: the
+# Language title or the Settings tab's label, machine-translated, starts with the language's code.
+- extendedWaitUntil:
+    visible: '\[${CODE}\] (Language|Settings)'
+    timeout: 120000
+- runFlow:
+    file: ../../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- tapOn: 'Back'

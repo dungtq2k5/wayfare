@@ -1,0 +1,29 @@
+# Continue with Google, picking EMAIL in the fake picker; WORKSPACE 'true' makes Google own the
+# mailbox (ADR 0064), VERIFIED 'false' says Google never confirmed it. The button is Sign in's or
+# Create's (`google-continue`), or a confirmation's (`google-confirm`, frames A3g, A7g).
+appId: app.wayfare
+---
+- tapOn:
+    id: 'google-(continue|confirm)'
+- extendedWaitUntil:
+    visible:
+      id: 'fake-google-email'
+    timeout: 15000
+- tapOn:
+    id: 'fake-google-email'
+- inputText: ${EMAIL}
+- hideKeyboard
+- runFlow:
+    when:
+      true: ${WORKSPACE === 'true'}
+    commands:
+      - tapOn:
+          id: 'fake-google-workspace'
+- runFlow:
+    when:
+      true: ${VERIFIED === 'false'}
+    commands:
+      - tapOn:
+          id: 'fake-google-verified'
+- tapOn:
+    id: 'fake-google-continue'

@@ -1,0 +1,12 @@
+# AC1 at 200 % text: both choices visible without scrolling, stacked at the bottom.
+appId: app.wayfare
+---
+- runFlow: steps/fresh.yaml
+- runFlow: steps/hear-a-story.yaml
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- assertVisible: 'No thanks'
+- assertVisible: 'Allow'
+- takeScreenshot: ac1-consent-200-light
+- tapOn: 'No thanks'

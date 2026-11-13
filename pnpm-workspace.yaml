@@ -1,0 +1,64 @@
+packages:
+  - apps/*
+  - packages/*
+  - services/*
+ignoredBuiltDependencies:
+  # BullMQ's optional msgpack accelerator; its script only rebuilds when no prebuild matches, and
+  # msgpackr falls back to plain JavaScript.
+  # Install-time telemetry pulled in by swagger-ui-dist; never wanted.
+  - '@scarf/scarf'
+  # The free speech route; its only script is a `preinstall` that checks the package manager.
+  - msedge-tts
+  - msgpackr-extract
+  # Only prints a version check; the runtime needs nothing it builds.
+  - protobufjs
+  # Its postinstall only writes the hooks; the root `prepare` script does that instead, and
+  # keeps graphify's (see simple-git-hooks in package.json).
+  - simple-git-hooks
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
+  - prisma
+  - '@prisma/engines'
+  - '@prisma/client'
+  # Installs the buf binary used by proto:generate / proto:lint.
+  - '@bufbuild/buf'
+  # Password hashing; its install script only picks the bundled prebuild (glibc or musl).
+  - argon2
+  # Image processing; its install script only checks the prebuilt libvips package (glibc or musl).
+  - sharp
+patchedDependencies:
+  expo-audio@57.0.5: patches/expo-audio@57.0.5.patch
+
+# pnpm 10 blocks dependency build scripts by default.
+# strictDepBuilds turns an unlisted build script into an install failure instead of a warning.
+strictDepBuilds: true
+
+# Transitive copies held below an advisory's fix by a dependency's range, lifted to the patched
+# release within the same major (the CI audit, `pnpm audit --prod --audit-level=high`).
+overrides:
+  body-parser@>=2 <2.4.0: ^2.4.0
+  follow-redirects@<1.16.3: ^1.16.3
+  mysql2@<3.22.0: ^3.22.0
+  node-forge@<1.4.1: ^1.4.3
+  shell-quote@<1.11.0: ^1.11.0
+  source-map-js@<1.2.2: ^1.2.2
+  systeminformation@<5.33.16: ^5.33.16
+  zod@>=4 <4.6.6: ^4.6.6
+
+# Advisories with no fix in reach, accepted with the reason; each is looked at again when its
+# dependency moves (Dependabot), and dropped from this list once the audit no longer reports it.
+auditConfig:
+  ignoreGhsas:
+    # 2026-11-10 — node-forge, no patched release; only Expo's dev CLI (its dev-server certificate).
+    - GHSA-86w9-cpqp-85rv
+    # 2026-11-10 — zod 3 inside Expo's dev CLI, validating its own config; zod 3 has no fix.
+    - GHSA-mrhx-c7xc-m3w5
+    # 2026-11-10 — deepmerge-ts 7 in the Prisma CLI's config loading (our own config file); the
+    # fix is deepmerge-ts 8, which Prisma 7 doesn't take.
+    - GHSA-ggr8-5vv4-36mx
+    # 2026-11-10 — decode-uri-component 0.2 under expo-router's query-string: the fix (0.5) is
+    # ESM-only, which query-string 7's `require` can't load. At worst a crafted link slows the
+    # phone that opens it, nothing else.
+    - GHSA-vcc3-ghjq-m6fr
+    - GHSA-qr28-fpjm-wq7f

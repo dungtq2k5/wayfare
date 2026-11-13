@@ -1,0 +1,24 @@
+diff --git a/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+index 196a5d57f887c2667a88543bd2f6a80044a044f2..7a5637458b12077c98e1a295d107871fec41f06b 100644
+--- a/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
++++ b/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+@@ -371,6 +371,9 @@ class AudioControlsService : MediaSessionService() {
+           updateMetadata(metadata)
+         }
+         val session = MediaSession.Builder(context, sessionPlayer)
++          // A unique id per session: every session sharing the empty id made the system media
++          // card (HyperOS) keep its progress bar on the first, released one.
++          .setId("expo-audio-${System.nanoTime()}")
+           .setCallback(AudioMediaSessionCallback())
+           .build()
+ 
+@@ -452,6 +455,9 @@ class AudioControlsService : MediaSessionService() {
+           updateMetadata(metadata)
+         }
+         val session = MediaSession.Builder(context, sessionPlayer)
++          // A unique id per session: every session sharing the empty id made the system media
++          // card (HyperOS) keep its progress bar on the first, released one.
++          .setId("expo-audio-${System.nanoTime()}")
+           .setCallback(AudioMediaSessionCallback())
+           .build()
+ 

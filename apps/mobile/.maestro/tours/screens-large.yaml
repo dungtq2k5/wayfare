@@ -1,0 +1,31 @@
+# TM3 and TM1 at 200 % text, as screenshots: run by tours/screens.sh with the font scale at 2.0,
+# after screens.yaml (the tour it followed is still followed). TM3 first, while the walk is on; then
+# the walk stops, so Explore's header is the frame's.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Map'
+- takeScreenshot: tm3-following-a-tour-200-light
+- runFlow:
+    when:
+      visible: 'Stop the walk'
+    commands:
+      - tapOn:
+          text: 'Stop the walk'
+          retryTapIfNoChange: false
+      # Its *Undo* toast first goes.
+      - extendedWaitUntil:
+          notVisible: 'Walk stopped.*'
+          timeout: 40000
+- tapOn: 'Explore'
+- tapOn: 'Tours'
+# From the top: *Explore*'s title and the switch in the shot.
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+- takeScreenshot: tm1-tours-in-an-area-200-light

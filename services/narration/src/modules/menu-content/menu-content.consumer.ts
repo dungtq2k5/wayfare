@@ -1,0 +1,24 @@
+import { Injectable } from '@nestjs/common';
+import { CATALOG_MENU_CONTENT_CHANGED } from '@wayfare/contracts';
+import type { EventPayload } from '@wayfare/contracts';
+import { JetStreamConsumer } from '@wayfare/nest-common';
+import { JobsService } from '../jobs/jobs.service';
+import { SERVICE_NAME } from '../outbox/outbox.module';
+
+/**
+ * `catalog.menu.content_changed` → a text-only job per menu item (api-endpoints-plan §10).
+ * Durable `narration-catalog-menu-content-changed`.
+ */
+@Injectable()
+export class MenuContentConsumer extends JetStreamConsumer<typeof CATALOG_MENU_CONTENT_CHANGED> {
+  readonly event = CATALOG_MENU_CONTENT_CHANGED;
+  readonly service: string = SERVICE_NAME;
+
+  constructor(private readonly jobs: JobsService) {
+    super();
+  }
+
+  handle(payload: EventPayload<typeof CATALOG_MENU_CONTENT_CHANGED>): Promise<void> {
+    return this.jobs.fromMenuContent(payload, this.durable);
+  }
+}

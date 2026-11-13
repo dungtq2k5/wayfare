@@ -1,0 +1,15 @@
+// Markdown's share of the lint contract: `pnpm lint:md`, a step in pr.yml.
+{
+  // .gitignore already excludes node_modules, generated output and the scratch folder under docs.
+  "gitignore": true,
+  "globs": ["**/*.md"],
+  "customRules": ["./packages/config/markdownlint/table-delimiter.mjs"],
+  "config": {
+    // Off, not widened: a table cell holding a sentence cannot wrap, and prose is one line per paragraph.
+    "MD013": false,
+    // <br> is the only way to break a line inside a table cell.
+    "MD033": { "allowed_elements": ["br"] },
+    // One space of padding, never aligned — a one-word edit must not re-pad a whole table.
+    "MD060": { "style": "compact" },
+  },
+}

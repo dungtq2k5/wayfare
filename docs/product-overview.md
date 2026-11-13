@@ -55,7 +55,7 @@ This document describes the product as it is intended to be. Where a choice was 
 A foreign tourist walking around Ho Chi Minh City hits four walls at once:
 
 | Wall | Concrete symptom | How Wayfare answers it |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **Language** | Signs, menus and stories are in Vietnamese only. Staff may not speak English. | Content is authored once in Vietnamese and served in the tourist's language as text **and** audio. |
 | **Context** | They walk past a 200-year-old pagoda or a famous 40-year-old noodle stall and have no idea. | Geofenced auto-narration fires when they are physically near it. |
 | **Connectivity** | Roaming is expensive, local eSIM coverage is patchy, and data dies exactly when they are lost. | Offline packs: map + content + images + audio downloaded over hotel Wi-Fi. |
@@ -68,8 +68,8 @@ And the **owner** of a small local place has a symmetrical problem: real tourist
 ## 3. Actors
 
 | # | Actor | Auth | Primary surface | What they care about |
-| --- | --- | --- | --- | --- |
-| **A1** | **Tourist** (end user) | **Anonymous by default.** Optional account, required only to purchase or sync across devices. | Mobile app (primary), Web PWA (secondary) | Hearing the right story at the right moment, in their language, without burning battery or data. |
+| :---- | :---- | :---- | :---- | :---- |
+| **A1** | **Tourist** (end user) | **Anonymous by default.** Optional account, required only to purchase or sync across devices. | Android app (primary), Web PWA (secondary, and the only Wayfare on iPhone) | Hearing the right story at the right moment, in their language, without burning battery or data. |
 | **A2** | **Venue Owner** (paying customer) | Account + email verification + **manual identity verification by an admin** | Web console → Owner Portal | Getting listed, looking good, being found, selling vouchers, getting paid, seeing their own stats. |
 | **A3** | **Content Moderator / Admin** | Account + role + permissions | Web console → Admin Console | Approving owners and submissions, keeping data clean, running TTS jobs, watching the platform. |
 | **A4** | **Super Admin** | Bootstrapped account | Web console → Admin Console | Roles, permissions, system config, audit, billing oversight. |
@@ -91,17 +91,17 @@ An account is introduced only when it buys the tourist something concrete: a pur
 
 We ship **three** front-end surfaces from one monorepo.
 
-### 4.1 `apps/mobile` — Tourist app (React Native / Expo) — **primary surface**
+### 4.1 `apps/mobile` — Tourist app (React Native / Expo, Android) — **primary surface**
 
-The one that matters. Native app because the core feature (background GPS + geofence + background audio) is only reliably possible natively.
+The one that matters. Native app because the core feature (background GPS + geofence + background audio) is only reliably possible natively. It ships on **Android only** ([ADR 0059](./decisions/0059-the-native-app-is-android-only.md)): on an iPhone, Wayfare is the web PWA below, so the walking experience is Android's alone.
 
 Screens: Splash / language picker → Map → Nearby list → Place detail → Now-playing narration → QR scanner → Tours → Offline downloads → Purchases → Settings.
 
-### 4.2 `apps/web` — Tourist web PWA (React + Vite)
+### 4.2 `apps/web` — Tourist web PWA (Next.js)
 
 Same content, degraded capability. It exists because (a) a tourist should be able to try Wayfare from a QR sticker on a bus stop without installing anything, and (b) it is the cheapest way to demo the product. Browser geolocation only works with the tab open, so the PWA offers **manual "narrate this place"** and **QR activation** instead of true background geofencing.
 
-### 4.3 `apps/console` — Web console (React + Vite)
+### 4.3 `apps/console` — Web console (Next.js)
 
 One React application, two role-gated areas:
 
@@ -117,7 +117,7 @@ These two *could* be separate apps. Keep them as one app with route-level RBAC �
 Use these words in code, tickets and commit messages. Consistency here is worth more than it sounds.
 
 | Term | Meaning |
-| --- | --- |
+| :---- | :---- |
 | **Place** | A physical location with content: restaurant, stall, temple, viewpoint, market, bus stop. Our central entity. (An earlier prototype called this a **POI**; we use **Place** in product language and `Place` in code.) |
 | **Editorial Place** | A Place with no commercial owner — a temple, a viewpoint, a public landmark. Authored by staff. Always narrates. |
 | **Venue** | A Place that is commercially owned and claimed by an Owner. Only Venues generate revenue, and Venue narration is gated on subscription (§8.3). |
@@ -163,11 +163,16 @@ Priority: **P0** = the core product, must exist. **P1** = complete product. **P2
 - Client-side geofence engine evaluates the tourist's position against Place trigger radii.
 - **Debounce** before confirming an `ENTER` (GPS jitter must not fire narration).
 - **Cooldown** per Place per device (no spam when the tourist sits down inside a radius).
-- **Priority resolution** when several Places are in range: highest `narrationPriority`, then nearest. This is editorial only — see §8.3.
+- **Priority resolution** when several Places are in range: **Editorial Places before Venues**, then the highest `narrationPriority`, then the nearest. This is editorial only — see §8.3. Eligibility is decided first (auto-narration on, not in cooldown, the commercial cap free for a Venue), so a suppressed Venue never blocks another Place.
+- **One narration per visit:** a Place fires once when the tourist enters; staying inside never re-fires it, even after the cooldown — leaving and coming back does.
+- **One decision at a time, nothing dropped:** the engine chooses at most one Place per evaluation. The others still inside and eligible fire on the following evaluations — the next fix or the next safety reconcile — in the same order; one the tourist has left by then does not. A Place's cooldown counts from when the engine chose it, since the engine never knows when the audio ends.
+- **The player holds one narration and one *Up next*.** While a narration plays (or is paused) and *Up next* is full, the walk does not commit its next choice: that Place stays eligible and is chosen again once the slot frees, if the tourist is still in range — so nothing the tourist could hear is silently lost, and *Up next* never changes on its own.
+- **Stopping a narration does not give its Place back.** Its cooldown began when the walk chose it, so stopping, skipping or replacing the narration does not undo it, and the walk does not offer it again on that visit; *Play narration* always plays it on demand.
 - **Commercial narration cap:** at most one Venue narration per 10 minutes of walking, counted separately from Editorial Places. Without this, a food street becomes an ad loop even with honest ranking.
 - A safety reconcile pass so a missed event self-heals instead of hanging.
 - Dynamic geofence re-registration: only the nearest N Places are registered with the OS at any time (see §14 — the OS caps this).
-- Visible, honourable permission UX: explain *why* background location is needed, degrade gracefully to foreground-only if refused.
+- **A walk is a session the tourist starts.** Auto-narration runs only while a walk is on: *Start walk* begins it, and while it is on it keeps listening for Places in the background, with Android's persistent notification showing it and carrying *Stop*. It ends when the tourist stops it, or by itself after **30 minutes without moving**, so a phone left on a café table does not track and drain all afternoon. With no walk on, narration is by tap (*Play narration*) or QR only.
+- Visible, honourable permission UX: explain *why* background location is needed, asked when the tourist first starts a walk; degrade gracefully to a foreground-only walk (narrating while the app is open) if refused.
 
 **Acceptance:** walking a 1 km test route with 6 Places, each narration fires once, in the correct order, with the screen off.
 
@@ -178,14 +183,14 @@ Priority: **P0** = the core product, must exist. **P1** = complete product. **P2
 - **4-tier audio fallback** — the tourist always hears *something*:
 
   | Tier | Source | Latency | When |
-  | --- | --- | --- | --- |
+  | :---- | :---- | :---- | :---- |
   | 1 | Pre-generated audio file, cached on device | ~0 ms | Normal case; audio already exists for this `(place, lang)`. |
   | 1.5 | On-demand translate + TTS on the server, result stored | 2–5 s | This `(place, lang)` has no audio yet. |
   | 2 | Server TTS streamed live | 3–8 s | Storage write failed / cold path. |
   | 3 | On-device OS speech synthesis | ~0 ms | **Offline.** Lower quality, always available. |
 
 - **3-tier content (text) fallback:** requested language → English → original Vietnamese. The client is told which tier it got, so the UI can say "shown in English".
-- Narration queue: one at a time, no duplicates, auto-pause on incoming phone call or other audio, resume after.
+- Narration queue: one at a time, no duplicates. **A phone call** pauses it and it resumes on its own when the call ends; **another app's audio** pauses it (never ducks: speech under music cannot be followed) and it waits for the tourist to resume; **headphones unplugged** pause it, so nothing plays out loud by surprise.
 - Player UI: now-playing card, transcript, replay, skip, speed, per-language voice choice.
 - Background prefetch: translate+synthesise the nearest un-synthesised Places ahead of the tourist, rate-limited and backoff-aware.
 - **Pronunciation dictionary** ([ADR 0006](./decisions/0006-neural-tts-only-no-human-recording.md)) for Vietnamese proper nouns — place names, dish names, street names — applied as SSML overrides before synthesis. "Bánh xèo" and "Bến Thành" mangled by an English neural voice is where perceived quality actually dies; this costs nothing and matters more than voice selection.
@@ -208,7 +213,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 4. **Graceful degradation** — content falls back target → en → vi; audio falls back to tier 3 (on-device TTS); map falls back to the packaged pack.
 
 - **Two map modes, not three.** Because we self-host our own PMTiles archive ([ADR 0023](./decisions/0023-self-hosted-pmtiles-no-tile-vendor.md)), "online" is the *same file* read over HTTP range requests, and "offline" is that file downloaded whole. There is no third-party tile API, no key, no quota, and no separate cloud-vs-hybrid code path.
-- Delta sync: the client sends its dataset version and `updatedAfter`; the server returns only changes plus a list of removed Place IDs.
+- Delta sync: the client sends the `datasetVersion` it last received (`since`) and that version as `If-None-Match`; the server returns only the Places changed since, plus a list of removed Place IDs, a new `datasetVersion`, and `complete: false` when another page follows — or `304` when nothing changed.
 - Storage manager UI: what is downloaded, how big, update available, repair, delete.
 - Disk-full handling: sacrifice runtime caches to preserve an explicitly downloaded pack.
 
@@ -224,7 +229,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 - Notifications: in-app bell + detail page for review outcomes, with the admin's note.
 - Subscription & billing: plan comparison, upgrade/downgrade, invoices, payment method, cancel — all via Stripe's hosted surfaces.
 - Payouts: connect a payout account, see voucher sales and transfers. *(P1)*
-- My stats: how many tourists heard my narration, listen-through rate, peak hours. *(P1)*
+- My stats: how often each Venue's story started and was heard to the end, average listening and QR scans (Growth); Pro adds how each story started, stories stopped early, page opens and a CSV export; Free shows no numbers. *(P1, built)*
 
 ### F7 — Admin Console (P0)
 
@@ -235,10 +240,11 @@ Four layers of defence, so the tourist never sees a blank screen:
 - **Activation gate:** a Place cannot go public until its English localization and audio are ready. Editing the description invalidates existing audio, flips the Place to `processing`, and remembers that activation was requested.
 - Users & dynamic roles: create roles, assign permissions from a fixed permission catalogue.
 - TTS job monitor: queued/running/paused/failed jobs with **live progress** and pause/resume/cancel.
+- **Stuck Places:** a Place left in `processing` for over an hour with no narration job queued, running or paused is listed on the console's Home and as the Places list's *Stuck*, with its last job and *Make narration again* — nothing else would move it.
 - Pronunciation dictionary editor for proper nouns (F3).
 - Audit log: who did what to which resource, when.
-- Analytics dashboards. *(P1)*
-- Runtime location observability: an aggregate, non-consent, coarse "how many devices are active where" window — deliberately kept in a **separate lane** from consented analytics. *(P1)*
+- Analytics dashboards: the overview, the top Places, a heatmap of 150 m squares (under 5 phones never shown) and the runtime activity. *(P1, built)*
+- Runtime location observability: an aggregate, non-consent, coarse "how many devices are active where" window — deliberately kept in a **separate lane** from consented analytics. *(P1, built)*
 
 ### F8 — Monetization & payments (P0) — see §8 for the full model
 
@@ -253,6 +259,7 @@ Four layers of defence, so the tourist never sees a blank screen:
 **Consent-gated. Anonymous. Aggregate.**
 
 - Anonymous device ID, not a user ID. Ingest endpoint refuses events without consent.
+- **Asked after the first story ends**, never in the first run or during a story; once more after the next story if the question was closed, then only in Settings, where it can be turned off (which deletes the raw events still held). A new privacy policy asks again those who had allowed. **The web asks per browser** — a browser is its own install with its own id.
 - Events: narration started / completed / abandoned, place opened, QR scanned, language chosen, pack installed, search performed.
 - Read models: most-heard Places, average listen duration per Place, completion rate, language distribution, hourly/daily activity.
 - Anonymised movement traces → **heatmap** of tourist density. Coordinates snapped to a grid before storage; no raw trace is ever joinable back to a device across sessions.
@@ -274,6 +281,8 @@ Four layers of defence, so the tourist never sees a blank screen:
 - Route guards declare the permission they need (`place:delete`), not the role.
 - PII (national ID) encrypted at rest, decrypted only when an admin actually views it, auto-redacted after 180 days, never logged.
 - Data deletion: an authenticated tourist can delete their account. Their personal data is erased; their purchase records are kept in anonymised form because tax and dispute handling require them ([ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)).
+- **Support:** `support@wayfare.app` is the one support contact the apps name — a locked account is told to write there. There is **no self-service unlock**: only staff lock an account, to investigate, and a lock may lapse by itself; failed passwords are rate-limited, never locked, and *Forgot password?* is their way out. The address must exist before launch.
+- **The tourist's account is offered, never required:** in Settings, and on Favourites once a signed-out tourist has 2 favourites — never at launch.
 
 ---
 
@@ -282,22 +291,22 @@ Four layers of defence, so the tourist never sees a blank screen:
 ### J1 — Tourist first run (cold, on hotel Wi-Fi)
 
 1. Install → splash → **language picker** (5 top languages + "other").
-2. App asks for location permission with a plain-language reason. Foreground first; background is requested later, in context, the first time a narration fires.
+2. Location is asked for in context, never at launch: foreground the first time the tourist asks the map where they are, and background — with a plain-language reason — when they first start a walk (F2), because a walk is what needs it.
 3. In parallel: read whatever is already in the local DB (instant render), request a best-effort position (prefer a recent cached fix), and full-sync the Place corpus.
 4. A **startup network probe** with a short timeout decides "offline" vs "slow" before the UI accuses the network of being down.
-5. App offers: *"Download Ho Chi Minh City for offline use — 180 MB"*. Strongly suggested while on Wi-Fi.
+5. App offers the area on screen: *"Download District 1 centre for offline use — 48 MB"* — once per area, on Wi-Fi. A pack is one area in one language; there is no city-wide pack.
 6. Map appears with the tourist's dot and nearby Places. **Quick-start in English is allowed** while the chosen language's hotset and UI bundle finish warming in the background; the app switches over when both lanes are ready.
 
 ### J2 — The core loop: walking and hearing (P0, demo this one)
 
-1. Tourist puts the phone in their pocket and walks. Screen off.
+1. Tourist taps **Start walk**, puts the phone in their pocket and walks. Screen off; Android's notification shows the walk is on.
 2. Location updates arrive, throttled.
 3. Geofence engine finds the tourist is inside the trigger radius of *Cô Ba's noodle stall*.
 4. It waits out the **debounce** window. Still inside → confirm `ENTER`.
-5. Two other Places are also in range. Priority sort picks the winner by `narrationPriority`, then distance.
+5. Two other Places are also in range. Priority sort picks the winner — Editorial before Venue, then `narrationPriority`, then distance — and the Place's cooldown starts. The other two follow on the next evaluations while the tourist is still inside them.
 6. Narration queue is empty → play. Tier 1: the audio file is already in the device cache → starts in milliseconds.
 7. Phone vibrates once, lock screen shows a now-playing card with the Place name.
-8. Narration finishes. The Place enters **cooldown**. Analytics (if consented) records a completed listen.
+8. Narration finishes; the Place has been in **cooldown** since step 5. Analytics (if consented) records a completed listen.
 9. Tourist walks on. `EXIT` fires. Meanwhile the app has quietly prefetched narration for the next three un-synthesised Places ahead.
 
 ### J3 — QR fallback (indoors, GPS useless)
@@ -312,8 +321,10 @@ Four layers of defence, so the tourist never sees a blank screen:
 1. Tourist switches `en` → `ja`.
 2. App requests the **hotset** — the nearest ~10 Places within 1.5 km — to be translated and synthesised with priority.
 3. The switch is only reported as complete when **both** lanes are ready: the content hotset (≥3 mandatory Places cached) **and** the UI string bundle for `ja`.
-4. Until then, UI and content stay in English rather than showing a half-translated screen.
+4. Until then, UI and content stay in English rather than showing a half-translated screen. The tourist keeps using the app meanwhile.
 5. Any on-demand audio that was in flight for `en` when the switch happened is discarded, not played.
+6. **If it takes long** — after 30 s with the hotset not ready, once the UI bundle is ready — the tourist may **switch now**: Places not yet ready show in the language they have, and say so.
+7. **A long-tail language** (machine-translated, product §F3) completes when its content is ready even while its UI bundle is still being translated: every screen stays wholly in English, and changes by itself when the bundle arrives. The stories are what the tourist came for; a machine-translated bundle can take minutes.
 
 ### J5 — Owner onboarding → first paid month
 
@@ -353,10 +364,10 @@ All money moves through **Stripe**, and **all prices are in USD, always** ([ADR 
 ### 8.1 Revenue streams
 
 | # | Stream | Who pays | Who receives | Stripe product |
-| --- | --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- | :---- |
 | **R1** | **Owner subscription** — the core business | Venue Owner | Platform (100%) | **Stripe Billing** + Checkout (`mode: 'subscription'`) + Customer Portal |
-| **R2** | **Discovery boost** — paid ranking on visual surfaces | Venue Owner | Platform (100%) | Billing add-on price, or a one-off Checkout Session |
-| **R3** | **Voucher commission** | Tourist | Venue (85%) + Platform (15%) | **Stripe Connect**, destination charges, `application_fee_amount` |
+| **R2** | **Discovery boost** — paid ranking on visual surfaces | Venue Owner | Platform (100%) | **Part of the plan:** the plan grants boost slots (§8.2) and nothing is paid per boost — no add-on price, no separate Checkout; an owner wanting more slots moves plan |
+| **R3** | **Voucher commission** — *deferred* ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)) | Tourist | Venue (85%) + Platform (15%) | **Stripe Connect**, destination charges, `application_fee_amount` — unavailable for Vietnamese venues; revisited when the chain resumes |
 | **R4** | *(P2)* Premium platform content | Tourist | Platform (100%) | Checkout Session, `mode: 'payment'` |
 
 R1 is the business. R3 is the growth story. Build R1 first and completely; R3 is a P1 feature; R4 is a stretch goal with a real app-store complication (§14).
@@ -364,7 +375,7 @@ R1 is the business. R3 is the growth story. Build R1 first and completely; R3 is
 ### 8.2 Owner plans
 
 | | **Free** | **Growth** | **Pro** |
-| --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- |
 | Price | $0 | $9/mo · $90/yr | $29/mo · $290/yr |
 | Places | 1 | 10 | 50 |
 | **Auto-narration (GPS-triggered)** | **✗ — on tap only** | **✔** | **✔** |
@@ -374,7 +385,9 @@ R1 is the business. R3 is the growth story. Build R1 first and completely; R3 is
 | Discovery boost slots | 0 | 1 | 5 |
 | AI enhancement credits | 0 | 10/day | 10/day |
 | Own analytics | — | basic | full + export |
-| Sell vouchers | — | ✔ (15%) | ✔ (10%) |
+| Sell vouchers *(not available yet — ADR 0066)* | — | ✔ (15%) | ✔ (10%) |
+
+**While the voucher chain is deferred** the plans keep the grant and its commission as their terms for when it resumes, but no owner screen shows it, and staff see it as *paused*.
 
 Each plan is a **separate Stripe Product** with monthly and annual **Prices**. Do not put three tiers' prices on one Product — invoices and Checkout show the Product name, and the customer would not be able to tell tiers apart.
 
@@ -389,7 +402,7 @@ This is the most important product rule in the document, and it is easy to get w
 So the single `audioPriority` field from the original design splits into three, with different owners and different rules:
 
 | Field | Set by | Purchasable | Affects |
-| --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- |
 | `narrationPriority` | Admin, editorially | **Never** | Which story wins when several Places are in range |
 | `discoveryBoost` | Entitlements (R2) | **Yes** | Nearby-list order, marker prominence, recommendations — all labelled *Sponsored* |
 | `triggerRadius` | Admin, capped | **Never** | Geofence size |
@@ -409,7 +422,7 @@ Two guards that make this hold in practice:
 
 Stripe is the source of truth for *subscription state*; our `billing` service is the source of truth for *what that means*.
 
-```
+```text
 Stripe webhook  →  billing service  →  entitlement record  →  every other service reads it
 ```
 
@@ -449,25 +462,31 @@ The platform aggregates venues and runs checkout on their behalf, so the **platf
 These are **product** decisions, not implementation details. They must be configurable, and every one of them has a reason. These values are inherited from an earlier prototype of the same idea, where they were tuned against real walking tests — so treat them as informed starting points, not guesses, and re-tune them with evidence.
 
 | Constant | Value | Why |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | GPS update throttle | 5 s | Below this, battery and re-sorting cost outweigh accuracy gains while walking. |
 | Geofence debounce | 3 s | Urban GPS jitters ±20 m. Firing on the first sample narrates the wrong place. |
 | Default trigger radius | 30 m | Roughly "you can see the shopfront". Admin-overridable per place, hard-capped. |
 | Narration cooldown | 5 min | Tourist sits down inside a radius; must not loop. |
 | Commercial narration cap | 1 Venue narration / 10 min | Stops a commercial street becoming an ad loop. Editorial Places are exempt. |
+| Walk stationary mode | after 2 min still, one fix every 30 s at balanced accuracy | Measured on the test phone: Wayfare's own use about 0.13 % of the battery per hour standing still, against 0.72 % without it. |
+| Walk idle stop | 30 min without leaving a 50 m circle | A walk left running on a café table must not track and drain all afternoon; the tourist starts it again in one tap. |
 | Safety reconcile interval | 5 s | Self-heals a dropped event instead of hanging silently. |
+| GPS gap | 15 s | A half-finished entry older than this is dropped, so the fix before a tunnel never confirms a Place after it. |
 | Nearby prefetch | top 3 per batch, ≥30 s between batches | Warms audio ahead of the walker without hammering TTS. |
 | Prefetch backoff on 429 | 30 s → 60 s → 120 s → … cap 10 min | Be a good citizen of our own rate limiter. |
 | Hotset radius / size | 1500 m / 10 places | The realistic "next 20 minutes of walking". |
-| Hotset ready threshold | 3 places cached | Enough to make a language switch feel done. |
+| Hotset ready threshold | 3 places cached, or every Place within the radius when there are fewer | Enough to make a language switch feel done; a quiet street with two Places must still finish. |
+| Language switch patience | 30 s | Past it, a slow switch offers *switch now*: three stories normally arrive within the 5 s on-demand wait each. |
 | Locate request budget | 15 s, accept cached fix ≤30 s old, accuracy ≤100 m | A first fix can take 30 s+; a slightly stale fix beats a spinner. |
+| Speech-provider outage retry | 1 min, 5 min, then every 15 min, for up to 24 h | An edit during an outage keeps the Place offline (the activation gate); retrying without spending attempts brings it back by itself, and the owner hears of a failure only when the 24 hours end. A provider that answers with an error fails at once, as before. |
+| On-demand wait before streaming | 5 s | Product §10's tier-1.5 latency: past it, the player streams the narration live (tier 2) instead of waiting for the stored file. |
 | Startup network probe | 2.5 s timeout, max 2 attempts in an 8 s window | Decide "offline" fast, but do not libel a slow network. |
 | Place cache TTL | 15 min | Content changes rarely; delta sync covers the rest. |
 | Audio cache cap | 300 files per language, max 3 languages, LRU | Bounded disk with the active language pinned against eviction. |
 | Max photos / size | 8 per place / 5 MB each | Owner content quality vs. pack size. |
 | Concurrent TTS jobs | 3 | Protects the TTS provider and our own CPU. |
 | On-demand rate limit | 30 requests / 10 min / device | Anti-abuse on an endpoint that costs us real work. |
-| Access / refresh token TTL | 30 min / 7 days | Short access window, rotating refresh. |
+| Access / refresh token TTL | 30 min / 7 days (web, console), 30 days (mobile), from sign-in | Short access window, rotating refresh. A mobile tourist's trips are weeks apart; the account holds only favourites today — revisit when purchases arrive. |
 | AI credits | 10/day per owner | Caps LLM spend per account. |
 | PII retention | 180 days, then auto-redact | Data minimisation. |
 | TTS job retention | 14 days | Enough to debug, not enough to accumulate. |
@@ -476,25 +495,26 @@ These are **product** decisions, not implementation details. They must be config
 
 ## 10. Non-functional requirements
 
-**Performance**
+### Performance
 
 - Cold start to interactive map: **< 3 s** on a mid-range Android with a warm cache.
-- Narration start latency: **< 200 ms** tier 1, **< 5 s** tier 1.5.
+- Narration start latency: **< 200 ms** tier 1, **< 5 s** tier 1.5 — tier 1.5 for the five launch languages; a long-tail language has no voice yet and is served as text.
 - Nearby query (server): p95 **< 150 ms**.
-- Delta sync payload for a typical daily change set: **< 50 KB**.
+- Delta sync payload for a typical daily change set: **< 50 KB** — met under load once each language's delta carried only its own changes (an English delta from 247 KB to an empty 91-byte page).
+- **Measured by the load test** (architecture §12.0), with these budgets beside the nearby query's: a Place's detail p95 < 200 ms, a delta page < 300 ms, a whole full sync < 1.5 s, errors < 0.5 %.
 
 **Battery** — a 4-hour walking session must cost **< 15%** battery on top of screen-off baseline. Non-negotiable: if the app eats the battery, the tourist uninstalls it, and the whole product dies. Enforce with throttling, distance filters, reduced accuracy when stationary, and no network chatter while idle.
 
 **Offline** — every P0 tourist feature must work in airplane mode once a pack is installed. Offline is the default assumption, not a fallback.
 
-**Privacy**
+### Privacy
 
 - Tourists are anonymous by default; analytics require explicit opt-in and are stored against a rotating anonymous device ID, never a person.
 - Movement traces are grid-snapped before storage and are never reconstructable into an individual's route.
 - Runtime "how many devices are active" observability is a **separate lane** that never mixes with consented analytics data.
 - PII encrypted at rest; auto-redacted after 180 days; never written to logs or traces.
 
-**Security**
+### Security
 
 - OWASP Top 10 as a checklist, not a vibe. httpOnly + `SameSite` cookies on web, secure storage on mobile.
 - Permission-based authorization on every mutating route.
@@ -502,9 +522,13 @@ These are **product** decisions, not implementation details. They must be config
 - Rate limits on every public write endpoint and every endpoint that costs money (TTS, translation, AI).
 - Full audit trail on admin actions.
 
-**Internationalization** — two independent lanes: **content locale** (place text and audio) and **UI locale** (interface strings). They warm at different speeds and must not block each other. A language switch is complete only when both are ready. Include RTL readiness in the layout even though no launch language needs it.
+**Internationalization** — two independent lanes: **content locale** (place text and audio) and **UI locale** (interface strings). They warm at different speeds and must not block each other. A language switch is complete only when both are ready — except a long-tail language, which completes with its content while its UI stays wholly in English until its machine-translated bundle arrives (J4). Include RTL readiness in the layout even though no launch language needs it.
 
-**Accessibility** — the product is fundamentally an audio product, which makes it unusually valuable to visually impaired travellers. Screen-reader labels on every control, minimum 44×44 pt touch targets, WCAG AA contrast, full transcript for every narration, and no information conveyed by colour alone.
+**Accessibility** — the product is fundamentally an audio product, which makes it unusually valuable to visually impaired travelers. Screen-reader labels on every control, minimum 44×44 pt touch targets, WCAG AA contrast, full transcript for every narration, and no information conveyed by colour alone.
+
+**Appearance** — every client has a **light and a dark** appearance and **follows the system setting by default**, with an in-app choice of *System*, *Light* or *Dark*; WCAG AA contrast holds in both, and the map has a dark style to match. Text **follows the system font-size setting**. The interface typeface covers Latin script with Vietnamese diacritics; Chinese, Japanese and Korean text falls back to the device's own fonts, because bundling CJK fonts would cost tens of megabytes.
+
+**Motion** — every client animates, the web PWA as much as the Android app: state changes the tourist causes or notices — a sheet opening, a player appearing, the map moving to a Place, feedback on a tap — move, with durations from the design tokens, so the interface feels alive and its changes are easy to follow. Each design round specifies its animations. Motion is never the only signal, and every animation becomes instant when the system's reduce-motion setting is on.
 
 **Availability** — target 99% for the tourist read path. Owner and admin write paths may degrade. The read path must survive a backend outage entirely, via cached data.
 
@@ -515,13 +539,13 @@ These are **product** decisions, not implementation details. They must be config
 Product capability → owning service. Full technical detail lives in [`architecture-and-tech-stack.md`](./architecture-and-tech-stack.md).
 
 | Service | Owns | Consumed by |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **gateway** | The only public HTTP surface. Auth verification, rate limiting, request shaping, OpenAPI spec. | all clients |
 | **identity** | Accounts, devices, sessions, tokens, roles, permissions, PII encryption, owner verification state. | every service |
-| **catalog** | Places, menus, tours, media metadata, submissions, moderation workflow, dataset versioning + delta sync, PostGIS nearby/geofence queries, map pack manifests. | gateway, narration, analytics |
+| **catalog** | Places, menus, tours, media metadata, submissions, moderation workflow, dataset versioning + delta sync, PostGIS nearby/geofence queries, map pack manifests. | gateway, narration, billing |
 | **narration** | TTS jobs, audio assets, voice catalogue, pronunciation dictionary, audio packs, content translation, UI string bundles, hotset & warmup. | gateway, catalog |
 | **billing** | Stripe: subscriptions, Connect accounts, checkout sessions, webhook processing, entitlements, vouchers, payouts. | gateway, catalog |
-| **analytics** *(P1)* | Consent-gated ingest, event store, rollups, read models, heatmap aggregation. | gateway, console |
+| **analytics** *(P1)* | Consent-gated ingest, event store, rollups, read models, heatmap aggregation. Publishes and consumes no event. | gateway |
 | **ai** *(P1)* | Description enhancement, quota accounting, provider fallback. | gateway |
 
 **Inter-service interactions that must exist:**
@@ -556,15 +580,16 @@ The Phase 1 demo is one video: someone walking a route with the screen off while
 - Full 5-language narration; audio tiers 1.5 and 2; pronunciation dictionary; hotset + warmup + dual-lane i18n.
 - Offline packs: map pack + content + images + audio, with SHA-256 verification.
 - Web tourist PWA.
-- `analytics` service + admin dashboards.
+- `analytics` service + admin dashboards — moved to Phase 3.
 - `ai` service: description enhancement.
 - Staging deployment, mobile build distributed to testers.
 
 ### Phase 3 — revenue and polish
 
-- Vouchers + Stripe Connect payouts.
+- Vouchers + Stripe Connect payouts — **deferred** ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)): Stripe can't pay a Vietnamese venue; the chain waits for where Wayfare is set up, how venues are paid, and the VAT that follows.
 - Discovery boost.
 - Tours browser and progress.
+- Analytics (§F9): built — the `analytics` service and its rollup jobs, the consent question on Android and the web, the owner's *My stats* and the admin's dashboards.
 - Load test, OpenTelemetry traces, architecture diagrams.
 
 ### 12.1 Pilot area
@@ -588,7 +613,7 @@ Hotel/flight booking · table reservations · food delivery · ride hailing · u
 ## 13. Success metrics
 
 | Dimension | Metric | Target |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **Core loop** | Narrations auto-triggered per active session | ≥ 4 |
 | | Listen-through rate (finished / started) | ≥ 60% |
 | | False trigger rate (narration for a place the tourist never visited) | < 5% |
@@ -608,12 +633,11 @@ Hotel/flight booking · table reservations · food delivery · ride hailing · u
 ## 14. Risks
 
 | Risk | Impact | Mitigation |
-| --- | --- | --- |
-| **OS geofence region limits.** iOS allows ~20 monitored regions, Android ~100. A city has hundreds of Places. | Core feature silently stops working past 20 places. | Do not use OS geofencing as the primary mechanism. Run our **own** engine over a background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves. **Spike this first.** |
-| **Background location on iOS.** Requires "Always" authorization, background modes, a persuasive App Store justification, and does not work in Expo Go at all. | Cannot demo the core feature; possible App Store rejection. | Move to an Expo **development build** immediately. Write the permission rationale copy early. Have a screen-on fallback path for the demo. |
+| :---- | :---- | :---- |
+| **OS geofence region limits.** Android allows ~100 monitored regions. A city has hundreds of Places. | Core feature silently stops working past 100 places. | Do not use OS geofencing as the primary mechanism. Run our **own** engine over a background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves. **Spike this first.** |
 | **Battery drain.** Continuous GPS is the fastest way to get uninstalled. | Product is unusable in the real world. | Throttling, distance filters, reduced accuracy when stationary, and a measured battery test. |
 | **Unofficial TTS / translation endpoints.** The free Microsoft Edge TTS and Google Translate wrappers are undocumented internal endpoints, not products. They can break or rate-limit without notice. | Audio generation stops without warning. | Wrap both behind a provider interface with **two** implementations from day one; keep a paid fallback (Azure Speech / Google Cloud TTS) configured and tested. Pre-generate and store audio so a provider outage never affects tourists, only authoring. |
-| **PMTiles offline vector tiles on React Native.** Well-trodden on the web, much less so in RN. | The offline map — a headline feature — may not work on mobile. | Spike in Phase 1. Fallbacks: a small in-app local HTTP server serving the pack, MapLibre Native's own offline region download, or raster tiles for the offline case. |
-| **App-store rules on digital goods.** Apple and Google require their own IAP for digital content consumed in the app. Premium content (R4) is digital content. Real-world goods and services (vouchers, R3) are exempt and may use Stripe. | R4 gets the app rejected, or loses 30%. | Keep R4 out of the native app (web-only purchase), or drop R4. R1 (B2B subscription sold on the web console) and R3 (real-world vouchers) are both fine with Stripe. |
-| **Stripe availability and tax in Vietnam.** Stripe's support for Vietnamese connected accounts and payouts directly constrains R3, and VAT treatment on R1 is unresolved. | R3 cannot ship; or we under-collect tax silently. | Verify before promising payouts to owners. Do not enable `automatic_tax` without confirming an active registration (§8.6). |
+| **PMTiles offline vector tiles on React Native.** Well-trodden on the web, much less so in RN. | The offline map — a headline feature — may not work on mobile. | Spike in Phase 1. Fallbacks: a small in-app local HTTP server serving the pack, MapLibre Native's own offline region download, or raster tiles for the offline case. **Outcome on Android:** works without a fallback (local `pmtiles://` in MapLibre Native). |
+| **App-store rules on digital goods.** Google Play requires its own IAP for digital content consumed in the app. Premium content (R4) is digital content. Real-world goods and services (vouchers, R3) are exempt and may use Stripe. | R4 gets the app rejected, or loses 30%. | Keep R4 out of the native app (web-only purchase), or drop R4. R1 (B2B subscription sold on the web console) and R3 (real-world vouchers) are both fine with Stripe. |
+| **Stripe availability and tax in Vietnam.** Stripe's support for Vietnamese connected accounts and payouts directly constrains R3, and VAT treatment on R1 is unresolved. | R3 cannot ship; or we under-collect tax silently. | **Verified 2026-11: Stripe doesn't support Vietnam** (no Vietnamese accounts; cross-border payouts don't reach it; Global Payouts only from US or UK platforms), so the voucher chain is deferred ([ADR 0066](./decisions/0066-the-voucher-chain-waits-for-a-way-to-pay-vietnamese-venues.md)) until Wayfare's legal home, the way venues are paid and the VAT are settled with an advisor. Do not enable `automatic_tax` without confirming an active registration (§8.6). |
 | **Scope.** This document describes more product than a small team ships quickly. | Everything half-done; nothing demonstrable. | Phase 1 is sacred and small. Nothing from Phase 2 starts until the walking demo works. |

@@ -1,0 +1,79 @@
+{
+  "owners": [
+    {
+      "slug": "owner-1",
+      "id": "01a0b998-8ec8-7444-acc0-3a80371abcdb",
+      "email": "owner-1@wayfare.test",
+      "fullName": "Chủ Quán Mẫu 1",
+      "registration": {
+        "id": "01a0b998-8ec9-770b-8dd3-d146b4eb21d2",
+        "status": "APPROVED",
+        "businessName": "Hộ Kinh Doanh Mẫu 1 — dữ liệu mẫu",
+        "businessAddress": "Số 10 phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+        "contactName": "Chủ Quán Mẫu 1",
+        "contactPhone": "+84900000001",
+        "nationalId": "000000000001"
+      }
+    },
+    {
+      "slug": "owner-2",
+      "id": "01a0b998-8ec9-770b-8dd3-d6a67d86208c",
+      "email": "owner-2@wayfare.test",
+      "fullName": "Chủ Quán Mẫu 2",
+      "registration": {
+        "id": "01a0b998-8ec9-770b-8dd3-da9bedd01c05",
+        "status": "APPROVED",
+        "businessName": "Hộ Kinh Doanh Mẫu 2 — dữ liệu mẫu",
+        "businessAddress": "Số 20 phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+        "contactName": "Chủ Quán Mẫu 2",
+        "contactPhone": "+84900000002",
+        "nationalId": "000000000002"
+      }
+    },
+    {
+      "slug": "owner-3",
+      "id": "01a0b998-8ec9-770b-8dd3-dea564172162",
+      "email": "owner-3@wayfare.test",
+      "fullName": "Chủ Quán Mẫu 3",
+      "registration": {
+        "id": "01a0b998-8ec9-770b-8dd3-e3eb000ed2b9",
+        "status": "APPROVED",
+        "businessName": "Hộ Kinh Doanh Mẫu 3 — dữ liệu mẫu",
+        "businessAddress": "Số 30 phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+        "contactName": "Chủ Quán Mẫu 3",
+        "contactPhone": "+84900000003",
+        "nationalId": "000000000003"
+      }
+    },
+    {
+      "slug": "owner-4",
+      "id": "01a0b998-8ec9-770b-8dd3-e58dd638a398",
+      "email": "owner-4@wayfare.test",
+      "fullName": "Chủ Quán Mẫu 4",
+      "registration": {
+        "id": "01a0b998-8ec9-770b-8dd3-e875c5443173",
+        "status": "APPROVED",
+        "businessName": "Hộ Kinh Doanh Mẫu 4 — dữ liệu mẫu",
+        "businessAddress": "Số 40 phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+        "contactName": "Chủ Quán Mẫu 4",
+        "contactPhone": "+84900000004",
+        "nationalId": "000000000004"
+      }
+    },
+    {
+      "slug": "applicant-5",
+      "id": "01a0b998-8ec9-770b-8dd3-eec486ead577",
+      "email": "applicant-5@wayfare.test",
+      "fullName": "Người Đăng Ký Mẫu 5",
+      "registration": {
+        "id": "01a0b998-8ec9-770b-8dd3-f10b4b59aad3",
+        "status": "PENDING",
+        "businessName": "Hộ Kinh Doanh Mẫu 5 — dữ liệu mẫu",
+        "businessAddress": "Số 50 phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+        "contactName": "Người Đăng Ký Mẫu 5",
+        "contactPhone": "+84900000005",
+        "nationalId": "000000000005"
+      }
+    }
+  ]
+}

@@ -1,0 +1,562 @@
+// Shared flat ESLint config: style baseline plus the boundary rules from
+// development-conventions. Every rule message names the convention it enforces.
+import js from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+import { OFF_SCALE_SPACING, SPACE_STEPS } from './spacing-scale.mjs';
+
+const PRISMA_CLIENT_PATTERN = {
+  group: ['**/generated/prisma', '**/generated/prisma/*'],
+  message:
+    'The Prisma client is only used from *.service.ts and prisma.service.ts (conventions §2.1).',
+};
+
+const TESTING_ENTRY_PATTERN = {
+  group: ['@wayfare/*/testing'],
+  message: 'Test helpers are for specs, test/ and scripts/ only (conventions §17).',
+};
+
+/** Vendor SDKs, imported only by their adapter file (conventions §11.5). */
+const VENDOR_SDK_PATHS = [
+  'resend',
+  'nodemailer',
+  '@google-cloud/storage',
+  'sharp',
+  '@google-cloud/translate',
+  '@google-cloud/text-to-speech',
+  'msedge-tts',
+  'google-translate-api-x',
+  'stripe',
+].map((name) => ({
+  name,
+  message: `Only the provider adapter under src/providers/ imports ${name} (conventions §11.5).`,
+}));
+
+/** Where the provider adapters live (conventions §2.4). */
+const PROVIDER_ADAPTERS = ['services/*/src/providers/**', 'packages/nest-common/src/providers/**'];
+
+/** Where the testing entry points may be imported. */
+const TESTING_ALLOWED = ['**/*.spec.ts', '**/test/**', '**/scripts/**', '**/prisma/seed/**'];
+
+const PROCESS_ENV_ALLOWED = [
+  '**/instrumentation.ts',
+  '**/prisma.config.ts',
+  '**/vitest.config.mts',
+  '**/test/setup/**',
+  // Reads OPENAPI_WRITE: the switch between comparing the spec and writing it (pnpm api:generate).
+  'services/gateway/test/e2e/openapi-emit.e2e.spec.ts',
+  // Reads I18N_TYPES_WRITE: the same switch for the generated ICU argument types (pnpm i18n:types).
+  'packages/i18n/src/generated-types.spec.ts',
+  '**/scripts/**',
+  '**/prisma/seed/**',
+];
+
+const RPC_EXCEPTION_SELECTOR = {
+  selector: "NewExpression[callee.name='RpcException']",
+  message: 'Throw through rpcError() from @wayfare/nest-common (conventions §6.4).',
+};
+
+const PROCESS_ENV_SELECTOR = {
+  selector: "MemberExpression[object.name='process'][property.name='env']",
+  message:
+    'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
+};
+
+/** Hermes has no ES2023 array-by-copy methods; the shared packages and the app run on it. */
+const HERMES_SELECTOR = {
+  selector: 'CallExpression[callee.property.name=/^(toSorted|toReversed|toSpliced)$/]',
+  message:
+    'Hermes lacks toSorted/toReversed/toSpliced, and the mobile app runs this code: use [...xs].sort(compare) or [...xs].reverse() (conventions §3.3).',
+};
+
+const MOBILE_PROCESS_ENV_SELECTOR = {
+  ...PROCESS_ENV_SELECTOR,
+  message:
+    'Read EXPO_PUBLIC_ values through src/env.ts, the only file that touches process.env (conventions §12.4).',
+};
+
+/** A colour literal: #rgb, #rgba, #rrggbb, #rrggbbaa, or an rgb()/rgba()/hsl()/hsla() call. */
+const COLOUR_LITERAL = '(#[0-9a-fA-F]{3,8}\\b|\\b(rgb|rgba|hsl|hsla)\\()';
+const NO_COLOUR_LITERAL =
+  'Use a design token (a semantic class such as bg-primary, or useTheme().colors), not a colour literal (ADR 0061).';
+
+/** The style keys that carry spacing; widths and heights are the component's own geometry. */
+const SPACING_KEY =
+  '^(padding\\w*|margin\\w*|gap|rowGap|columnGap|top|right|bottom|left|inset\\w*|textSize)$';
+
+const I18N_PATHS = ['i18next', 'react-i18next'].map((name) => ({
+  name,
+  message: `Translate through useTourist() from src/i18n; only src/i18n imports ${name}.`,
+}));
+
+const WEB_PROCESS_ENV_SELECTOR = {
+  // NODE_ENV and NEXT_PUBLIC_DEV_TOOLS (the screens' build) are folded at compile time, so
+  // development-only code is dropped from a production build — read through an import, it would
+  // not be; every other value is read in src/env.ts.
+  selector:
+    "MemberExpression[object.object.name='process'][object.property.name='env'][property.name!=/^(NODE_ENV|NEXT_PUBLIC_DEV_TOOLS)$/]",
+  message:
+    'Read NEXT_PUBLIC_ and server values through src/env.ts, the only file that touches process.env (conventions §12.4).',
+};
+
+/**
+ * The web's tokens-only rules (ADR 0061): no colour literal, no arbitrary Tailwind *value*
+ * (`w-[13px]`) — an arbitrary variant such as `data-[state=open]:` or `[&_svg]:` selects, it does not
+ * size or colour — and no colour or font in an inline style.
+ */
+const WEB_TOKENS_ONLY_SELECTORS = [
+  { selector: `Literal[value=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  { selector: `TemplateElement[value.raw=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  ...['Literal[value', 'TemplateElement[value.raw'].map((node) => ({
+    selector: `JSXAttribute[name.name='className'] ${node}=/-\\[[^\\]]*\\](?!:)/]`,
+    message:
+      'No arbitrary Tailwind value: use a token class (text-sm, p-4, h-9), not [13px] (ADR 0061).',
+  })),
+  {
+    selector:
+      "JSXAttribute[name.name='style'] Property[key.name=/^(color|backgroundColor|fontFamily|fontSize)$/]",
+    message:
+      'Colour, font family and size come from token classes, not an inline style (ADR 0061).',
+  },
+  ...['Literal[value', 'TemplateElement[value.raw'].map((node) => ({
+    selector: `${node}=/${OFF_SCALE_SPACING}/]`,
+    message: `Spacing stays on the token scale (${SPACE_STEPS.join(', ')}): round an off-scale step down to the one below (ADR 0061).`,
+  })),
+];
+
+const AUDIO_PATHS = ['expo-audio', 'expo-speech'].map((name) => ({
+  name,
+  message: `Only the player in src/player plays sound: use narrationPlayer, not ${name} (conventions §12.3).`,
+}));
+
+/** Only design tokens reach the screen: the selectors the app's code is held to (ADR 0061). */
+const TOKENS_ONLY_SELECTORS = [
+  { selector: `Literal[value=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  { selector: `TemplateElement[value.raw=/${COLOUR_LITERAL}/]`, message: NO_COLOUR_LITERAL },
+  {
+    selector: "JSXAttribute[name.name='className'] Literal[value=/\\[/]",
+    message:
+      'No arbitrary Tailwind value: use a token class (text-body, p-4, min-h-target), not [13px] (ADR 0061).',
+  },
+  {
+    selector: "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\[/]",
+    message:
+      'No arbitrary Tailwind value: use a token class (text-body, p-4, min-h-target), not [13px] (ADR 0061).',
+  },
+  {
+    selector:
+      "JSXAttribute[name.name='style'] Property[key.name=/^(color|backgroundColor|fontFamily|fontSize)$/]",
+    message:
+      'Colour, font family and size come from token classes, not an inline style (ADR 0061).',
+  },
+  {
+    // A number under a spacing key, anywhere in its value (a negative one, or one inside a call),
+    // that is not a token read such as space[2]. Zero is fine. Layout constants are built in
+    // src/ui/layout.ts, which is exempt.
+    selector: `Property[key.name=/${SPACING_KEY}/] Literal[value>0]:not(MemberExpression[computed=true] > Literal)`,
+    message:
+      'A spacing number comes from tokens: space[n] or a constant in src/ui/layout.ts, not a literal.',
+  },
+  {
+    selector: `Property[key.value=/${SPACING_KEY}/] Literal[value>0]:not(MemberExpression[computed=true] > Literal)`,
+    message:
+      'A spacing number comes from tokens: space[n] or a constant in src/ui/layout.ts, not a literal.',
+  },
+];
+
+/**
+ * Builds the Wayfare ESLint config.
+ * @param {{ tsconfigRootDir: string }} options
+ */
+export function wayfareConfig({ tsconfigRootDir }) {
+  return tseslint.config(
+    {
+      ignores: [
+        '**/dist/**',
+        '**/generated/**',
+        '**/coverage/**',
+        '**/node_modules/**',
+        'docs/**',
+        '**/*.d.ts',
+        // Continuous Native Generation: written by `expo prebuild`, never by hand.
+        'apps/mobile/android/**',
+        // Next.js builds and Playwright's reports.
+        '**/.next/**',
+        // The screen baselines' own development server's build (apps/console/e2e/README.md).
+        '**/.next-screens/**',
+        '**/playwright-report/**',
+        // The web app's service worker, built by Serwist from src/sw.ts.
+        'apps/web/public/sw.js',
+        'apps/web/public/swe-worker-*.js',
+        '**/test-results/**',
+      ],
+    },
+    js.configs.recommended,
+    ...tseslint.configs.recommendedTypeChecked,
+    {
+      languageOptions: {
+        globals: { ...globals.node },
+        parserOptions: {
+          projectService: {
+            allowDefaultProject: [
+              '*.mjs',
+              '*.mts',
+              '*.js',
+              'vitest.setup.ts',
+              'vitest.integration.setup.ts',
+              'packages/config/scripts/*.mjs',
+            ],
+          },
+          tsconfigRootDir,
+          // Decorator-aware, so consistent-type-imports never turns an injected class into
+          // `import type` — its metadata would become Object and Nest DI would resolve undefined (ADR 0058).
+          emitDecoratorMetadata: true,
+          experimentalDecorators: true,
+        },
+      },
+      rules: {
+        // A bare sort() compares UTF-16 code units after converting to string — wrong for numbers and
+        // host-independent only by accident for strings. Machine strings pass compareStrings (conventions §3.3).
+        '@typescript-eslint/require-array-sort-compare': ['error', { ignoreStringArrays: false }],
+        '@typescript-eslint/consistent-type-imports': [
+          'error',
+          { prefer: 'type-imports', fixStyle: 'separate-type-imports' },
+        ],
+        '@typescript-eslint/no-unused-vars': [
+          'error',
+          { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+        ],
+        '@typescript-eslint/no-extraneous-class': 'off',
+        'no-restricted-properties': [
+          'error',
+          {
+            object: 'Math',
+            property: 'random',
+            message: 'Use generateToken()/generateCode() — never Math.random (conventions §9.2).',
+          },
+        ],
+        'no-restricted-syntax': ['error', RPC_EXCEPTION_SELECTOR, PROCESS_ENV_SELECTOR],
+      },
+    },
+    {
+      files: ['**/*.mjs', '**/*.js'],
+      ...tseslint.configs.disableTypeChecked,
+    },
+    {
+      // new RpcException is allowed only inside nest-common, which implements rpcError().
+      files: ['packages/nest-common/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: "MemberExpression[object.name='process'][property.name='env']",
+            message:
+              'Read configuration through the injected ConfigService; process.env only in instrumentation.ts, prisma.config.ts, scripts/ and test/setup/ (conventions §13).',
+          },
+        ],
+      },
+    },
+    {
+      files: PROCESS_ENV_ALLOWED,
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: "NewExpression[callee.name='RpcException']",
+            message: 'Throw through rpcError() from @wayfare/nest-common (conventions §6.4).',
+          },
+        ],
+      },
+    },
+    {
+      files: ['**/*.ts'],
+      ignores: TESTING_ALLOWED,
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          { paths: VENDOR_SDK_PATHS, patterns: [TESTING_ENTRY_PATTERN] },
+        ],
+      },
+    },
+    {
+      files: PROVIDER_ADAPTERS,
+      rules: {
+        'no-restricted-imports': ['error', { patterns: [TESTING_ENTRY_PATTERN] }],
+      },
+    },
+    {
+      files: ['**/*.controller.ts', '**/*.consumer.ts'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          { paths: VENDOR_SDK_PATHS, patterns: [PRISMA_CLIENT_PATTERN, TESTING_ENTRY_PATTERN] },
+        ],
+      },
+    },
+    {
+      // The gateway documents with @ApiEnvelope and validates with @ZodSerializerDto (conventions §5.7).
+      files: ['services/gateway/**/*.ts'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              {
+                name: 'nestjs-zod',
+                importNames: ['ZodResponse'],
+                message:
+                  'Use @ApiEnvelope for the document and @ZodSerializerDto for validation (conventions §5.7).',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ['**/*.mapper.ts'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          { patterns: [{ ...PRISMA_CLIENT_PATTERN, allowTypeImports: true }] },
+        ],
+      },
+    },
+    {
+      files: ['**/*-grpc.client.ts'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            paths: VENDOR_SDK_PATHS,
+            patterns: [
+              {
+                group: ['**/dto/**'],
+                message: 'A gRPC client returns proto types only — never a DTO (conventions §2.2).',
+              },
+              TESTING_ENTRY_PATTERN,
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ['packages/contracts/**', 'packages/core/**'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  'node:*',
+                  'fs',
+                  'path',
+                  'crypto',
+                  'os',
+                  'child_process',
+                  '@nestjs/*',
+                  'react',
+                  'react-native',
+                  'expo',
+                  'expo-*',
+                ],
+                message:
+                  'Client-shared packages import nothing Node-only or framework-bound (conventions §3.2, §3.3).',
+              },
+              TESTING_ENTRY_PATTERN,
+            ],
+          },
+        ],
+      },
+    },
+    {
+      // packages/core takes time and randomness as arguments (conventions §3.2): an import ban
+      // cannot see a global, so Date/timers/fetch/Math.random are banned here too.
+      files: ['packages/core/src/**'],
+      ignores: ['**/*.spec.ts'],
+      rules: {
+        'no-restricted-globals': [
+          'error',
+          {
+            name: 'Date',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+          {
+            name: 'setTimeout',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+          {
+            name: 'setInterval',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+          {
+            name: 'fetch',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+        ],
+        'no-restricted-properties': [
+          'error',
+          {
+            object: 'Math',
+            property: 'random',
+            message: 'packages/core takes time and randomness as arguments (conventions §3.2).',
+          },
+        ],
+      },
+    },
+    {
+      // The mobile app runs these packages on Hermes (specs run in Node and are exempt). A block
+      // replaces the same rule key from earlier blocks, so every selector in force here is repeated.
+      files: [
+        'packages/contracts/src/**',
+        'packages/core/src/**',
+        'packages/i18n/src/**',
+        'packages/api-client/src/**',
+      ],
+      ignores: ['**/*.spec.ts', '**/generated/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          RPC_EXCEPTION_SELECTOR,
+          PROCESS_ENV_SELECTOR,
+          HERMES_SELECTOR,
+        ],
+      },
+    },
+    {
+      // The app reads its EXPO_PUBLIC_ values through process.env, in src/env.ts alone (conventions §12.4),
+      // and only design tokens reach the screen (ADR 0061): no colour literal, no arbitrary Tailwind
+      // value, no colour or font in an inline style. This block replaces the base no-restricted-syntax,
+      // so every selector in force for the app is repeated here.
+      files: ['apps/mobile/**'],
+      ignores: [
+        '**/*.spec.ts',
+        '**/*.spec.tsx',
+        'apps/mobile/src/env.ts',
+        'apps/mobile/src/theme/**',
+        'apps/mobile/src/ui/layout.ts',
+        'apps/mobile/scripts/**',
+      ],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          RPC_EXCEPTION_SELECTOR,
+          MOBILE_PROCESS_ENV_SELECTOR,
+          HERMES_SELECTOR,
+          ...TOKENS_ONLY_SELECTORS,
+        ],
+      },
+    },
+    {
+      // src/theme/ is where tokens become values (the Icon wrapper, the status bar, navigation's theme);
+      // src/ui/layout.ts builds the layout constants from them.
+      files: ['apps/mobile/src/theme/**', 'apps/mobile/src/ui/layout.ts', 'apps/mobile/scripts/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          RPC_EXCEPTION_SELECTOR,
+          MOBILE_PROCESS_ENV_SELECTOR,
+          HERMES_SELECTOR,
+        ],
+      },
+    },
+    {
+      files: ['apps/mobile/src/env.ts'],
+      rules: { 'no-restricted-syntax': ['error', RPC_EXCEPTION_SELECTOR, HERMES_SELECTOR] },
+    },
+    {
+      // React Native: hooks rules, and the globals Hermes provides.
+      files: ['apps/mobile/**/*.{ts,tsx}'],
+      plugins: { 'react-hooks': reactHooks },
+      languageOptions: { globals: { __DEV__: 'readonly' } },
+      rules: {
+        'react-hooks/rules-of-hooks': 'error',
+        'react-hooks/exhaustive-deps': 'error',
+      },
+    },
+    {
+      // The web (ADR 0060, 0061): the browser's globals, React's hooks rules, process.env in each
+      // web app's src/env.ts alone, and only design tokens on the screen.
+      files: ['apps/console/**/*.{ts,tsx}', 'apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+      plugins: { 'react-hooks': reactHooks },
+      languageOptions: { globals: { ...globals.browser } },
+      rules: {
+        'react-hooks/rules-of-hooks': 'error',
+        'react-hooks/exhaustive-deps': 'error',
+        'no-restricted-syntax': [
+          'error',
+          RPC_EXCEPTION_SELECTOR,
+          WEB_PROCESS_ENV_SELECTOR,
+          ...WEB_TOKENS_ONLY_SELECTORS,
+        ],
+      },
+    },
+    {
+      // Where a web app reads its environment: src/env.ts, and Playwright's own setup.
+      files: [
+        'apps/console/src/env.ts',
+        'apps/console/playwright.config.ts',
+        'apps/console/e2e/**',
+        'apps/web/src/env.ts',
+        'apps/web/next.config.ts',
+        'apps/web/playwright.config.ts',
+        'apps/web/e2e/**',
+      ],
+      rules: {
+        'no-restricted-syntax': ['error', RPC_EXCEPTION_SELECTOR, ...WEB_TOKENS_ONLY_SELECTORS],
+      },
+    },
+    {
+      // Metro, Babel and Tailwind load these as CommonJS.
+      files: ['apps/mobile/*.js'],
+      rules: { '@typescript-eslint/no-require-imports': 'off' },
+    },
+    {
+      // Maestro's runScript files: `output`, `http`, `json` and each flow's env values are globals
+      // its runtime injects, and the env names differ by flow.
+      files: ['apps/mobile/.maestro/**/*.js'],
+      rules: { 'no-undef': 'off' },
+    },
+    {
+      // Every translation goes through useTourist(), whose keys and ICU arguments are type-checked.
+      // This block replaces the base no-restricted-imports, so its vendor and testing bans are repeated.
+      files: ['apps/mobile/**/*.{ts,tsx}'],
+      ignores: [...TESTING_ALLOWED, 'apps/mobile/src/i18n/**'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            paths: [...VENDOR_SDK_PATHS, ...I18N_PATHS, ...AUDIO_PATHS],
+            patterns: [TESTING_ENTRY_PATTERN],
+          },
+        ],
+      },
+    },
+    {
+      // The one player owns audio and speech (conventions §12.3); inside it, the i18next ban stays.
+      files: ['apps/mobile/src/player/**'],
+      ignores: TESTING_ALLOWED,
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          { paths: [...VENDOR_SDK_PATHS, ...I18N_PATHS], patterns: [TESTING_ENTRY_PATTERN] },
+        ],
+      },
+    },
+    {
+      // Developer tools beside the engine they replay; never part of the package's dist (conventions §3.2).
+      files: ['packages/core/scripts/**'],
+      rules: { 'no-restricted-imports': 'off' },
+    },
+    {
+      files: ['**/*.spec.ts', '**/test/**', 'apps/console/e2e/**', 'apps/web/e2e/**'],
+      rules: {
+        '@typescript-eslint/unbound-method': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-argument': 'off',
+      },
+    },
+  );
+}

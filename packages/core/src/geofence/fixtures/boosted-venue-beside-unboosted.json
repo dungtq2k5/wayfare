@@ -1,0 +1,26 @@
+{
+  "places": [
+    {
+      "id": "boosted",
+      "kind": "VENUE",
+      "location": { "lat": 10.0, "lng": 106.0 },
+      "triggerRadiusM": 50,
+      "narrationPriority": 50,
+      "autoNarrationEnabled": true,
+      "discoveryBoost": 100
+    },
+    {
+      "id": "unboosted",
+      "kind": "VENUE",
+      "location": { "lat": 10.0, "lng": 106.0 },
+      "triggerRadiusM": 50,
+      "narrationPriority": 60,
+      "autoNarrationEnabled": true
+    }
+  ],
+  "trace": [
+    { "t": 0, "lat": 10.0, "lng": 106.0, "accuracyM": 10 },
+    { "t": 5000, "lat": 10.0, "lng": 106.0, "accuracyM": 10 }
+  ],
+  "expect": [{ "t": 5000, "placeId": "unboosted" }]
+}

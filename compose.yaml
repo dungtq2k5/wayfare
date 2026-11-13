@@ -1,0 +1,5 @@
+# Lets `docker compose …` run from the repository root.
+name: wayfare
+
+include:
+  - infra/docker/compose.yaml

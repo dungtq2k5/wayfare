@@ -1,0 +1,406 @@
+// identity — rdm-spec §3.1.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma" // outside src/ — ADR 0056's entryFile depends on it
+  moduleFormat = "cjs" // ADR 0058; never rely on inference
+}
+
+datasource db {
+  provider = "postgresql" // no url here — it lives in prisma.config.ts
+}
+
+/// An account — rdm-spec I-1. Soft-deletable (deactivation) and erasable.
+model User {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  /// Normalized (lower-case); full unique, deactivated rows keep their address.
+  email                String    @unique @db.VarChar(254)
+  isEmailVerified      Boolean   @default(false) @map("is_email_verified")
+  /// argon2id.
+  passwordHash         String?   @map("password_hash") @db.VarChar(255)
+  fullName             String?   @map("full_name") @db.VarChar(120)
+  preferredLocale      String    @default("en") @map("preferred_locale") @db.VarChar(16)
+  ownerVerifiedAt      DateTime? @map("owner_verified_at") @db.Timestamptz(3)
+  isLocked             Boolean   @default(false) @map("is_locked")
+  lockedUntil          DateTime? @map("locked_until") @db.Timestamptz(3)
+  lockReason           String?   @map("lock_reason") @db.VarChar(255)
+  /// Access tokens issued before this instant are rejected.
+  tokensValidAfter     DateTime? @map("tokens_valid_after") @db.Timestamptz(3)
+  credentialsChangedAt DateTime? @map("credentials_changed_at") @db.Timestamptz(3)
+  emailBouncedAt       DateTime? @map("email_bounced_at") @db.Timestamptz(3)
+  lastLoginAt          DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedById          String?   @map("deleted_by_id") @db.Uuid
+  erasedAt             DateTime? @map("erased_at") @db.Timestamptz(3)
+
+  deletedBy                  User?               @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedUsers               User[]              @relation("UserDeletedBy")
+  devices                    Device[]
+  sessions                   Session[]
+  roles                      UserRole[]
+  legalAcceptances           LegalAcceptance[]
+  auditLogs                  AuditLog[]
+  actionTokens               ActionToken[]
+  identities                 UserIdentity[]
+  emailDeliveries            EmailDelivery[]
+  notifications              Notification[]
+  ownerRegistrations         OwnerRegistration[] @relation("OwnerRegistrationApplicant")
+  reviewedOwnerRegistrations OwnerRegistration[] @relation("OwnerRegistrationReviewer")
+  accountRecoveries          AccountRecovery[]   @relation("AccountRecoverySubject")
+  openedRecoveries           AccountRecovery[]   @relation("AccountRecoveryOpener")
+  approvedRecoveries         AccountRecovery[]   @relation("AccountRecoveryApprover")
+
+  @@index([deletedAt])
+  @@map("users")
+}
+
+/// An install — rdm-spec I-2. The primary identity (ADR 0003).
+model Device {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  /// SHA-256 hex of the device secret, looked up by value.
+  secretHash    String    @unique @map("secret_hash") @db.Char(64)
+  /// The claim. NULL = anonymous.
+  userId        String?   @map("user_id") @db.Uuid
+  claimedAt     DateTime? @map("claimed_at") @db.Timestamptz(3)
+  /// Platform in `@wayfare/contracts`
+  platform      String    @db.VarChar(16)
+  appVersion    String    @map("app_version") @db.VarChar(32)
+  osVersion     String?   @map("os_version") @db.VarChar(32)
+  contentLocale String    @map("content_locale") @db.VarChar(16)
+  /// Expo push token; moves to the newest row that registers it.
+  pushToken     String?   @unique @map("push_token") @db.VarChar(255)
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessions         Session[]
+  legalAcceptances LegalAcceptance[]
+
+  @@index([userId])
+  @@map("devices")
+}
+
+/// A refresh-token lineage — rdm-spec I-3. Spent rows are kept: that is the replay defence.
+model Session {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  /// The mobile install the session lives on; NULL for console and web.
+  deviceId         String?   @map("device_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.Char(64)
+  /// SessionClient in `@wayfare/contracts`
+  client           String    @db.VarChar(16)
+  ip               String?   @db.VarChar(45)
+  userAgent        String?   @map("user_agent") @db.VarChar(512)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  rotatedAt        DateTime? @map("rotated_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  /// SessionRevokedReason in `@wayfare/contracts`
+  revokedReason    String?   @map("revoked_reason") @db.VarChar(32)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// A role — rdm-spec I-4. System roles' grants are code (ADR 0044).
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  code        String   @unique @db.VarChar(32)
+  name        String   @unique @db.VarChar(80)
+  description String?  @db.VarChar(255)
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+/// The permission catalogue — rdm-spec I-5. A mirror of `PERMISSIONS`, never data.
+model Permission {
+  code        String   @id @db.VarChar(64)
+  group       String   @db.VarChar(32)
+  description String   @db.VarChar(255)
+  isRetired   Boolean  @default(false) @map("is_retired")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+/// A user's role — rdm-spec I-6.
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+/// A role's grant — rdm-spec I-7.
+model RolePermission {
+  roleId         String @map("role_id") @db.Uuid
+  permissionCode String @map("permission_code") @db.VarChar(64)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionCode], references: [code], onDelete: Restrict)
+
+  @@id([roleId, permissionCode])
+  @@map("role_permissions")
+}
+
+/// Proof of accepting a legal document version — rdm-spec I-12. Append-only.
+model LegalAcceptance {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  deviceId   String?  @map("device_id") @db.Uuid
+  /// LegalDocument in `@wayfare/contracts`
+  document   String   @db.VarChar(32)
+  version    String   @db.VarChar(16)
+  acceptedAt DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  ip         String?  @db.VarChar(45)
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, document, acceptedAt(sort: Desc)])
+  @@index([deviceId, document, acceptedAt(sort: Desc)])
+  @@map("legal_acceptances")
+}
+
+/// A single-use emailed link — rdm-spec I-9. Only the hash is stored; the token lives in the email.
+model ActionToken {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  /// ActionTokenPurpose in `@wayfare/contracts`
+  purpose       String    @db.VarChar(32)
+  tokenHash     String    @unique @map("token_hash") @db.Char(64)
+  /// The address the link went to; consuming requires it to still be the account's (reverts aside).
+  targetEmail   String    @map("target_email") @db.VarChar(254)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt        DateTime? @map("used_at") @db.Timestamptz(3)
+  invalidatedAt DateTime? @map("invalidated_at") @db.Timestamptz(3)
+  ip            String?   @db.VarChar(45)
+  userAgent     String?   @map("user_agent") @db.VarChar(512)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("action_tokens")
+}
+
+/// A sign-in provider linked to an account — rdm-spec I-15 (ADR 0062): by the provider's subject,
+/// never by the address. One Google account per Wayfare account, and the other way round.
+model UserIdentity {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  /// IdentityProvider in `@wayfare/contracts`
+  provider    String   @db.VarChar(16)
+  /// The provider's stable id for the person (Google's `sub`).
+  subject     String   @db.VarChar(255)
+  /// The provider's address when the link was made; the account's own email may differ later.
+  emailAtLink String   @map("email_at_link") @db.VarChar(254)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@unique([userId, provider])
+  @@map("user_identities")
+}
+
+/// One transactional email send — rdm-spec I-13. Metadata only: never a body, subject or link.
+model EmailDelivery {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  /// EmailTemplate in `@wayfare/contracts`
+  template          String   @db.VarChar(48)
+  recipientUserId   String?  @map("recipient_user_id") @db.Uuid
+  /// The triggering event; for a token email, the action token's id.
+  eventId           String   @map("event_id") @db.Uuid
+  toEmailMasked     String?  @map("to_email_masked") @db.VarChar(254)
+  toEmailHash       String?  @map("to_email_hash") @db.Char(64)
+  /// EmailProvider in `@wayfare/contracts`
+  provider          String   @db.VarChar(16)
+  providerMessageId String?  @unique @map("provider_message_id") @db.VarChar(255)
+  /// EmailDeliveryStatus in `@wayfare/contracts`
+  status            String   @db.VarChar(16)
+  /// EmailBounceType in `@wayfare/contracts`
+  bounceType        String?  @map("bounce_type") @db.VarChar(16)
+  statusChangedAt   DateTime @default(now()) @map("status_changed_at") @db.Timestamptz(3)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recipientUser User? @relation(fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@index([recipientUserId, createdAt(sort: Desc)])
+  @@map("email_deliveries")
+}
+
+/// Transactional outbox — rdm-spec §2.10, ADR 0039.
+model OutboxEvent {
+  /// Also the event's eventId and the JetStream Nats-Msg-Id.
+  id          String    @id @default(uuid(7)) @db.Uuid
+  subject     String    @db.VarChar(128)
+  payload     Json      @db.JsonB
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  /// W3C traceparent of the request that wrote the row.
+  traceParent String?   @map("trace_parent") @db.VarChar(55)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error") @db.Text
+
+  @@map("outbox_events")
+}
+
+/// Append-only audit record — rdm-spec I-11. No updated_at: rows are never edited.
+model AuditLog {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  /// The producer's outbox id; unique, which makes the consumer idempotent.
+  eventId       String   @unique @map("event_id") @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  service       String   @db.VarChar(32)
+  /// AuditActorType in `@wayfare/contracts`
+  actorType     String   @map("actor_type") @db.VarChar(16)
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  /// Not a foreign key: devices are pruned, audit rows are not.
+  actorDeviceId String?  @map("actor_device_id") @db.Uuid
+  /// AuditAction in `@wayfare/contracts`
+  action        String   @db.VarChar(64)
+  /// AuditResourceType in `@wayfare/contracts`
+  resourceType  String   @map("resource_type") @db.VarChar(32)
+  resourceId    String?  @map("resource_id") @db.Uuid
+  metadata      Json     @default("{}") @db.JsonB
+  ip            String?  @db.VarChar(45)
+  userAgent     String?  @map("user_agent") @db.VarChar(512)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([resourceType, resourceId, occurredAt(sort: Desc)])
+  @@index([actorUserId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  /// The unfiltered console list, which pages on both (rdm-spec I-11).
+  @@index([occurredAt(sort: Desc), id(sort: Desc)])
+  @@map("audit_logs")
+}
+
+/// The in-app notification feed — rdm-spec I-10. No title or body: the client renders `type` + `data`.
+model Notification {
+  /// UUID v7 from the application; the feed pages on it.
+  id              String    @id @db.Uuid
+  recipientUserId String    @map("recipient_user_id") @db.Uuid
+  type            String    @db.VarChar(64)
+  data            Json      @db.JsonB
+  /// The producer's outbox event id: with the recipient, what makes a redelivery a no-op.
+  eventId         String    @map("event_id") @db.Uuid
+  readAt          DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(3)
+
+  recipient User @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientUserId, eventId], map: "notifications_recipient_event_key")
+  @@index([expiresAt], map: "notifications_expires_idx")
+  @@map("notifications")
+}
+
+/// rdm-spec I-8 — one application to become a verified venue owner.
+/// The partial unique `owner_registrations_one_pending` and `owner_registrations_reviewed_ck` live in
+/// prisma/sql/schema-objects.sql.
+model OwnerRegistration {
+  id                     String    @id @default(uuid(7)) @db.Uuid
+  userId                 String    @map("user_id") @db.Uuid
+  /// OwnerRegistrationStatus in `@wayfare/contracts`; set by the create path, never defaulted.
+  status                 String    @db.VarChar(16)
+  businessName           String    @map("business_name") @db.VarChar(160)
+  businessAddress        String    @map("business_address") @db.VarChar(255)
+  businessRegistrationNo String?   @map("business_registration_no") @db.VarChar(32)
+  contactName            String    @map("contact_name") @db.VarChar(120)
+  /// E.164.
+  contactPhone           String    @map("contact_phone") @db.VarChar(20)
+  /// `v1:` + AES-256-GCM. NULL after redaction. Never indexed, never logged.
+  nationalIdCiphertext   String?   @map("national_id_ciphertext")
+  nationalIdLast4        String?   @map("national_id_last4") @db.Char(4)
+  applicantNote          String?   @map("applicant_note")
+  submittedAt            DateTime  @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  reviewedAt             DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  reviewedById           String?   @map("reviewed_by_id") @db.Uuid
+  /// Shown to the applicant.
+  decisionNote           String?   @map("decision_note")
+  /// Staff only; never serialized to an owner route.
+  internalNote           String?   @map("internal_note")
+  piiRedactedAt          DateTime? @map("pii_redacted_at") @db.Timestamptz(3)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User  @relation("OwnerRegistrationApplicant", fields: [userId], references: [id], onDelete: Restrict)
+  reviewedBy User? @relation("OwnerRegistrationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status, submittedAt])
+  @@map("owner_registrations")
+}
+
+/// rdm-spec §2.12 — one row per scheduled job.
+model JobRun {
+  jobName             String    @id @map("job_name") @db.VarChar(64)
+  lastStartedAt       DateTime? @map("last_started_at") @db.Timestamptz(3)
+  lastSucceededAt     DateTime? @map("last_succeeded_at") @db.Timestamptz(3)
+  lastFailedAt        DateTime? @map("last_failed_at") @db.Timestamptz(3)
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastDurationMs      Int?      @map("last_duration_ms")
+  lastError           String?   @map("last_error") @db.Text
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("job_runs")
+}
+
+/// A support-assisted recovery of an owner account whose login email is lost — rdm-spec I-14.
+model AccountRecovery {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  /// AccountRecoveryStatus in `@wayfare/contracts`; set by the create path, never defaulted.
+  status           String    @db.VarChar(24)
+  /// Normalized. Written to `users.email` only when the link sent to it is consumed.
+  requestedEmail   String    @map("requested_email") @db.VarChar(254)
+  /// Codes only — never a phone number, card digits or invoice amounts. No column default.
+  evidenceCodes    String[]  @map("evidence_codes") @db.VarChar(32)
+  supportReference String    @map("support_reference") @db.VarChar(64)
+  openedById       String    @map("opened_by_id") @db.Uuid
+  approvedById     String?   @map("approved_by_id") @db.Uuid
+  /// Required on rejection.
+  decisionNote     String?   @map("decision_note")
+  holdUntil        DateTime? @map("hold_until") @db.Timestamptz(3)
+  /// SHA-256 of the token every hold notice carries; cleared when the case ends.
+  cancelTokenHash  String?   @unique(map: "account_recoveries_cancel_token_key") @map("cancel_token_hash") @db.Char(64)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User  @relation("AccountRecoverySubject", fields: [userId], references: [id], onDelete: Restrict)
+  openedBy   User  @relation("AccountRecoveryOpener", fields: [openedById], references: [id], onDelete: Restrict)
+  approvedBy User? @relation("AccountRecoveryApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([status, createdAt])
+  @@map("account_recoveries")
+}

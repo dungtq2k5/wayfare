@@ -1,0 +1,8 @@
+# DoD 4, first half: B signed in on this phone; the script's second device then saves FAV.
+appId: app.wayfare
+---
+- runFlow:
+    file: sign-in.yaml
+    env:
+      EMAIL: ${B}
+      PASSWORD: ${NEWPASS}

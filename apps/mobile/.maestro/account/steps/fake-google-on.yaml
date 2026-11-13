@@ -1,0 +1,27 @@
+# Diagnostics' Fake Google account on (it lasts until the app restarts): the button opens the fake
+# picker instead of Google's chooser, against a stack on GOOGLE_ISSUER=fake.
+appId: app.wayfare
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'Explore|Settings|Favourites|(\[.*\] )?Back'
+    timeout: 30000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+# At the largest text Settings is long: Diagnostics is far down.
+- scrollUntilVisible:
+    element: 'Diagnostics'
+    timeout: 60000
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element:
+      id: 'diagnostics-fake-google'
+- runFlow:
+    when:
+      notVisible: 'Fake Google account: On'
+    commands:
+      - tapOn:
+          id: 'diagnostics-fake-google'
+- assertVisible: 'Fake Google account: On'
+- tapOn: 'Back'

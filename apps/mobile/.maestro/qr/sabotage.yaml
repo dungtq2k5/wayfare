@@ -1,0 +1,122 @@
+# QR codes and links under abuse: look-alike and wrong codes, links fired twice or over the scanner,
+# a broken link, a code while a walk plays with Up next waiting, and back through the tabs. The
+# steps that need adb (offline, a removed Place, a cold link, the largest text, the first run) run
+# from qr/system.sh. Same set-up as qr/qr.yaml.
+#   maestro test apps/mobile/.maestro/qr/sabotage.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Map'
+# Look-alikes: I and L read as 1 (edge 3).
+- runFlow:
+    file: steps/type.yaml
+    env:
+      CODE: 'QK4VITCX'
+- extendedWaitUntil:
+    visible: '.*Chợ Bến Thành.*'
+    timeout: 15000
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- runFlow:
+    file: steps/type.yaml
+    env:
+      CODE: 'qk4v ltcx'
+- extendedWaitUntil:
+    visible: '.*Chợ Bến Thành.*'
+    timeout: 15000
+# Wrong codes: each error said, Open off while it shows.
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- tapOn: 'Type the code instead'
+- inputText: 'QK4V 1T'
+- tapOn: 'Open'
+- assertVisible: 'That.s 6 characters — the code has 8.'
+- assertVisible:
+    text: 'Open'
+    enabled: false
+- eraseText: 20
+- inputText: 'QK4V1TCU'
+- tapOn: 'Open'
+- assertVisible: 'Wayfare codes never use the letter U. Check the sticker.'
+- eraseText: 20
+- inputText: 'QK4V#TCX'
+- tapOn: 'Open'
+- assertVisible: 'Use only letters and numbers.'
+- back
+- back
+# Two links quickly: one sheet (edge 5).
+- openLink: 'https://wayfare.app/p/NQ22ZQXK'
+- openLink: 'https://wayfare.app/p/NQ22ZQXK'
+- extendedWaitUntil:
+    visible: '.*Phố đi bộ Nguyễn Huệ.*'
+    timeout: 15000
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+# A link with the scanner open: the scanner closes, the Place opens.
+- tapOn:
+    text: 'Scan a code'
+    retryTapIfNoChange: false
+- assertVisible: 'Point at the Wayfare code'
+- openLink: 'https://wayfare.app/p/GP7R4MY3'
+- extendedWaitUntil:
+    visible: '.*Nhà hát Thành phố.*'
+    timeout: 15000
+- assertNotVisible: 'Point at the Wayfare code'
+# A Place link with a broken code (edge 8).
+- openLink: 'https://wayfare.app/p/ABC'
+- extendedWaitUntil:
+    visible: 'This link doesn.t lead to a place'
+    timeout: 10000
+- tapOn: 'Back to the map'
+# A code during a walk, with a story playing and Up next waiting (edge 6): the code's Place plays,
+# the walk carries on, Up next is kept.
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element: 'Simulate walk'
+- tapOn: 'Simulate walk'
+- tapOn: 'Offer two places to the player'
+- back
+# Paused at once, so the story does not end (and Up next move on) at the flow's pace.
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- tapOn: 'Map'
+- runFlow:
+    file: steps/type.yaml
+    env:
+      CODE: 'EHFZVTBV'
+- extendedWaitUntil:
+    visible: '.*Bưu điện Trung tâm.*'
+    timeout: 15000
+- assertVisible: 'Playing ·.*'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- back
+- assertVisible: 'Walking ·.*'
+- tapOn: 'Open the player.*'
+- assertVisible: 'Up next · starts when this ends'
+- tapOn: 'Close the player'
+# Back follows the tabs' history; back on the first leaves the app.
+- tapOn: 'Explore'
+- tapOn: 'Favourites'
+- back
+- assertVisible: 'Near you.*'
+- back
+- assertVisible: 'Scan a code'
+# End: the walk stopped, the player closed.
+- tapOn:
+    text: 'Stop the walk'
+    retryTapIfNoChange: false
+- tapOn: 'Close'
+- assertNotVisible: 'Walking ·.*'

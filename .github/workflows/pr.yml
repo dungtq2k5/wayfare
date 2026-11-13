@@ -1,0 +1,192 @@
+name: pr
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Run by hand for the secrets job's full-history scan.
+  workflow_dispatch:
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # gitleaks (.gitleaks.toml): on a pull request, its commits; on a push, the pushed ones; run by
+  # hand, the whole history. A real secret found is rotated, not just deleted.
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # v3.0.0, pinned to its commit.
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_VERSION: 8.24.3
+
+  verify:
+    # The full-history scan alone when run by hand.
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # pnpm's exact version comes from `packageManager` in package.json.
+      - run: corepack enable
+
+      - name: Locate the pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # strictDepBuilds: an unlisted dependency build script fails here.
+      - run: pnpm install --frozen-lockfile
+
+      # A known hole in a shipped package fails the pull request; accepted advisories are listed,
+      # each with its reason, under auditConfig in pnpm-workspace.yaml.
+      - run: pnpm audit --prod --audit-level=high
+
+      # The .env.example files are complete and hold no secrets.
+      - name: Use the example environment
+        run: |
+          for s in services/*; do cp "$s/.env.example" "$s/.env"; done
+          # The console's flows sign in as the dev seed's admin, so the seed needs a password.
+          sed -i 's/^SEED_ACCOUNT_PASSWORD=$/SEED_ACCOUNT_PASSWORD=ci seed password/' services/identity/.env
+
+      # The examples leave every *KEY* empty; a throwaway signing pair fills them.
+      - name: Generate development signing keys
+        run: pnpm keys:dev
+
+      # Before typecheck on purpose: a stale committed client makes every later error a lie.
+      - name: Generated gRPC code is committed and current
+        run: pnpm proto:generate && git diff --exit-code -- packages/contracts/src/generated
+
+      - run: pnpm proto:lint
+
+      # The gateway's document and the client generated from it; an untracked file counts as a diff.
+      - name: The OpenAPI spec and the API client are committed and current
+        run: |
+          pnpm api:generate
+          test -z "$(git status --porcelain -- packages/api-client)"
+
+      # The writer spec fails on a stale file; the diff makes the fix visible in the log.
+      - name: The i18n argument types are committed and current
+        run: |
+          pnpm i18n:types
+          test -z "$(git status --porcelain -- packages/i18n/src/generated)"
+
+      # The Prisma client is gitignored, so it is generated before anything reads its types.
+      - run: pnpm db:generate
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm lint:md
+      # Guard specs also run inside `pnpm test`; this step names them so a failure reads as a rule, not a unit test.
+      - run: pnpm vitest run --project unit:guards
+      - run: pnpm build
+      # The JavaScript bundle builds with no device and no EAS: a Node-only import stops the pull request.
+      - run: pnpm --filter @wayfare/mobile bundle:check
+      - run: pnpm test
+      # packages/core carries a coverage bar (conventions §17.3).
+      - run: pnpm test:coverage
+
+      - name: Boot the stack
+        run: docker compose up -d --wait
+
+      - name: Migrate, apply schema objects, verify, check drift
+        run: pnpm db:setup && pnpm db:verify && pnpm db:drift
+
+      - run: pnpm test:integration
+
+      # The emulator starts empty; catalog is not ready without its media bucket.
+      - name: Create the media bucket
+        run: pnpm --filter @wayfare/catalog storage:setup
+
+      - name: Images build and boot
+        run: docker compose --profile apps up -d --build --wait
+
+      - name: Smoke-test the running images
+        run: |
+          curl -fsS localhost:13000/health/ready
+          curl -fsS localhost:3101/health/ready
+          curl -fsS localhost:3102/health/ready
+          curl -fsS localhost:3104/health/ready
+          curl -fsS localhost:3105/health/ready
+          curl -fsS localhost:13000/api/v1/categories -H 'x-wayfare-client: web'
+          curl -fsS -X POST localhost:13000/api/v1/devices \
+            -H 'content-type: application/json' -H 'x-wayfare-client: mobile' \
+            -d '{"platform":"ANDROID","appVersion":"0.1.0","contentLocale":"en","privacyPolicyVersion":"2026-09-01"}'
+
+      # The console's flows (architecture §12) against the booted images: Chromium only, cached.
+      - name: Cache Playwright's Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/console/package.json') }}
+
+      - run: pnpm --filter @wayfare/console exec playwright install --with-deps chromium
+
+      # The screen baselines draw records made with fixed names on a fresh stack, so they run before
+      # any flow writes to it (apps/console/e2e/README.md): the seed and the super admin first.
+      - name: Seed the stack
+        run: pnpm seed:dev && pnpm --filter @wayfare/identity bootstrap:super-admin
+        env:
+          BOOTSTRAP_SUPER_ADMIN_EMAIL: superadmin@wayfare.local
+          BOOTSTRAP_SUPER_ADMIN_PASSWORD: super admin pass 1
+
+      - name: The console's screen baselines
+        run: pnpm --filter @wayfare/console test:screens
+
+      # The web's baselines need a stack nothing else has written to too (apps/web/e2e/README.md):
+      # the console's screens leave Places and areas the map would list, so the stack starts again.
+      - name: A fresh stack for the web's screens
+        run: |
+          docker compose --profile apps down -v
+          docker compose up -d --wait
+          pnpm db:setup
+          pnpm --filter @wayfare/catalog storage:setup
+          docker compose --profile apps up -d --wait
+          pnpm seed:dev && pnpm --filter @wayfare/identity bootstrap:super-admin
+        env:
+          BOOTSTRAP_SUPER_ADMIN_EMAIL: superadmin@wayfare.local
+          BOOTSTRAP_SUPER_ADMIN_PASSWORD: super admin pass 1
+
+      - name: The web's screen baselines
+        run: pnpm --filter @wayfare/web test:screens
+
+      - name: The console's Playwright flows
+        run: pnpm --filter @wayfare/console e2e
+
+      - name: The web's Playwright flows
+        run: pnpm --filter @wayfare/web e2e
+
+      - name: Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          # The report, and each moved screen's expected, actual and diff images.
+          path: |
+            apps/console/playwright-report
+            apps/console/test-results
+            apps/web/playwright-report
+            apps/web/test-results
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose --profile apps logs --no-color --tail=200

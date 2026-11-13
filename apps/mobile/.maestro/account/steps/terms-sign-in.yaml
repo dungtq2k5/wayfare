@@ -1,0 +1,8 @@
+# Edge 12, first half: B signed in; the script then makes B's terms acceptance older.
+appId: app.wayfare
+---
+- runFlow:
+    file: sign-in.yaml
+    env:
+      EMAIL: ${B}
+      PASSWORD: ${NEWPASS}

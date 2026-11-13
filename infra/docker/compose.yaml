@@ -1,0 +1,431 @@
+# Local stack (ADR 0011, architecture §3). Services run on the host in development; the `apps`
+# profile builds and runs them in containers. `tools` holds nats-box.
+# Host ports are the defaults plus 10000 and containers are named `wayfare-<service>`, so the stack
+# runs beside other projects' (architecture §1); inside the network every port is the default.
+x-postgres-env: &postgres-env
+  POSTGRES_USER: wayfare
+  POSTGRES_PASSWORD: wayfare
+
+# Over TCP on purpose: during first-boot init the image runs a temporary server on the Unix
+# socket only, which a socket check reports ready just before it shuts down.
+x-postgres-health: &postgres-health
+  test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U wayfare -d $${POSTGRES_DB}']
+  interval: 5s
+  timeout: 3s
+  retries: 20
+
+services:
+  identity-db:
+    container_name: wayfare-identity-db
+    image: postgres:17
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_identity
+    ports: ['127.0.0.1:15433:5432']
+    volumes:
+      - identity-db:/var/lib/postgresql/data
+      - ./postgres-init/identity.sh:/docker-entrypoint-initdb.d/20-identity.sh:ro
+    healthcheck: *postgres-health
+
+  # PostGIS — the one database with a different image.
+  catalog-db:
+    container_name: wayfare-catalog-db
+    image: postgis/postgis:17-3.5
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_catalog
+    ports: ['127.0.0.1:15434:5432']
+    volumes:
+      - catalog-db:/var/lib/postgresql/data
+      - ./postgres-init/catalog.sh:/docker-entrypoint-initdb.d/20-catalog.sh:ro
+    healthcheck: *postgres-health
+
+  narration-db:
+    container_name: wayfare-narration-db
+    image: postgres:17
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_narration
+    ports: ['127.0.0.1:15435:5432']
+    volumes:
+      - narration-db:/var/lib/postgresql/data
+      - ./postgres-init/narration.sh:/docker-entrypoint-initdb.d/20-narration.sh:ro
+    healthcheck: *postgres-health
+
+  billing-db:
+    container_name: wayfare-billing-db
+    image: postgres:17
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_billing
+    ports: ['127.0.0.1:15436:5432']
+    volumes:
+      - billing-db:/var/lib/postgresql/data
+      - ./postgres-init/billing.sh:/docker-entrypoint-initdb.d/20-billing.sh:ro
+    healthcheck: *postgres-health
+
+  analytics-db:
+    container_name: wayfare-analytics-db
+    image: postgres:17
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: wayfare_analytics
+    ports: ['127.0.0.1:15437:5432']
+    volumes:
+      - analytics-db:/var/lib/postgresql/data
+      - ./postgres-init/analytics.sh:/docker-entrypoint-initdb.d/20-analytics.sh:ro
+    healthcheck: *postgres-health
+
+  # noeviction: a queue must never be silently evicted (ADR 0021).
+  redis:
+    container_name: wayfare-redis
+    image: redis:7-alpine
+    command: ['redis-server', '--maxmemory-policy', 'noeviction']
+    ports: ['127.0.0.1:16379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # nats:2 is FROM scratch and cannot run a healthcheck; the alpine variant has wget.
+  nats:
+    container_name: wayfare-nats
+    image: nats:2-alpine
+    command: ['-js', '-sd', '/data', '--http_port', '8222']
+    ports: ['127.0.0.1:14222:4222', '127.0.0.1:18222:8222']
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8222/healthz?js-enabled-only=true']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # The integration suites' own broker, like the paired _test databases (ADR 0011, ADR 0034):
+  # test events must never reach a running service's durable consumers. Ephemeral storage.
+  nats-test:
+    container_name: wayfare-nats-test
+    image: nats:2-alpine
+    command: ['-js', '-sd', '/tmp/jetstream', '--http_port', '8222']
+    ports: ['127.0.0.1:14223:4222']
+    tmpfs: ['/tmp/jetstream']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8222/healthz?js-enabled-only=true']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    container_name: wayfare-mailpit
+    image: axllent/mailpit:v1.31
+    ports: ['127.0.0.1:1025:1025', '127.0.0.1:8025:8025']
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # The media bucket's emulator (architecture §3.6). `-public-host` makes signed PUTs resolve;
+  # the bucket comes from `pnpm --filter @wayfare/catalog storage:setup`. Its objects live in a
+  # named volume — the flags are the emulator's defaults but one (the header a signed upload
+  # binds, which the browser's preflight names); the mount is what keeps photos, audio and map
+  # packs across `down` and `up`; `down -v` clears them.
+  fake-gcs:
+    container_name: wayfare-fake-gcs
+    image: fsouza/fake-gcs-server:1.56
+    command: [
+        '-scheme',
+        'http',
+        '-port',
+        '4443',
+        '-external-url',
+        'http://localhost:4443',
+        '-public-host',
+        'localhost:4443',
+        '-backend',
+        'filesystem',
+        '-filesystem-root',
+        '/storage',
+        # The signed upload's bound header: without it the browser's preflight is refused.
+        '-cors-headers',
+        'x-goog-content-length-range',
+      ]
+    volumes: ['fake-gcs-data:/storage']
+    ports: ['127.0.0.1:4443:4443']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4443/storage/v1/b']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  jaeger:
+    container_name: wayfare-jaeger
+    image: jaegertracing/jaeger:2.21.0
+    ports: ['127.0.0.1:4317:4317', '127.0.0.1:4318:4318', '127.0.0.1:16686:16686']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:13133/status']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nats-box:
+    image: natsio/nats-box:0.19.7
+    profiles: [tools]
+    environment:
+      NATS_URL: nats://nats:4222
+    depends_on:
+      nats: { condition: service_healthy }
+
+  identity:
+    container_name: wayfare-identity
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: identity
+    # Only for the signing key (`pnpm keys:dev`); everything below overrides the host-form values.
+    env_file:
+      - path: ../../services/identity/.env
+        required: false
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@identity-db:5432/wayfare_identity?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:20051
+      BILLING_GRPC_URL: billing:20054
+      OPS_PORT: '3101'
+      METRICS_PORT: '9101'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: identity
+      SMTP_URL: smtp://mailpit:1025
+    # gRPC too: the host-side seeds and the console's suites call across services (CI).
+    ports: ['127.0.0.1:3101:3101', '127.0.0.1:20051:20051']
+    depends_on:
+      identity-db: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3101/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  catalog:
+    container_name: wayfare-catalog
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: catalog
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@catalog-db:5432/wayfare_catalog?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:20052
+      BILLING_GRPC_URL: billing:20054
+      IDENTITY_GRPC_URL: identity:20051
+      OPS_PORT: '3102'
+      METRICS_PORT: '9102'
+      GCS_BUCKET_MEDIA: wayfare-media-local
+      GCS_API_ENDPOINT: http://fake-gcs:4443
+      GCS_PUBLIC_BASE_URL: http://localhost:4443/wayfare-media-local
+      # The throwaway key `pnpm keys:dev` writes.
+      GOOGLE_APPLICATION_CREDENTIALS: /keys/gcs-dev.json
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: catalog
+    volumes:
+      - ../../services/catalog/.keys:/keys:ro
+    # gRPC too: the host-side seeds and the console's suites call across services (CI).
+    ports: ['127.0.0.1:3102:3102', '127.0.0.1:20052:20052']
+    depends_on:
+      catalog-db: { condition: service_healthy }
+      fake-gcs: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3102/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  narration:
+    container_name: wayfare-narration
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: narration
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@narration-db:5432/wayfare_narration?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:20053
+      BILLING_GRPC_URL: billing:20054
+      OPS_PORT: '3103'
+      METRICS_PORT: '9103'
+      CATALOG_GRPC_URL: catalog:20052
+      GCS_BUCKET_MEDIA: wayfare-media-local
+      GCS_API_ENDPOINT: http://fake-gcs:4443
+      GCS_PUBLIC_BASE_URL: http://localhost:4443/wayfare-media-local
+      # The throwaway key `pnpm keys:dev` writes, shared with catalog.
+      GOOGLE_APPLICATION_CREDENTIALS: /keys/gcs-dev.json
+      TRANSLATION_PROVIDER_ORDER: fake
+      TTS_PROVIDER_ORDER: fake
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: narration
+    volumes:
+      - ../../services/catalog/.keys:/keys:ro
+    # gRPC too: the host-side seeds and the console's suites call across services (CI).
+    ports: ['127.0.0.1:3103:3103', '127.0.0.1:20053:20053']
+    depends_on:
+      narration-db: { condition: service_healthy }
+      fake-gcs: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3103/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  billing:
+    container_name: wayfare-billing
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: billing
+    # Only for the webhook secret (`pnpm keys:dev`) and a sandbox key; everything below overrides
+    # the host-form values.
+    env_file:
+      - path: ../../services/billing/.env
+        required: false
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@billing-db:5432/wayfare_billing?schema=public
+      NATS_URL: nats://nats:4222
+      GRPC_URL: 0.0.0.0:20054
+      OPS_PORT: '3104'
+      METRICS_PORT: '9104'
+      # No depends_on catalog: catalog calls billing too, and both connect lazily.
+      CATALOG_GRPC_URL: catalog:20052
+      CONSOLE_URL: http://localhost:5173
+      # The fake Stripe and its fixed test prices: the stacks need no key (CI, the screens).
+      PAYMENTS_PROVIDER: fake
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: billing
+    # gRPC too: the host-side seeds and the console's suites call across services (CI).
+    ports: ['127.0.0.1:3104:3104', '127.0.0.1:20054:20054']
+    depends_on:
+      billing-db: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3104/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  analytics:
+    container_name: wayfare-analytics
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: analytics
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://wayfare:wayfare@analytics-db:5432/wayfare_analytics?schema=public
+      GRPC_URL: 0.0.0.0:20055
+      OPS_PORT: '3105'
+      METRICS_PORT: '9105'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: analytics
+    # gRPC too: the host-side seed runs its jobs against this stack's database and Redis.
+    ports: ['127.0.0.1:3105:3105', '127.0.0.1:20055:20055']
+    depends_on:
+      analytics-db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3105/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  gateway:
+    container_name: wayfare-gateway
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: gateway
+    # Only for the public keys (`pnpm keys:dev`); everything below overrides the host-form values.
+    env_file:
+      - path: ../../services/gateway/.env
+        required: false
+    environment:
+      NODE_ENV: development
+      PORT: '3000'
+      GLOBAL_PREFIX: api
+      CORS_ORIGINS: http://localhost:5173,http://localhost:5174
+      TRUST_PROXY_HOPS: '0'
+      SWAGGER_ENABLED: 'true'
+      IDENTITY_GRPC_URL: identity:20051
+      CATALOG_GRPC_URL: catalog:20052
+      NARRATION_GRPC_URL: narration:20053
+      BILLING_GRPC_URL: billing:20054
+      ANALYTICS_GRPC_URL: analytics:20055
+      PUBLIC_QR_BASE_URL: http://localhost:13000
+      PUBLIC_LINK_BASE_URL: http://localhost:5174
+      # The flows' stuck Place waits seconds, not an hour (STUCK_PROCESSING_AFTER_MS's default).
+      STUCK_PROCESSING_AFTER_MS: '15000'
+      REDIS_URL: redis://redis:6379
+      METRICS_PORT: '9100'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_SERVICE_NAME: gateway
+    ports: ['127.0.0.1:13000:3000']
+    depends_on:
+      redis: { condition: service_healthy }
+      identity: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+      narration: { condition: service_healthy }
+      billing: { condition: service_healthy }
+      analytics: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  fake-gcs-data:
+  identity-db:
+  catalog-db:
+  narration-db:
+  billing-db:
+  analytics-db:
+  nats-data:

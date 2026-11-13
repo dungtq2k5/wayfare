@@ -1,0 +1,22 @@
+# Run by walk/system.sh at the phone's largest font scale (edge 10) with a walk on: the story is
+# started from Diagnostics, then the status card's Stop and the mini player's play/pause stay visible
+# and tappable on the Map.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element: 'Offer two places to the player'
+- tapOn: 'Offer two places to the player'
+- tapOn: 'Back'
+- tapOn: 'Map'
+- assertVisible: 'Stop'
+- assertVisible: 'Open the player.*'
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+- assertVisible: 'Play'

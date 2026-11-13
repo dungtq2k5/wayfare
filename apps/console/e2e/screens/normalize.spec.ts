@@ -1,0 +1,95 @@
+import { describe, expect, it } from 'vitest';
+import { normalizeText } from './normalize';
+
+describe('what varies, normalised', () => {
+  it("fixes Stripe's moments, with their seconds, and a September date", () => {
+    expect(normalizeText('25 Oct 2026, 09:40:02')).toBe('2 Oct 2026, 08:12:30');
+    expect(normalizeText('19 Sept 2026')).toBe('2 Oct 2026');
+  });
+
+  it('fixes a date with its time, and a time alone', () => {
+    expect(normalizeText('Delivered · 25 Oct 2026, 16:02')).toBe('Delivered · 2 Oct 2026, 08:12');
+    expect(normalizeText('23:26')).toBe('08:30');
+    expect(normalizeText('7 open')).toBe('3 open');
+  });
+
+  it('fixes relative times wherever they sit', () => {
+    expect(normalizeText('Sent by Minh Tran · 34 days ago')).toBe('Sent by Minh Tran · 3 days ago');
+    expect(normalizeText('Just now')).toBe('3 days ago');
+    expect(normalizeText('started 1 minute ago · text only')).toBe(
+      'started 3 days ago · text only',
+    );
+    expect(normalizeText('Submitted yesterday by a@b.test')).toBe(
+      'Submitted 3 days ago by a@b.test',
+    );
+  });
+
+  it('fixes ids, request IDs and public codes', () => {
+    expect(normalizeText('01a16ca0-7653-7460-8e73-4991460902cc')).toBe(
+      '01a00000-0000-7000-8000-000000000000',
+    );
+    expect(normalizeText('req 0e712662c4a1527a58956124c4fb3cf1')).toBe(
+      'req 0123456789abcdef0123456789abcdef',
+    );
+    expect(normalizeText('Code 1GMZ 3XPK — the same')).toBe('Code AB12 CD34 — the same');
+    expect(normalizeText('Created 25 Oct 2026')).toBe('Created 2 Oct 2026');
+    expect(normalizeText('Submitted 3 Mar 2026 · decided 15 Mar 2026')).toBe(
+      'Submitted 2 Oct 2026 · decided 2 Oct 2026',
+    );
+    expect(normalizeText('J9P0 QGXC')).toBe('AB12 CD34');
+    expect(normalizeText('printed under it — 7Q37 DFDG — never change')).toBe(
+      'printed under it — AB12 CD34 — never change',
+    );
+    expect(normalizeText('wayfare.app/t/7Q37-DFDG')).toBe('wayfare.app/t/AB12-CD34');
+    expect(normalizeText('7Q37-DFDG')).toBe('AB12-CD34');
+    expect(normalizeText('The code 7Q37-DFDG belonged to a place')).toBe(
+      'The code AB12 CD34 belonged to a place',
+    );
+    expect(normalizeText('J9P0 QGXC · Quận 1 · Temple')).toBe('AB12 CD34 · Quận 1 · Temple');
+    expect(normalizeText('J9P0\u00a0QGXC · District\u00a01 · 1\u00a0h\u00a030')).toBe(
+      'AB12\u00a0CD34 · District\u00a01 · 1\u00a0h\u00a030',
+    );
+    expect(normalizeText('Sent by Minh Tran · 3 days ago · 2R6X WHAS · Quận 4')).toBe(
+      'Sent by Minh Tran · 3 days ago · AB12 CD34 · Quận 4',
+    );
+    expect(normalizeText('The code printed under it is 1GMZ 3XPK — it never changes.')).toBe(
+      'The code printed under it is AB12 CD34 — it never changes.',
+    );
+  });
+
+  it('fixes the dates a run sets', () => {
+    expect(normalizeText('10/25/2026')).toBe('10/24/2026');
+    expect(normalizeText('Account since Sep 19, 2026')).toBe('Account since Oct 24, 2026');
+  });
+
+  it('keeps a range of dates seven days long, and the fixed one of more than 93', () => {
+    expect(normalizeText('20 Oct 2026 – 28 Oct 2026')).toBe(
+      '26\u00a0Sep\u00a02026 – 2\u00a0Oct\u00a02026',
+    );
+    expect(normalizeText('1 Jun 2026 – 25 Oct 2026')).toBe(
+      '1\u00a0Jun\u00a02026 – 25\u00a0Oct\u00a02026',
+    );
+    expect(normalizeText('Boosted 4 Nov – 4 Nov 2026')).toBe('Boosted 26\u00a0Sep – 2 Oct 2026');
+  });
+
+  it('fixes the clock times a run sets', () => {
+    expect(normalizeText('resting until 21:47, then tried again')).toBe(
+      'resting until 14:05, then tried again',
+    );
+    expect(
+      normalizeText('none could be reached since 9:02. Next try at 9:21 (in 3 min). It keeps'),
+    ).toBe('none could be reached since 14:05. Next try at 14:05 (in 4 min). It keeps');
+  });
+
+  it('leaves data that does not vary', () => {
+    for (const fixed of [
+      'Quận 1',
+      '08:00–21:00',
+      'Trigger radius 30 m',
+      'Bún chả HCMC TOUR ở đây',
+      'Năm 2026 2027 nhé',
+    ]) {
+      expect(normalizeText(fixed)).toBe(fixed);
+    }
+  });
+});

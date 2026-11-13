@@ -13,7 +13,7 @@ Auto-narration is **push, interruptive, exclusive and hands-free**. One thing pl
 The single field splits into three, with different owners and different rules.
 
 | Field | Set by | Purchasable | Affects |
-| --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- |
 | `narrationPriority` | Admin, editorially | **Never** | Which story wins when several Places are in range |
 | `discoveryBoost` | Entitlements | **Yes** | Nearby-list order, marker prominence, recommendations — always labelled *Sponsored* |
 | `triggerRadius` | Admin, capped | **Never** | Geofence size |

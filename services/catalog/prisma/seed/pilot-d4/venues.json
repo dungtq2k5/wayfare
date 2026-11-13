@@ -1,0 +1,995 @@
+{
+  "venues": [
+    {
+      "slug": "oc-mau-a",
+      "id": "01a0b998-8ec9-770b-8dd3-f531aa696e03",
+      "publicCode": "Z63TCMMT",
+      "submissionId": "01a0b998-8ec9-770b-8dd3-f8cf74ba3f26",
+      "ownerSlug": "owner-1",
+      "review": "SAMPLE",
+      "categoryCode": "STREET_FOOD",
+      "nameVi": "Quán Ốc Mẫu A — dữ liệu mẫu",
+      "descriptionVi": "Ốc len xào dừa, ốc hương nướng muối ớt và sò điệp mỡ hành, phục vụ trên những chiếc bàn nhựa thấp dọc vỉa hè. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.763915,
+        "lng": 106.70154
+      },
+      "triggerRadiusM": 25,
+      "narrationPriority": 55,
+      "priceBand": 2,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Ốc len xào dừa",
+            "descriptionVi": null,
+            "priceMinor": 60000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Ốc hương nướng muối ớt",
+            "descriptionVi": null,
+            "priceMinor": 85000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Sò điệp nướng mỡ hành",
+            "descriptionVi": null,
+            "priceMinor": 70000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Nghêu hấp sả",
+            "descriptionVi": null,
+            "priceMinor": 55000,
+            "isAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "slug": "lau-mau-b",
+      "id": "01a0b998-8ec9-770b-8dd3-fd4da7e1a102",
+      "publicCode": "J1S5TAEA",
+      "submissionId": "01a0b998-8ec9-770b-8dd4-03e755310a06",
+      "ownerSlug": "owner-1",
+      "review": "SAMPLE",
+      "categoryCode": "RESTAURANT",
+      "nameVi": "Quán Lẩu Mẫu B — dữ liệu mẫu",
+      "descriptionVi": "Lẩu hải sản chua cay nấu theo nồi nhỏ cho hai đến bốn người, kèm rau muống, bún tươi và nước chấm me. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.763296,
+        "lng": 106.702082
+      },
+      "triggerRadiusM": 25,
+      "narrationPriority": 50,
+      "priceBand": 3,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "17:00",
+          "closesAt": "02:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "17:00",
+          "closesAt": "02:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "17:00",
+          "closesAt": "02:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "17:00",
+          "closesAt": "02:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "17:00",
+          "closesAt": "02:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "17:00",
+          "closesAt": "02:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "17:00",
+          "closesAt": "02:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Lẩu hải sản nhỏ",
+            "descriptionVi": null,
+            "priceMinor": 250000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Lẩu hải sản lớn",
+            "descriptionVi": null,
+            "priceMinor": 390000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Thêm tôm",
+            "descriptionVi": null,
+            "priceMinor": 90000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "ca-phe-mau-c",
+      "id": "01a0b998-8ec9-770b-8dd4-0420003db65e",
+      "publicCode": "XA4461QG",
+      "submissionId": "01a0b998-8eca-750d-9430-9502a70fd8b6",
+      "ownerSlug": "owner-1",
+      "review": "SAMPLE",
+      "categoryCode": "CAFE",
+      "nameVi": "Cà Phê Mẫu C — dữ liệu mẫu",
+      "descriptionVi": "Cà phê phin, cà phê muối và nước ép trái cây cho những người đi ăn khuya cần nghỉ chân giữa hai quán. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.762643,
+        "lng": 106.701693
+      },
+      "triggerRadiusM": 20,
+      "narrationPriority": 40,
+      "priceBand": 1,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "isClosed": true
+        },
+        {
+          "weekday": 2,
+          "opensAt": "15:00",
+          "closesAt": "23:30",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "15:00",
+          "closesAt": "23:30",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "15:00",
+          "closesAt": "23:30",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "15:00",
+          "closesAt": "23:30",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "15:00",
+          "closesAt": "23:30",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "15:00",
+          "closesAt": "23:30",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Cà phê sữa đá",
+            "descriptionVi": null,
+            "priceMinor": 30000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Cà phê muối",
+            "descriptionVi": null,
+            "priceMinor": 35000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Nước ép cam",
+            "descriptionVi": null,
+            "priceMinor": 40000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "oc-mau-e",
+      "id": "01a0b998-8eca-750d-9430-a2884ab862f3",
+      "publicCode": "753TB5K9",
+      "submissionId": "01a0b998-8eca-750d-9430-a57e44dfb498",
+      "ownerSlug": "owner-2",
+      "review": "SAMPLE",
+      "categoryCode": "STREET_FOOD",
+      "nameVi": "Quán Ốc Mẫu E — dữ liệu mẫu",
+      "descriptionVi": "Ốc bươu nhồi thịt, ốc móng tay xào bơ tỏi và càng ghẹ rang muối, món nào cũng có phần nhỏ để gọi thử nhiều món. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.761434,
+        "lng": 106.702584
+      },
+      "triggerRadiusM": 25,
+      "narrationPriority": 55,
+      "priceBand": 2,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Ốc bươu nhồi thịt",
+            "descriptionVi": null,
+            "priceMinor": 75000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Ốc móng tay xào bơ tỏi",
+            "descriptionVi": null,
+            "priceMinor": 80000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Càng ghẹ rang muối",
+            "descriptionVi": null,
+            "priceMinor": 120000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Rau muống xào tỏi",
+            "descriptionVi": null,
+            "priceMinor": 40000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "bia-mau-f",
+      "id": "01a0b998-8eca-750d-9430-a9806a5c061e",
+      "publicCode": "FE5XX80A",
+      "submissionId": "01a0b998-8eca-750d-9430-ad5cfe62193a",
+      "ownerSlug": "owner-2",
+      "review": "SAMPLE",
+      "categoryCode": "RESTAURANT",
+      "nameVi": "Quán Bia Mẫu F — dữ liệu mẫu",
+      "descriptionVi": "Bia hơi rót từ bom, gỏi xoài khô cá và khô mực nướng xé, nơi các nhóm bạn ngồi lại lâu sau bữa ốc. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.76089,
+        "lng": 106.703201
+      },
+      "triggerRadiusM": 20,
+      "narrationPriority": 45,
+      "priceBand": 2,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "16:30",
+          "closesAt": "23:59",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "16:30",
+          "closesAt": "23:59",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "16:30",
+          "closesAt": "23:59",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "16:30",
+          "closesAt": "23:59",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "16:30",
+          "closesAt": "23:59",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "16:30",
+          "closesAt": "23:59",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "16:30",
+          "closesAt": "23:59",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Bia hơi",
+            "descriptionVi": null,
+            "priceMinor": 15000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Gỏi xoài khô cá",
+            "descriptionVi": null,
+            "priceMinor": 65000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Khô mực nướng",
+            "descriptionVi": null,
+            "priceMinor": 110000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "hai-san-mau-g",
+      "id": "01a0b998-8eca-750d-9430-b03825c1df7c",
+      "publicCode": "5FG4KTR4",
+      "submissionId": "01a0b998-8eca-750d-9430-b6f2e9ad4dd1",
+      "ownerSlug": "owner-3",
+      "review": "SAMPLE",
+      "categoryCode": "RESTAURANT",
+      "nameVi": "Nhà Hàng Hải Sản Mẫu G — dữ liệu mẫu",
+      "descriptionVi": "Tôm hùm, cua và cá mú hấp theo ký, thực đơn in giá bằng đô la Mỹ cho khách du lịch đặt bàn trước. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.760546,
+        "lng": 106.703933
+      },
+      "triggerRadiusM": 30,
+      "narrationPriority": 60,
+      "priceBand": 4,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "USD",
+        "items": [
+          {
+            "nameVi": "Tôm hùm nướng phô mai",
+            "descriptionVi": null,
+            "priceMinor": 3500,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Cua rang me",
+            "descriptionVi": null,
+            "priceMinor": 2200,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Cá mú hấp xì dầu",
+            "descriptionVi": null,
+            "priceMinor": 2800,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Cơm chiên hải sản",
+            "descriptionVi": null,
+            "priceMinor": 900,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "banh-mau-h",
+      "id": "01a0b998-8eca-750d-9430-b86c352ce633",
+      "publicCode": "1EBDGAM4",
+      "submissionId": "01a0b998-8eca-750d-9430-bc0f60f194d6",
+      "ownerSlug": "owner-3",
+      "review": "SAMPLE",
+      "categoryCode": "STREET_FOOD",
+      "nameVi": "Quán Bánh Mẫu H — dữ liệu mẫu",
+      "descriptionVi": "Bánh tráng nướng, bánh bột lọc và bánh khọt giòn làm tại chỗ, món ăn chơi trước hoặc sau một bữa ốc. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.760876,
+        "lng": 106.704684
+      },
+      "triggerRadiusM": 20,
+      "narrationPriority": 45,
+      "priceBand": 1,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "15:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "15:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "15:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "15:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "15:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "15:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "15:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Bánh tráng nướng",
+            "descriptionVi": null,
+            "priceMinor": 25000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Bánh khọt tôm",
+            "descriptionVi": null,
+            "priceMinor": 45000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Bánh bột lọc",
+            "descriptionVi": null,
+            "priceMinor": 35000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "che-mau-i",
+      "id": "01a0b998-8eca-750d-9430-c34a5dd14a4d",
+      "publicCode": "STR3KVN5",
+      "submissionId": "01a0b998-8eca-750d-9430-c71cf8806eaf",
+      "ownerSlug": "owner-3",
+      "review": "SAMPLE",
+      "categoryCode": "STREET_FOOD",
+      "nameVi": "Quán Chè Mẫu I — dữ liệu mẫu",
+      "descriptionVi": "Chè Thái, chè khúc bạch và tàu hũ nước đường gừng, món tráng miệng mát lạnh sau những món ốc cay. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.761236,
+        "lng": 106.70542
+      },
+      "triggerRadiusM": 20,
+      "narrationPriority": 40,
+      "priceBand": 1,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "14:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "14:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "14:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "14:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "14:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "14:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "14:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Chè Thái",
+            "descriptionVi": null,
+            "priceMinor": 30000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Chè khúc bạch",
+            "descriptionVi": null,
+            "priceMinor": 30000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Tàu hũ nước đường",
+            "descriptionVi": null,
+            "priceMinor": 20000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "ca-phe-mau-k",
+      "id": "01a0b998-8eca-750d-9430-ca8e09cc547f",
+      "publicCode": "D9PVSXD2",
+      "submissionId": "01a0b998-8eca-750d-9430-cee53876bf3a",
+      "ownerSlug": "owner-3",
+      "review": "SAMPLE",
+      "categoryCode": "CAFE",
+      "nameVi": "Cà Phê Mẫu K — dữ liệu mẫu",
+      "descriptionVi": "Quán cà phê nhỏ trên lầu nhìn xuống phố ẩm thực, có trà đào, sữa chua đánh đá và bánh ngọt tự làm. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.761051,
+        "lng": 106.706203
+      },
+      "triggerRadiusM": 20,
+      "narrationPriority": 40,
+      "priceBand": 2,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "08:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "08:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "08:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "08:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "08:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "08:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "08:00",
+          "closesAt": "22:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Trà đào cam sả",
+            "descriptionVi": null,
+            "priceMinor": 45000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Sữa chua đánh đá",
+            "descriptionVi": null,
+            "priceMinor": 35000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Bánh flan",
+            "descriptionVi": null,
+            "priceMinor": 25000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    {
+      "slug": "com-mau-l",
+      "id": "01a0b998-8eca-750d-9430-d3f1aacbb3a9",
+      "publicCode": "QW20PWX9",
+      "submissionId": "01a0b998-8eca-750d-9430-d4faf737ea5a",
+      "ownerSlug": "owner-4",
+      "review": "SAMPLE",
+      "categoryCode": "STREET_FOOD",
+      "nameVi": "Quán Cơm Mẫu L — dữ liệu mẫu",
+      "descriptionVi": "Cơm tấm sườn nướng và cơm gà xối mỡ cho những ai cần một bữa no trước khi đi dạo phố, bán từ chiều tới khuya. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.760658,
+        "lng": 106.706926
+      },
+      "triggerRadiusM": 25,
+      "narrationPriority": 50,
+      "priceBand": 1,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "15:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "15:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "15:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "15:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "15:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "15:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "15:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Cơm tấm sườn",
+            "descriptionVi": null,
+            "priceMinor": 45000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Cơm gà xối mỡ",
+            "descriptionVi": null,
+            "priceMinor": 50000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Canh chua",
+            "descriptionVi": null,
+            "priceMinor": 25000,
+            "isAvailable": true
+          }
+        ]
+      }
+    }
+  ],
+  "pending": {
+    "create": {
+      "slug": "nuong-mau-d",
+      "id": "01a0b998-8eca-750d-9430-9831ffe44ed4",
+      "publicCode": "KFRNKJJ3",
+      "submissionId": "01a0b998-8eca-750d-9430-9c72d88b7280",
+      "ownerSlug": "owner-1",
+      "review": "SAMPLE",
+      "categoryCode": "STREET_FOOD",
+      "nameVi": "Quán Nướng Mẫu D — dữ liệu mẫu",
+      "descriptionVi": "Bạch tuộc, mực và chân gà nướng trên bếp than đặt ngay trước cửa, ăn kèm muối tiêu chanh và rau răm. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả.",
+      "addressVi": "Phố Vĩnh Khánh, Quận 4 (địa chỉ mẫu)",
+      "location": {
+        "lat": 10.761928,
+        "lng": 106.701926
+      },
+      "triggerRadiusM": 25,
+      "narrationPriority": 50,
+      "priceBand": 2,
+      "phone": null,
+      "websiteUrl": null,
+      "openingHours": [
+        {
+          "weekday": 1,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 2,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 3,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 4,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 5,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 6,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        },
+        {
+          "weekday": 7,
+          "opensAt": "16:00",
+          "closesAt": "23:00",
+          "isClosed": false
+        }
+      ],
+      "menu": {
+        "menuCurrency": "VND",
+        "items": [
+          {
+            "nameVi": "Bạch tuộc nướng",
+            "descriptionVi": null,
+            "priceMinor": 90000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Mực nướng sa tế",
+            "descriptionVi": null,
+            "priceMinor": 95000,
+            "isAvailable": true
+          },
+          {
+            "nameVi": "Chân gà nướng",
+            "descriptionVi": null,
+            "priceMinor": 60000,
+            "isAvailable": true
+          }
+        ]
+      }
+    },
+    "update": {
+      "venueSlug": "oc-mau-e",
+      "submissionId": "01a0b998-8eca-750d-9430-da7e84833872",
+      "descriptionVi": "Ốc bươu nhồi thịt, ốc móng tay xào bơ tỏi, càng ghẹ rang muối và nay có thêm ốc tỏi nướng mỡ hành. Đây là quán mẫu dùng để phát triển và kiểm thử Wayfare, không phải một quán có thật trên phố Vĩnh Khánh; tên, thực đơn và giờ mở cửa đều là dữ liệu giả."
+    }
+  }
+}

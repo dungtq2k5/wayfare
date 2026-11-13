@@ -1,0 +1,8 @@
+{
+  "extends": "@wayfare/config/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src", "generated", "prisma/seed", "test", "scripts", "prisma.config.ts"]
+}

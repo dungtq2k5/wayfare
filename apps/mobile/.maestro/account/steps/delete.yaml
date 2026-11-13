@@ -1,0 +1,47 @@
+# Edge 8 (frames A7, A7b): a wrong password is said beside its field; a mistyped word keeps
+# *Delete account* off; then the account is gone and this phone keeps its favourites.
+appId: app.wayfare
+---
+- runFlow:
+    file: sign-in.yaml
+    env:
+      EMAIL: ${A}
+      PASSWORD: ${NEWPASS}
+- tapOn:
+    id: 'account-entry'
+- tapOn:
+    id: 'account-delete'
+- tapOn:
+    id: 'delete-password'
+- inputText: 'not-the-password'
+- tapOn:
+    id: 'delete-word'
+- inputText: 'DELETE'
+- hideKeyboard
+- tapOn:
+    id: 'delete-submit'
+- extendedWaitUntil:
+    visible: "That's not your current password."
+    timeout: 15000
+- tapOn:
+    id: 'delete-word'
+- eraseText: 10
+- inputText: 'DELET'
+- hideKeyboard
+- assertVisible:
+    id: 'delete-submit'
+    enabled: false
+- tapOn:
+    id: 'delete-word'
+- inputText: 'E'
+- tapOn:
+    id: 'delete-password'
+- eraseText: 20
+- inputText: ${NEWPASS}
+- hideKeyboard
+- tapOn:
+    id: 'delete-submit'
+- runFlow: ../../common/no-password-save.yaml
+- extendedWaitUntil:
+    visible: 'Keep your favourites on every phone'
+    timeout: 15000

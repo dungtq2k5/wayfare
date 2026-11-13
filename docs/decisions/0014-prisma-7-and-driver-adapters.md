@@ -1,6 +1,6 @@
 # 0014 — Prisma 7, with driver adapters and the new client generator
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** —
+**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0058](./0058-nest-services-and-shared-packages-are-commonjs.md) (in part)
 
 ## Context
 

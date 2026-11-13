@@ -1,0 +1,45 @@
+# Analytics on Android (§3.3 Basic): a fresh install → a story heard and stopped → AC1 on the Map,
+# both choices → Allow → Diagnostics: GRANTED, an id → Settings: AC2 on → off → AC2b's toast →
+# Diagnostics: WITHDRAWN, the queue empty.
+#
+# Needs the local stack with analytics (`pnpm mobile:reverse`), a Diagnostics build, an English
+# phone. Run by analytics/system.sh.
+appId: app.wayfare
+---
+- runFlow: steps/fresh.yaml
+- runFlow: steps/hear-a-story.yaml
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- assertVisible: 'No thanks'
+- assertVisible: 'Allow'
+- assertVisible: 'You can change this any time in Settings.'
+- tapOn: 'Allow'
+- assertNotVisible: "Help Wayfare learn what's heard?"
+- runFlow: steps/diagnostics.yaml
+- extendedWaitUntil:
+    visible: 'Analytics: GRANTED · policy .*'
+    timeout: 20000
+- assertVisible: 'Id [0-9a-f]{8} .*'
+- tapOn: 'Back'
+# A story while counting: its events go, and the gateway accepts the batch.
+- runFlow: steps/hear-a-story.yaml
+- runFlow: steps/diagnostics.yaml
+- extendedWaitUntil:
+    visible: '.*queue 0 · last send events: 202'
+    timeout: 30000
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: 'Help improve Wayfare'
+    direction: UP
+- assertVisible: 'On · counts which stories are heard, never who you are'
+- tapOn: 'Help improve Wayfare'
+- extendedWaitUntil:
+    visible: "Counting is off. What this phone had sent and Wayfare hadn't counted yet is deleted."
+    timeout: 5000
+- assertVisible: 'Off · nothing is counted'
+- runFlow: steps/diagnostics.yaml
+- extendedWaitUntil:
+    visible: 'Analytics: WITHDRAWN · .*'
+    timeout: 10000
+- assertVisible: '.*queue 0 .*'

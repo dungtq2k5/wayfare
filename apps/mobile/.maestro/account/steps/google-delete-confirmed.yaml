@@ -1,0 +1,46 @@
+# From Settings, signed in to a Google-only account EMAIL: Delete account confirms with Google
+# (frame A7g) — the button, the fake pick, the green row — then the word.
+appId: app.wayfare
+---
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element:
+      id: 'account-entry'
+    direction: UP
+- tapOn:
+    id: 'account-entry'
+- scrollUntilVisible:
+    element:
+      id: 'account-delete'
+- tapOn:
+    id: 'account-delete'
+- scrollUntilVisible:
+    element: "Confirm it's you"
+- runFlow:
+    file: google-pick.yaml
+    env:
+      EMAIL: ${EMAIL}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible:
+      id: 'google-confirmed'
+    timeout: 15000
+- assertVisible: 'Confirmed with Google'
+# At the largest text the word's field is below the fold.
+- scrollUntilVisible:
+    element:
+      id: 'delete-word'
+- tapOn:
+    id: 'delete-word'
+- inputText: 'DELETE'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'delete-submit'
+- tapOn:
+    id: 'delete-submit'
+- extendedWaitUntil:
+    visible: 'Keep your favourites on every phone'
+    timeout: 15000

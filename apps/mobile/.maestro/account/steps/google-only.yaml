@@ -1,0 +1,37 @@
+# Edges 6 and 10 (frames A1g, A7g, at whatever font scale the script set): a new Google-only
+# account says how it signs in and offers a password; then it goes, confirmed with Google.
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- scrollUntilVisible:
+    element:
+      id: 'google-continue'
+- runFlow:
+    file: google-pick.yaml
+    env:
+      EMAIL: ${D}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible: 'Account created.*'
+    timeout: 15000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element:
+      id: 'account-entry'
+    direction: UP
+- tapOn:
+    id: 'account-entry'
+- scrollUntilVisible:
+    element: 'Signed in with Google'
+- scrollUntilVisible:
+    element:
+      id: 'account-add-password'
+- tapOn: 'Back'
+- runFlow:
+    file: google-delete-confirmed.yaml
+    env:
+      EMAIL: ${D}

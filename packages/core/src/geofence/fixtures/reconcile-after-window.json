@@ -1,0 +1,30 @@
+{
+  "places": [
+    {
+      "id": "v0",
+      "kind": "VENUE",
+      "location": { "lat": 10.0, "lng": 106.0 },
+      "triggerRadiusM": 30,
+      "narrationPriority": 50,
+      "autoNarrationEnabled": true
+    },
+    {
+      "id": "v1",
+      "kind": "VENUE",
+      "location": { "lat": 10.01, "lng": 106.0 },
+      "triggerRadiusM": 30,
+      "narrationPriority": 50,
+      "autoNarrationEnabled": true
+    }
+  ],
+  "trace": [
+    { "t": 0, "lat": 10.0, "lng": 106.0, "accuracyM": 10 },
+    { "t": 5000, "lat": 10.0, "lng": 106.0, "accuracyM": 10 },
+    { "t": 10000, "lat": 10.01, "lng": 106.0, "accuracyM": 10 },
+    { "t": 15000, "lat": 10.01, "lng": 106.0, "accuracyM": 10 }
+  ],
+  "expect": [
+    { "t": 5000, "placeId": "v0" },
+    { "t": 605000, "placeId": "v1" }
+  ]
+}

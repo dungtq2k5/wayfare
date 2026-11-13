@@ -1,0 +1,28 @@
+# Saves the Place NAME (a pattern) to Favourites from Explore, and comes back. Already saved, it
+# stays saved: a run can follow another.
+appId: app.wayfare
+---
+- tapOn: 'Explore'
+- scrollUntilVisible:
+    element: '${NAME}'
+- tapOn: '${NAME}'
+- extendedWaitUntil:
+    visible: 'Save to favourites'
+    timeout: 15000
+# The heart is a switch with one label: only an unchecked one is tapped, or a saved Place would
+# be removed.
+- runFlow:
+    when:
+      visible:
+        text: 'Save to favourites'
+        checked: false
+    commands:
+      - tapOn:
+          text: 'Save to favourites'
+          checked: false
+- extendedWaitUntil:
+    visible:
+      text: 'Save to favourites'
+      checked: true
+    timeout: 10000
+- tapOn: 'Back'

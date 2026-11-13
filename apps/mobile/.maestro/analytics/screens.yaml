@@ -1,0 +1,36 @@
+# Round 40's Android analytics states as screenshots, named after their frames, in ${THEME}:
+# AC1 the question, AC2 Settings on, AC2b turned off with its toast, AC5 a new policy.
+appId: app.wayfare
+---
+- runFlow: steps/fresh.yaml
+- runFlow: steps/hear-a-story.yaml
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- takeScreenshot: ac1-consent-${THEME}
+- tapOn: 'Allow'
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Help improve Wayfare'
+- extendedWaitUntil:
+    visible: 'On · counts which stories are heard, never who you are'
+    timeout: 10000
+- takeScreenshot: ac2-settings-${THEME}
+- tapOn: 'Help improve Wayfare'
+- extendedWaitUntil:
+    visible: 'Counting is off.*'
+    timeout: 5000
+- takeScreenshot: ac2b-off-${THEME}
+- tapOn: 'Help improve Wayfare'
+- runFlow: steps/diagnostics.yaml
+- extendedWaitUntil:
+    visible: 'Analytics: GRANTED · .*'
+    timeout: 20000
+- tapOn: 'Pretend the policy changed'
+- tapOn: 'Back'
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: 'We changed how we count'
+    timeout: 15000
+- takeScreenshot: ac5-new-policy-${THEME}
+- tapOn: 'Allow'

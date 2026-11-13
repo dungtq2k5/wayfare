@@ -1,0 +1,9 @@
+# Opens, in the app, the newest emailed PAGE link sent to EMAIL (Mailpit), as a mail app would.
+appId: app.wayfare
+---
+- runScript:
+    file: mail-link.js
+    env:
+      EMAIL: ${EMAIL}
+      PAGE: ${PAGE}
+- openLink: ${output.link}

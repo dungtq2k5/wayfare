@@ -1,0 +1,35 @@
+{
+  "name": "@wayfare/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The design tokens: the designer's export (tokens.json), built by Style Dictionary into the NativeWind preset, plain JavaScript values and the web CSS (ADR 0061).",
+  "exports": {
+    "./nativewind-preset": "./dist/nativewind-preset.js",
+    "./tokens": {
+      "types": "./dist/tokens.d.ts",
+      "default": "./dist/tokens.js"
+    },
+    "./web.css": "./dist/web.css",
+    "./fonts/*": "./fonts/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "fonts",
+    "tokens.json"
+  ],
+  "scripts": {
+    "build": "style-dictionary build --config style-dictionary.config.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint ."
+  },
+  "peerDependencies": {
+    "tailwindcss": "~3.4.19"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.5",
+    "@wayfare/config": "workspace:*",
+    "style-dictionary": "^5.6.0",
+    "tailwindcss": "3.4.19"
+  }
+}

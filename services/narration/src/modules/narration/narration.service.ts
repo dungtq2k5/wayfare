@@ -1,0 +1,217 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import {
+  AuditAction,
+  AuditActorType,
+  LocalizationTargetType,
+  MAX_LANGUAGE_CODE_LENGTH,
+  normalizeLang,
+  ON_DEMAND_RETRY_AFTER_MS,
+  OnDemandStatus,
+  PlaceKind,
+  PlaceStatus,
+  SynthesisTaskStatus,
+  SynthesisTrigger,
+  zUuidV7,
+} from '@wayfare/contracts';
+import type { Language } from '@wayfare/contracts';
+import {
+  audioStatusProto,
+  onDemandStatusProto,
+  placeKindProto,
+  placeStatusProto,
+} from '@wayfare/contracts/grpc';
+import type { catalogGrpc, narrationGrpc } from '@wayfare/contracts/grpc';
+import { servedAudio } from '@wayfare/core';
+import { parseRpcRequest, requireDeviceContext, rpcError } from '@wayfare/nest-common';
+import type { RequestContext } from '@wayfare/nest-common';
+import { z } from 'zod';
+import type { Env } from '../../config/env.schema';
+import { BillingServiceGrpcClient } from '../billing/billing-service-grpc.client';
+import { CatalogServiceGrpcClient } from '../catalog/catalog-service-grpc.client';
+import { SynthesisService } from '../synthesis/synthesis.service';
+import { LIVE_JOB_STATUSES } from '../jobs/domain/job-status';
+import { JobsService } from '../jobs/jobs.service';
+import { TasksService } from '../tasks/tasks.service';
+
+const placeLangFields = z.object({
+  placeId: zUuidV7,
+  // Any tag as sent: an unserved language is an answer, not an error (api-endpoints-plan §0.6).
+  lang: z.string().min(1).max(MAX_LANGUAGE_CODE_LENGTH),
+});
+
+/** The tasks an on-demand request joins rather than duplicates (api-endpoints-plan §4.1). */
+const JOINABLE_TASK_STATUSES = [
+  SynthesisTaskStatus.QUEUED,
+  SynthesisTaskStatus.RUNNING,
+  SynthesisTaskStatus.COALESCED,
+];
+
+/** A stored object's public URL: the media base, then the path (api-endpoints-plan §0.7). */
+function audioUrl(publicBaseUrl: string, objectPath: string): string {
+  return `${publicBaseUrl}/${objectPath.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+/** A catalog row's served audio, by the same rule as catalog's own reads (rdm-spec C-4). */
+function servedOf(row: catalogGrpc.LocalizationState) {
+  return servedAudio({
+    sourceContentHash: row.sourceContentHash,
+    audioStatus: audioStatusProto.fromProto(row.audioStatus) ?? '',
+    audioSourceContentHash: row.audioSourceContentHash ?? null,
+    audioObjectPath: row.audioObjectPath ?? null,
+    audioSha256: row.audioSha256 ?? null,
+    audioBytes: row.audioBytes ?? null,
+    audioDurationMs: row.audioDurationMs ?? null,
+  });
+}
+
+/**
+ * A tourist device's narration routes (api-endpoints-plan §4.1): a Place's narration status in one
+ * language, and on-demand synthesis of a language not ready yet — one live job per Place, language
+ * and text, however many devices ask.
+ */
+@Injectable()
+export class NarrationService {
+  private readonly logger = new Logger(NarrationService.name);
+  private readonly mediaBase: string;
+
+  constructor(
+    private readonly catalog: CatalogServiceGrpcClient,
+    private readonly billing: BillingServiceGrpcClient,
+    private readonly jobs: JobsService,
+    private readonly tasks: TasksService,
+    config: ConfigService<Env, true>,
+    private readonly synthesis: SynthesisService,
+  ) {
+    this.mediaBase = config.get('GCS_PUBLIC_BASE_URL', { infer: true });
+  }
+
+  async getNarrationStatus(
+    request: narrationGrpc.GetNarrationStatusRequest,
+    // Public: a link's page reads it while rendering, before the browser has a device.
+    _context: RequestContext,
+  ): Promise<narrationGrpc.GetNarrationStatusResponse> {
+    const fields = parseRpcRequest(placeLangFields, request);
+    const place = await this.activePlace(fields.placeId);
+    const lang = normalizeLang(fields.lang);
+    const row =
+      lang === null ? undefined : place.localizations.find((state) => state.lang === lang);
+    if (row === undefined) return { textReady: false, audio: undefined, stale: false };
+    const audio = servedOf(row);
+    return {
+      textReady: true,
+      audioStatus: row.audioStatus,
+      audio:
+        audio === null ? undefined : { ...audio, url: audioUrl(this.mediaBase, audio.objectPath) },
+      stale: row.sourceContentHash !== place.contentHash,
+    };
+  }
+
+  async requestOnDemand(
+    request: narrationGrpc.RequestOnDemandRequest,
+    context: RequestContext,
+  ): Promise<narrationGrpc.RequestOnDemandResponse> {
+    const deviceId = requireDeviceContext(context);
+    const fields = parseRpcRequest(placeLangFields, request);
+    const place = await this.activePlace(fields.placeId);
+    const lang = normalizeLang(fields.lang);
+    if (lang === null) return this.answer(OnDemandStatus.UNAVAILABLE);
+    if (placeKindProto.fromProto(place.kind) === PlaceKind.VENUE) {
+      await this.requireVenueLanguage(place.ownerUserId ?? null, lang);
+    }
+
+    const row = place.localizations.find((state) => state.lang === lang);
+    const audio =
+      row === undefined || row.sourceContentHash !== place.contentHash ? null : servedOf(row);
+    if (audio !== null) {
+      return {
+        ...this.answer(OnDemandStatus.READY),
+        audio: { ...audio, url: audioUrl(this.mediaBase, audio.objectPath) },
+      };
+    }
+
+    // No voice for the language and its text already current: a job could only end `NO_VOICE`
+    // again (api-endpoints-plan §4.1) — the phone speaks it with its own voice instead.
+    if (
+      row !== undefined &&
+      row.sourceContentHash === place.contentHash &&
+      this.synthesis.speakersFor(lang).length === 0
+    ) {
+      return this.answer(OnDemandStatus.UNAVAILABLE);
+    }
+
+    const jobId = await this.tasks.transact(async (tx, fx) => {
+      const key = {
+        targetType: LocalizationTargetType.PLACE as const,
+        targetId: fields.placeId,
+        lang,
+        sourceContentHash: place.contentHash,
+      };
+      await this.tasks.lockKey(tx, key);
+      const joined = await tx.synthesisTask.findFirst({
+        where: {
+          ...key,
+          status: { in: JOINABLE_TASK_STATUSES },
+          job: { trigger: SynthesisTrigger.ON_DEMAND, status: { in: [...LIVE_JOB_STATUSES] } },
+        },
+        select: { jobId: true },
+      });
+      if (joined !== null) return joined.jobId;
+      const id = await this.jobs.createJob(tx, fx, {
+        ...key,
+        langs: [lang],
+        includeAudio: true,
+        trigger: SynthesisTrigger.ON_DEMAND,
+        requestedByDeviceId: deviceId,
+      });
+      await this.jobs.audit(tx, { type: AuditActorType.DEVICE, deviceId }, context, {
+        action: AuditAction.SYNTHESIS_JOB_CREATED,
+        jobId: id,
+        metadata: {
+          after: {
+            targetType: LocalizationTargetType.PLACE,
+            targetId: fields.placeId,
+            trigger: SynthesisTrigger.ON_DEMAND,
+            langs: [lang satisfies Language],
+            includeAudio: true,
+          },
+        },
+      });
+      return id;
+    });
+    return {
+      ...this.answer(OnDemandStatus.PENDING),
+      jobId,
+      retryAfterMs: ON_DEMAND_RETRY_AFTER_MS,
+    };
+  }
+
+  /** A Place a tourist may ask about: `ACTIVE` and not deleted. */
+  /**
+   * A Venue's languages are its owner's plan's (api-endpoints-plan §12.2): outside the scope is
+   * `LANGUAGE_NOT_ENTITLED`, and so is an owner with no billing account; a billing that cannot
+   * answer refuses (`ENTITLEMENTS_UNAVAILABLE`) — a grant is never assumed.
+   */
+  private async requireVenueLanguage(ownerUserId: string | null, lang: Language): Promise<void> {
+    const answer = await this.billing.venueLanguage(ownerUserId, lang);
+    if (answer === 'UNAVAILABLE') throw rpcError('ENTITLEMENTS_UNAVAILABLE');
+    if (answer === 'NOT_ENTITLED') throw rpcError('LANGUAGE_NOT_ENTITLED');
+  }
+
+  private async activePlace(placeId: string): Promise<catalogGrpc.LocalizationSourcePlace> {
+    const source = await this.catalog.localizationSource(LocalizationTargetType.PLACE, placeId);
+    const place = source.place ?? null;
+    if (
+      place === null ||
+      place.deleted ||
+      placeStatusProto.fromProto(place.status) !== PlaceStatus.ACTIVE
+    ) {
+      throw rpcError('RESOURCE_NOT_FOUND', { resource: 'PLACE' });
+    }
+    return place;
+  }
+
+  private answer(status: OnDemandStatus): narrationGrpc.RequestOnDemandResponse {
+    return { status: onDemandStatusProto.toProto(status), audio: undefined, retryAfterMs: 0 };
+  }
+}

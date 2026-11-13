@@ -1,0 +1,157 @@
+import { generateKeyPairSync } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
+import { parseEnvOrThrow } from '@wayfare/nest-common';
+import { generateTestSigningKeys } from '@wayfare/nest-common/testing';
+import { describe, expect, it } from 'vitest';
+import { envSchema } from './env.schema';
+
+const keys = generateTestSigningKeys('dev-1');
+
+const valid = {
+  NODE_ENV: 'development',
+  DATABASE_URL: 'postgresql://wayfare:wayfare@localhost:15433/wayfare_identity',
+  NATS_URL: 'nats://localhost:14222',
+  REDIS_URL: 'redis://localhost:16379',
+  JWT_PRIVATE_KEY: keys.privateKey,
+  JWT_KEY_ID: keys.keyId,
+  GRPC_URL: '0.0.0.0:20051',
+  BILLING_GRPC_URL: 'localhost:20054',
+  OPS_PORT: '3101',
+  METRICS_PORT: '9101',
+  EMAIL_PROVIDER: 'smtp',
+  EMAIL_FROM: 'Wayfare <no-reply@wayfare.local>',
+  EMAIL_DELIVERY_MODE: 'restricted',
+  EMAIL_NONPROD_ALLOWLIST: '*@example.com, Team@Wayfare.local',
+  EMAIL_NONPROD_CATCHALL: 'team@wayfare.local',
+  EMAIL_HASH_KEY: Buffer.alloc(32, 7).toString('base64'),
+  PII_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
+  SMTP_URL: 'smtp://localhost:1025',
+  CONSOLE_URL: 'http://localhost:5173',
+  WEB_URL: 'http://localhost:5174',
+  GOOGLE_ISSUER: 'google',
+  GOOGLE_SERVER_CLIENT_ID: 'unit-server-client',
+};
+
+const parse = (env: Record<string, string>) => parseEnvOrThrow('identity', envSchema, env);
+
+describe('identity configuration', () => {
+  it('parses a complete environment into converted values', () => {
+    const config = parse(valid);
+    expect(config.OPS_PORT).toBe(3101);
+    expect(config.LOG_LEVEL).toBe('info');
+    expect(config.JWT_PRIVATE_KEY.asymmetricKeyType).toBe('ed25519');
+  });
+
+  it('refuses to boot without a signing key, or with a malformed key id, in every environment', () => {
+    expect(() => parse({ ...valid, JWT_PRIVATE_KEY: '' })).toThrow(/JWT_PRIVATE_KEY/);
+    expect(() => parse({ ...valid, NODE_ENV: 'test', JWT_PRIVATE_KEY: 'bm9wZQ==' })).toThrow(
+      /JWT_PRIVATE_KEY/,
+    );
+    expect(() => parse({ ...valid, JWT_KEY_ID: 'Has Spaces' })).toThrow(/JWT_KEY_ID/);
+  });
+
+  it('refuses to boot with a missing or malformed variable, naming it', () => {
+    const { DATABASE_URL: _omitted, ...rest } = valid;
+    expect(() => parse(rest)).toThrow(/^Invalid identity configuration:\n {2}DATABASE_URL:/);
+    expect(() => parse({ ...valid, NATS_URL: 'not a url' })).toThrow(/NATS_URL/);
+  });
+});
+
+describe('email configuration', () => {
+  it('parses the allowlist and the hash key', () => {
+    const config = parse(valid);
+    expect(config.EMAIL_NONPROD_ALLOWLIST).toEqual(['*@example.com', 'team@wayfare.local']);
+    expect(config.EMAIL_HASH_KEY).toHaveLength(32);
+    expect(config.PII_ENCRYPTION_KEY).toHaveLength(32);
+    expect(config.RESEND_API_KEY).toBeUndefined();
+  });
+
+  it('requires a delivery mode, with no default', () => {
+    const { EMAIL_DELIVERY_MODE: _omitted, ...rest } = valid;
+    expect(() => parse(rest)).toThrow(/EMAIL_DELIVERY_MODE/);
+  });
+
+  it('requires the allowlist and catch-all when restricted, and not when open', () => {
+    expect(() => parse({ ...valid, EMAIL_NONPROD_ALLOWLIST: '' })).toThrow(
+      /EMAIL_NONPROD_ALLOWLIST: Required when EMAIL_DELIVERY_MODE=restricted/,
+    );
+    expect(() => parse({ ...valid, EMAIL_NONPROD_CATCHALL: '' })).toThrow(/EMAIL_NONPROD_CATCHALL/);
+    expect(
+      parse({ ...valid, EMAIL_DELIVERY_MODE: 'open', EMAIL_NONPROD_ALLOWLIST: '' })
+        .EMAIL_DELIVERY_MODE,
+    ).toBe('open');
+    expect(() => parse({ ...valid, EMAIL_NONPROD_ALLOWLIST: 'not-an-entry' })).toThrow(
+      /EMAIL_NONPROD_ALLOWLIST/,
+    );
+  });
+
+  it("requires each provider's settings", () => {
+    expect(() => parse({ ...valid, SMTP_URL: '' })).toThrow(/SMTP_URL: Required when/);
+    expect(() => parse({ ...valid, EMAIL_PROVIDER: 'resend' })).toThrow(
+      /RESEND_API_KEY[\s\S]*RESEND_WEBHOOK_SECRET/,
+    );
+    expect(
+      parse({
+        ...valid,
+        EMAIL_PROVIDER: 'resend',
+        RESEND_API_KEY: 're_x',
+        RESEND_WEBHOOK_SECRET: 'whsec_x',
+      }).EMAIL_PROVIDER,
+    ).toBe('resend');
+    expect(() =>
+      parse({
+        ...valid,
+        EMAIL_PROVIDER: 'resend',
+        RESEND_API_KEY: 're',
+        RESEND_WEBHOOK_SECRET: 'x',
+      }),
+    ).toThrow(/RESEND_WEBHOOK_SECRET/);
+  });
+
+  it('requires the Google settings for its issuer, and refuses the fake in production', () => {
+    const { GOOGLE_SERVER_CLIENT_ID: _id, ...noClient } = valid;
+    expect(() => parse(noClient)).toThrow(/GOOGLE_SERVER_CLIENT_ID/);
+    expect(() => parse({ ...valid, GOOGLE_ISSUER: 'fake' })).toThrow(/GOOGLE_FAKE_SIGNING_KEY/);
+    const fakeKey = Buffer.from(
+      generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
+        type: 'pkcs8',
+        format: 'pem',
+      }),
+    ).toString('base64');
+    const fake = { ...valid, GOOGLE_ISSUER: 'fake', GOOGLE_FAKE_SIGNING_KEY: fakeKey };
+    expect(parse(fake).GOOGLE_FAKE_SIGNING_KEY?.asymmetricKeyType).toBe('rsa');
+    expect(() => parse({ ...fake, NODE_ENV: 'production' })).toThrow(
+      /GOOGLE_ISSUER=fake is refused in production/,
+    );
+  });
+
+  it('refuses EMAIL_PROVIDER=smtp in production', () => {
+    expect(() => parse({ ...valid, NODE_ENV: 'production' })).toThrow(
+      /EMAIL_PROVIDER: EMAIL_PROVIDER must be resend in production/,
+    );
+  });
+
+  it('refuses a short hash key, a bare sender and a missing link base', () => {
+    expect(() => parse({ ...valid, EMAIL_HASH_KEY: Buffer.alloc(8).toString('base64') })).toThrow(
+      /EMAIL_HASH_KEY/,
+    );
+    expect(() =>
+      parse({ ...valid, PII_ENCRYPTION_KEY: Buffer.alloc(48).toString('base64') }),
+    ).toThrow(/PII_ENCRYPTION_KEY/);
+    expect(() => parse({ ...valid, EMAIL_FROM: 'no-reply@wayfare.local' })).toThrow(/EMAIL_FROM/);
+    const { WEB_URL: _omitted, ...rest } = valid;
+    expect(() => parse(rest)).toThrow(/WEB_URL/);
+  });
+});
+
+describe('@nestjs/config', () => {
+  it('resolves to one copy from identity and from nest-common — two copies would be two DI tokens', () => {
+    const fromService = createRequire(__filename).resolve('@nestjs/config');
+    const nestCommon = dirname(
+      createRequire(__filename).resolve('@wayfare/nest-common/package.json'),
+    );
+    const fromNestCommon = createRequire(`${nestCommon}/package.json`).resolve('@nestjs/config');
+    expect(fromNestCommon).toBe(fromService);
+  });
+});
