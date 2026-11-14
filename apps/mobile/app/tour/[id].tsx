@@ -206,9 +206,7 @@ export default function TourScreen() {
             variant={finished ? 'secondary' : 'primary'}
             onPress={() => void start()}
           />
-          <Text lang={record.text.lang} className="text-body text-foreground">
-            {record.text.description}
-          </Text>
+          <Text className="text-body text-foreground">{record.text.description}</Text>
           <Text accessibilityRole="header" className="text-heading text-foreground">
             {t('tour.route')}
           </Text>
