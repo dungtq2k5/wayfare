@@ -25,7 +25,7 @@ Two Playwright projects (`playwright.config.ts`), one worker each run: the accou
 
 The baselines draw everything the stack holds, so the screens need a stack nothing else has written to: empty, migrated and seeded. The setup refuses one that an earlier run has used.
 
-- **In CI**, `test:screens` runs on the stack the job has just booted, before the flows.
+- **In CI** (`.github/workflows/e2e.yml`), on the same stack, booted fresh by `stack.sh up` in each job: the screens in four ranges of spec files, each on its own runner. A range (`E2E_SCREENS_RANGE=17-25`, `screens/range.ts`) replays the specs before it without checking or drawing them, since later screens draw records earlier ones made, then checks and draws its own; Playwright's `--shard` would split the specs from those records.
 - **Locally**, on a stack of its own beside yours, so your own data is never touched: Compose project `wayfare-screens`, every port up by 10000 (`infra/docker/compose.screens.yaml`), and the console on port 5183.
 
 ```bash
@@ -41,4 +41,4 @@ apps/console/e2e/screens/stack.sh down     # stopped, its volumes removed
 
 ### A change that moves a screen
 
-`test:screens` fails and writes each moved screen's expected, actual and diff images to `test-results/` (in CI, the `playwright-report` artifact). If the change is intended, rerun with `test:screens:update` on a fresh stack and commit the new baselines with the change.
+`test:screens` fails and writes each moved screen's expected, actual and diff images to `test-results/` (in CI, the failed job's `playwright-…` artifact). If the change is intended, rerun with `test:screens:update` on a fresh stack and commit the new baselines with the change.

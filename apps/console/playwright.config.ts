@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { BROWSER_WS } from './e2e/screens/browser';
+import { SCREENS_MATCH } from './e2e/screens/range';
 import { CONSOLE, GATEWAY, SCREENS_STACK } from './e2e/support/stack';
 
 /**
@@ -44,7 +45,8 @@ export default defineConfig({
     },
     {
       name: 'screens',
-      testMatch: 'screens/**/*.screen.ts',
+      // A shard's specs (screens/range.ts): every one, unless E2E_SCREENS_RANGE names a shard.
+      testMatch: SCREENS_MATCH,
       timeout: 900_000,
       // The stack, its console and the renderer on one machine: an upstream can time out under
       // load. A spec's records are found or made, so it runs again from where it was.

@@ -1,0 +1,47 @@
+name: setup
+description: >-
+  Node and pnpm, the workspace installed from the pnpm store's cache, every service's example
+  environment, development signing keys, and the Prisma clients: what each job starts from.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+
+    # pnpm's exact version comes from `packageManager` in package.json.
+    - run: corepack enable
+      shell: bash
+
+    - name: Locate the pnpm store
+      id: pnpm-store
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: pnpm-${{ runner.os }}-
+
+    # strictDepBuilds: an unlisted dependency build script fails here.
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+
+    # The .env.example files are complete and hold no secrets.
+    - name: Use the example environment
+      shell: bash
+      run: |
+        for s in services/*; do cp "$s/.env.example" "$s/.env"; done
+        # The console's flows sign in as the dev seed's admin, so the seed needs a password.
+        sed -i 's/^SEED_ACCOUNT_PASSWORD=$/SEED_ACCOUNT_PASSWORD=ci seed password/' services/identity/.env
+
+    # The examples leave every *KEY* empty; a throwaway signing pair fills them.
+    - name: Generate development signing keys
+      run: pnpm keys:dev
+      shell: bash
+
+    # The Prisma clients are gitignored, so they are generated before anything reads their types.
+    - run: pnpm db:generate
+      shell: bash

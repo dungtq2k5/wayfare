@@ -12,6 +12,8 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/../../../.." && pwd)
 cd "$repo"
 compose=(docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml)
+# CI's end-to-end jobs lay the image build cache over it (infra/docker/compose.ci.yaml).
+[[ -n "${STACK_COMPOSE_FILE:-}" ]] && compose+=(-f "$STACK_COMPOSE_FILE")
 infra=(identity-db catalog-db narration-db billing-db analytics-db redis nats mailpit fake-gcs)
 apps=(identity catalog narration billing analytics gateway)
 declare -A port=([identity]=25433 [catalog]=25434 [narration]=25435 [billing]=25436 [analytics]=25437)

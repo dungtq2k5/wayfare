@@ -1,7 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { keepNormalized, RULES, stopNormalizing } from './normalize';
+import { replayed } from './range';
 
 /** The frames' widths: the desktop frame, 200 % zoom (720 CSS px) and the phone. */
 const WIDTHS = {
@@ -72,6 +73,7 @@ export async function look(
   // Every read the state starts settled: the nav's counts arrive after the page. A state that
   // holds a call open (loading, in flight) never goes idle, so the wait has a ceiling.
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+  if (replayed(test.info().file)) return;
   // Next's development overlay (its issues badge) is the dev server's, not the console's.
   await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' });
   // The API-down banner raised by a read that failed mid-capture (a loaded machine) is not the

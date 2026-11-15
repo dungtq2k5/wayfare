@@ -1,0 +1,105 @@
+name: e2e
+
+# The Playwright suites (architecture §12), beside the merge gate in pr.yml: each job on its own
+# fresh stack, the screens' stack a developer runs them on (apps/console/e2e/screens/stack.sh), so
+# a run here and a run on a laptop see the same ports, seed and build. A newer push cancels the
+# older run.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The console's baselines in four ranges of spec files (apps/console/e2e/screens/range.ts):
+          # later specs draw records earlier ones made, so a range replays the specs before it
+          # without drawing them, then checks and draws its own. Cut so each shard takes about as
+          # long; Playwright's own --shard would split the specs from the records they need.
+          - {
+              name: console screens 01–16,
+              app: console,
+              run: test:screens,
+              range: 1-16,
+              timeout: 50,
+            }
+          - {
+              name: console screens 17–25,
+              app: console,
+              run: test:screens,
+              range: 17-25,
+              timeout: 50,
+            }
+          - {
+              name: console screens 26–28,
+              app: console,
+              run: test:screens,
+              range: 26-28,
+              timeout: 50,
+            }
+          - { name: console screens 29, app: console, run: test:screens, range: 29-29, timeout: 50 }
+          - { name: console flows, app: console, run: e2e, flows: true, timeout: 30 }
+          - { name: web screens, app: web, run: test:screens, timeout: 30 }
+          - { name: web flows, app: web, run: e2e, flows: true, timeout: 25 }
+    env:
+      E2E_STACK: screens
+      # The stack's image builds read and write Buildx's GitHub Actions cache.
+      STACK_COMPOSE_FILE: infra/docker/compose.ci.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: docker/setup-buildx-action@v3
+      # The cache's token and URLs, for the stack's `docker compose` build.
+      - uses: crazy-max/ghaction-github-runtime@v3
+
+      # The flows run in this machine's Chromium; the screens in the pinned image's (screens/browser.ts).
+      - name: Cache Playwright's Chromium
+        if: matrix.flows
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - if: matrix.flows
+        run: pnpm --filter @wayfare/${{ matrix.app }} exec playwright install --with-deps chromium
+
+      - name: A fresh stack, migrated and seeded
+        run: apps/console/e2e/screens/stack.sh up
+
+      - name: ${{ matrix.name }}
+        run: pnpm --filter @wayfare/${{ matrix.app }} ${{ matrix.run }}
+        env:
+          E2E_SCREENS_RANGE: ${{ matrix.range }}
+
+      - name: Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ strategy.job-index }}-${{ matrix.app }}-${{ matrix.run }}
+          # The report, and each moved screen's expected, actual and diff images.
+          path: |
+            apps/${{ matrix.app }}/playwright-report
+            apps/${{ matrix.app }}/test-results
+
+      - name: Stack logs on failure
+        if: failure()
+        run: >-
+          docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml
+          --profile apps logs --no-color --tail=200
+
+  # One check for branch protection: every suite passed.
+  e2e:
+    if: always()
+    needs: suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: test "${{ needs.suite.result }}" = success

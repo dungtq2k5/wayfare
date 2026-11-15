@@ -32,7 +32,7 @@ The flows' setup (`global-setup.ts`) makes the fixture Places with fixed names (
 
 The baselines draw everything the stack holds: the map lists every Place near its centre, and the area chooser lists every area. So the screens need a stack nothing else has written to, not even the console's screens.
 
-- **In CI**, the stack is reset after the console's screens, and the web's screens run on it before any flow.
+- **In CI** (`.github/workflows/e2e.yml`), the same stack, booted fresh by `stack.sh up` in a job of their own.
 - **Locally**, on the console's screens stack (Compose project `wayfare-screens`), with the web on port 5184:
 
 ```bash
@@ -47,4 +47,4 @@ apps/console/e2e/screens/stack.sh down                                # stopped,
 
 ### A change that moves a screen
 
-`test:screens` fails and writes each moved screen's expected, actual and diff images to `test-results/` (in CI, the `playwright-report` artifact). If the change is intended, rerun `test:screens:update` on a fresh stack and commit the new baselines with the change.
+`test:screens` fails and writes each moved screen's expected, actual and diff images to `test-results/` (in CI, the failed job's `playwright-…` artifact). If the change is intended, rerun `test:screens:update` on a fresh stack and commit the new baselines with the change.
