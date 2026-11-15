@@ -46,13 +46,13 @@ jobs:
           # long; Playwright's own --shard would split the specs from the records they need.
           SUITES: >-
             [
-            {"name": "console screens 01–16", "app": "console", "run": "test:screens", "range": "1-16", "timeout": 50, "screens": true},
-            {"name": "console screens 17–25", "app": "console", "run": "test:screens", "range": "17-25", "timeout": 50, "screens": true},
-            {"name": "console screens 26–28", "app": "console", "run": "test:screens", "range": "26-28", "timeout": 50, "screens": true},
-            {"name": "console screens 29", "app": "console", "run": "test:screens", "range": "29-29", "timeout": 50, "screens": true},
-            {"name": "web screens", "app": "web", "run": "test:screens", "timeout": 30, "screens": true},
-            {"name": "console flows", "app": "console", "run": "e2e", "flows": true, "timeout": 30},
-            {"name": "web flows", "app": "web", "run": "e2e", "flows": true, "timeout": 25}
+            {"name": "console screens 01–16", "key": "console-screens-01-16", "app": "console", "run": "test:screens", "range": "1-16", "timeout": 50, "screens": true},
+            {"name": "console screens 17–25", "key": "console-screens-17-25", "app": "console", "run": "test:screens", "range": "17-25", "timeout": 50, "screens": true},
+            {"name": "console screens 26–28", "key": "console-screens-26-28", "app": "console", "run": "test:screens", "range": "26-28", "timeout": 50, "screens": true},
+            {"name": "console screens 29", "key": "console-screens-29", "app": "console", "run": "test:screens", "range": "29-29", "timeout": 50, "screens": true},
+            {"name": "web screens", "key": "web-screens", "app": "web", "run": "test:screens", "timeout": 30, "screens": true},
+            {"name": "console flows", "key": "console-flows", "app": "console", "run": "e2e", "flows": true, "timeout": 30},
+            {"name": "web flows", "key": "web-flows", "app": "web", "run": "e2e", "flows": true, "timeout": 25}
             ]
         run: |
           echo "matrix=$(jq -c --argjson screens "$SCREENS" \
@@ -101,21 +101,25 @@ jobs:
         env:
           E2E_SCREENS_RANGE: ${{ matrix.range }}
 
+      # Every service's whole log, with times, beside the report: a failure early in a long run
+      # is gone from any tail by the time the job ends.
+      - name: Stack logs on failure
+        if: failure()
+        run: |
+          mkdir -p apps/${{ matrix.app }}/test-results
+          docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml \
+            --profile apps logs --no-color --timestamps > apps/${{ matrix.app }}/test-results/stack.log
+
       - name: Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-${{ strategy.job-index }}-${{ matrix.app }}-${{ matrix.run }}
-          # The report, and each moved screen's expected, actual and diff images.
+          # An artefact's name can't hold `:`: the suite's own key.
+          name: playwright-${{ matrix.key }}
+          # The report, each moved screen's expected, actual and diff images, and the stack's logs.
           path: |
             apps/${{ matrix.app }}/playwright-report
             apps/${{ matrix.app }}/test-results
-
-      - name: Stack logs on failure
-        if: failure()
-        run: >-
-          docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml
-          --profile apps logs --no-color --tail=200
 
   # One check for branch protection: every suite this run needed passed.
   e2e:

@@ -157,7 +157,9 @@ export class UiBundlesService {
   private async prune(namespace: string, locale: string): Promise<void> {
     const kept = await this.prisma.uiBundle.findMany({
       where: { namespace, locale },
-      orderBy: { createdAt: 'desc' },
+      // `createdAt` is to the millisecond and rows written together tie; the id (UUIDv7,
+      // increasing within a process) breaks the tie in the order they were written.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: { id: true },
       take: UI_BUNDLE_KEEP_VERSIONS,
     });

@@ -12,7 +12,7 @@
 // catalog's and narration's .env.
 // Never for production keys.
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 if (process.env.NODE_ENV === 'production') {
@@ -87,9 +87,13 @@ if (!existsSync(gcsKeyPath)) {
     client_id: randomUUID(),
     token_uri: 'https://oauth2.googleapis.com/token',
   };
-  writeFileSync(gcsKeyPath, `${JSON.stringify(key, null, 2)}\n`, { mode: 0o600 });
+  writeFileSync(gcsKeyPath, `${JSON.stringify(key, null, 2)}\n`);
   console.log('✓ services/catalog/.keys/gcs-dev.json');
 }
+// Readable by everyone, on purpose: the key is fake, and catalog's and narration's images read it
+// mounted read-only as `node` (uid 1000), who need not own it — on a CI runner the checkout's
+// owner is another uid. The umask is no part of it, and a key an older run wrote 0600 is opened up.
+chmodSync(gcsKeyPath, 0o644);
 // billing verifies Stripe webhooks with a secret even without an API key (architecture §5).
 const billingPath = resolve(root, 'services/billing/.env');
 const billingEnv = existsSync(billingPath) ? readFileSync(billingPath, 'utf8') : '';

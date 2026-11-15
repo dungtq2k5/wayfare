@@ -124,10 +124,13 @@ describe('an uncommitted locale', () => {
 });
 
 describe('the three-version rule', () => {
-  it('keeps the newest versions and drops the oldest on write', async () => {
+  it('keeps the newest versions and drops the oldest on write, even written in one millisecond', async () => {
     const olderHashes = Array.from({ length: UI_BUNDLE_KEEP_VERSIONS }, (_, index) =>
       String(index).repeat(64).slice(0, 64),
     );
+    // One instant for all three, as a fast machine writes them: only the order they were
+    // written in says which is the oldest.
+    const createdAt = new Date('2026-11-01T00:00:00.000Z');
     for (const sourceHash of olderHashes) {
       await prisma.uiBundle.create({
         data: {
@@ -138,6 +141,7 @@ describe('the three-version rule', () => {
           origin: UiBundleOrigin.STATIC,
           messages: { 'nav.explore': 'cũ' },
           failedKeys: [],
+          createdAt,
         },
       });
     }
@@ -145,12 +149,13 @@ describe('the three-version rule', () => {
     await bundle('vi');
     const kept = await prisma.uiBundle.findMany({
       where: { namespace: TOURIST, locale: 'vi' },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { sourceHash: true },
     });
-    expect(kept).toHaveLength(UI_BUNDLE_KEEP_VERSIONS);
-    expect(kept.map((row) => row.sourceHash)).not.toContain(olderHashes[0]);
-    expect(kept.at(-1)!.sourceHash).toBe(bundleSourceHash('tourist'));
+    expect(kept.map((row) => row.sourceHash)).toEqual([
+      ...olderHashes.slice(1),
+      bundleSourceHash('tourist'),
+    ]);
   });
 
   it('never serves a PENDING row as READY', async () => {
