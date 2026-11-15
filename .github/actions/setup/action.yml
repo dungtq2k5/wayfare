@@ -3,6 +3,13 @@ description: >-
   Node and pnpm, the workspace installed from the pnpm store's cache, every service's example
   environment, development signing keys, and the Prisma clients: what each job starts from.
 
+inputs:
+  build:
+    description: >-
+      A turbo filter whose packages are built after the install (`@wayfare/console^...`): the
+      workspace packages are compiled (their `dist/`), and a job that runs an app needs them.
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -29,6 +36,15 @@ runs:
     - run: pnpm install --frozen-lockfile
       shell: bash
 
+    # Turbo's local cache, per job (and per build filter): a package whose inputs didn't change
+    # since this job's last run is replayed, not compiled again. Saved under the commit, restored
+    # from the job's latest.
+    - uses: actions/cache@v4
+      with:
+        path: .turbo/cache
+        key: turbo-${{ runner.os }}-${{ github.job }}-${{ inputs.build }}-${{ github.sha }}
+        restore-keys: turbo-${{ runner.os }}-${{ github.job }}-${{ inputs.build }}-
+
     # The .env.example files are complete and hold no secrets.
     - name: Use the example environment
       shell: bash
@@ -45,3 +61,9 @@ runs:
     # The Prisma clients are gitignored, so they are generated before anything reads their types.
     - run: pnpm db:generate
       shell: bash
+
+    - if: inputs.build != ''
+      run: pnpm turbo run build --filter="$FILTER"
+      shell: bash
+      env:
+        FILTER: ${{ inputs.build }}

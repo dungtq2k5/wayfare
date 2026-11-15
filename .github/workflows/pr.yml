@@ -116,6 +116,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - uses: docker/setup-buildx-action@v3
+        with:
+          # The runner is thrown away; removing the builder took 100 s.
+          cleanup: false
       # The cache's token and URLs, for the `docker compose` steps below.
       - uses: crazy-max/ghaction-github-runtime@v3
 

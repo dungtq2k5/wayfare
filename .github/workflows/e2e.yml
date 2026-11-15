@@ -13,43 +13,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which suites this run needs: the flows always; the screens only when what they draw can have
+  # changed, or when run by hand. A suite not needed is left out of the matrix, not skipped, so the
+  # final `e2e` check always reports.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            screens:
+              - apps/console/**
+              - apps/web/**
+              - packages/ui/**
+              - packages/i18n/**
+              - packages/design-tokens/**
+      - id: matrix
+        env:
+          SCREENS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.screens == 'true' }}
+          # The console's baselines run in four ranges of spec files (apps/console/e2e/screens/range.ts):
+          # later specs draw records earlier ones made, so a range replays the specs before it
+          # without drawing them, then checks and draws its own. Cut so each shard takes about as
+          # long; Playwright's own --shard would split the specs from the records they need.
+          SUITES: >-
+            [
+            {"name": "console screens 01–16", "app": "console", "run": "test:screens", "range": "1-16", "timeout": 50, "screens": true},
+            {"name": "console screens 17–25", "app": "console", "run": "test:screens", "range": "17-25", "timeout": 50, "screens": true},
+            {"name": "console screens 26–28", "app": "console", "run": "test:screens", "range": "26-28", "timeout": 50, "screens": true},
+            {"name": "console screens 29", "app": "console", "run": "test:screens", "range": "29-29", "timeout": 50, "screens": true},
+            {"name": "web screens", "app": "web", "run": "test:screens", "timeout": 30, "screens": true},
+            {"name": "console flows", "app": "console", "run": "e2e", "flows": true, "timeout": 30},
+            {"name": "web flows", "app": "web", "run": "e2e", "flows": true, "timeout": 25}
+            ]
+        run: |
+          echo "matrix=$(jq -c --argjson screens "$SCREENS" \
+            '{include: [.[] | select((.screens // false | not) or $screens)]}' <<< "$SUITES")" >> "$GITHUB_OUTPUT"
+
   suite:
+    needs: changes
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # The console's baselines in four ranges of spec files (apps/console/e2e/screens/range.ts):
-          # later specs draw records earlier ones made, so a range replays the specs before it
-          # without drawing them, then checks and draws its own. Cut so each shard takes about as
-          # long; Playwright's own --shard would split the specs from the records they need.
-          - {
-              name: console screens 01–16,
-              app: console,
-              run: test:screens,
-              range: 1-16,
-              timeout: 50,
-            }
-          - {
-              name: console screens 17–25,
-              app: console,
-              run: test:screens,
-              range: 17-25,
-              timeout: 50,
-            }
-          - {
-              name: console screens 26–28,
-              app: console,
-              run: test:screens,
-              range: 26-28,
-              timeout: 50,
-            }
-          - { name: console screens 29, app: console, run: test:screens, range: 29-29, timeout: 50 }
-          - { name: console flows, app: console, run: e2e, flows: true, timeout: 30 }
-          - { name: web screens, app: web, run: test:screens, timeout: 30 }
-          - { name: web flows, app: web, run: e2e, flows: true, timeout: 25 }
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     env:
       E2E_STACK: screens
       # The stack's image builds read and write Buildx's GitHub Actions cache.
@@ -57,7 +73,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          # The packages the app imports, compiled; its web server builds the app itself.
+          build: '@wayfare/${{ matrix.app }}^...'
       - uses: docker/setup-buildx-action@v3
+        with:
+          # The runner is thrown away; removing the builder only adds minutes.
+          cleanup: false
       # The cache's token and URLs, for the stack's `docker compose` build.
       - uses: crazy-max/ghaction-github-runtime@v3
 
@@ -95,11 +117,11 @@ jobs:
           docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml
           --profile apps logs --no-color --tail=200
 
-  # One check for branch protection: every suite passed.
+  # One check for branch protection: every suite this run needed passed.
   e2e:
     if: always()
-    needs: suite
+    needs: [changes, suite]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: test "${{ needs.suite.result }}" = success
+      - run: test "${{ needs.changes.result }}" = success && test "${{ needs.suite.result }}" = success
