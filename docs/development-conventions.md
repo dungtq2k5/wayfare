@@ -775,6 +775,7 @@ type Money = { readonly amountMinor: number; readonly currency: CurrencyCode };
 - **Voucher secrets are generated on the device** with the platform CSPRNG (`expo-crypto` / `crypto.getRandomValues`) before checkout, stored before the checkout request is sent, and never sent in plaintext — only their hash ([ADR 0051](./decisions/0051-vouchers-are-bearer-instruments-with-device-created-secrets.md)). A voucher whose secret is missing locally shows *Move to this device*, never an error.
 - **A voucher's QR is rendered only when the server reports it `ISSUED`**, even though the device holds the secret from checkout. `PENDING` and `PAYMENT_NOT_COMPLETED` vouchers are filtered out of every non-admin query by the shared `visibleVouchers()` where-clause — not in the UI.
 - On `web`, issuing a voucher calls `navigator.storage.persist()`; when it resolves `false` the success screen **MUST** tell the buyer to screenshot the QR or note the short code.
+- **The mobile app's TypeScript sees no generated or ignored file:** `tsconfig.json` includes only committed files (`nativewind-env.d.ts`, which references `expo/types/metro-require` for Metro's `process.env` and `require`), never `expo-env.d.ts` — its `react-native-web` augmentation gave native components the web's props, so a web-only prop (`lang` on a `Text`) compiled on a laptop and failed in CI.
 
 ### 12.3 The geofence and narration loop
 
