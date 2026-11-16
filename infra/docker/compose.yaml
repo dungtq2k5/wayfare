@@ -30,7 +30,7 @@ services:
   # PostGIS — the one database with a different image.
   catalog-db:
     container_name: wayfare-catalog-db
-    image: postgis/postgis:17-3.5
+    image: postgis/postgis:18-3.6
     environment:
       <<: *postgres-env
       POSTGRES_DB: wayfare_catalog
