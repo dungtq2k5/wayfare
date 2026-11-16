@@ -170,7 +170,7 @@ services:
       retries: 20
 
   nats-box:
-    image: natsio/nats-box:0.19.7
+    image: natsio/nats-box:0.20.2
     profiles: [tools]
     environment:
       NATS_URL: nats://nats:4222
