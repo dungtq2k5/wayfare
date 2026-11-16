@@ -114,12 +114,12 @@ test('4 save → the account offered → sign up → verify → the favourite ke
     'false',
   );
   await page.getByRole('switch', { name: 'Save to favourites' }).click();
-  await expect(page.getByRole('switch', { name: 'Save to favourites' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
   const offer = page.getByRole('dialog', { name: 'Saved on this browser' });
   await expect(offer).toBeVisible();
+  // The offer is modal: the heart behind it is out of the accessibility tree while it is open.
+  await expect(
+    page.getByRole('switch', { name: 'Save to favourites', includeHidden: true }),
+  ).toHaveAttribute('aria-checked', 'true');
   await offer.getByRole('link', { name: 'Create an account' }).click();
   await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
   await page.getByLabel('Name').fill('Mai Nguyen');
@@ -144,10 +144,10 @@ test('4 save → the account offered → sign up → verify → the favourite ke
     'false',
   );
   await second.getByRole('switch', { name: 'Save to favourites' }).click();
-  await expect(second.getByRole('switch', { name: 'Save to favourites' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
+  // As above: the offer opens over the heart, out of the accessibility tree behind it.
+  await expect(
+    second.getByRole('switch', { name: 'Save to favourites', includeHidden: true }),
+  ).toHaveAttribute('aria-checked', 'true');
   await second.goto('/sign-in?next=/favourites');
   await second.getByLabel('Email').fill(email);
   await second.getByLabel('Password', { exact: true }).fill(PASSWORD);

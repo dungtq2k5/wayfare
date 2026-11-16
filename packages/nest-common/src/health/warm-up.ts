@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import type { Metadata } from '@grpc/grpc-js';
 import { toErrorMessage } from '../errors/poison-message';
+import { fillPools } from '../observability/slow-calls';
 import { packCallerContext } from '../grpc/caller-context';
 import { SYSTEM_ORIGIN } from '../context/request-context';
 import type { AccountContext, AnonymousContext, DeviceContext } from '../context/request-context';
@@ -53,6 +54,8 @@ export const warmUpAccount = (
 export async function warmUp(steps: readonly WarmUpStep[]): Promise<void> {
   const logger = new Logger('WarmUp');
   const started = performance.now();
+  // Every database connection first: a hot read must never be the one that opens one.
+  await fillPools();
   for (const step of steps) {
     try {
       await step.run();
@@ -60,5 +63,7 @@ export async function warmUp(steps: readonly WarmUpStep[]): Promise<void> {
       logger.debug(`${step.name}: ${toErrorMessage(error)}`);
     }
   }
-  logger.log(`${steps.length} hot reads warmed in ${Math.round(performance.now() - started)} ms`);
+  logger.log(
+    `connections open; ${steps.length} hot reads warmed in ${Math.round(performance.now() - started)} ms`,
+  );
 }

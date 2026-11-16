@@ -91,6 +91,7 @@
     "@nestjs/testing": "11.2.9",
     "@nestjs/websockets": "11.2.9",
     "@types/express": "^5.0.0",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.0",
     "ioredis": "^5.11.1",
     "nestjs-zod": "^5.5.0",

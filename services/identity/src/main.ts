@@ -10,6 +10,7 @@ import {
   PinoLogger,
   protoPaths,
   ShutdownRegistry,
+  SlowCallInterceptor,
   startMetricsServer,
   warmUp,
 } from '@wayfare/nest-common';
@@ -31,15 +32,21 @@ async function bootstrap(): Promise<void> {
 
   // Read into a local: inside the union-typed options, `get`'s return type would be inferred as any.
   const grpcUrl = config.get('GRPC_URL', { infer: true });
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.GRPC,
-    options: {
-      package: [GRPC_PACKAGES.identity, GRPC_PACKAGES.health],
-      protoPath: protoPaths('identity', 'health'),
-      url: grpcUrl,
-      loader: GRPC_LOADER_OPTIONS,
+  // Every gRPC call slower than a second says where its time went. Set on the app and inherited:
+  // a microservice registers its handlers as it connects, so one set on it afterwards is ignored.
+  app.useGlobalInterceptors(new SlowCallInterceptor());
+  app.connectMicroservice<MicroserviceOptions>(
+    {
+      transport: Transport.GRPC,
+      options: {
+        package: [GRPC_PACKAGES.identity, GRPC_PACKAGES.health],
+        protoPath: protoPaths('identity', 'health'),
+        url: grpcUrl,
+        loader: GRPC_LOADER_OPTIONS,
+      },
     },
-  });
+    { inheritAppConfig: true },
+  );
 
   // Both publishers and consumers declare their streams: a publish no stream captures is lost.
   const spine = app.get(EventSpine);
