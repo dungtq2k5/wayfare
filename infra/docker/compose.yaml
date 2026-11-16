@@ -161,7 +161,7 @@ services:
 
   jaeger:
     container_name: wayfare-jaeger
-    image: jaegertracing/jaeger:2.21.0
+    image: jaegertracing/jaeger:2.23.0
     ports: ['127.0.0.1:4317:4317', '127.0.0.1:4318:4318', '127.0.0.1:16686:16686']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:13133/status']
