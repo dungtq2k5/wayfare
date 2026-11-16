@@ -79,7 +79,7 @@ services:
   # noeviction: a queue must never be silently evicted (ADR 0021).
   redis:
     container_name: wayfare-redis
-    image: redis:7-alpine
+    image: redis:8-alpine
     command: ['redis-server', '--maxmemory-policy', 'noeviction']
     ports: ['127.0.0.1:16379:6379']
     healthcheck:
