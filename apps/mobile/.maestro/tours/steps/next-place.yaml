@@ -1,0 +1,27 @@
+# Diagnostics' Simulate walk: the next Place on its trace, back to the Map, and its story played to
+# its end — a stop counts as heard only once its story finished.
+appId: app.wayfare
+---
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- runFlow:
+    when:
+      visible: 'Simulate walk'
+    commands:
+      - tapOn: 'Simulate walk'
+- scrollUntilVisible:
+    element: 'Next place'
+- tapOn: 'Next place'
+- tapOn: 'Back'
+- tapOn: 'Map'
+# Its story plays to its end. A Place this phone told recently isn't told again by a walk, so on a
+# repeat run nothing may start.
+- runFlow:
+    when:
+      visible: 'Pause'
+    commands:
+      - extendedWaitUntil:
+          notVisible: 'Pause'
+          timeout: 120000

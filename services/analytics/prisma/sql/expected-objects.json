@@ -1,0 +1,4 @@
+{
+  "indexes": [],
+  "constraints": ["consents_state_ck", "events_listen_ms_ck", "location_cell_hourly_min_devices_ck"]
+}

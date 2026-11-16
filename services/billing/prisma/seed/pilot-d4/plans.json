@@ -1,0 +1,24 @@
+{
+  "plans": [
+    {
+      "ownerSlug": "owner-1",
+      "ownerUserId": "01a0b998-8ec8-7444-acc0-3a80371abcdb",
+      "planCode": "GROWTH"
+    },
+    {
+      "ownerSlug": "owner-2",
+      "ownerUserId": "01a0b998-8ec9-770b-8dd3-d6a67d86208c",
+      "planCode": "GROWTH"
+    },
+    {
+      "ownerSlug": "owner-3",
+      "ownerUserId": "01a0b998-8ec9-770b-8dd3-dea564172162",
+      "planCode": "PRO"
+    },
+    {
+      "ownerSlug": "owner-4",
+      "ownerUserId": "01a0b998-8ec9-770b-8dd3-e58dd638a398",
+      "planCode": "FREE"
+    }
+  ]
+}

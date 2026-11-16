@@ -1,0 +1,13 @@
+# Edge 12 (frame A10): at launch, an outdated acceptance shows the new terms; accepting goes on.
+appId: app.wayfare
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "We've updated our terms"
+    timeout: 30000
+- assertVisible: 'Sign out instead'
+- tapOn:
+    id: 'terms-accept'
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 15000

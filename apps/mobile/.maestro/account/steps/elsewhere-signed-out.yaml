@@ -1,0 +1,28 @@
+# Edge 7 (frame A8): after the second device's *Sign out on every phone*, this phone's next
+# call ends its session and says so — in Settings, and once at the top of Favourites.
+appId: app.wayfare
+---
+# The app in front, as it was left: a part can follow another, or start the run.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'Explore|Settings|Favourites'
+    timeout: 30000
+- runFlow: ../../common/tabs.yaml
+- tapOn: 'Settings'
+# An account call ends the session. One the app made by itself (a refetch on its return) may
+# have done it already; otherwise opening the account makes one.
+- runFlow:
+    when:
+      notVisible: 'You were signed out'
+    commands:
+      - tapOn:
+          id: 'account-entry'
+      - runFlow: ../../common/tabs.yaml
+      - tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'You were signed out'
+    timeout: 15000
+- assertVisible: 'Keep your favourites on every phone'
+- tapOn: 'Favourites'
+- assertVisible: 'You were signed out'

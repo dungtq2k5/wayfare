@@ -1,0 +1,16 @@
+# Edge 6 (frame L6): B's verification link opened while A is signed in. Their masked addresses
+# are the same ("a***a@example.com"); the server says it is another account, and A stays.
+appId: app.wayfare
+---
+- runFlow:
+    file: open-link.yaml
+    env:
+      EMAIL: ${B}
+      PAGE: 'verify-email'
+- extendedWaitUntil:
+    visible: 'Done for the other account'
+    timeout: 15000
+- assertVisible: ".*You're still signed in as ${A} on this phone."
+- tapOn: 'Done'
+- assertVisible:
+    id: 'account-entry'

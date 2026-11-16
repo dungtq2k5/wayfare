@@ -1,0 +1,25 @@
+# Run by language/system.sh: a switch held by the hotset, so the script can drop the network or kill
+# the app under it (edges 2 and 4). NAME is the language.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runFlow:
+    file: toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+- runFlow:
+    file: ../../common/language-pick.yaml
+    env:
+      NAME: '${NAME}'
+# Back to the top, where the switch's card is: a long tail's row is far down the list.
+- swipe:
+    start: '50%,30%'
+    end: '50%,90%'
+- swipe:
+    start: '50%,30%'
+    end: '50%,90%'
+- assertVisible: 'Switching to ${NAME}'

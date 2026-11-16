@@ -1,6 +1,6 @@
 # 0026 — Geofencing is our own engine over a background location stream
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** —
+**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0059](./0059-the-native-app-is-android-only.md) (in part)
 
 ## Context
 

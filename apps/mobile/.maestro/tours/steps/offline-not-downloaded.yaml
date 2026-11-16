@@ -1,0 +1,9 @@
+# Offline with the area not downloaded (§3.4 item 3, TM6b): the tour still opens — every active
+# area's tours are synced — with the note, the cover's placeholder and the route on plain ground.
+appId: app.wayfare
+---
+- openLink: 'https://wayfare.app/t/V8KH-4N2D'
+- extendedWaitUntil:
+    visible: "Offline — .* isn't downloaded.*"
+    timeout: 20000
+- assertVisible: 'The route'

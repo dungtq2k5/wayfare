@@ -1,0 +1,25 @@
+{
+  "places": [
+    {
+      "id": "low",
+      "kind": "EDITORIAL",
+      "location": { "lat": 10.0, "lng": 106.0 },
+      "triggerRadiusM": 50,
+      "narrationPriority": 30,
+      "autoNarrationEnabled": true
+    },
+    {
+      "id": "high",
+      "kind": "EDITORIAL",
+      "location": { "lat": 10.0, "lng": 106.0 },
+      "triggerRadiusM": 50,
+      "narrationPriority": 80,
+      "autoNarrationEnabled": true
+    }
+  ],
+  "trace": [
+    { "t": 0, "lat": 10.0, "lng": 106.0, "accuracyM": 10 },
+    { "t": 3000, "lat": 10.0, "lng": 106.0, "accuracyM": 10 }
+  ],
+  "expect": [{ "t": 3000, "placeId": "high" }]
+}

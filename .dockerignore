@@ -1,0 +1,38 @@
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+**/generated/prisma
+**/.env
+**/.keys
+**/.env.*
+!**/.env.example
+.git
+.gitignore
+.gitattributes
+.github
+docs
+.kilo
+cspell.json
+graphify-out/
+/.cache/
+.scannerwork/
+.claude/
+.mcp.json
+.sonar-config.json
+.sonar-project.properties
+.vscode/
+cspell.json
+.editorconfig
+# Not use in Docker build so can ignore
+.prettierrc
+.prettierignore
+# Build and test output the service images never read: Next.js builds, Playwright results, the map packs' cache.
+**/.next
+**/.next-*
+**/test-results
+# The end-to-end suites and their baselines (about 100 MB): no service image reads them.
+apps/*/e2e
+apps/mobile/.maestro
+**/playwright-report
+infra/tiles/.cache/

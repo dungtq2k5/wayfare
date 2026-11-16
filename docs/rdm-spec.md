@@ -16,7 +16,7 @@ This document is written to change as little as possible. Where a column's meani
 - **`FK ➔ x.id`** is a real Postgres foreign key, inside one database.
 - **`ref ➔ service.table.id`** is a *logical* reference to another service's row. It is a plain UUID column with **no constraint**, validated at write time over gRPC ([ADR 0013](./decisions/0013-no-cross-service-foreign-keys.md)).
 - **`UNIQUE`** states the business rule. Where the rule is "unique among live rows" it is a **partial unique index**, which Prisma cannot declare; it lives in the service's committed SQL file (§2.9, [ADR 0045](./decisions/0045-schema-objects-prisma-cannot-express-live-in-committed-sql.md)) and is named in the table's notes.
-- **Enumerated values** are listed as `A | B | C`. They are `VARCHAR` columns, never Prisma enums ([ADR 0037](./decisions/0037-enumerated-columns-are-strings-not-prisma-enums.md)); the list here is the documentation of record, and the TypeScript source of record is `packages/contracts`. **A value added in code and not here is drift** — the most common kind, and the least visible.
+- **Enumerated values** are listed as `A | B | C` — one code span, or one per value with notes between them — or, for a closed set a constraint enforces, as `CHECK (col IN ('A','B'))` / `CHECK (col = 'A')`. The value list may follow a short lead-in phrase in the cell. `rdm-enum-sync.spec.ts` reads all of these, so a list written another way is invisible to it. They are `VARCHAR` columns, never Prisma enums ([ADR 0037](./decisions/0037-enumerated-columns-are-strings-not-prisma-enums.md)); the list here is the documentation of record, and the TypeScript source of record is `packages/contracts`. **A value added in code and not here is drift** — the most common kind, and the least visible.
 - Physical names are `snake_case` (tables plural). Prisma model fields are `camelCase`, mapped with `@map` / `@@map`. This document uses physical names throughout.
 
 ---
@@ -31,7 +31,7 @@ This document is written to change as little as possible. Where a column's meani
 | `catalog` | `wayfare_catalog` (PostGIS) | C-1 … C-16 | 1 |
 | `narration` | `wayfare_narration` | N-1 … N-7 | 1 |
 | `billing` | `wayfare_billing` | B-1 … B-14 | 2 |
-| `analytics` | `wayfare_analytics` | A-1 … A-6 | 2 |
+| `analytics` | `wayfare_analytics` | A-1 … A-7 | 3 |
 | `ai` | `wayfare_ai` | X-1 … X-3 | 2 |
 | `gateway` | *none* | — | 1 |
 
@@ -121,11 +121,15 @@ DRAFT ──approve──▶ PROCESSING ──en text+audio READY──▶ ACTIV
 
 The tourist client holds the whole active corpus for its area locally (product-overview §F5). It stays current through one monotonic number.
 
-- `catalog` owns a Postgres sequence, `catalog_sync_version_seq`. **Every change that a tourist client could observe** takes `nextval()` into the changed row's `sync_version`: a Place's own columns, any of its localizations, photos or menu items, a status transition into or out of `ACTIVE`, a soft delete. Child-row changes bump the **parent Place's** `sync_version`, because the client syncs Places, not photos.
+- `catalog` owns a Postgres sequence, `catalog_sync_version_seq`. **Every change that a tourist client could observe** takes `nextval()` into the changed row's `sync_version`: a Place's own columns, its photos or menu items, its opening hours, a status transition into or out of `ACTIVE`, a soft delete — child-row changes bump the **parent Place's** `sync_version`, because the client syncs Places, not photos. **A localization carries its own `sync_version`** (C-4, C-7, C-9), stamped by `stampLocalizationVersion` and **not** bumping its Place — unless the same write changes the Place itself (the activation gate opening), when the stamp comes first and then the Place's bump. A translation into one language therefore reaches only the phones that show it.
+- **A Place's version for a language follows the content chain** (`contentRows` beside `resolveContentTier`, in `packages/core`): the greatest of the Place's own version and the version of the row the record is served from — the language's own row whenever one exists, stale or not; English's when it has none; for `vi` its own row, never English; for an unsupported language English's. A menu translation is in no sync record, so it moves no sync version — only the detail's ETag (api-endpoints-plan §2.1). Tours follow the same rule with C-9.
 - `GET /sync/places?since=N` returns every Place with `sync_version > N`: `ACTIVE` ones as full records, everything else as ids in `removedPlaceIds`. The response's `datasetVersion` is the highest `sync_version` it covered.
 - **This is why Places are never hard-deleted.** A hard delete leaves no row to carry a `sync_version`, so a client would keep a deleted Place forever. The soft-deleted row *is* the tombstone; no separate tombstone table exists.
 - A sequence, not `updated_at`: two transactions committing in the same millisecond, or a clock step backwards on a replica, silently lose a change under timestamp sync. A sequence value is never reused.
 - ⚠️ A sequence value is taken at write time but visible at commit time, so a long transaction can commit a *lower* `sync_version` after a client has already synced past it. The sync query therefore reads with a small **safety lag**: it only returns rows up to `max(sync_version)` among transactions already older than `SYNC_SAFETY_LAG_MS` (default 5 s), and the client re-requests from its last `datasetVersion`. Without the lag the failure is a Place that silently never appears on one phone.
+- **How the lag is made safe.** Every transaction that bumps a `sync_version` opens with `SET LOCAL transaction_timeout = '4s'` as its **first** statement (Postgres starts that timer at the `SET`, not at `BEGIN`) and bumps through one helper, `bumpSyncVersion`, as its last write — `sync_version = nextval(…)` and `updated_at = clock_timestamp()` **in the same statement** — the moment the version is taken, not the transaction's start. With `now()`, a long transaction could take a higher version after a shorter, still-open one took a lower one, and the settled cap could pass the lower, uncommitted row; with both stamped together, a lower version always has an earlier stamp. The client-side transaction timeout is lower (3.5 s), so an overrun normally rolls back politely; the server timeout is the backstop, and it **closes the connection**, which the service answers as a retryable `503`. No such transaction outlives 4 s past its start, so it ends within 4 s of any stamp it wrote, and any row whose `updated_at` is older than the 5 s lag is settled.
+- **The sync read.** Changes are read **per language**, across **every** area — `since <` the Place's version for that language `<= cap` — and a Place that is not active, deleted, or **no longer in the requested area** is listed in `removedPlaceIds`, so a Place moved to another area leaves the old area's phones. `cap = max(largest settled sync_version, since)` over **four** tables — Places, tours, and their localizations (not menu translations) — each probed down its `(sync_version)` index to its first settled row; `datasetVersion` never goes backwards, and it is one number across all areas and languages. A delta with nothing for its language is a complete, empty page at the new cap.
+- **Only `bumpSyncVersion` writes `places.updated_at`, and only the stamp writes a localization's** (no ORM auto-stamp, which would use the application's clock), and an insert takes its first `sync_version` from `nextval` in the same statement. No column default references the sequence: it is created by the schema-objects file, after the migration.
 
 ### 1.8 Deletion policy
 
@@ -256,21 +260,26 @@ It is applied **after** `prisma migrate deploy` in every environment (local, tes
 
 ### 2.10 Shared table shape: `outbox_events`
 
-Present in `identity`, `catalog`, `narration`, `billing`, `analytics` and `ai` — every service that publishes. Identical in each. See §1.11.
+Present in `identity`, `catalog`, `narration`, `billing` and `ai` — every service that publishes (`analytics` publishes nothing). Identical in each. See §1.11.
 
 | Field | Type | Constraints / Default | Description |
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Also the JetStream `Nats-Msg-Id`, which is what makes a relay re-publish a deduplicated no-op. |
 | **subject** | VARCHAR(128) | NOT NULL | The JetStream subject, from the registry in `packages/contracts`. |
 | **payload** | JSONB | NOT NULL | Validated against the subject's zod schema **before** insert. A payload that fails validation fails the business transaction, which is the correct blast radius. |
-| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events for one aggregate are published in `id` order. |
+| **aggregate_id** | UUID | NOT NULL | The row the event is about. Events are published **in `id` order within one relay cycle, and best-effort across replicas** — two relays claiming with `SKIP LOCKED` can publish later rows first. Consumers therefore guard by version rather than arrival order (api-endpoints-plan §10). For an audit event with no resource, the actor's id; with neither, the event's own id — an unkeyed audit event is its own aggregate. |
+| **trace_parent** | VARCHAR(55) | Nullable | The W3C `traceparent` of the request that wrote the row, captured at insert. The relay copies it into the NATS headers so the consumer's span joins the originating trace — the publish happens on a later poll, outside that request's context. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | NULL means not yet published. |
 | **attempts** | INT | NOT NULL, 0 | Relay publish attempts. |
 | **last_error** | TEXT | Nullable | — |
 
 - **Index:** partial `(id) WHERE published_at IS NULL` — the relay's only query.
+- **`id` is also the event's `eventId`.** `outbox.add` generates it with `newId()`, injects it into the payload before validating, and uses it as the row id and the `Nats-Msg-Id`. No event factory generates its own id.
+- The relay claims rows with `SELECT … WHERE published_at IS NULL ORDER BY id LIMIT $n FOR UPDATE SKIP LOCKED`, so replicas never publish the same batch.
+- **A published-but-unmarked row is republished**, and outside JetStream's 2-minute duplicate window that is a real second delivery. That is by design — consumers absorb it — and must not be "fixed".
 - Published rows are pruned after `OUTBOX_RETENTION_DAYS` (7).
+- **A sensitive subject's payload does not outlive its publish.** For a subject declared `sensitive` in the registry (today only `billing.staff.invited`, which carries an invite token), the relay replaces `payload` with `'{}'` in the same `UPDATE` that sets `published_at`, so the broker holds the only copy, for the invitation's own lifetime. Such a row is never republished — there is nothing left to republish — so its publish must be confirmed by the broker before that `UPDATE` runs, which the relay already requires.
 
 ### 2.11 Shared table shape: `processed_events`
 
@@ -309,18 +318,18 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 ```txt
 [ identity  ] users, devices, sessions, roles, permissions, user_roles, role_permissions,
               owner_registrations, action_tokens, notifications, audit_logs, legal_acceptances,
-              email_deliveries, account_recoveries
+              email_deliveries, account_recoveries, user_identities
 [ catalog   ] places, categories, areas, place_localizations, place_photos, menu_items,
               menu_item_localizations, tours, tour_localizations, tour_stops,
               place_submissions, pending_uploads, favorites, map_packs, place_qr_scans_daily,
-              place_opening_hours
+              place_opening_hours, orphaned_objects
 [ narration ] synthesis_jobs, synthesis_tasks, audio_assets, translation_cache,
               pronunciation_entries, ui_bundles, localization_overrides
 [ billing   ] plans, plan_prices, billing_accounts, billing_events, discovery_boosts,
               connected_accounts, voucher_offers, voucher_offer_localizations,
               orders, vouchers, refunds, disputes, venue_staff, venue_staff_places
 [ analytics ] consents, events, location_cell_hourly, place_daily_stats,
-              runtime_activity_hourly, activity_daily_stats
+              runtime_activity_hourly, activity_daily_stats, rollup_days
 [ ai        ] ai_generations, ai_daily_usage, ai_prompt_versions
 + per service where applicable: outbox_events, processed_events, job_runs (§2.10–2.12)
 ```
@@ -336,14 +345,14 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | — |
 | **email** | VARCHAR(254) | NOT NULL, **UNIQUE** *(full, not partial — see notes)* | Normalized, `CHECK (email = lower(email))`. 254 is the RFC 5321 path limit. |
 | **is_email_verified** | BOOLEAN | NOT NULL, false | Set by consuming an `EMAIL_VERIFICATION` action token (I-9). Gates owner registration and purchases, not sign-in. |
-| **password_hash** | VARCHAR(255) | Nullable | argon2id. Nullable only so a future OAuth-only account is representable; every account created today has one, and the register route requires it. |
+| **password_hash** | VARCHAR(255) | Nullable | argon2id. **NULL for an account that signs in with Google only** ([ADR 0062](./decisions/0062-tourists-may-continue-with-google.md)) — created through Google, or whose unverified address lost its password when Google linked (ADR 0064). Login checks a dummy hash for it, so a password-less account answers exactly as a wrong password does. *Forgot password?* sets one. |
 | **full_name** | VARCHAR(120) | Nullable | Optional for tourists. Owners provide a contact name on I-8 instead, because an owner's legal contact and their display name are not the same fact. |
 | **preferred_locale** | VARCHAR(16) | NOT NULL, `'en'` | UI and email language. Independent of any device's content language — one person may read the console in Vietnamese and listen to narration in English. |
 | **owner_verified_at** | TIMESTAMPTZ(3) | Nullable | **NULL means not a verified owner.** Set, in the same transaction, when an owner registration (I-8) is approved; carried in the access token as `ownerVerified`. A timestamp rather than a boolean, because "since when" is the first question in a dispute. Never cleared by a later rejection — a verified owner who reapplies for a second venue does not lose verification. |
 | **is_locked** | BOOLEAN | NOT NULL, false | Authoritative. A locked account cannot sign in or refresh. |
 | **locked_until** | TIMESTAMPTZ(3) | Nullable | When a temporary lock lapses. NULL with `is_locked = true` means indefinite. `CHECK (locked_until IS NULL OR is_locked)`. |
 | **lock_reason** | VARCHAR(255) | Nullable | Shown to staff, never to the user. |
-| **tokens_valid_after** | TIMESTAMPTZ(3) | Nullable | **Access tokens issued before this instant are rejected** by the gateway, which reads it from Redis on every authenticated request. Bumped on lock, password change, role change and owner verification. It is how a 30-minute stateless access token becomes revocable in seconds without a per-request database read. NULL means no cutoff. |
+| **tokens_valid_after** | TIMESTAMPTZ(3) | Nullable | **Access tokens issued before this instant are rejected** by the gateway, which reads it from Redis on every authenticated request. identity publishes every bump as `identity.session.revoked`, and its own consumer writes the Redis value — only ever raising it — so a failed cache write is retried rather than lost; a cache miss is answered from this column. Bumped on lock, deactivation, forced sign-out, password change, role change and owner verification. **A role change bumps it without revoking sessions** — the next refresh re-reads the permissions — while lock, deactivation and forced sign-out also revoke every session. It is how a 30-minute stateless access token becomes revocable in seconds without a per-request database read. NULL means no cutoff. |
 | **credentials_changed_at** | TIMESTAMPTZ(3) | Nullable | Stamped on every email change, password reset and completed account recovery. **Drives the payout-change cooldown** ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)): for `PAYOUT_CHANGE_COOLDOWN_DAYS` (7) after it, changing payout routing is refused. A password *change* by a signed-in user who knows the current password does not stamp it — only flows that bypass the current credential do. |
 | **email_bounced_at** | TIMESTAMPTZ(3) | Nullable | Set by the first **hard bounce** recorded in I-13; cleared when an address is (re-)verified. While set, an owner sees a console banner. A spam complaint never sets it ([ADR 0049](./decisions/0049-transactional-email-via-resend-metadata-only.md)). |
 | **last_login_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -354,7 +363,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **erased_at** | TIMESTAMPTZ(3) | Nullable | **Self-service account deletion. Irreversible.** See notes. `CHECK (erased_at IS NULL OR deleted_at IS NOT NULL)` — erasure implies deletion. |
 
 - **Why `email` takes a full unique index despite soft delete.** Ask whether the row comes back (§2.8). A *deactivated* staff account is restorable, so its address must stay reserved — a partial index would let someone else register it in the meantime and the restore would then fail. An *erased* account never comes back, so erasure rewrites `email` to `erased+<id>@invalid.wayfare.app`, which frees the real address by construction. Both cases are served by one full index.
-- **Erasure**, in one transaction: `email` rewritten as above, `password_hash`, `full_name` set NULL, `is_email_verified = false`, `deleted_at` and `erased_at` stamped, every session revoked, every device unclaimed (`devices.user_id = NULL`), `email_deliveries.to_email_masked` and `to_email_hash` set NULL (I-13), `identity.user.erased` published. Consumers then detach their own rows — billing nulls **both** `orders.buyer_user_id` and `orders.buyer_device_id` but **keeps the order** (§1.8, B-9, [ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)), catalog clears `favorites.user_id`. Unredeemed vouchers are neither voided nor waited for.
+- **Erasure**, in one transaction: `email` rewritten as above, `password_hash`, `full_name` set NULL, `is_email_verified = false`, `deleted_at` and `erased_at` stamped, every session revoked (with a token-cutoff bump) and its `ip` and `user_agent` cleared, every device unclaimed (`devices.user_id` and `claimed_at` NULL; the push token is the phone's and stays), `email_bounced_at` cleared, the user's `action_tokens` (I-9) and `notifications` (I-10) deleted, `email_deliveries.to_email_masked` and `to_email_hash` set NULL (I-13), a `PENDING` owner application withdrawn and every owner registration's national ID, contact fields and `applicant_note` cleared (I-8), `identity.user.erased` published. Consumers then detach their own rows — billing nulls **both** `orders.buyer_user_id` and `orders.buyer_device_id` but **keeps the order** (§1.8, B-9, [ADR 0048](./decisions/0048-erasure-anonymises-purchases.md)), catalog clears `favorites.user_id`. Unredeemed vouchers are neither voided nor waited for.
+- **Erasure keeps** the roles, `owner_verified_at`, and `legal_acceptances` and `audit_logs` **including their IPs**: the evidence of what was granted, agreed and done, under their own retention. On owner registrations it keeps the business name and address and the staff notes, which are business data. A finalised Stripe invoice keeps its own snapshot of the customer's details, which Stripe does not edit.
+- **No mail reaches an erased account:** the email pipeline refuses an erased recipient itself, so a crash-resend of a queued message after erasure is dropped rather than sent to the placeholder address.
 - **Erasure is refused** while the buyer has a `PENDING` order, while an `EMAIL_CHANGE_REVERT` token is live (I-9), and — for owners — while active financial obligations exist. The id survives because audit logs and financial records must still point at *something*.
 - **Roles, not columns, decide what a user is.** There is no `is_admin`, `is_owner` or `account_type`. System roles are seeded: `SUPER_ADMIN`, `ADMIN`, `VENUE_OWNER`, `USER`. `owner_verified_at` is the one exception, and it is not a role: it records a verification *event*, which a role cannot.
 
@@ -366,7 +377,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Returned to the client once and stored in secure storage. Not secret by itself. |
 | **secret_hash** | CHAR(64) | NOT NULL, **UNIQUE** | SHA-256 of the 32-byte device secret issued at registration. Looked up by value on every device-token exchange (§2.7). The plaintext is returned exactly once. |
-| **user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | **The claim.** NULL = anonymous. Set on sign-in; cleared on erasure. |
+| **user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | **The claim.** NULL = anonymous. Set on sign-in; cleared on erasure. **A sign-in by a different account moves the claim** (a shared or handed-down phone) and revokes the previous account's sessions on the device. |
 | **claimed_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **platform** | VARCHAR(16) | NOT NULL | `IOS \| ANDROID \| WEB` |
 | **app_version** | VARCHAR(32) | NOT NULL | Semver of the client build. Lets the gateway refuse a build known to be broken with a clear `426` instead of a crash. |
@@ -395,13 +406,16 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **client** | VARCHAR(16) | NOT NULL | `CONSOLE \| WEB \| MOBILE` — decides whether tokens travel in cookies or in the body. |
 | **ip** | VARCHAR(45) | Nullable | Observed by the gateway, never client-supplied. |
 | **user_agent** | VARCHAR(512) | Nullable | Truncated, never rejected. |
-| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | `created_at + REFRESH_TOKEN_TTL` (7 d). |
+| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | `created_at + REFRESH_TOKEN_TTL` for the session's client: **30 d for `MOBILE`** (a tourist's trips are weeks apart), 7 d for `CONSOLE` and `WEB`. |
 | **rotated_at** | TIMESTAMPTZ(3) | Nullable | Set when this token is exchanged for its successor. |
 | **revoked_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **revoked_reason** | VARCHAR(32) | Nullable | `LOGOUT \| LOGOUT_ALL \| REPLAY_DETECTED \| PASSWORD_CHANGED \| LOCKED \| ADMIN \| ERASED` |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **A spent row is kept, not deleted — that is the replay defence.** A refresh presenting a hash whose row has `rotated_at` set proves two parties hold the same token; the handler revokes **every row in the `family_id`** and returns `401`. Delete the spent row and the replay looks like an unknown token, indistinguishable from a typo.
+- **For `MOBILE`, every second use is a replay**, with no grace: the app refreshes one call at a time and stores the new token before using it. An app killed between the answer and that write replays at its next launch and is signed out — accepted as rare, for strict detection.
+- **A lost race is not a replay — for cookie clients.** A `CONSOLE` or `WEB` session's hash rotated less than `REFRESH_RACE_GRACE_MS` (10 s) earlier is a second tab sharing the cookie jar that refreshed at the same moment; it gets `409` and nothing is revoked. A `MOBILE` session has no grace: its app refreshes single-flight, so any rotated hash is a replay. Rotation is a conditional update (`WHERE rotated_at IS NULL`), so exactly one of two concurrent refreshes wins.
+- **A successor keeps its family's `expires_at`.** Rotation never extends a session beyond `REFRESH_TOKEN_TTL` from the login.
 - A session is live iff `rotated_at IS NULL AND revoked_at IS NULL AND expires_at > now()`. Rows are pruned 30 days after `expires_at`.
 - **Devices do not have sessions.** A device token is re-derived from the device secret (I-2) whenever it expires; there is no rotation lineage to protect because there is no human credential behind it.
 
@@ -418,7 +432,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Hard-deleted, and refused while assigned** — `user_roles.role_id` is `RESTRICT`, so the database refuses what the service's `409` explains.
-- `SUPER_ADMIN` is bootstrapped by a seed script from environment variables and is never assignable over HTTP.
+- `SUPER_ADMIN` is bootstrapped by `pnpm --filter @wayfare/identity bootstrap:super-admin` from `BOOTSTRAP_SUPER_ADMIN_EMAIL` and `BOOTSTRAP_SUPER_ADMIN_PASSWORD`, and is never assignable over HTTP. The script is idempotent and never overwrites an existing password. **There is always at least one active holder** — not deactivated and not currently locked; the last one cannot lose the role, be locked or be deactivated.
+- **A custom role's `code`** is generated from its name as `CUSTOM_<NAME>` (with a numeric suffix on a collision) and **never changes**, because audit rows cite it. A rename changes `name` only.
+- **Changing a role's permissions bumps `tokens_valid_after` for every live holder**, and is refused above `MAX_ROLE_HOLDERS_PER_CHANGE` (500) holders — a role that wide is split instead.
 
 #### Table I-5: permissions
 
@@ -479,8 +495,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Partial unique:** `owner_registrations_one_pending` — `(user_id) WHERE status = 'PENDING'`. One open application per person.
-- **Approval, in one transaction:** `status = APPROVED`, `users.owner_verified_at = now()` (if not already set), grant `VENUE_OWNER`, bump `users.tokens_valid_after` so the next request forces a refresh that carries the new claims, write outbox `identity.owner.verified` (billing opens a Free-plan account on it) and `notification.create`.
-- **Redaction:** `PII_RETENTION_DAYS` (180) after `reviewed_at`, or after `updated_at` for `WITHDRAWN`, the job sets `national_id_ciphertext` and `national_id_last4` to NULL and stamps `pii_redacted_at`. Decrypting a value is `POST …/national-id/reveal`, which writes an audit row every time.
+- **Approval, in one transaction:** `status = APPROVED`, `users.owner_verified_at = now()` (if not already set), grant `VENUE_OWNER`, bump `users.tokens_valid_after` so the next request forces a refresh that carries the new claims, write outbox `identity.owner.verified` (billing opens a Free-plan account on it), and write the `OWNER_REGISTRATION_APPROVED` notification directly (identity owns I-10, so it does not publish `notification.create` to itself). **Both decisions** also prepare the `OWNER_REGISTRATION_OUTCOME` email in the same transaction; a rejection writes its notification the same way.
+- **Redaction:** `PII_RETENTION_DAYS` (180) after `reviewed_at`, or after `updated_at` for `WITHDRAWN`, the job (`owner-pii-redact`, daily, in batches, one `OWNER_PII_REDACTED` audit row per registration) sets `national_id_ciphertext` and `national_id_last4` to NULL and stamps `pii_redacted_at`. A `PENDING` row is never redacted by the job. **Erasure** (I-1) clears every row of the user at once: a `PENDING` application becomes `WITHDRAWN`, the national ID columns are nulled and `pii_redacted_at` stamped, `contact_name` and `contact_phone` are overwritten with `''`, `applicant_note` (free text the person wrote) is set NULL, and each row gets an `OWNER_PII_REDACTED` audit row. Decrypting a value is `POST …/national-id/reveal`, which writes an audit row every time.
 
 #### Table I-9: action_tokens
 
@@ -490,21 +506,23 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE, Indexed | — |
-| **purpose** | VARCHAR(32) | NOT NULL | `PASSWORD_RESET \| EMAIL_VERIFICATION \| EMAIL_CHANGE \| EMAIL_CHANGE_REVERT` |
+| **purpose** | VARCHAR(32) | NOT NULL | `PASSWORD_RESET \| EMAIL_VERIFICATION \| EMAIL_CHANGE \| EMAIL_CHANGE_REVERT \| ACCOUNT_SETUP \| ACCOUNT_RECOVERY` — `ACCOUNT_SETUP` is a new staff account's first-password link; `ACCOUNT_RECOVERY` is the completion link of a support-assisted recovery (I-14), bound to the requested address. |
 | **token_hash** | CHAR(64) | NOT NULL, **UNIQUE** | SHA-256, looked up by value. |
-| **target_email** | VARCHAR(254) | Nullable | The address the link was sent to. **Binding the token to the address** is what makes email change safe: `users.email` is written only when the token for that exact address is consumed. Required for `EMAIL_VERIFICATION`, `EMAIL_CHANGE` and `EMAIL_CHANGE_REVERT` — for a revert token it holds the **old** address the link restores. |
-| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | 1 h for reset, 24 h for verification and email change, **7 d** (`EMAIL_CHANGE_REVERT_TTL_DAYS`) for a revert — a victim may not notice for days. |
+| **target_email** | VARCHAR(254) | NOT NULL | The address the link was sent to. **Binding every token to its address** is what makes a link die with the inbox it went to: except for the off-address purposes — `EMAIL_CHANGE` (the new address), `EMAIL_CHANGE_REVERT` (the old address it restores) and `ACCOUNT_RECOVERY` (the requested address the account does not hold yet) — a token is consumable only while `target_email` equals `users.email`. For `EMAIL_CHANGE`, `users.email` is written only when the token for that exact address is consumed. |
+| **expires_at** | TIMESTAMPTZ(3) | NOT NULL | 1 h for reset, 24 h for verification and email change, **72 h** for account setup (a welcome mail is often opened the next day), **7 d** (`EMAIL_CHANGE_REVERT_TTL_DAYS`) for a revert — a victim may not notice for days. |
 | **used_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **invalidated_at** | TIMESTAMPTZ(3) | Nullable | Set on every older outstanding token of the same purpose when a new one is issued. Separate from `used_at` so "consumed" and "superseded" stay distinguishable. |
 | **ip** | VARCHAR(45) | Nullable | Where the request came from — included in the email so a victim can recognise an attack. |
 | **user_agent** | VARCHAR(512) | Nullable | — |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
-- Valid iff `used_at IS NULL AND invalidated_at IS NULL AND expires_at > now()`.
+- Valid iff `used_at IS NULL AND invalidated_at IS NULL AND expires_at > now()`, the address binding above holds, and the user is not deactivated — all in the one conditional update that consumes it, so a refused token is simply not live and nothing needs rolling back.
+- **Outstanding links die with the credential they would reset:** confirming an email change invalidates the user's live `PASSWORD_RESET`, `ACCOUNT_SETUP` and `EMAIL_VERIFICATION` tokens (they went to the old address), and a password change invalidates live `PASSWORD_RESET` tokens.
 - **Why one table rather than one per purpose:** all three are 256-bit link tokens with the same threat model and the same lookup. If a *numeric* code a human types is ever added, it gets its own table — a six-digit code needs an attempt counter and a slow KDF, and sharing a table would let a guessable code be accepted where a link token is expected.
-- Consuming a `PASSWORD_RESET` revokes every session and stamps `users.credentials_changed_at`.
+- Consuming a `PASSWORD_RESET` revokes every session and stamps `users.credentials_changed_at`. Consuming either a `PASSWORD_RESET` or an `ACCOUNT_SETUP` also sets `is_email_verified`, since the bound link proved control of the current address. An `ACCOUNT_SETUP` on an account that has no password stamps nothing — no existing credential was bypassed; on an account that already has one (set by the bootstrap or an earlier reset) it acts as a reset and stamps `credentials_changed_at`.
+- **The plaintext token exists only in the email that carries it.** A send that fails is never retried with the same token; the person asks again, which mints a new one and invalidates the old.
 - **A live `EMAIL_CHANGE_REVERT` token reserves its `target_email`**: registering or changing to that address is refused, so an attacker cannot block the revert by claiming the old address. It also blocks, on its user, account erasure, another email change, payout-routing changes and staff invitations. Found through the index `(target_email) WHERE purpose = 'EMAIL_CHANGE_REVERT' AND used_at IS NULL AND invalidated_at IS NULL`.
-- **Consuming a revert** restores the address, revokes every session, bumps `tokens_valid_after`, invalidates outstanding `EMAIL_CHANGE` tokens and issues a `PASSWORD_RESET` — the password is treated as compromised ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)).
+- **Consuming a revert** restores the address (marked verified again — it is the address the account had proven), revokes every session, bumps `tokens_valid_after`, invalidates outstanding `EMAIL_CHANGE` tokens and issues a `PASSWORD_RESET` — the password is treated as compromised ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)).
 
 #### Table I-10: notifications
 
@@ -514,7 +532,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
 | **recipient_user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE | — |
-| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED` |
+| **type** | VARCHAR(64) | NOT NULL | From `NOTIFICATION_TYPES`: `OWNER_REGISTRATION_APPROVED \| OWNER_REGISTRATION_REJECTED \| SUBMISSION_APPROVED \| SUBMISSION_REJECTED \| PLACE_ACTIVATED \| PLACE_UNPUBLISHED \| SUBSCRIPTION_ACTIVATED \| SUBSCRIPTION_PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ENTITLEMENTS_RAISED \| BOOST_ENDED \| VOUCHER_OFFER_APPROVED \| VOUCHER_OFFER_REJECTED \| VOUCHER_SOLD \| VOUCHER_CODE_GUESSING_SUSPECTED \| PAYOUT_ACCOUNT_ACTION_REQUIRED \| ACCOUNT_RECOVERY_PENDING \| ACCOUNT_RECOVERY_COMPLETED \| PLACE_EDITED_BY_ADMIN \| PLACE_NARRATION_FAILED` |
 | **data** | JSONB | NOT NULL | Typed by `type` (`NotificationData` union). Ids and short values only — e.g. `{ placeId, placeName, decisionNote }`. |
 | **event_id** | UUID | NOT NULL | The producer's outbox event id. |
 | **read_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -523,7 +541,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **No `title` or `body` column, deliberately.** The client renders the text from `type` + `data` through its UI i18n bundle, so a notification follows the reader's *current* language, and changing the wording is a bundle change rather than a data migration over every stored row. Emails are rendered at send time for the same reason.
 - **Unique:** `(recipient_user_id, event_id)` — the consumer upserts on it, so a JetStream redelivery never produces a second bell entry.
-- **Index:** partial `(recipient_user_id, created_at DESC) WHERE read_at IS NULL` — the unread count on every console page load.
+- **Index:** `notifications_unread_idx`, partial `(recipient_user_id, created_at DESC) WHERE read_at IS NULL` — the unread count on every console page load.
+- **A missing or erased recipient is skipped,** and the event acknowledged: an erased account gains no new personal data. A deactivated account, which can be restored, still receives rows.
 
 #### Table I-11: audit_logs
 
@@ -535,19 +554,20 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **event_id** | UUID | NOT NULL, **UNIQUE** | Producer's outbox id. The unique constraint makes this consumer idempotent without a `processed_events` row. |
 | **occurred_at** | TIMESTAMPTZ(3) | NOT NULL | The producer's clock, not receipt time — an event delayed by a broker outage must still sort where it happened. |
 | **service** | VARCHAR(32) | NOT NULL | Producing service. |
-| **actor_type** | VARCHAR(16) | NOT NULL | `USER \| DEVICE \| SYSTEM \| STRIPE` |
+| **actor_type** | VARCHAR(16) | NOT NULL | `USER \| DEVICE \| SYSTEM \| STRIPE \| ANONYMOUS` — `ANONYMOUS` is an unauthenticated caller with no device, e.g. a console login for an unknown email; the row's `ip` and `user_agent` are then its only identification. |
 | **actor_user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | — |
 | **actor_device_id** | UUID | Nullable | Not a foreign key: devices are pruned, audit rows are not. |
 | **action** | VARCHAR(64) | NOT NULL, Indexed | `SCREAMING_SNAKE` past tense, from `AUDIT_ACTIONS`. |
-| **resource_type** | VARCHAR(32) | NOT NULL | `USER \| ROLE \| OWNER_REGISTRATION \| PLACE \| SUBMISSION \| TOUR \| PRONUNCIATION \| SYNTHESIS_JOB \| PLAN \| BILLING_ACCOUNT \| VOUCHER_OFFER \| ORDER \| VOUCHER \| MAP_PACK \| LOCALIZATION \| STAFF_MEMBERSHIP \| ACCOUNT_RECOVERY` |
+| **resource_type** | VARCHAR(32) | NOT NULL | `USER \| DEVICE \| ROLE \| OWNER_REGISTRATION \| PLACE \| SUBMISSION \| TOUR \| CATEGORY \| AREA \| PRONUNCIATION \| SYNTHESIS_JOB \| PLAN \| BILLING_ACCOUNT \| BILLING_EVENT \| VOUCHER_OFFER \| ORDER \| VOUCHER \| MAP_PACK \| LOCALIZATION \| STAFF_MEMBERSHIP \| ACCOUNT_RECOVERY`. Each action has exactly one resource type, fixed in code (`AUDIT_ACTION_RESOURCE`). |
 | **resource_id** | UUID | Nullable | — |
 | **metadata** | JSONB | NOT NULL, `'{}'` | `{ before?, after?, reason? }`, built from a **per-action allowlist** of fields. Never a whole row: an allowlist cannot accidentally copy `password_hash` or a ciphertext into a table every admin can read. **No allowlist ever includes an email address, name or phone number**, which is why erasure needs no audit rewrite. |
 | **ip** | VARCHAR(45) | Nullable | — |
 | **user_agent** | VARCHAR(512) | Nullable | — |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Receipt time. |
 
-- **Indexes:** `(resource_type, resource_id, occurred_at DESC)`, `(actor_user_id, occurred_at DESC)`, `(action, occurred_at DESC)`.
+- **Indexes:** `(resource_type, resource_id, occurred_at DESC)`, `(actor_user_id, occurred_at DESC)`, `(action, occurred_at DESC)`, and `(occurred_at DESC, id DESC)` for the unfiltered console list, which pages on both.
 - **Never updated, never soft-deleted.** Pruned after `AUDIT_RETENTION_DAYS` (730).
+- **Alert actions** (`AUDIT_ALERT_ACTIONS`: a refresh-token replay, an email-change revert) are logged at `error` with `alert: true` by the consumer **when the row is newly written**, so a redelivered event never alerts twice.
 - Lives in `identity` because every audited actor is a user or device `identity` owns, and the console reads audit history beside the user it concerns.
 
 #### Table I-12: legal_acceptances
@@ -575,9 +595,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | Field | Type | Constraints / Default | Description & business logic |
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Also sent to the provider as the idempotency key and as a message tag, so a webhook maps back without storing the address. |
-| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| VOUCHER_MOVED \| VOUCHER_REFUNDED` |
+| **template** | VARCHAR(48) | NOT NULL | `EMAIL_VERIFICATION \| PASSWORD_RESET \| ACCOUNT_SETUP \| EMAIL_CHANGE \| EMAIL_CHANGED_NOTICE \| STAFF_INVITE \| OWNER_REGISTRATION_OUTCOME \| SUBMISSION_OUTCOME \| PAYMENT_FAILED \| ENTITLEMENTS_REDUCED \| ACCOUNT_RECOVERY_NOTICE \| ACCOUNT_RECOVERY_OUTCOME \| VOUCHER_MOVED \| VOUCHER_REFUNDED \| GOOGLE_PASSWORD_REMOVED` |
 | **recipient_user_id** | UUID | Nullable, FK ➔ users.id, SET NULL, Indexed | NULL only for a staff invite to someone with no account. |
-| **event_id** | UUID | NOT NULL | The triggering outbox event. |
+| **event_id** | UUID | NOT NULL | The triggering outbox event — or, for an email carrying an action token, that token's id (I-9). |
 | **to_email_masked** | VARCHAR(254) | Nullable | `a***e@example.com`. Shows support *which* address it went to — which differs from `users.email` after a change. NULL after erasure. |
 | **to_email_hash** | CHAR(64) | Nullable | HMAC-SHA-256 of the normalized address under `EMAIL_HASH_KEY`. Support checks a claim by hashing the claimed address with the same key. **Keyed**, so a leaked table cannot be matched against a list of known addresses. NULL after erasure. |
 | **provider** | VARCHAR(16) | NOT NULL | `RESEND \| NODEMAILER` |
@@ -588,9 +608,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **Never holds the body, the subject or any link.** Links carry single-use tokens; a table of them is a table of account-takeover keys.
-- **Unique:** `(template, event_id, recipient_user_id)` — one email per triggering event per recipient. A redelivered event or retried job finds the row and does not send again. This, not the provider, is the guarantee.
+- **Unique:** `(template, event_id, recipient_user_id)`, `NULLS NOT DISTINCT` — one email per triggering event per recipient, including a staff invite to an address with no account. A redelivered event or retried job finds the row and does not send again. This, not the provider, is the guarantee. A row still `QUEUED` with no `provider_message_id` (a send interrupted before the provider answered) may be re-sent by the event's redelivery, under the row id as the provider's idempotency key.
 - **Status only moves forward.** Rank `QUEUED` 0, `SENT` 1, `DELIVERED` 2, `COMPLAINED` 3; `BOUNCED` and `FAILED` are terminal. A webhook update applies only if it moves rank forward or reaches a terminal status from a non-terminal one — so a late `delivered` never overwrites `BOUNCED`, and `COMPLAINED` may follow `DELIVERED`. A "delivery delayed" report changes nothing. **`SENT` means only that the provider accepted it**; support must never read it as delivered.
-- A **hard** bounce stamps `users.email_bounced_at` if unset. A complaint does not.
+- A **hard** bounce stamps `users.email_bounced_at` if unset — and only while the bounced address is still the account's address; a bounce reported for an address the account has since left changes nothing on the account. A complaint does not stamp it.
 - Pruned after `EMAIL_DELIVERY_RETENTION_DAYS` (400), matching `billing_events`.
 
 #### Table I-14: account_recoveries
@@ -607,16 +627,37 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **support_reference** | VARCHAR(64) | NOT NULL | The ticket in the support channel the request came through. There is no public request form. |
 | **opened_by_id** | UUID | NOT NULL, FK ➔ users.id, RESTRICT | Holds `user.email.recover.open`. |
 | **approved_by_id** | UUID | Nullable, FK ➔ users.id, RESTRICT | Holds `user.email.recover.approve`. `CHECK (approved_by_id IS NULL OR approved_by_id <> opened_by_id)` — nobody approves a case they opened. |
-| **decision_note** | TEXT | Nullable | Required on rejection. |
+| **decision_note** | TEXT | Nullable | Required on rejection; at most 1 000 characters (`MAX_RECOVERY_DECISION_NOTE_LENGTH`). Never shown to the owner. |
 | **hold_until** | TIMESTAMPTZ(3) | Nullable | Approval time + `RECOVERY_HOLD_HOURS` (72). The owner may cancel from any reachable channel until then. |
-| **cancel_token_hash** | CHAR(64) | Nullable, **UNIQUE** | SHA-256 of the token in the "cancel this recovery" link sent with the hold notices, usable without signing in. |
+| **cancel_token_hash** | CHAR(64) | Nullable, **UNIQUE** | SHA-256 of the token in the "cancel this recovery" link sent with the hold notices, usable without signing in. It lives here, not in I-9, because every notice carries the same token and it must die with the case; the **completion** token is an ordinary I-9 token (`ACCOUNT_RECOVERY`) bound to the requested address. |
 | **expires_at** | TIMESTAMPTZ(3) | NOT NULL | Opening time + `RECOVERY_EXPIRY_DAYS` (14). |
 | **completed_at** | TIMESTAMPTZ(3) | Nullable | Consuming the link sets the email, marks it verified, revokes sessions, forces a new password and stamps `credentials_changed_at`. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Partial unique:** `account_recoveries_one_live` — `(user_id) WHERE status IN ('PENDING_APPROVAL','ON_HOLD','LINK_SENT')`.
+- **A terminal transition clears `cancel_token_hash`**, so the cancel link dies with the case rather than sitting unique but dead; completion also invalidates every live I-9 token of the account.
+- **A recovery restores access, nothing more:** it changes the login address, the password, the sessions and `credentials_changed_at`. Places, submissions, subscriptions and payouts are untouched, and the payout cooldown ([ADR 0052](./decisions/0052-email-change-revert-and-owner-recovery.md)) guards the money afterwards.
 - Never deleted; every transition is also audited.
+
+#### Table I-15: user_identities
+
+*A sign-in provider's identity linked to an account — Google only today ([ADR 0062](./decisions/0062-tourists-may-continue-with-google.md), [0063](./decisions/0063-google-sign-in-reaches-the-web-and-owners-never-staff.md), [0064](./decisions/0064-google-links-by-itself-only-where-google-owns-the-mailbox.md)).*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **id** | UUID | PK | — |
+| **user_id** | UUID | NOT NULL, FK ➔ users.id, CASCADE | — |
+| **provider** | VARCHAR(16) | NOT NULL | `GOOGLE` |
+| **subject** | VARCHAR(255) | NOT NULL | The provider's stable id for the person (Google's `sub`). **Linking is by this, never by the address.** |
+| **email_at_link** | VARCHAR(254) | NOT NULL | The address the provider gave when the link was made — for support; the account's email is `users.email`, which a Google sign-in never changes. |
+| **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- **Unique:** `(provider, subject)` — one Wayfare account per Google account — and `(user_id, provider)` — one Google account per Wayfare account (`409 GOOGLE_ACCOUNT_ALREADY_LINKED` otherwise).
+- **Linking** (ADR 0062, narrowed by ADR 0064): a known `subject` signs its account in. An unknown one whose address Google is authoritative for (`@gmail.com`, `@googlemail.com`, or an `hd` claim) links to the account holding that address, and **if that account's address was never verified, its `password_hash` is set NULL, its sessions revoked and its reset, verification and email-change links invalidated**, with the `GOOGLE_PASSWORD_REMOVED` email. Any other address with an account needs that account's password first (a sign-in, then a link ticket). An address with no account creates one, verified and password-less.
+- **Never for staff** ([ADR 0063](./decisions/0063-google-sign-in-reaches-the-web-and-owners-never-staff.md)): an account holding any role but `USER` and `VENUE_OWNER` cannot sign in with Google or gain a link; a link it already has stays, unused, until the role is gone.
+- **Linking and unlinking stamp `users.credentials_changed_at`** (the owner payout cooldown, ADR 0052). Unlinking needs a password on the account, and revokes every other session.
+- Deleted with the account (CASCADE) and by erasure.
 
 ### 3.2 `catalog` — places, content, tours, sync (PostGIS)
 
@@ -629,9 +670,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | Supplied by the application on the raw insert (§2.1). |
 | **kind** | VARCHAR(16) | NOT NULL | `EDITORIAL \| VENUE` (§1.3). **Immutable after creation** — a landmark does not become a business; model that as a new Place. |
 | **owner_user_id** | UUID | Nullable, ref ➔ identity.users.id, Indexed | `CHECK ((kind = 'VENUE') = (owner_user_id IS NOT NULL))`. Validated over gRPC at write time: the user must exist and have `owner_verified_at` set. |
-| **public_code** | VARCHAR(12) | NOT NULL, **UNIQUE** *(full — never reused)* | The code printed in a QR sticker and used in share links: 8 characters of Crockford base32 (no `I L O U`, so it survives being read aloud or typed from a photo). **Never changes and is never reassigned**, including after soft delete — a sticker on a wall outlives every database decision, and a reused code would narrate the wrong place to someone standing in front of the old one. |
+| **public_code** | VARCHAR(12) | NOT NULL, **UNIQUE** *(full — never reused)* | The code printed in a QR sticker and used in share links: 8 characters of Crockford base32 (no `I L O U`, so it survives being read aloud or typed from a photo). **Never changes and is never reassigned**, including after soft delete — a sticker on a wall outlives every database decision, and a reused code would narrate the wrong place to someone standing in front of the old one. **Stored canonical** (8 characters, upper case); **printed and shown as two groups of four** ("K7M2 9QXA"). Typed input is forgiving: case, spaces and hyphens are ignored, and O, I and L read as 0, 1 and 1 (`canonicalPublicCode()` in `@wayfare/contracts`). |
 | **category_id** | UUID | NOT NULL, FK ➔ categories.id, RESTRICT | — |
-| **area_id** | UUID | NOT NULL, FK ➔ areas.id, RESTRICT, Indexed | The pilot area. `location` must lie inside the area's `boundary`, checked with `ST_Covers` in the service on every write — a `CHECK` cannot read another table. |
+| **area_id** | UUID | NOT NULL, FK ➔ areas.id, RESTRICT, Indexed | The pilot area. `location` must lie inside the area's `boundary`, checked with `ST_Covers` in the service on every write that sets or changes it — a `CHECK` cannot read another table. The category, likewise, is checked (active, applicable to the kind) only when a write changes it, so retiring a category never blocks an edit of a Place that has it. |
 | **name_vi** | VARCHAR(160) | NOT NULL | Vietnamese source name. Feeds `content_hash`. |
 | **description_vi** | TEXT | NOT NULL | Vietnamese source description, bounded at the edge by `MAX_DESCRIPTION_CHARS` (4000). Feeds `content_hash`. |
 | **content_hash** | CHAR(64) | NOT NULL | SHA-256 of the canonical JSON `{"name":…,"description":…}` after Unicode NFC normalization. **NFC is not optional**: Vietnamese can be encoded precomposed or decomposed, and two byte-different encodings of identical text would otherwise hash differently and regenerate audio for no change. See §1.5. |
@@ -641,15 +682,17 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **narration_priority** | SMALLINT | NOT NULL, 50 | `CHECK (narration_priority BETWEEN 0 AND 100)`. Higher wins. **Admin-only** (§1.4). |
 | **auto_narration_enabled** | BOOLEAN | NOT NULL | Whether GPS may trigger this Place's narration. `CHECK (kind = 'VENUE' OR auto_narration_enabled)`. Editorial: always true. Venue: **written only by the `billing.entitlements.changed` consumer.** Tap-to-play is unaffected either way. |
 | **discovery_boost** | SMALLINT | NOT NULL, 0 | `CHECK (discovery_boost BETWEEN 0 AND 100)`, `CHECK (kind = 'VENUE' OR discovery_boost = 0)`. Visual ranking weight. **Written only by the `billing.boosts.changed` consumer.** Never read by anything that decides narration. |
-| **price_band** | SMALLINT | Nullable | `CHECK (price_band BETWEEN 1 AND 4)` — `$` to `$$$$`. Relative, currency-free, never computed from menu prices. |
+| **discovery_boost_changed_at** | TIMESTAMPTZ(3) | Nullable | The `changedAt` of the last `billing.boosts.changed` applied: an older event is ignored, so a late end never undoes a newer start. |
+| **price_band** | SMALLINT | Nullable | `CHECK (price_band BETWEEN 1 AND 4)` — `$` to `$$$$`. Relative, currency-free, never computed from menu prices. The console explains each band to whoever picks it, per person and meal: 1 under 50.000 ₫, 2 50.000–150.000 ₫, 3 150.000–500.000 ₫, 4 over 500.000 ₫ (the product owner) — guidance only, never stored. |
 | **menu_currency** | CHAR(3) | NOT NULL, `'VND'` | `CHECK (menu_currency IN ('VND','USD'))`. The one currency of this Place's whole menu ([ADR 0046](./decisions/0046-display-only-prices-use-the-venues-own-currency.md)). Held once here, so a mixed-currency menu cannot exist. Display-only: never charged, never converted. |
 | **phone** | VARCHAR(20) | Nullable | E.164. |
 | **website_url** | VARCHAR(512) | Nullable | `https` only, validated at the edge. |
 | **status** | VARCHAR(16) | NOT NULL | `DRAFT \| PROCESSING \| ACTIVE \| INACTIVE` (§1.6). |
-| **inactive_reason** | VARCHAR(24) | Nullable | `ADMIN \| OWNER \| ENTITLEMENT_LIMIT`. `CHECK ((status = 'INACTIVE') = (inactive_reason IS NOT NULL))`. Recorded because reactivation rules differ: an owner may undo `OWNER`, only an admin may undo `ADMIN`, and `ENTITLEMENT_LIMIT` lifts itself when the plan allows. |
+| **inactive_reason** | VARCHAR(24) | Nullable | `ADMIN \| OWNER \| ENTITLEMENT_LIMIT`. `CHECK ((status = 'INACTIVE') = (inactive_reason IS NOT NULL))`. Recorded because reactivation rules differ: an owner may undo `OWNER` (for an erased owner nobody can, so it is terminal; erasure moves the owner's `ADMIN` and `ENTITLEMENT_LIMIT` Venues to `OWNER` too, so neither an admin nor a widened grant can bring one back), only an admin may undo `ADMIN`, and `ENTITLEMENT_LIMIT` lifts itself when the plan allows — or the owner lifts it, when the plan has room. |
 | **activation_requested_at** | TIMESTAMPTZ(3) | Nullable | Set when a Place is approved for publication. The activation gate needs it (§1.6); a Place whose localizations become ready without it stays `PROCESSING`. |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | First time the Place became `ACTIVE`. Never cleared. |
-| **sync_version** | BIGINT | NOT NULL, Indexed | From `catalog_sync_version_seq`, re-taken on every tourist-observable change to the Place or its children (§1.7). |
+| **status_changed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | When `status` last changed — stamped by the trigger `places_status_changed_at_trg` (`schema-objects.sql`) on every write that changes it, raw SQL included; untouched by any other edit. Says how long a Place has been `PROCESSING` (api-endpoints-plan §3.5's stuck Places). |
+| **sync_version** | BIGINT | NOT NULL, Indexed | From `catalog_sync_version_seq`, re-taken on every tourist-observable change to the Place or its children — not its localizations, which carry their own (§1.7). |
 | **created_by_id** | UUID | NOT NULL, ref ➔ identity.users.id | The admin, or the approving admin for an owner-created Venue. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
@@ -662,7 +705,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
   - `(owner_user_id) WHERE deleted_at IS NULL` — the Owner Portal list and the place-limit count.
   - `(area_id, status)`.
 - **What counts against an owner's place limit:** Places in `DRAFT`, `PROCESSING` or `ACTIVE` with `deleted_at IS NULL`, **plus** `PENDING` `CREATE` submissions (C-11). A pending creation reserves its slot — counting only approved Places would let an owner on a 1-place plan submit five and have the admin discover the overrun on approval. `INACTIVE` Places do not count, which is what lets a downgrade unpublish the excess without deleting anything; reactivating one re-checks the limit.
-- **Ranking in the nearby list** is computed at read time from distance and `discovery_boost` with a fixed formula in `packages/core`, and any result where boost changed its position carries `sponsored: true`. The formula is not a column, so changing it is a deploy, not a data migration.
+- **The counted statuses are one constant,** `PLACE_LIMIT_STATUSES` (`DRAFT`, `PROCESSING`, `ACTIVE`) in `packages/contracts`, used by the limit check, a downgrade's unpublishing, a widened limit's reactivation and the owner place count. "Newest" is by `created_at`.
+- **Ranking in the nearby list** is computed at read time from distance and `discovery_boost` with a fixed formula in `packages/core` — rank distance = `distance × (1 − 0.5 × discovery_boost / 100)`, applied after the radius filter — and any result where boost changed its position carries `sponsored: true`. The formula is not a column, so changing it is a deploy, not a data migration.
 
 #### Table C-2: categories
 
@@ -671,12 +715,14 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | — |
 | **code** | VARCHAR(32) | NOT NULL, **UNIQUE** | `STREET_FOOD`, `RESTAURANT`, `CAFE`, `MARKET`, `TEMPLE`, `CHURCH`, `MUSEUM`, `LANDMARK`, `VIEWPOINT`, `PARK`… The **display name comes from the UI bundle** key `category.<code>`, never from this table — so a category is translated once, with the rest of the UI. |
 | **applies_to** | VARCHAR(16) | NOT NULL | `EDITORIAL \| VENUE \| ANY`. The submission form only offers Venue-applicable codes. |
-| **icon** | VARCHAR(64) | NOT NULL | Sprite name in the map style. |
+| **icon** | VARCHAR(64) | NOT NULL | The lowercased code, by convention. **No client draws from it:** both apps draw a category's icon from its code through `category-icons.json` in `packages/contracts`, and a code missing there draws `map-pin` until a release maps it — as its name waits for `category.<code>`. |
 | **sort_order** | SMALLINT | NOT NULL, 0 | — |
 | **is_active** | BOOLEAN | NOT NULL, true | Inactive categories stay on existing Places and disappear from pickers and filters. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
+- **The initial codes are system rows:** `SYSTEM_CATEGORIES` in `packages/contracts` (code, `applies_to`, icon, order) is inserted by catalog's `db:seed:system` in every environment, insert-only — a missing code is added, an existing row is never changed or deactivated by it. Admins own every change afterwards.
+- **`code` is immutable,** and a change of `applies_to` or `is_active` governs new choices only: Places that have the category keep it.
 - Hard-delete refused while any Place references it (`RESTRICT`). Deactivate instead.
 
 #### Table C-3: areas
@@ -690,12 +736,16 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **name_vi** | VARCHAR(120) | NOT NULL | Translated through the UI bundle key `area.<code>`, like categories. |
 | **boundary** | geography(Polygon, 4326) | NOT NULL | Places must lie inside it. The map-pack build clips to its bounding box. |
 | **center** | geography(Point, 4326) | NOT NULL | Initial map camera. |
-| **default_zoom** | SMALLINT | NOT NULL | `CHECK (default_zoom BETWEEN 10 AND 18)`. |
+| **default_zoom** | SMALLINT | NOT NULL | `CHECK (default_zoom BETWEEN 10 AND 18)` (`areas_default_zoom_ck`). |
 | **is_active** | BOOLEAN | NOT NULL, false | Inactive areas are hidden from tourists and pack listings. |
 | **sort_order** | SMALLINT | NOT NULL, 0 | — |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
+- **An area is content, not a system row:** the pilot area is created by the development seed locally and in tests, and through the admin route in a deployed environment.
+- **`code` is immutable.** The boundary is one closed, valid ring of at most 500 vertices, and `center` lies inside it.
+- **An area holding `PROCESSING` or `ACTIVE` Places cannot be deactivated:** it would vanish from `/areas` and the pack listings while its Places stayed on the map. **And no Place goes live in an inactive area:** activation, reactivation and restore refuse it (`AREA_INACTIVE`).
+- **Place writes and area writes do not interleave:** an area write holds the exclusive `catalog:areas` advisory lock, and a Place write takes it shared when it looks up its covering area, so no Place lands outside a boundary being shrunk or in an area being deactivated.
 - Areas may not overlap. Checked in the service with `ST_Intersects` on write — a Place inside two areas would belong to two offline packs and be downloaded twice.
 
 #### Table C-4: place_localizations
@@ -719,7 +769,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **audio_duration_ms** | INT | Nullable | Shown in the player before playback. |
 | **voice_id** | VARCHAR(64) | Nullable | The voice that produced it. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
-| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+| **sync_version** | BIGINT | NOT NULL, 0; Indexed, and `(lang, sync_version)` | From `catalog_sync_version_seq`, stamped last by every write of this row (§1.7). `0` means never stamped — a row from before the version existed, or one an older image inserted during a deploy (that image also bumped the Place). |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | Written only by the stamp, with the database's clock (§1.7). |
 
 - `CHECK ((audio_status = 'READY') = (audio_object_path IS NOT NULL AND audio_sha256 IS NOT NULL AND audio_source_content_hash IS NOT NULL))`.
 - **The activation gate reads this table** (§1.6): the `en` row must exist with `source_content_hash = places.content_hash`, `audio_status = 'READY'` and `audio_source_content_hash = places.content_hash`.
@@ -752,7 +803,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **name_vi** | VARCHAR(120) | NOT NULL | — |
 | **description_vi** | VARCHAR(500) | Nullable | — |
 | **content_hash** | CHAR(64) | NOT NULL | Of the NFC-normalized name + description. Menu changes regenerate **text** translations only; menus are never narrated. |
-| **price_minor** | INT | Nullable | In the Place's `menu_currency` (C-1): whole đồng for VND, cents for USD. `CHECK (price_minor >= 0)`, and a per-currency ceiling (`MENU_PRICE_CEILING_MINOR`: VND 50,000,000, USD 200,000) enforced at the edge because a `CHECK` cannot read the Place — a larger value is almost always a typo. Display-only; NULL means "ask". |
+| **price_minor** | INT | Nullable | In the Place's `menu_currency` (C-1): whole đồng for VND, cents for USD. `CHECK (price_minor >= 0)`, and a per-currency ceiling (`DISPLAY_PRICE_CEILING_MINOR`: VND 50,000,000, USD 200,000) enforced at the edge because a `CHECK` cannot read the Place — a larger value is almost always a typo. Display-only; NULL means "ask". |
 | **sort_order** | SMALLINT | NOT NULL | — |
 | **is_available** | BOOLEAN | NOT NULL, true | Sold out today, without deleting the item. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
@@ -771,7 +822,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **description** | VARCHAR(500) | Nullable | — |
 | **source_content_hash** | CHAR(64) | NOT NULL | — |
 | **translation_source** | VARCHAR(16) | NOT NULL | `SOURCE \| MACHINE \| HUMAN` — same rule as C-4. |
-| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+| **sync_version** | BIGINT | NOT NULL, 0; Indexed | Stamped as C-4's. Read only by the detail's ETag — no sync record carries a menu. |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | Written only by the stamp, with the database's clock (§1.7). |
 
 #### Table C-8: tours
 
@@ -785,7 +837,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **content_hash** | CHAR(64) | NOT NULL | As `places.content_hash`, over title + description. |
 | **cover_variants** | JSONB | Nullable | `PhotoVariants`. |
 | **estimated_minutes** | SMALLINT | NOT NULL | `CHECK (estimated_minutes BETWEEN 10 AND 600)`. |
-| **distance_m** | INT | NOT NULL | Walking distance along the stop order, recomputed on every stop change. Stored, because the tours list would otherwise compute a route per row. |
+| **distance_m** | INT | NOT NULL | The sum of **straight-line** legs between consecutive stops — the order, not a walking route — recomputed on every stop change (the console previews it with the same function from `packages/core`). Stored, because the tours list would otherwise compute it per row. |
 | **is_premium** | BOOLEAN | NOT NULL, false | R4, stretch. Always false until premium content ships — and even then sold only on the web, because of the app-store constraint in product-overview §14. |
 | **status** | VARCHAR(16) | NOT NULL | `DRAFT \| PROCESSING \| ACTIVE \| INACTIVE` — the Place machine (§1.6), gated on the `en` tour text only (tours are not narrated as a whole; their stops are). |
 | **inactive_reason** | VARCHAR(24) | Nullable | `ADMIN` only. Same `CHECK` as places. |
@@ -797,7 +849,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **deleted_by_id** | UUID | Nullable, ref ➔ identity.users.id | — |
 
 - Tours are **staff-authored only**. An owner cannot create a tour or add their Venue to one — inclusion in a curated tour is editorial.
-- A tour whose active stops fall below 2 is still `ACTIVE` in the table but omitted from tourist responses; inactive stops are skipped in order, never renumbered in the response.
+- A tour whose live stops fall below 2 is still `ACTIVE` in the table but omitted from tourist responses (`TOUR_UNAVAILABLE`); requesting activation needs at least two stops. **Never renumbered:** each stop keeps its `position` in the response, a stop whose Place isn't live a gap with its position only, no name.
+- **A stop stays when its Place leaves the area or Wayfare:** a stops replace refuses a Place outside the tour's area or deleted only when it isn't already a stop; deleting a Place a live tour lists is refused (`PLACE_IN_ACTIVE_TOUR`).
+- **`activation_requested_at`** (TIMESTAMPTZ(3), nullable) — the gate's input, as a Place's; the gate opens on the English text alone (tours are text-only).
 
 #### Table C-9: tour_localizations
 
@@ -809,7 +863,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **description** | TEXT | NOT NULL | — |
 | **source_content_hash** | CHAR(64) | NOT NULL | — |
 | **translation_source** | VARCHAR(16) | NOT NULL | `SOURCE \| MACHINE \| HUMAN`. |
-| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+| **sync_version** | BIGINT | NOT NULL, 0; Indexed, and `(lang, sync_version)` | Stamped as C-4's; a tour's version for a language follows the same chain (§1.7). |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | Written only by the stamp, with the database's clock (§1.7). |
 
 #### Table C-10: tour_stops
 
@@ -834,9 +889,11 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **place_id** | UUID | Nullable, FK ➔ places.id, RESTRICT, Indexed | `UPDATE`: the Place. `CREATE`: NULL until approval, then set to the created Place in the same transaction. `CHECK (kind = 'CREATE' OR place_id IS NOT NULL)`. |
 | **owner_user_id** | UUID | NOT NULL, ref ➔ identity.users.id, Indexed | Must equal `places.owner_user_id` for `UPDATE`. |
 | **status** | VARCHAR(16) | NOT NULL | `PENDING \| APPROVED \| REJECTED \| WITHDRAWN \| SUPERSEDED` |
-| **payload** | JSONB | NOT NULL | `PlaceSubmissionPayload` — the complete desired state: `nameVi`, `descriptionVi`, `categoryCode`, `location {lat,lng}`, `addressVi`, `priceBand`, `phone`, `websiteUrl`, `openingHours[]`, `photos[]` (ordered: existing photo ids to keep and confirmed upload ids to add), `menuItems[]`. **Contains no `narrationPriority` and no `triggerRadiusM`** (§1.4). |
+| **payload** | JSONB | NOT NULL | `PlaceSubmissionPayload` — the complete desired state: `nameVi`, `descriptionVi`, `categoryCode`, `location {lat,lng}`, `addressVi`, `priceBand`, `phone`, `websiteUrl`, `openingHours[]`, `photos[]` (ordered: existing photo ids to keep and confirmed upload ids to add), `menu { menuCurrency, items[] }` (one currency for the whole menu, C-1). Every optional field is present, as a value or `null`: `null` clears. **Contains no `narrationPriority` and no `triggerRadiusM`** (§1.4). |
 | **payload_schema_version** | SMALLINT | NOT NULL | Readers dispatch on it (§2.5). Bumped whenever a field is added or its meaning changes; old versions stay readable for as long as a `PENDING` row of that version exists. |
-| **base_sync_version** | BIGINT | Nullable | `UPDATE` only: the Place's `sync_version` when the owner opened the editor. If the Place has changed since — an admin fixed a typo, entitlements unpublished it — approval answers `409` unless the reviewer explicitly acknowledges the conflict. A full-state payload applied blindly would silently revert the admin's fix. |
+| **base_editable_hash** | CHAR(64) | Nullable | `UPDATE` only: the hash of the owner-editable fields the owner started from (`editableHash` from their read of the Place). A submission whose base no longer matches the live Place is refused at once. |
+| **base_snapshot** | JSONB | Nullable | `UPDATE` only: those owner-editable fields as they stood at submission — content, photo ids and alt texts in order, the menu currency and its full items (name, description, price, availability, so an admin's price change counts), hours. At approval, a field where the live Place differs from this snapshot was changed by someone else since; approval answers `409` with those fields unless the reviewer acknowledges them. **Not `sync_version`**: it moves when narration finishes or the status changes, which are not conflicts. A full-state payload applied blindly would silently revert an admin's fix. `CHECK ((kind = 'CREATE') = (base_snapshot IS NULL AND base_editable_hash IS NULL))`. |
+| **category_code_override** | VARCHAR(32) | Nullable | The category the reviewer applied instead of the payload's, if any. The owner's view shows both. |
 | **submitted_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **reviewed_at** | TIMESTAMPTZ(3) | Nullable | `CHECK ((status IN ('APPROVED','REJECTED')) = (reviewed_at IS NOT NULL))`. |
 | **reviewed_by_id** | UUID | Nullable, ref ➔ identity.users.id | — |
@@ -847,7 +904,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Partial unique:** `place_submissions_one_pending_update` — `(place_id) WHERE status = 'PENDING' AND kind = 'UPDATE'`. A new `UPDATE` submission for the same Place marks the previous `PENDING` one `SUPERSEDED` in the same transaction, rather than refusing — the owner fixing their own typo before review is the normal case, not a conflict.
 - **Entitlements are checked twice:** at submission (fast feedback) and at approval (the plan may have changed in between). The approval check is the one that counts.
-- **Approval, in one transaction:** apply the payload to the Place and its children; set `trigger_radius_m` and `narration_priority` from the *reviewer's* request, not the payload; if `name_vi`/`description_vi` changed, recompute `content_hash`, move the Place to `PROCESSING`, stamp `activation_requested_at`; take a new `sync_version`; mark the submission `APPROVED`; write outbox `catalog.place.content_changed` (if text changed), `catalog.submission.reviewed`, `audit.record`.
+- **The place limit** counts the owner's Places in `PLACE_LIMIT_STATUSES` plus their `PENDING` `CREATE` submissions, checked at submission and at approval under a transaction-scoped advisory lock on the owner, so two requests cannot both take the last slot.
+- **Approval, in one transaction:** composed of the same write steps an admin's edit uses (content, editorial, photos, menu, hours, activation), so the content hash, the sync bump, the events and the audit rows are identical; apply the payload to the Place and its children; set `trigger_radius_m` and `narration_priority` from the *reviewer's* request, not the payload; if `name_vi`/`description_vi` changed, recompute `content_hash`, move the Place to `PROCESSING`, stamp `activation_requested_at`; take a new `sync_version`; mark the submission `APPROVED`; write outbox `catalog.place.content_changed` (if text changed), `catalog.submission.reviewed`, `audit.record`.
 - Rows are never deleted. They are the history of what an owner asked for and what an admin decided.
 
 #### Table C-12: pending_uploads
@@ -860,17 +918,18 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **purpose** | VARCHAR(24) | NOT NULL | `PLACE_PHOTO \| TOUR_COVER` |
 | **uploader_user_id** | UUID | NOT NULL, ref ➔ identity.users.id, Indexed | Only this user may confirm or use it. |
 | **object_path** | VARCHAR(512) | NOT NULL, **UNIQUE** | Generated server-side: `uploads/<id>/original`. **Never derived from a client filename.** |
-| **declared_content_type** | VARCHAR(64) | NOT NULL | From the allowlist `image/jpeg \| image/png \| image/webp \| image/heic`. |
+| **declared_content_type** | VARCHAR(64) | NOT NULL | From the allowlist `image/jpeg \| image/png \| image/webp`. HEIC is not accepted — the image pipeline cannot decode it — so clients convert to JPEG first. |
 | **max_bytes** | INT | NOT NULL | `MAX_UPLOAD_BYTES` (5 MB), baked into the signed URL's conditions. |
 | **expires_at** | TIMESTAMPTZ(3) | NOT NULL | Signed URL lifetime, 15 min. |
-| **confirmed_at** | TIMESTAMPTZ(3) | Nullable | Set when the confirm route has verified the object exists, **sniffed its magic bytes**, and generated the WebP variants. |
+| **confirmed_at** | TIMESTAMPTZ(3) | Nullable | Set when the confirm route has verified the object exists, **sniffed its magic bytes**, refused an image over `MAX_UPLOAD_PIXELS`, generated the WebP variants, and **deleted the original** — which still carries the phone's EXIF, GPS included. Only the variants (`photos/…`) are ever public; `uploads/…` is never served. |
 | **sniffed_content_type** | VARCHAR(64) | Nullable | What the bytes actually are. A mismatch with the declared type rejects the upload. |
 | **bytes** | INT | Nullable | — |
 | **sha256** | CHAR(64) | Nullable | — |
-| **variants** | JSONB | Nullable | `PhotoVariants` written at confirm, under `photos/<id>/…`. Immutable paths, so an approved photo row can reference them directly — nothing is copied on approval. |
+| **variants** | JSONB | Nullable | `PhotoVariants` written at confirm, under `photos/<id>/{thumb,card,full}.webp` (320, 800 and 1600 px on the long edge), with orientation applied and all metadata stripped. Immutable paths, so an approved photo row can reference them directly — nothing is copied on approval. |
 | **consumed_at** | TIMESTAMPTZ(3) | Nullable | Set when a submission approval or an admin edit turns this into a `place_photos` row. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
+- **Kept while a `PENDING` submission names it:** the reaper skips it, and approval consumes it whatever its age.
 - **Reaped** by a job: unconfirmed past `expires_at`, or confirmed but unconsumed after `PENDING_UPLOAD_TTL_DAYS` (14 — long enough for a submission to sit in review). The job deletes the objects first and the row after.
 
 #### Table C-13: favorites
@@ -881,7 +940,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **device_id** | UUID | PK, ref ➔ identity.devices.id | No FK — devices live in another database. |
 | **place_id** | UUID | PK, FK ➔ places.id, CASCADE | — |
-| **user_id** | UUID | Nullable, ref ➔ identity.users.id, Indexed | **Denormalized from `identity.device.claimed`**, cleared by `identity.user.erased`. Cross-device sync reads `WHERE user_id = ?` and de-duplicates by `place_id`. |
+| **user_id** | UUID | Nullable, ref ➔ identity.users.id, Indexed | **Denormalized from `identity.device.claimed`** for the rows that existed at the claim, and set from the caller's account on every save by a signed-in device; cleared by `identity.user.erased`. Cross-device sync reads `WHERE user_id = ?` and de-duplicates by `place_id`. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - Deleted by the `identity.device.forgotten` consumer. Favourites on a soft-deleted Place are kept and filtered on read, so a restored Place reappears in the list.
@@ -899,13 +958,15 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **pmtiles_object_path** | VARCHAR(512) | NOT NULL | Served with range-request support. |
 | **pmtiles_sha256** | CHAR(64) | NOT NULL | — |
 | **pmtiles_bytes** | BIGINT | NOT NULL | — |
-| **style_object_path** | VARCHAR(512) | NOT NULL | Style JSON referencing only self-hosted glyphs and sprites. |
-| **assets** | JSONB | NOT NULL | `MapPackAssets`: every glyph range and sprite file with `{ path, sha256, bytes }`. The client verifies each before activation; there are hundreds of glyph files, which is why this is one JSONB list rather than hundreds of rows nobody queries individually. |
+| **style_object_path** | VARCHAR(512) | NOT NULL | Style JSON referencing only self-hosted glyphs and sprites — the Protomaps `light` flavour. |
+| **dark_style_object_path** | VARCHAR(512) | Nullable | The `dark` flavour's style, sharing the archive and glyphs; its sprite set is among `assets`. NULL for a pack built light-only, which clients draw with the light style in dark mode. |
+| **assets** | JSONB | NOT NULL | `MapPackAssets`, `{ style, files }`: the style JSON and every glyph range and sprite file, each with `{ path, sha256, bytes }`. The client verifies each before activation; there are hundreds of glyph files, which is why this is one JSONB list rather than hundreds of rows nobody queries individually. |
 | **source** | VARCHAR(64) | NOT NULL | e.g. `geofabrik-vietnam`. |
 | **source_date** | DATE | NOT NULL | Date of the OSM extract. Shown with the attribution. |
 | **min_zoom** | SMALLINT | NOT NULL | — |
 | **max_zoom** | SMALLINT | NOT NULL | `CHECK (max_zoom >= min_zoom)`. |
 | **build_tool** | VARCHAR(64) | NOT NULL | e.g. `planetiler 0.8.x`. Reproducibility. |
+| **objects_deleted_at** | TIMESTAMPTZ(3) | Nullable | Stamped when the retention job has deleted a retired pack's objects. |
 | **published_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **retired_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **created_by_id** | UUID | NOT NULL, ref ➔ identity.users.id | — |
@@ -913,8 +974,10 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Partial unique:** `map_packs_one_published` — `(area_id) WHERE status = 'PUBLISHED'`. Publishing a new version retires the previous one in the same transaction.
+- **Objects live in the media bucket** under `maps/<areaCode>/<buildId>/`, `buildId` being the first 16 hex characters of the archive's SHA-256, so every path is immutable.
+- **Pruning never deletes an object another kept pack still uses.**
 - Retired packs' objects are kept for `MAP_PACK_RETENTION_DAYS` (30), so a client mid-download of the previous version can finish and then update, instead of failing half-way.
-- **There is no offline *content* pack table.** The places / photos / audio half of an offline pack is a manifest computed from C-1, C-4 and C-5 at request time (every asset already carries its `sha256`), versioned by the area's highest `sync_version`, and cached. Storing it would be a second copy of the corpus that could disagree with the first.
+- **There is no offline *content* pack table.** The places / photos / audio half of an offline pack is a manifest computed from C-1, C-4 and C-5 at request time (every asset already carries its `sha256`), versioned by delta sync's cap, and cached — the places part (the area's live Places up to the cap) as an immutable gzipped NDJSON object at `offline/<areaCode>/<lang>/<areaVersion>-<liveCount>.ndjson.gz`, named by the area's own last change and its live count so a change elsewhere reuses it and a Place moving out does not, generated on first request and deleted by a retention job once it is older than the window and no longer current. Storing it in a table would be a second copy of the corpus that could disagree with the first.
 
 #### Table C-15: place_qr_scans_daily
 
@@ -944,6 +1007,46 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 - Several rows per weekday are allowed (lunch and dinner). **Any `specific_date` row replaces every weekday row for that date** — an exception is total, never merged. A Place with no rows has unknown hours and is excluded from the "open now" filter rather than assumed open.
 - Replaced as a whole list, like photos and menu items.
 
+#### Table C-17: orphaned_objects
+
+*Storage paths whose rows are gone and whose objects still exist.*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **object_path** | VARCHAR(512) | PK | A media path no row references any more. |
+| **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- Written in the **same transaction** that deletes the row referencing the path (a photo removed by a replace), so the intent to delete survives a crash; read by the `photo-objects-cleanup` job, which deletes the object and then the row. This is how C-5's "objects are removed after the row is gone" is kept without a scan of the bucket.
+
+#### Table C-19: public_codes
+
+*One code space for every printed or typed code — a Place's and a tour's — so the two can never be equal.*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **code** | VARCHAR(12) | PK | The 8-character code, as `places.public_code` and `tours.public_code`, which stay as columns. |
+| **target_type** | VARCHAR(8) | NOT NULL | `PLACE \| TOUR` (`public_codes_target_type_ck`). |
+| **target_id** | UUID | NOT NULL | The Place or tour. |
+
+- **Registered by a trigger** on each insert into `places` or `tours` (`places_public_code_trg`, `tours_public_code_trg`, `schema-objects.sql`), so no write path can skip it; the code generator retries on a conflict. Backfilled from `places.public_code`.
+- `GET /codes/:publicCode` reads it, and `/q/` routes by it to `/p/` or `/t/`.
+
+#### Table C-18: owner_entitlements
+
+*catalog's projection of each owner's entitlements, kept by its `billing.entitlements.changed` consumer. It exists for the consumer's version guard and the effects that compare old and new grants; limit checks still ask billing (`GetEntitlements`).*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **owner_user_id** | UUID | PK | ref ➔ identity.users.id. |
+| **entitlements_version** | BIGINT | NOT NULL | The newest `entitlementsVersion` applied. An event with a version not newer than this is ignored. |
+| **auto_narration** | BOOLEAN | NOT NULL | — |
+| **narration_language_scope** | VARCHAR(16) | NOT NULL | The same values as B-1's column. |
+| **max_places** | INT | NOT NULL | — |
+| **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
+
+- Never deleted; an owner with no row has never had entitlements applied, and the consumer inserts it.
+- **catalog also reads it** for a Venue's requested languages and its `auto_narration_enabled` at creation (`BASIC` and off with no row) — choosing languages is not a limit check, and asking billing would fail every Venue edit while billing is down.
+
 ### 3.3 `narration` — translation, pronunciation, synthesis
 
 `narration` produces localizations and audio; it serves none of them to tourists directly (§1.5). Its tables describe *work* and *artifacts*.
@@ -961,7 +1064,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **source_content_hash** | CHAR(64) | NOT NULL | The source version this job translates. |
 | **requested_langs** | VARCHAR(16)[] | NOT NULL, **no column default** | Target languages. Never empty — `CHECK (cardinality(requested_langs) > 0)`. |
 | **include_audio** | BOOLEAN | NOT NULL | `true` for `PLACE`; `false` for menus, tours, offers and UI bundles, which are text-only. |
-| **priority** | SMALLINT | NOT NULL | BullMQ priority, lower runs first: `ON_DEMAND` 1, `HOTSET` 2, `HUMAN_EDIT`/`HUMAN_REVERT` 4, `APPROVAL`/`CONTENT_CHANGED` 5, `PREFETCH` 7, `WARMUP`/`DICTIONARY_CHANGED` 9. |
+| **priority** | SMALLINT | NOT NULL | BullMQ priority, lower runs first: `ON_DEMAND` 1, `HOTSET` 2, `HUMAN_EDIT`/`HUMAN_REVERT`/`MANUAL` 4, `APPROVAL`/`CONTENT_CHANGED` 5, `PREFETCH` 7, `WARMUP`/`DICTIONARY_CHANGED`/`ENTITLEMENT_EXPANDED` 9. Every trigger has a priority (`SYNTHESIS_PRIORITY` is exhaustive). |
 | **status** | VARCHAR(24) | NOT NULL | `QUEUED \| RUNNING \| PAUSED \| COMPLETED \| PARTIALLY_FAILED \| FAILED \| CANCELLED \| SUPERSEDED` |
 | **total_tasks** | SMALLINT | NOT NULL | — |
 | **completed_tasks** | SMALLINT | NOT NULL, 0 | — |
@@ -978,6 +1081,10 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Indexes:** `(target_type, target_id, created_at DESC)`; partial `(status) WHERE status IN ('QUEUED','RUNNING','PAUSED')`.
 - **A newer job for the same target supersedes an older one.** When a job is created for a target with a different `source_content_hash`, every non-terminal older job for that target becomes `SUPERSEDED` and its queued tasks are cancelled, in the same transaction. Otherwise an owner who edits twice in a minute pays for both, and the slower one can finish last and publish stale audio.
+- **Superseding and coalescing happen in the job's creating transaction:** the older jobs' queued tasks are cancelled there, and a task whose `(target, lang, hash)` is already active is inserted as `COALESCED`. Every path that makes a task active — creation, retry, resume — first takes a transaction-scoped advisory lock on that key, then queues the task or coalesces it; the partial unique index is the backstop. The BullMQ jobs are added or removed after the commit, and a periodic recovery (at boot too) re-adds any `QUEUED` task of an unpaused job that lost its BullMQ job.
+- **A job's counts and status are recomputed with the job row locked** (`FOR NO KEY UPDATE`, as an admin's action on the job is): two of its tasks finishing at once would otherwise each count the other as running and leave the job `RUNNING` with every task done. **Not `FOR UPDATE`:** a transaction that updates a task row it already wrote takes `FOR KEY SHARE` on its job (Postgres re-checks the foreign key), which `FOR UPDATE` conflicts with — two tasks of one job finishing together deadlocked on it. A text-only task also updates its row once per transaction, writing its translation provider with its status. The recovery sweep also re-counts stale jobs.
+- **An event for text catalog no longer holds creates no job,** so a late event cannot supersede current work.
+- **A coalesced task never outlives the task it follows.** When that task is cancelled, or its job is paused, the oldest follower of a live, unpaused job is promoted to `QUEUED` in the same transaction and the others are repointed at it; a paused job's own task becomes a follower. When the task succeeds or fails finally, its followers end the same way.
 - **This row is the durable record; BullMQ is the executor** ([ADR 0019](./decisions/0019-bullmq-for-in-service-work.md)). The admin monitor reads this table plus live progress over WebSocket, never BullMQ's Redis keys.
 - Terminal jobs are pruned after `JOB_RETENTION_DAYS` (14).
 
@@ -993,15 +1100,20 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **target_id** | UUID | Nullable | Denormalized from the job. |
 | **lang** | VARCHAR(16) | NOT NULL | — |
 | **source_content_hash** | CHAR(64) | NOT NULL | Denormalized from the job. |
-| **stage** | VARCHAR(16) | NOT NULL | `TRANSLATE \| PRONOUNCE \| SYNTHESIZE \| STORE \| PUBLISH` — the step the task is in or failed at. |
+| **stage** | VARCHAR(16) | NOT NULL | `TRANSLATE \| PRONOUNCE \| SYNTHESIZE \| STORE \| PUBLISH` — the step the task is in or failed at. A retry resumes here; earlier stages' outputs come back from N-3 and N-4 as cache hits. |
 | **status** | VARCHAR(16) | NOT NULL | `QUEUED \| RUNNING \| SUCCEEDED \| FAILED \| CANCELLED \| COALESCED` |
-| **attempts** | SMALLINT | NOT NULL, 0 | — |
+| **attempts** | SMALLINT | NOT NULL, 0 | The only retry counter: the BullMQ queue keeps no finished jobs and never retries by itself; a failed attempt below the limit re-adds the task with a backoff delay. Every attempt adds to it (queue item ids stay unique); the limit is checked against `attempts − provider_waits`. |
+| **provider_waits** | SMALLINT | NOT NULL, 0 | Attempts that failed because **no speech provider could be reached** — a network error (`EAI_AGAIN`, a refused connection), a timeout, or every provider skipped while cooling down after such errors. They do not count toward the limit. A provider that **answers** with an error is an ordinary failure. |
+| **failure_reason** | VARCHAR(32) | Nullable | `PROVIDER_UNAVAILABLE` — the last attempt reached no speech provider; NULL otherwise. |
+| **provider_down_since** | TIMESTAMPTZ(3) | Nullable | The first unreachable attempt of the current outage; cleared by an attempt that reaches a provider. When it is older than `PROVIDER_OUTAGE_RETRY_WINDOW_MS` (24 h), the next unreachable attempt fails the task as an ordinary failure would — `FAILED`, the job's final event, the owner's notice. |
+| **next_attempt_at** | TIMESTAMPTZ(3) | Nullable | When a waiting task is re-added: 1, 5, then every 15 minutes after an unreachable attempt (`PROVIDER_OUTAGE_BACKOFF_MS`). Shown to staff in the job view. |
 | **translation_provider** | VARCHAR(32) | Nullable | The implementation that actually answered ([ADR 0033](./decisions/0033-translation-and-tts-behind-provider-interfaces.md)). Recorded per task, because "which provider produced this bad translation" is unanswerable after a fallback otherwise. |
 | **speech_provider** | VARCHAR(32) | Nullable | — |
 | **voice_id** | VARCHAR(64) | Nullable | — |
 | **cache_key** | CHAR(64) | Nullable | Set once the final SSML is known (N-3). |
 | **audio_asset_id** | UUID | Nullable, FK ➔ audio_assets.id, SET NULL | — |
 | **coalesced_into_task_id** | UUID | Nullable, FK ➔ synthesis_tasks.id, SET NULL | Set when this task found an identical active task and attached to it instead of running. |
+| **rerun_after_leader** | BOOLEAN | NOT NULL, false | Set when a `HUMAN_EDIT`, `HUMAN_REVERT` or `DICTIONARY_CHANGED` task meets an active task for the same text that has already **started** — its result would predate the change this task carries (a correction, a pronunciation). The task waits, then runs on its own once the leader finishes, instead of ending with the leader's result. |
 | **last_error** | TEXT | Nullable | Redacted. |
 | **started_at** | TIMESTAMPTZ(3) | Nullable | — |
 | **finished_at** | TIMESTAMPTZ(3) | Nullable | — |
@@ -1022,7 +1134,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **lang** | VARCHAR(16) | NOT NULL | — |
 | **voice_id** | VARCHAR(64) | NOT NULL | — |
 | **provider** | VARCHAR(32) | NOT NULL | — |
-| **format** | VARCHAR(32) | NOT NULL | e.g. `mp3_24khz_48kbps_mono`. Part of the key because the same words at a different bitrate are a different file. |
+| **format** | VARCHAR(32) | NOT NULL | Declared by the provider that answered, e.g. `mp3_24khz_48kbps_mono` (Edge) or `mp3_24khz_32kbps_mono` (Google). Part of the key because the same words at a different bitrate are a different file. A cache lookup computes the key for each configured provider, in order, and takes the first that exists. |
 | **object_path** | VARCHAR(512) | NOT NULL, **UNIQUE** | `audio/<cache_key>.mp3`. |
 | **sha256** | CHAR(64) | NOT NULL | File hash (not the cache key). |
 | **bytes** | INT | NOT NULL | — |
@@ -1031,6 +1143,8 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **last_referenced_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Bumped whenever a `narration.localization.ready` event names this asset. |
 
+- **Long texts are synthesized in chunks.** The final SSML is split at sentence boundaries into chunks under the provider's input limit (Google's is 5 000 bytes), synthesized in order and joined into one file; the key is still over the whole final SSML, and `duration_ms` is the joined file's.
+- **A cache hit verifies its object.** The row is a claim about a file in a bucket, and the two can disagree (a lost local bucket, a lifecycle rule, a mistaken delete): a task stats the object before reusing the row, treats a missing one as a miss, and synthesizes and stores again.
 - **Never updated** except `last_referenced_at`. A cache hit is a lookup on `cache_key`, which is what makes five languages affordable.
 - **Garbage collection:** an asset whose `last_referenced_at` is older than `AUDIO_ASSET_RETENTION_DAYS` (180) is deleted — object first, row second. 180 days comfortably exceeds any offline pack a client could still be verifying.
 
@@ -1068,7 +1182,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 
 - **Partial uniques:** `pronunciation_term_lang_key` — `(term, target_lang) WHERE target_lang IS NOT NULL`; `pronunciation_term_all_key` — `(term) WHERE target_lang IS NULL`. Two, because Postgres does not treat NULLs as equal.
 - **Applied longest-term-first, whole-word**, to the translated text immediately before synthesis. A language-specific entry beats the NULL entry for the same term.
-- **An edit creates `DICTIONARY_CHANGED` jobs** for every localization whose text contains the term (found through catalog's `SearchLocalizedText` RPC). The cache key (N-3) then decides what actually re-synthesises.
+- **An edit creates `DICTIONARY_CHANGED` jobs** for every localization whose text contains the term (found through catalog's `SearchLocalizedText` RPC). The fan-out runs on a queue, not in the request, at the lowest priority and capped at `MAX_DICTIONARY_FANOUT_TARGETS` (it reports and warns when it stops); a delete or deactivation fans out with the term as it was. The cache key (N-3) then decides what actually re-synthesises.
 - Hard-deleted; the audit log keeps the history.
 
 #### Table N-6: ui_bundles
@@ -1082,15 +1196,16 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **locale** | VARCHAR(16) | NOT NULL | — |
 | **source_hash** | CHAR(64) | NOT NULL | Hash of the English source bundle this translation was made from. |
 | **status** | VARCHAR(16) | NOT NULL | `PENDING \| READY \| FAILED` |
-| **origin** | VARCHAR(16) | NOT NULL | `STATIC \| MACHINE`. Launch languages are `STATIC` — committed in `packages/i18n` and loaded by the seeder, never machine-translated. Long-tail locales are `MACHINE`. |
+| **origin** | VARCHAR(16) | NOT NULL | `STATIC \| MACHINE`. A locale is `STATIC` once its translation is **committed** in `packages/i18n` and loaded by the seeder, and is then never machine-translated; the launch languages are expected to be, and the seed's report names any that are not yet. Everything else is `MACHINE`. |
 | **messages** | JSONB | Nullable | Flat `{ key: ICU string }`. NULL while `PENDING`. |
 | **failed_keys** | VARCHAR(128)[] | NOT NULL, **no column default** | Keys whose machine translation broke an ICU placeholder and fall back to English individually. `{}` when none. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Unique:** `(namespace, locale, source_hash)`.
+- **Launch bundles are system rows:** narration's `db:seed:system` upserts a `STATIC`, `READY` row per namespace and launch locale from `packages/i18n` at the current source hash, in every environment. An uncommitted locale is machine-translated once per `(namespace, source_hash)`: the first request inserts `PENDING`, queues the translation on narration's own work queue — a bundle has no catalog row, no audio and no `ready` event, so it never rides `synthesis_jobs` — and is served English.
 - **Every machine-translated string is validated for placeholder parity** — the set of `{name}` / `{count, plural, …}` arguments must equal the English source's. A translation that drops `{count}` renders "You have  places" in production and passes every test that does not render it; such keys go to `failed_keys` and serve English.
-- Only the three newest `source_hash` rows per `(namespace, locale)` are kept.
+- Only the three newest `source_hash` rows per `(namespace, locale)` are kept, pruned on write.
 
 #### Table N-7: localization_overrides
 
@@ -1112,9 +1227,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **updated_at** | TIMESTAMPTZ(3) | NOT NULL | — |
 
 - **Partial unique:** `localization_overrides_one_active` — `(target_type, target_id, lang, source_content_hash) WHERE status = 'ACTIVE'`. A new correction for the same source version reverts the previous one in the same transaction.
-- **Task building consults this table first.** When an `ACTIVE` override matches the current hash, the task skips `TRANSLATE` and synthesises from the override — so a pronunciation or voice change re-synthesises the human text and never re-translates it.
-- **For `PLACE`, text and audio are published together**: the task emits a single `narration.localization.ready` carrying the corrected text *and* its new audio, so catalog never shows words the narration does not say. The Place stays `ACTIVE` throughout. Tours and menu items are text-only and publish immediately.
-- Superseded and reverted rows are kept for 400 days as a starting point for re-correction, then pruned.
+- **Task building consults this table first, and retires what it finds stale.** An `ACTIVE` override whose `source_content_hash` is not the target's current one is marked `REVERTED` by that task (no `reverted_by_id`: superseded by a source change), and the task translates as usual — so no sweep needs every target's current hash. When an `ACTIVE` override matches the current hash, the task skips `TRANSLATE` and synthesises from the override — so a pronunciation or voice change re-synthesises the human text and never re-translates it.
+- **For `PLACE`, text and audio are published together**: the task emits a single `narration.localization.ready` carrying the corrected text *and* its new audio, so catalog never shows words the narration does not say. **In a language with no voice** the narration is the phone's own voice reading the text, so the corrected text is published alone, marked `noVoice: true`, then `NO_VOICE` as for machine text — the event's schema accepts a human Place localization without audio only with that mark. The Place stays `ACTIVE` throughout. Tours and menu items are text-only and publish immediately.
+- Superseded and reverted rows are kept for `LOCALIZATION_OVERRIDE_RETENTION_DAYS` (400) as a starting point for re-correction, then deleted by the daily `localization-overrides-prune` job; an `ACTIVE` override whose hash the target still has is never pruned.
 
 ### 3.4 `billing` — plans, subscriptions, entitlements, vouchers
 
@@ -1132,7 +1247,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **sort_order** | SMALLINT | NOT NULL | — |
 | **max_places** | INT | NOT NULL | Grant. |
 | **auto_narration** | BOOLEAN | NOT NULL | Grant. **The paywall** ([ADR 0007](./decisions/0007-paid-placement-never-reaches-the-audio-channel.md)). |
-| **narration_language_scope** | VARCHAR(16) | NOT NULL | `BASIC` (`vi`, `en`) \| `LAUNCH` (the five launch languages) \| `EXTENDED` (launch + long-tail). |
+| **narration_language_scope** | VARCHAR(16) | NOT NULL | `BASIC` (`vi`, `en`) \| `LAUNCH` (the five launch languages) \| `EXTENDED` (launch + `LONG_TAIL_LANGUAGES`, a closed list in `packages/contracts`). |
 | **max_photos_per_place** | SMALLINT | NOT NULL | Grant, bounded by `MAX_PHOTOS_PER_PLACE`. |
 | **max_menu_items_per_place** | SMALLINT | NOT NULL | Grant, bounded by `MAX_MENU_ITEMS_PER_PLACE`. |
 | **discovery_boost_slots** | SMALLINT | NOT NULL | Grant. |
@@ -1145,6 +1260,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **deleted_at** | TIMESTAMPTZ(3) | Nullable | Retired. Refused while any billing account is on the plan. |
 | **deleted_by_id** | UUID | Nullable | ref ➔ identity.users.id. |
 
+- **`FREE` is a system row:** billing's `db:seed:system` inserts it in every environment from `FREE_PLAN_GRANTS` in `packages/contracts`, insert-only, because no account can be opened without it. From then on the row is the source of Free's grants — an admin may edit it, and the grant function reads it. Paid plans are data, created by the admin routes (and locally by the development seed), because their Stripe ids differ per environment.
 - **Every grant is `NOT NULL` with no column default.** A plan states every limit it grants; "unlimited" is written as the platform ceiling. A defaulted grant is a plan that silently grants whatever the column defaulted to.
 - **Every grant is bounded by a platform ceiling in code**, and the effective limit is always `min(plan grant, platform ceiling)`. A plan can narrow what the platform allows, never widen it.
 - **Partial unique:** `plans_code_live_key` — `(code) WHERE deleted_at IS NULL`. Retired plans never come back (§2.8), so their code is reusable.
@@ -1174,16 +1290,18 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | Field | Type | Constraints / Default | Description & business logic |
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | — |
-| **owner_user_id** | UUID | NOT NULL, **UNIQUE** | ref ➔ identity.users.id. Created by the `identity.owner.verified` consumer, on `FREE`. |
+| **owner_user_id** | UUID | NOT NULL, **UNIQUE** | ref ➔ identity.users.id. Created by the `identity.owner.verified` consumer, on `FREE` — and by the daily `billing-accounts-reconcile` job, which pages identity's verified owners and opens any account that is missing, because the event stream's retention is shorter than an account's life. |
 | **stripe_customer_id** | VARCHAR(255) | Nullable, **UNIQUE** | Created lazily on first checkout. NULL for an owner who has never paid. |
 | **plan_id** | UUID | NOT NULL, FK ➔ plans.id, RESTRICT | The plan whose grants apply — not necessarily the plan being paid for (see status mapping). |
-| **plan_price_id** | UUID | Nullable, FK ➔ plan_prices.id, SET NULL | — |
+| **plan_price_id** | UUID | Nullable, FK ➔ plan_prices.id, SET NULL | The subscribed price. It stays set after a cancellation, while `plan_id` falls back to `FREE`, until a new subscription replaces it. |
 | **stripe_subscription_id** | VARCHAR(255) | Nullable, **UNIQUE** | — |
 | **subscription_status** | VARCHAR(24) | NOT NULL, `'NONE'` | `NONE \| INCOMPLETE \| INCOMPLETE_EXPIRED \| TRIALING \| ACTIVE \| PAST_DUE \| UNPAID \| CANCELED \| PAUSED` — Stripe's statuses, plus `NONE`. |
 | **current_period_start** | TIMESTAMPTZ(3) | Nullable | — |
 | **current_period_end** | TIMESTAMPTZ(3) | Nullable | — |
 | **cancel_at_period_end** | BOOLEAN | NOT NULL, false | — |
 | **last_stripe_event_at** | TIMESTAMPTZ(3) | Nullable | **The monotonic guard** (§1.12). Stripe's `created` of the newest subscription event applied. |
+| **checkout_open_until** | TIMESTAMPTZ(3) | Nullable | When the newest subscription Checkout session expires. Sessions are created with an `expires_at` 31–36 minutes ahead: Stripe's 30-minute minimum, rounded up to a 5-minute step so a retry under the same idempotency key sends the same parameters. While in the future, erasure is refused as an active obligation, so no subscription can start for an erased owner. |
+| **last_invoice_event_at** | TIMESTAMPTZ(3) | Nullable | The invoice events' own monotonic guard: an `invoice.*` event older than this changes nothing, so a late `payment_failed` cannot restart dunning after the `paid` that settled it. |
 | **dunning_started_at** | TIMESTAMPTZ(3) | Nullable | First `invoice.payment_failed` of the current failure streak; cleared by `invoice.paid`. |
 | **entitlements_pinned** | BOOLEAN | NOT NULL, false | When true, webhooks update subscription columns but **not** the grants below — an admin's off-catalogue grant survives the next renewal. Stripe timestamps cannot protect a manual edit, which has none. |
 | **max_places** | INT | NOT NULL | Effective grant. |
@@ -1208,7 +1326,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
   | `PAST_DUE` | the subscribed plan's — Stripe is still retrying; a card blip must not silence a venue's narration mid-afternoon. `dunning_started_at` drives the banner. |
   | `NONE`, `INCOMPLETE`, `INCOMPLETE_EXPIRED`, `UNPAID`, `CANCELED`, `PAUSED` | `FREE`'s |
 
-- **Downgrade never deletes.** Reducing `max_places` unpublishes the owner's newest Venues beyond the limit (`inactive_reason = ENTITLEMENT_LIMIT`); reducing `discovery_boost_slots` ends the newest boosts; losing `auto_narration` flips the flag on every Venue. All three happen in their owning service in reaction to the event, and each notifies the owner.
+- **Downgrade never deletes.** A `DRAFT` counts toward `max_places` but is never unpublished (it has nothing to take off the map): the oldest `max_places` counted Venues stay, and only the published ones beyond them are unpublished. Reducing `max_places` unpublishes the owner's newest Venues beyond the limit (`inactive_reason = ENTITLEMENT_LIMIT`); reducing `discovery_boost_slots` ends the newest boosts; losing `auto_narration` flips the flag on every Venue. All three happen in their owning service in reaction to the event, and each notifies the owner.
 - **Never deleted.** An erased owner's account row stays, because orders and payouts reference it.
 
 #### Table B-4: billing_events
@@ -1227,13 +1345,13 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **billing_account_id** | UUID | Nullable, FK ➔ billing_accounts.id, SET NULL, Indexed | Resolved from customer, subscription or connected account. NULL when unresolvable — **stored, not dropped**: a checkout completing before the account row exists must still be replayable. |
 | **payload** | JSONB | NOT NULL | The raw event. Kept because a mapping bug is only diagnosable against what Stripe actually sent. Contains customer email — access is `billing.event.read` only. |
 | **status** | VARCHAR(24) | NOT NULL | `RECEIVED \| PROCESSED \| SKIPPED_STALE \| SKIPPED_DUPLICATE \| IGNORED \| FAILED`. `SKIPPED_STALE` firing regularly is information, not noise. |
-| **error_log** | TEXT | Nullable | — |
+| **error_log** | TEXT | Nullable | The failure, for a `FAILED` row; for an `IGNORED` one, why — `LIVEMODE_MISMATCH` or `UNHANDLED_TYPE` (`IgnoredReason` in `packages/contracts`). |
 | **received_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **processed_at** | TIMESTAMPTZ(3) | Nullable | — |
 
 - **Index:** `(billing_account_id, stripe_created_at DESC)`.
 - **Signature verification happens before this table.** A row here means "we believed this was Stripe and acted on it".
-- The webhook route inserts `RECEIVED` and returns `2xx` immediately; a BullMQ job processes it. Never updated after `processed_at`. Pruned after 400 days.
+- The webhook route inserts `RECEIVED` and returns `2xx` immediately; a BullMQ job processes it. Never updated after `processed_at`, which `PROCESSED`, `SKIPPED_STALE` and `IGNORED` set. A `FAILED` row (after three attempts) keeps `processed_at` NULL, and a replay returns it to `RECEIVED`. `SKIPPED_DUPLICATE` is never written: the unique index refuses a duplicate before a row exists. Pruned after 400 days.
 
 #### Table B-5: discovery_boosts
 
@@ -1244,15 +1362,16 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **id** | UUID | PK | — |
 | **billing_account_id** | UUID | NOT NULL, FK ➔ billing_accounts.id, RESTRICT | — |
 | **place_id** | UUID | NOT NULL | ref ➔ catalog.places.id. Validated over gRPC: must be a Venue owned by this account's owner. |
-| **weight** | SMALLINT | NOT NULL | `CHECK (weight BETWEEN 1 AND 100)`. Set from `DISCOVERY_BOOST_WEIGHT`, not chosen by the owner — slots are a count, not an auction. |
+| **weight** | SMALLINT | NOT NULL | `CHECK (weight BETWEEN 1 AND 100)`. Set from `DISCOVERY_BOOST_WEIGHT` (50), not chosen by the owner — slots are a count, not an auction. |
 | **starts_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 | **ends_at** | TIMESTAMPTZ(3) | Nullable | NULL = live. |
 | **ended_reason** | VARCHAR(24) | Nullable | `OWNER \| ENTITLEMENT_LIMIT \| PLACE_UNAVAILABLE`. `CHECK ((ends_at IS NULL) = (ended_reason IS NULL))`. |
 | **created_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **Partial unique:** `discovery_boosts_one_live_per_place` — `(place_id) WHERE ends_at IS NULL`.
-- Live boosts per account ≤ `discovery_boost_slots`, checked on insert under a row lock on the billing account.
-- Every change writes outbox `billing.boosts.changed { placeId, discoveryBoost }`; catalog's consumer is the only writer of `places.discovery_boost`.
+- Live boosts per account ≤ `discovery_boost_slots`, checked on insert under a row lock on the billing account — **`FOR NO KEY UPDATE`**, as every billing write takes it: a boost row updated twice in one transaction takes `FOR KEY SHARE` on its account, which `FOR UPDATE` would deadlock against (conventions §8.8).
+- **A boost ends by itself** in its cause's transaction: `ENTITLEMENT_LIMIT` inside the one function every grant change passes (`EntitlementsService.writeGrants`), the newest boosts ending first when the slots drop below the live count; `PLACE_UNAVAILABLE` from `catalog.place.status_changed`. Each end writes `billing.boost.ended` beside the change. The owner's read lists the last 90 days' ended boosts.
+- Every change writes outbox `billing.boosts.changed { placeId, discoveryBoost, changedAt }`; catalog's consumer is the only writer of `places.discovery_boost`.
 
 #### Table B-6: connected_accounts
 
@@ -1475,8 +1594,10 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **policy_version** | VARCHAR(16) | NOT NULL | The privacy policy version the decision was made against. A new policy version re-asks. |
 | **recorded_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
-- **Index:** `(analytics_device_id, recorded_at DESC)`. Current state is the newest row, cached in Redis and read on every ingest.
-- **Withdrawal deletes that id's raw events (A-2)** in the same transaction. Aggregates already computed stay — they contain no id.
+- **Index:** `(analytics_device_id, recorded_at DESC)`. Current state is the newest row, **read inside every ingest's transaction — never cached**: ingest and withdrawal each first take `pg_advisory_xact_lock` on the id's hash, so a batch racing a withdrawal either commits before it (and is deleted by it) or reads `WITHDRAWN` and stores nothing.
+- A grant names the current privacy policy version (else `409 LEGAL_VERSION_OUTDATED`); a withdrawal never checks the version.
+- **The client withdraws every id it used in the last 90 days** (rotation leaves earlier ids whose raw events may remain), so a withdrawal deletes everything of that install's still held.
+- **Withdrawal deletes that id's raw events (A-2)** in the same transaction, so the next nightly rollup removes the id from **every day it still rebuilds** (the last 8). Older days stay as computed — they contain no id. The heatmap's HyperLogLogs can't remove an id and needn't: they hold none.
 - Pruned 400 days after the newest row for an id.
 
 #### Table A-2: events
@@ -1487,12 +1608,12 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **id** | UUID | PK | Client-generated, so a batch retried after a timeout de-duplicates. |
 | **analytics_device_id** | UUID | NOT NULL | — |
-| **session_id** | UUID | NOT NULL | Client-generated per app foreground session. |
-| **event_type** | VARCHAR(48) | NOT NULL | `NARRATION_STARTED \| NARRATION_COMPLETED \| NARRATION_ABANDONED \| PLACE_OPENED \| QR_SCANNED \| LANGUAGE_SELECTED \| PACK_INSTALLED \| SEARCH_PERFORMED \| TOUR_STARTED \| VOUCHER_VIEWED` |
-| **trigger** | VARCHAR(16) | Nullable | `GEOFENCE \| TAP \| QR` for narration events — auto versus pull is the question the ranking firewall exists to answer. |
+| **session_id** | UUID | NOT NULL | Client-generated: a new one, with an `APP_OPENED`, when the app or page comes to the front after 30 minutes with nothing recorded, or on a cold start. Events recorded in the background carry the latest. |
+| **event_type** | VARCHAR(48) | NOT NULL | `APP_OPENED \| NARRATION_STARTED \| NARRATION_COMPLETED \| NARRATION_ABANDONED \| PLACE_OPENED \| QR_SCANNED \| LANGUAGE_SELECTED \| PACK_INSTALLED \| SEARCH_PERFORMED \| TOUR_STARTED \| VOUCHER_VIEWED` — `APP_OPENED` once per session, which is what *sessions* counts; `VOUCHER_VIEWED` dropped at ingest while vouchers aren't available (ADR 0066). |
+| **trigger** | VARCHAR(16) | Nullable | `GEOFENCE \| TAP \| QR` for narration events — auto versus pull is the question the ranking firewall exists to answer. How the story entered the player, kept through *Up next*: the walk's offer, a tap on *Play*, or a code opened from a sticker (`via=qr`, the scanner, a typed code). |
 | **place_id** | UUID | Nullable | ref ➔ catalog.places.id. |
 | **lang** | VARCHAR(16) | Nullable | — |
-| **audio_tier** | VARCHAR(8) | Nullable | `T1 \| T1_5 \| T2 \| T3` — which fallback tier served the narration. |
+| **audio_tier** | VARCHAR(8) | Nullable | `T1 \| T1_5 \| T2 \| T3` — which fallback tier served the narration's **first sound**: the Place's own file, a file made on request, the stream, the device voice. A fallback during play doesn't change it. |
 | **listen_ms** | INT | Nullable | For `COMPLETED`/`ABANDONED`. |
 | **props** | JSONB | NOT NULL, `'{}'` | Typed per `event_type` (`AnalyticsEventProps`). **No coordinates, ever** — location reaches analytics only as a pre-snapped cell (A-3). |
 | **platform** | VARCHAR(16) | NOT NULL | — |
@@ -1501,6 +1622,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **received_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
 - **Indexes:** `(occurred_at)`, `(place_id, occurred_at)`.
+- **Any event may carry a `cell`** (A-3), which ingest adds to a counter and no row stores. A coordinate field anywhere refuses the whole batch; one event failing its `props` is dropped and the rest stored.
 - **Pruned after `RAW_EVENT_RETENTION_DAYS` (90).** Everything durable is a rollup.
 
 #### Table A-3: location_cell_hourly
@@ -1511,10 +1633,11 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | :---- | :---- | :---- | :---- |
 | **cell** | VARCHAR(12) | PK | Geohash at precision 7 (~150 m). **Snapped on the client** before sending; the server never receives a raw coordinate on this lane. |
 | **bucket_start** | TIMESTAMPTZ(3) | PK | Start of the UTC hour. |
-| **device_estimate** | INT | NOT NULL | Distinct consented devices, from a Redis HyperLogLog flushed hourly. An estimate by design: an exact count would require storing the ids. |
-| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+| **device_estimate** | INT | NOT NULL | Distinct consented devices, from a Redis HyperLogLog per cell and **`occurred_at` hour**. An estimate by design: an exact count would require storing the ids. |
+| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | The last re-count. |
 
 - **Suppression:** cells with `device_estimate < HEATMAP_MIN_DEVICES` (5) are never written. A cell with one device in it at 3 a.m. is a person, not a density.
+- **Late events:** a phone uploads up to 7 days late, so each counter lives 8 days and `heatmap-flush` **re-counts every hour still held**, upserting the cells at 5 or more. A cell reaching 5 late appears then; an estimate never falls, so a written row never needs removing. A flush never overwrites an hour with only its late phones.
 
 #### Table A-4: place_daily_stats
 
@@ -1533,9 +1656,9 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **listen_ms_sum** | BIGINT | NOT NULL, 0 | Sum/count pair rather than an average, so a date range is summable. |
 | **listen_count** | INT | NOT NULL, 0 | — |
 | **opens** | INT | NOT NULL, 0 | — |
-| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Load-bearing: part of the cache key for closed ranges, so a backfill invalidates cached dashboards automatically. |
+| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | Ready to be part of the cache key for closed ranges, so a backfill would invalidate cached dashboards automatically. **No read is cached yet.** |
 
-- Written by an **idempotent** daily job that recomputes whole days from A-2. Re-running a day replaces it. A backfill beyond A-2's 90-day retention is impossible, which is stated here so nobody discovers it during an incident.
+- Written by an **idempotent** nightly job that recomputes whole days from A-2 — yesterday and the 7 days before it, since a phone uploads up to a week late. Re-running a day replaces it. A backfill beyond A-2's 90-day retention is impossible, which is stated here so nobody discovers it during an incident.
 - **Owners read their own Places only**, and only at their plan's `analytics_level`.
 
 #### Table A-5: runtime_activity_hourly
@@ -1549,6 +1672,7 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **active_estimate** | INT | NOT NULL | HyperLogLog of *request* activity attributed to an area, from the gateway — no device id stored, no finer location than the area. |
 | **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
 
+- **Sent by the Android app only**, at most every 15 minutes while it is in front or walking, and only within 1 km of a synced Place — the area is that Place's, so no position leaves the phone. The web doesn't send it.
 - **Why this may exist without consent and A-3 may not:** this lane knows only that *some* install was active in a 1.5 km² area in an hour, which is operational telemetry with no individual in it. A-3 knows 150 m cells, which at low counts is a person. Merging them into one table would give the operational lane the resolution of the consented one. Separate tables make that a schema change someone has to propose, instead of a query someone can write.
 
 #### Table A-6: activity_daily_stats
@@ -1558,15 +1682,43 @@ A job is `stale` when `now() - last_succeeded_at` exceeds twice its cadence, and
 | **day** | DATE | PK | — |
 | **lang** | VARCHAR(16) | PK | — |
 | **platform** | VARCHAR(16) | PK | — |
-| **sessions** | INT | NOT NULL, 0 | — |
-| **active_devices_estimate** | INT | NOT NULL, 0 | HLL over rotated ids — an upper bound, since rotation mid-day counts one install twice. Labelled as an estimate in the UI. |
+| **sessions** | INT | NOT NULL, 0 | `APP_OPENED` events. `'*'` row only. |
+| **active_devices_estimate** | INT | NOT NULL, 0 | An exact `COUNT(DISTINCT analytics_device_id)` over the day's A-2 — still an upper bound on installs, since rotation mid-day counts one install twice. Labelled as an estimate in the UI; a range shows the daily mean. `'*'` row only. |
 | **narrations_started** | INT | NOT NULL, 0 | — |
 | **narrations_completed** | INT | NOT NULL, 0 | — |
-| **tier3_narrations** | INT | NOT NULL, 0 | Narrations served by on-device TTS — a rising number means offline packs or on-demand synthesis are failing. |
-| **pack_installs** | INT | NOT NULL, 0 | — |
-| **searches** | INT | NOT NULL, 0 | — |
-| **qr_scans** | INT | NOT NULL, 0 | — |
+| **tier1_narrations** | INT | NOT NULL, 0 | Started narrations by the `audio_tier` that served them: pre-generated audio… |
+| **tier1_5_narrations** | INT | NOT NULL, 0 | …made on request… |
+| **tier2_narrations** | INT | NOT NULL, 0 | …streamed live… |
+| **tier3_narrations** | INT | NOT NULL, 0 | …and on-device TTS — a rising share means offline packs or on-demand synthesis are failing. |
+| **pack_installs** | INT | NOT NULL, 0 | `'*'` row only. |
+| **searches** | INT | NOT NULL, 0 | `'*'` row only. |
 | **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- **Per `(day, platform)`, the totals row has `lang = '*'`**; the per-language rows carry narrations only (started, completed, the four tiers). A session in two languages would otherwise count twice, so nothing is summed over languages.
+- **No QR column:** the overview's QR scans are C-15's, every scan, the same figure owners see.
+- Written by the same nightly job as A-4.
+
+#### Table A-7: rollup_days
+
+*Each business day the nightly rollup rebuilt.*
+
+| Field | Type | Constraints / Default | Description & business logic |
+| :---- | :---- | :---- | :---- |
+| **day** | DATE | PK | Business day (§2.2). |
+| **computed_at** | TIMESTAMPTZ(3) | NOT NULL, now() | — |
+
+- **`dataThrough`** on every dashboard is the newest day here. A day rebuilt by hand counts too.
+
+#### Jobs
+
+`SCHEDULED_JOBS`, each run in `job_runs` (§2.12); no other service runs a job for analytics.
+
+| Job | When | Does |
+| :---- | :---- | :---- |
+| `heatmap-flush` | hourly at :05 | re-counts every cell-hour counter still held (8 days) into A-3, suppressed below 5 |
+| `runtime-flush` | hourly at :05 | each finished hour's Area counters into A-5 |
+| `daily-rollup` | 03:00 business time | rebuilds the last 8 days from A-2 into A-4 and A-6, each day in one transaction; records A-7. A day older than A-2's 90 days is refused |
+| `raw-prune` | 04:00 business time | A-2 after 90 days; A-1 400 days after an id's newest row |
 
 ### 3.6 `ai` — description enhancement
 
@@ -1630,7 +1782,7 @@ Only real foreign keys (same database) appear here. Cross-service references hav
 
 **`CASCADE`** — the child is meaningless without the parent:
 
-- `sessions`, `action_tokens`, `notifications`, `user_roles` ➔ `users`
+- `sessions`, `action_tokens`, `notifications`, `user_roles`, `user_identities` ➔ `users`
 - `legal_acceptances` ➔ `users`, `devices`
 - `role_permissions` ➔ `roles`
 - `place_localizations`, `place_photos`, `menu_items`, `favorites`, `place_qr_scans_daily`, `place_opening_hours` ➔ `places`
@@ -1670,17 +1822,19 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | Service | Object | Kind | Holds |
 | :---- | :---- | :---- | :---- |
 | identity | `users_email_lower_ck` | CHECK | email is normalized |
+| identity | `notifications_unread_idx` | partial index | `(recipient_user_id, created_at DESC) WHERE read_at IS NULL` — the unread count (I-10) |
 | identity | `users_erased_implies_deleted_ck` | CHECK | erasure implies soft delete |
 | identity | `users_locked_until_ck` | CHECK | an expiry needs a lock |
 | identity | `owner_registrations_one_pending` | partial unique | one open application per user |
 | identity | `owner_registrations_reviewed_ck` | CHECK | reviewed ⇔ approved/rejected |
 | identity | `legal_acceptances_party_ck` | CHECK | a user or a device accepted |
+| identity | `sessions_client_ck` | CHECK | `client` is `CONSOLE`, `WEB` or `MOBILE` — a wrong value would send tokens down the wrong transport (§2.4) |
 | identity | `action_tokens_live_revert_idx` | partial index | reserved addresses during a revert window |
-| identity | `email_deliveries_one_per_event` | unique | one email per event per recipient |
+| identity | `email_deliveries_one_per_event` | unique, `NULLS NOT DISTINCT` | one email per event per recipient |
 | identity | `account_recoveries_one_live` | partial unique | one live recovery per owner |
 | identity | `account_recoveries_evidence_ck` | CHECK | ≥ 2 checks, including the phone callback |
 | identity | `account_recoveries_four_eyes_ck` | CHECK | approver differs from opener |
-| catalog | `postgis` | extension | — |
+| catalog | `postgis` | extension | created by the **first line of the first migration** (`CREATE EXTENSION IF NOT EXISTS postgis`), so a shadow database replaying the migrations has it before any `geography` column |
 | catalog | `catalog_sync_version_seq` | sequence | delta sync (§1.7) |
 | catalog | `places_kind_owner_ck` | CHECK | Venue ⇔ owner |
 | catalog | `places_editorial_narrates_ck` | CHECK | Editorial always auto-narrates |
@@ -1688,17 +1842,23 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | catalog | `places_radius_ck`, `places_priority_ck`, `places_boost_ck`, `places_price_band_ck` | CHECK | bounds |
 | catalog | `places_inactive_reason_ck` | CHECK | inactive ⇔ reason |
 | catalog | `places_active_location_gist` | partial GIST | nearby query |
+| catalog | `places_owner_live_idx` | partial index | `(owner_user_id) WHERE deleted_at IS NULL` — the owner's list and place-limit count (C-1) |
 | catalog | `areas_boundary_gist` | GIST | containment checks |
 | catalog | `place_localizations_audio_ready_ck` | CHECK | READY audio has a file |
 | catalog | `places_menu_currency_ck` | CHECK | menu currency is VND or USD (ADR 0046) |
+| catalog | `places_status_changed_at_trg` (with its function) | trigger | stamps `status_changed_at` whenever `status` changes, on every write path (C-1) |
+| catalog | `public_codes_target_type_ck`; `places_public_code_trg`, `tours_public_code_trg` (with `public_codes_register`) | CHECK, triggers | one code space: every Place and tour insert registers its code (C-19) |
 | catalog | `menu_items_price_ck` | CHECK | non-negative |
 | catalog | `tours_minutes_ck`, `tours_inactive_reason_ck` | CHECK | — |
 | catalog | `place_submissions_one_pending_update` | partial unique | one pending update per Place |
 | catalog | `place_submissions_update_has_place_ck`, `place_submissions_reviewed_ck` | CHECK | — |
+| catalog | `areas_default_zoom_ck` | CHECK | `default_zoom BETWEEN 10 AND 18` (C-3) |
+| catalog | `place_submissions_update_base_ck` | CHECK | an `UPDATE` carries its base (hash and snapshot); a `CREATE` carries none |
 | catalog | `map_packs_one_published` | partial unique | one live map per area |
 | catalog | `map_packs_zoom_ck` | CHECK | — |
 | catalog | `place_opening_hours_one_of_ck`, `…_times_ck`, `…_weekday_ck` | CHECK | §C-16 |
 | narration | `synthesis_jobs_target_ck`, `synthesis_jobs_langs_nonempty_ck` | CHECK | — |
+| narration | `synthesis_jobs_live_status_idx` | partial index | `(status) WHERE status IN ('QUEUED','RUNNING','PAUSED')` (N-1) |
 | narration | `synthesis_tasks_one_active` | partial unique | coalescing (N-2) |
 | narration | `pronunciation_term_lang_key`, `pronunciation_term_all_key` | partial unique | one entry per term/language |
 | narration | `pronunciation_alphabet_ck` | CHECK | phoneme ⇔ alphabet |
@@ -1708,7 +1868,7 @@ The complete required content of each service's `prisma/sql/schema-objects.sql` 
 | billing | `plans_commission_ck` | CHECK | vouchers ⇔ commission, bounds |
 | billing | `plan_prices_one_active_interval` | partial unique | — |
 | billing | every `*_currency_ck` on B-2, B-7, B-9, B-11, B-12 | CHECK | §1.9 |
-| billing | `discovery_boosts_one_live_per_place`, `discovery_boosts_ended_ck` | partial unique, CHECK | — |
+| billing | `discovery_boosts_one_live_per_place`, `discovery_boosts_ended_ck`, `discovery_boosts_weight_ck` | partial unique, CHECK | one live boost per Place; ended ⇔ reason; weight 1–100 (B-5) |
 | billing | `voucher_offers_stock_ck`, `…_price_ck`, `…_original_price_ck`, `…_validity_ck` | CHECK | no oversell, bounds |
 | billing | `orders_amount_ck`, `orders_fee_ck`, `orders_refunded_ck`, `orders_quantity_ck` | CHECK | arithmetic |
 | billing | `vouchers_redeemed_ck`, `vouchers_void_ck`, `vouchers_pending_expiry_ck` | CHECK | — |
@@ -1750,14 +1910,16 @@ New questions are added here, numbered after the last one ever recorded, and rem
 | Translation cache | 365 d since last used | `translation-cache-prune` job |
 | Pending uploads | 15 min unconfirmed / 14 d unconsumed | `pending-uploads-reap` job |
 | Retired map pack objects | 30 d | `map-packs-gc` job |
+| Objects of removed photos | until deleted, retried every run | `photo-objects-cleanup` job (C-17) |
+| Upload originals (`uploads/<id>/original`) | until confirm, or the reap job | deleted at confirm once the variants exist; unconfirmed ones by `pending-uploads-reap` |
 | Stripe webhook events | 400 d | `billing-events-prune` job |
 | Email delivery records | 400 d | `email-deliveries-prune` job (identity) |
 | Account recoveries | indefinitely | security record; every transition also audited |
 | Expired or revoked staff invitations | 90 d | `venue-staff-invites-prune` job (billing) |
 | Superseded or reverted translation corrections | 400 d | `localization-overrides-prune` job (narration) |
 | Orders, vouchers, refunds, disputes | indefinitely | financial records — anonymised on buyer erasure (B-9) |
-| Raw analytics events | 90 d | `analytics-events-prune` job |
-| Consent history | 400 d after last decision | `consents-prune` job |
+| Raw analytics events | 90 d | `raw-prune` job (analytics) |
+| Consent history | 400 d after last decision | `raw-prune` job (analytics) |
 | AI ledger | 400 d | `ai-generations-prune` job |
 | Outbox rows | 7 d after publishing | `outbox-prune` job (every publisher) |
 | Processed-event records | stream `max_age` + 1 d | `processed-events-prune` job (every consumer) |

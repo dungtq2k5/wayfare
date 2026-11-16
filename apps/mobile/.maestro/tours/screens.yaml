@@ -1,0 +1,118 @@
+# The tours' Android states as screenshots, named after their frames (TM1–TM5b), for the designer's
+# review: run by tours/screens.sh in Light and in Dark. GONE is setup.mjs's taken-down tour; its
+# tours with a skipped stop are one per theme, so each is first seen not started.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Map'
+- runFlow:
+    when:
+      visible: 'Stop the walk'
+    commands:
+      - tapOn:
+          text: 'Stop the walk'
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible: 'Start walk'
+          timeout: 40000
+# TM1: Explore's tours.
+- tapOn: 'Explore'
+- tapOn: 'Tours'
+- scrollUntilVisible:
+    element: '.*Danh thắng Quận 1.*'
+    direction: UP
+- takeScreenshot: tm1-tours-in-an-area-${THEME}
+# TM2: a tour's page, not started (made by setup.mjs: on the phone once its sync lands).
+- scrollUntilVisible:
+    element: '(?s).*Tour có điểm bỏ qua \(${THEME} ${RUN}\).*'
+    timeout: 90000
+- tapOn: '(?s).*Tour có điểm bỏ qua \(${THEME} ${RUN}\).*'
+- extendedWaitUntil:
+    visible: 'Start this tour|Continue the tour|Walk it again'
+    timeout: 10000
+- takeScreenshot: tm2-a-tours-page-${THEME}
+# TM3: following it on the Map.
+- runFlow:
+    when:
+      visible: 'Start this tour'
+    commands:
+      - tapOn: 'Start this tour'
+- runFlow:
+    when:
+      visible: 'Continue the tour'
+    commands:
+      - tapOn: 'Continue the tour'
+- runFlow:
+    when:
+      visible: 'Walk it again'
+    commands:
+      - tapOn: 'Walk it again'
+      - back
+      - tapOn: 'Map'
+- extendedWaitUntil:
+    visible: 'Next: .*'
+    timeout: 20000
+- takeScreenshot: tm3-following-a-tour-${THEME}
+# TM2b: started, its skipped stop.
+- tapOn: '(?s)Open .*Tour có điểm bỏ qua \(${THEME} ${RUN}\).*'
+- scrollUntilVisible:
+    element: 'No longer on Wayfare — skipped'
+- takeScreenshot: tm2b-started-a-stop-skipped-${THEME}
+- back
+# TM4: a stop heard, by its code, to its end — the toast at the top.
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'NQ22ZQXK', WAIT: 'no' } }
+- back
+- extendedWaitUntil:
+    visible: '.*stop 1 of 2 heard'
+    timeout: 120000
+- takeScreenshot: tm4-a-stop-heard-${THEME}
+# TM4b: the last stop heard → the finished sheet, on the tour.
+- runFlow: { file: steps/play-code.yaml, env: { CODE: 'GP7R4MY3', WAIT: 'no' } }
+- back
+- extendedWaitUntil:
+    visible: '.*stop 2 of 2 heard'
+    timeout: 120000
+- tapOn: 'Explore'
+# Explore keeps where it was scrolled: back up to its switch.
+- scrollUntilVisible:
+    element: 'Tours'
+    direction: UP
+- tapOn: 'Tours'
+- scrollUntilVisible:
+    element: '(?s).*Tour có điểm bỏ qua \(${THEME} ${RUN}\).*'
+    visibilityPercentage: 50
+    timeout: 60000
+- tapOn: '(?s).*Tour có điểm bỏ qua \(${THEME} ${RUN}\).*'
+- extendedWaitUntil:
+    visible: 'You finished .*'
+    timeout: 20000
+- takeScreenshot: tm4b-the-tour-finished-${THEME}
+- tapOn: 'Done'
+- back
+# TM5: from a link.
+- openLink: 'https://wayfare.app/t/T4QX-8MRK'
+- extendedWaitUntil:
+    visible: "Opened from the tour's code .*"
+    timeout: 20000
+- takeScreenshot: tm5-from-a-link-${THEME}
+- back
+# TM5b: a tour no longer available, its sheet over a clear Map (a Place sheet left open closes).
+- tapOn: 'Map'
+- runFlow:
+    when:
+      visible: 'Play narration.*'
+    commands:
+      - back
+- openLink: 'https://wayfare.app/t/${GONE}'
+- extendedWaitUntil:
+    visible: 'This tour is no longer on Wayfare'
+    timeout: 20000
+- takeScreenshot: tm5b-no-longer-available-${THEME}
+- tapOn: 'Back to the map'
+- tapOn:
+    text: 'Stop the walk'
+    retryTapIfNoChange: false

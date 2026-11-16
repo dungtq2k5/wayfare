@@ -1,0 +1,94 @@
+import { Injectable, Logger } from '@nestjs/common';
+import type { CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { normalizeEmail, RATE_LIMITS } from '@wayfare/contracts';
+import type { RateLimitKey, RateLimitSpec } from '@wayfare/contracts';
+import type { Request } from 'express';
+import { deviceIdOf } from '../context/request-context';
+import type { RequestContext } from '../context/request-context';
+import { AppHttpException } from './app-http.exception';
+import { effectiveAuth, effectiveRateLimitClass } from './auth-rules';
+import { RateLimiter } from './rate-limiter';
+import { authStateOf } from './request-context';
+import { requestOf } from './request-of';
+
+/** The bucket values a request offers. */
+export function rateLimitValues(
+  request: Request,
+  context: RequestContext,
+): Partial<Record<RateLimitKey, string>> {
+  const body = request.body as { email?: unknown; analyticsDeviceId?: unknown } | undefined;
+  const deviceId = deviceIdOf(context);
+  return {
+    ...(request.ip === undefined ? {} : { ip: request.ip }),
+    ...(typeof body?.email === 'string' ? { email: normalizeEmail(body.email) } : {}),
+    // The analytics routes' only use of the analytics id at the gateway (ADR 0042).
+    ...(typeof body?.analyticsDeviceId === 'string'
+      ? { analyticsDeviceId: body.analyticsDeviceId }
+      : {}),
+    ...(deviceId === null ? {} : { deviceId }),
+    ...(context.kind === 'account' ? { userId: context.userId } : {}),
+  };
+}
+
+/**
+ * Where a `countFailuresOnly` class leaves what it counted, for `RateLimitRefundInterceptor` to take
+ * back when the request does not fail.
+ */
+export const RATE_LIMIT_RESERVED = Symbol('rateLimitReserved');
+
+/** A request a failures-only class counted up front. */
+export interface ReservedRequest {
+  [RATE_LIMIT_RESERVED]?: {
+    readonly keys: readonly string[];
+    readonly failures: readonly string[];
+  };
+}
+
+/**
+ * Applies the route's one rate-limit class (api-endpoints-plan §0.9) — last in the guard chain,
+ * after the caller is known. A store failure fails **open** and raises an alert: a Redis outage
+ * must not become a total outage, and the log line is the signal the protection is off.
+ */
+@Injectable()
+export class RateLimitGuard implements CanActivate {
+  private readonly logger = new Logger(RateLimitGuard.name);
+
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly limiter: RateLimiter,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (context.getType() !== 'http') return true;
+    const handler = context.getHandler();
+    const controller = context.getClass();
+    const cls = effectiveRateLimitClass(
+      this.reflector,
+      handler,
+      controller,
+      effectiveAuth(this.reflector, handler, controller),
+    );
+    if (cls === null) return true;
+    const request = requestOf(context);
+    let verdict;
+    try {
+      verdict = await this.limiter.hit(cls, rateLimitValues(request, authStateOf(request).context));
+    } catch (error) {
+      this.logger.error(
+        { alert: true, class: cls, err: error instanceof Error ? error.message : String(error) },
+        'rate limit store unavailable — failing open',
+      );
+      return true;
+    }
+    if (!verdict.allowed)
+      throw new AppHttpException('RATE_LIMITED', { retryAfterSeconds: verdict.retryAfterSeconds });
+    const failures = (RATE_LIMITS[cls] as RateLimitSpec).countFailuresOnly;
+    if (failures !== undefined)
+      (request as Request & ReservedRequest)[RATE_LIMIT_RESERVED] = {
+        keys: verdict.counted,
+        failures,
+      };
+    return true;
+  }
+}

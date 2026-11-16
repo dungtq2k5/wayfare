@@ -1,0 +1,27 @@
+# Edge 3 (frame A9): with no connection, the account's screen and every form keep their fields
+# under the note, their buttons off. Signed in as B; the script removed the gateway's mapping.
+appId: app.wayfare
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Settings'
+- tapOn:
+    id: 'account-entry'
+- assertVisible: 'Offline · changes to your account need a connection.'
+- tapOn: 'Back'
+- runFlow: signed-out.yaml
+- tapOn: 'Create an account'
+- assertVisible: 'Offline · signing in needs a connection.'
+- assertVisible:
+    id: 'create-submit'
+    enabled: false
+- tapOn: 'Back'
+- tapOn:
+    id: 'account-sign-in'
+- assertVisible: 'Offline · signing in needs a connection.'
+- assertVisible:
+    id: 'sign-in-submit'
+    enabled: false
+- tapOn: 'Back'

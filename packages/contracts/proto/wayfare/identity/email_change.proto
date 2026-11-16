@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+// Address verification and change, with the revert — api-endpoints-plan §1.2, ADR 0052.
+package wayfare.identity;
+
+import "wayfare/identity/auth.proto";
+
+// The caller travels as metadata; link routes carry only their token.
+service EmailChangeService {
+  rpc RequestEmailVerification(RequestEmailVerificationRequest) returns (RequestEmailVerificationResponse);
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc RequestEmailChange(RequestEmailChangeRequest) returns (RequestEmailChangeResponse);
+  rpc ConfirmEmailChange(ConfirmEmailChangeRequest) returns (ConfirmEmailChangeResponse);
+  rpc RevertEmailChange(RevertEmailChangeRequest) returns (RevertEmailChangeResponse);
+}
+
+message RequestEmailVerificationRequest {
+  // Where the request was made: a console request's link opens the console (api-endpoints-plan §1.2).
+  SessionClient client = 1;
+}
+
+message RequestEmailVerificationResponse {}
+
+message VerifyEmailRequest {
+  // Secret: never logged.
+  string token = 1;
+}
+
+message VerifyEmailResponse {
+  // The link's account's address through `maskEmail`, for the result's text.
+  string email_masked = 1;
+  // True only when the call carried the bearer of the link's own account.
+  bool same_account = 2;
+}
+
+message RequestEmailChangeRequest {
+  string new_email = 1;
+  // Secret: never logged.
+  string current_password = 2;
+  // In place of the password, for an account that signs in with Google only.
+  string confirmation = 3;
+}
+
+message RequestEmailChangeResponse {}
+
+message ConfirmEmailChangeRequest {
+  // Secret: never logged.
+  string token = 1;
+}
+
+message ConfirmEmailChangeResponse {
+  // The link's account's address through `maskEmail`, for the result's text.
+  string email_masked = 1;
+  // True only when the call carried the bearer of the link's own account.
+  bool same_account = 2;
+}
+
+message RevertEmailChangeRequest {
+  // Secret: never logged.
+  string token = 1;
+}
+
+message RevertEmailChangeResponse {
+  // The link's account's address through `maskEmail`, for the result's text.
+  string email_masked = 1;
+  // True only when the call carried the bearer of the link's own account.
+  bool same_account = 2;
+}

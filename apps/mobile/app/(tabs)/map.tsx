@@ -1,0 +1,431 @@
+import { space } from '@wayfare/design-tokens/tokens';
+import { useAreasList, usePlacesNearby } from '@wayfare/api-client';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  ChevronDown,
+  CircleAlert,
+  LocateFixed,
+  Minus,
+  Plus,
+  ScanQrCode,
+} from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Linking, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { useAllPlaces } from '../../src/data/hooks';
+import { errorMessage } from '../../src/i18n';
+import { useTourist } from '../../src/i18n/use-tourist';
+import {
+  locateOnce,
+  refreshPermission,
+  requestForegroundLocation,
+  useLocationStore,
+} from '../../src/location/location-store';
+import { showToast } from '../../src/ui/toast';
+import { usePosition } from '../../src/location/use-position';
+import { areaIcon } from '../../src/ui/categories';
+import { chooseMapStyle, nearestPlace } from '../../src/map/map-logic';
+import { PlaceSheet } from '../../src/map/place-sheet';
+import { PlacesMap } from '../../src/map/places-map';
+import type { MapView, PlacesMapHandle } from '../../src/map/places-map';
+import { useMapPack } from '../../src/map/use-map-pack';
+import { useNetworkStore } from '../../src/network/network-store';
+import { useAppStore } from '../../src/state/app-store';
+import { syncFailureShown } from '../../src/sync/sync-failure';
+import { runSync, useSyncStore } from '../../src/sync/run-sync';
+import { useTheme } from '../../src/theme/appearance';
+import { Icon } from '../../src/theme/icon';
+import { InlineAlert } from '../../src/ui/inline-alert';
+import { InlineNote } from '../../src/ui/inline-note';
+import { useControlsBottom } from '../../src/player/mini-player';
+import { AreaSheet } from '../../src/map/area-sheet';
+import { SwitchPill } from '../../src/language/switch-status';
+import { MapPackExtras, OfflineMapNote } from '../../src/packs/map-extras';
+import { useLocalStyle } from '../../src/packs/use-local-style';
+import { useLocalTour } from '../../src/tours/hooks';
+import { LARGE_TEXT_SCALE } from '../../src/ui/layout';
+import { TourBar } from '../../src/tours/tour-bar';
+import { WalkControl } from '../../src/walk/walk-control';
+import { WalkNotice } from '../../src/walk/walk-notices';
+import { areaMove } from '../../src/codes/area-move';
+import { ConsentSheetHost } from '../../src/map/consent-sheet';
+import { CodeResultSheet } from '../../src/codes/code-result-sheet';
+import { codeOpener } from '../../src/codes/opener';
+import { takePending, useCodeStore } from '../../src/codes/store';
+
+const NEARBY_RADIUS_M = 1_500;
+const SETTLE_MS = 600;
+
+/** Round-trips of the camera to the nearby query: coarse, so a small pan does not ask again. */
+const coarse = (value: number) => Math.round(value * 500) / 500;
+
+/** The Map tab: the base map, the area's Places, the sheet, the area switcher and the controls. */
+export default function MapScreen() {
+  const { t, tFamily } = useTourist();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ areas?: string }>();
+  const theme = useTheme();
+  const lang = useAppStore((state) => state.language) ?? 'en';
+  const controlsBottom = useControlsBottom();
+  const currentAreaId = useAppStore((state) => state.currentAreaId);
+  const setCurrentArea = useAppStore((state) => state.setCurrentArea);
+  const offline = useNetworkStore((state) => state.status === 'offline');
+  const permission = useLocationStore((state) => state.permission);
+  const syncing = useSyncStore((state) => state.syncing);
+  const lastChecked = useSyncStore((state) => state.lastCheckedAt);
+  const syncError = useSyncStore((state) => state.error);
+  const position = usePosition();
+  const areas = useAreasList();
+  const allPlaces = useAllPlaces();
+  const mapRef = useRef<PlacesMapHandle>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A tap on a marker opens the sheet at peek; a code opens it at half.
+  const [sheetSnap, setSheetSnap] = useState<'peek' | 'half'>('peek');
+  const select = useCallback((id: string | null) => {
+    setSheetSnap('peek');
+    setSelectedId(id);
+  }, []);
+  const closeSheet = useCallback(() => setSelectedId(null), []);
+  const [areaSheet, setAreaSheet] = useState(false);
+  // At large text a followed tour's bar spans the screen, the zoom control above it (TM3 at 200 %).
+  const large = useWindowDimensions().fontScale >= LARGE_TEXT_SCALE;
+  const [bottomHeight, setBottomHeight] = useState(0);
+  const [explainer, setExplainer] = useState(false);
+  const [view, setView] = useState<MapView | null>(null);
+  const [settledCenter, setSettledCenter] = useState<{ lat: number; lng: number } | null>(null);
+
+  const areaList = useMemo(() => areas.data?.data ?? [], [areas.data]);
+  // Explore's "Choose an area" lands here with the switcher open.
+  useEffect(() => {
+    if (params.areas === '1') {
+      setAreaSheet(true);
+      router.setParams({ areas: undefined });
+    }
+  }, [params.areas, router]);
+  const area = areaList.find((candidate) => candidate.id === currentAreaId) ?? areaList[0];
+  useEffect(() => {
+    if (currentAreaId === null && area !== undefined) setCurrentArea(area.id);
+  }, [currentAreaId, area, setCurrentArea]);
+
+  // A code from a link, the scanner or the keyboard waits for the Map, which opens it once.
+  const pending = useCodeStore((state) => state.pending);
+  useEffect(() => {
+    if (pending === null) return;
+    const taken = takePending();
+    if (taken !== null)
+      void codeOpener.open(taken.code, {
+        printed: taken.printed,
+        tour: taken.tour === true,
+        scanned: taken.source !== 'link' || taken.printed || taken.viaQr === true,
+      });
+  }, [pending]);
+
+  // A code that did not open a Place replaces whatever sheet was open: one sheet at a time.
+  const codeResult = useCodeStore((state) => state.result);
+  useEffect(() => {
+    if (codeResult !== null) setSelectedId(null);
+  }, [codeResult]);
+
+  // The Place a code opened: its area in view (said once), the map on it, its sheet at half.
+  const opened = useCodeStore((state) => state.opened);
+  useEffect(() => {
+    if (opened === null) return;
+    const move = areaMove(useAppStore.getState().currentAreaId, opened.areaId);
+    if (move !== null) {
+      setCurrentArea(move.areaId);
+      const next = areaList.find((candidate) => candidate.id === move.areaId);
+      if (next !== undefined) {
+        showToast(t('code.moved', { area: tFamily('area', next.code, next.code) }));
+      }
+    }
+    mapRef.current?.flyTo(opened.location, 16);
+    setSheetSnap('half');
+    setSelectedId(opened.placeId);
+    // ponytail: a Place fetched by code but not yet synced has no marker; drawing it from the
+    // detail is the upgrade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened?.seq]);
+
+  const pack = useMapPack(area);
+  const local = useLocalStyle(area?.id, theme.mode === 'dark');
+  const mapStyle = chooseMapStyle({
+    pack: pack.data ?? null,
+    local,
+    dark: theme.mode === 'dark',
+    offline,
+    background: theme.colors.background,
+  });
+
+  const places = useMemo(() => allPlaces.data ?? [], [allPlaces.data]);
+  const inArea = useMemo(
+    () => places.filter((place) => place.areaId === area?.id),
+    [places, area?.id],
+  );
+  const nearest = useMemo(() => nearestPlace(inArea, position), [inArea, position]);
+  const selected = places.find((place) => place.id === selectedId) ?? null;
+
+  // The camera's rest, debounced, drives the online nearby read that says which Places are boosted.
+  useEffect(() => {
+    if (view === null) return;
+    const timer = setTimeout(() => setSettledCenter(view.center), SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [view]);
+  const nearby = usePlacesNearby(
+    {
+      lat: coarse(settledCenter?.lat ?? 0),
+      lng: coarse(settledCenter?.lng ?? 0),
+      radiusM: NEARBY_RADIUS_M,
+      lang,
+      limit: 50,
+    },
+    { query: { enabled: !offline && settledCenter !== null, staleTime: 30_000 } },
+  );
+  const sponsoredIds = useMemo(
+    () =>
+      new Set(
+        offline
+          ? []
+          : (nearby.data?.data ?? []).filter((item) => item.sponsored).map((item) => item.id),
+      ),
+    [nearby.data, offline],
+  );
+
+  const chooseArea = (areaId: string) => {
+    const next = areaList.find((candidate) => candidate.id === areaId);
+    setAreaSheet(false);
+    setSelectedId(null);
+    setCurrentArea(areaId);
+    if (next !== undefined) mapRef.current?.flyTo(next.center, next.defaultZoom);
+  };
+
+  /**
+   * *Locate me*. The permission is read afresh (the tourist may have changed it in the phone's
+   * settings): without it, the explainer asks; with it, the position is found, switching the
+   * phone's location on first if it is off, and the map flies there. A failure says why.
+   */
+  const locate = async () => {
+    if ((await refreshPermission()) !== 'granted') {
+      setExplainer(true);
+      return;
+    }
+    setExplainer(false);
+    const found = await locateOnce();
+    if (found === 'services-off') showToast(t('location.servicesOff'));
+    else if (found === 'no-fix') showToast(t('location.noFix'));
+    else mapRef.current?.flyTo(found, 16);
+  };
+  /** The explainer's button: ask (as long as the system still lets us), or open the phone's settings. */
+  const turnOn = async () => {
+    if ((await refreshPermission()) === 'denied') return void Linking.openSettings();
+    if (await requestForegroundLocation()) {
+      setExplainer(false);
+      await locate();
+    } else if (useLocationStore.getState().permission === 'denied') {
+      // "Don't ask again": the explainer now sends them to the settings.
+      setExplainer(true);
+    }
+  };
+
+  // TM3: the followed tour's route over the Places, and its bar above the walk control.
+  const followingTourId = useAppStore((state) => state.followingTourId);
+  const followed = useLocalTour(followingTourId);
+  const following = followed.data ?? null;
+  const wide = large && following !== null;
+  const route = useMemo(
+    () =>
+      following === null
+        ? []
+        : following.tour.stops.flatMap((stop) =>
+            stop.place === null
+              ? []
+              : [
+                  {
+                    id: stop.place.id,
+                    lng: stop.place.location.lng,
+                    lat: stop.place.location.lat,
+                    label: String(stop.position + 1),
+                    state: following.progress.played.has(stop.position)
+                      ? ('heard' as const)
+                      : stop.position === following.progress.next
+                        ? ('next' as const)
+                        : ('upcoming' as const),
+                  },
+                ],
+          ),
+    [following],
+  );
+
+  const noPlacesHere = area !== undefined && !allPlaces.isPending && inArea.length === 0;
+  const firstSync = lastChecked === null && places.length === 0;
+  // K5: a failed sync with nothing on the phone is said, not shown as an empty area; offline, the
+  // offline banner says it instead.
+  const syncFailed = syncFailureShown(
+    syncError,
+    offline,
+    allPlaces.isSuccess && places.length === 0,
+  );
+
+  return (
+    <View className="flex-1 bg-background">
+      {area !== undefined && (
+        <PlacesMap
+          ref={mapRef}
+          mapStyle={mapStyle.style}
+          initial={{ center: area.center, zoom: area.defaultZoom }}
+          places={places}
+          nearest={nearest}
+          selected={selected}
+          sponsoredIds={sponsoredIds}
+          position={position}
+          onSelect={select}
+          onSettled={setView}
+          route={route}
+        />
+      )}
+
+      <View className="absolute inset-x-0 top-0 gap-2 px-4 pt-12">
+        {/* The area switcher and *Scan a code* share the top; at large text the button wraps under. */}
+        <View className="flex-row flex-wrap items-center justify-between gap-2">
+          {area !== undefined && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('map.changeArea')}
+              onPress={() => setAreaSheet(true)}
+              className="min-h-12 max-w-full flex-row items-center gap-2 self-start rounded-full bg-card px-4 py-2 elevation-2"
+            >
+              <Icon icon={areaIcon(area.code)} size="md" color="primary" />
+              <Text className="shrink text-label text-foreground">
+                {tFamily('area', area.code, area.code)}
+              </Text>
+              <Icon icon={ChevronDown} size="sm" color="muted-foreground" />
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('code.scan')}
+            onPress={() => router.push('/scan')}
+            className="min-h-12 flex-row items-center gap-2 rounded-full bg-card px-4 elevation-1"
+          >
+            <Icon icon={ScanQrCode} size="md" color="primary" />
+            <Text className="text-label text-foreground">{t('code.scan')}</Text>
+          </Pressable>
+        </View>
+        <SwitchPill />
+        {area !== undefined && <MapPackExtras areaId={area.id} />}
+        <WalkNotice />
+        {offline && mapStyle.kind === 'blank' && <OfflineMapNote />}
+        {firstSync && syncing && <InlineNote text={t('map.firstSync')} />}
+        {allPlaces.isError ? (
+          <InlineAlert
+            message={errorMessage(allPlaces.error)}
+            onRetry={() => void allPlaces.refetch()}
+          />
+        ) : syncFailed ? (
+          <InlineNote
+            icon={CircleAlert}
+            text={t('map.loadFailed')}
+            action={{
+              label: t('action.retry'),
+              onPress: () => void runSync().catch(() => undefined),
+            }}
+          />
+        ) : (
+          noPlacesHere && !firstSync && <InlineNote text={t('map.noPlaces')} />
+        )}
+        {explainer && (
+          <View className="gap-2 rounded-xl bg-card p-4 elevation-2">
+            <Text accessibilityRole="header" className="text-heading text-foreground">
+              {t('location.explainer.title')}
+            </Text>
+            <Text className="text-body text-muted-foreground">
+              {permission === 'denied' ? t('location.denied') : t('location.explainer.body')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                permission === 'denied' ? t('location.openSettings') : t('location.turnOn')
+              }
+              onPress={() => void turnOn()}
+              className="min-h-12 items-center justify-center rounded-lg bg-primary px-4"
+            >
+              <Text className="text-body-strong text-primary-foreground">
+                {permission === 'denied' ? t('location.openSettings') : t('location.turnOn')}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+
+      <View
+        style={{
+          bottom: wide ? controlsBottom + bottomHeight + space[2] : controlsBottom,
+        }}
+        className="absolute right-4 gap-2"
+        pointerEvents="box-none"
+      >
+        {/* Zoom: one card, + and − under a divider; *Locate me* on its own below. */}
+        <View className="rounded-lg bg-card elevation-2">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="+"
+            onPress={() => mapRef.current?.zoomBy(1)}
+            className="min-h-12 min-w-12 items-center justify-center"
+          >
+            <Icon icon={Plus} size="lg" />
+          </Pressable>
+          <View className="h-px bg-border" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="−"
+            onPress={() => mapRef.current?.zoomBy(-1)}
+            className="min-h-12 min-w-12 items-center justify-center"
+          >
+            <Icon icon={Minus} size="lg" />
+          </Pressable>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('map.locate')}
+          onPress={() => void locate()}
+          className="min-h-12 min-w-12 items-center justify-center rounded-lg bg-card elevation-2"
+        >
+          <Icon icon={LocateFixed} size="lg" />
+        </Pressable>
+      </View>
+      <View
+        style={{ bottom: controlsBottom }}
+        className={`absolute left-4 gap-2 ${wide ? 'right-4' : 'right-16 pr-2'}`}
+        pointerEvents="box-none"
+        onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)}
+      >
+        <Text
+          maxFontSizeMultiplier={1.3}
+          className="self-start rounded-full bg-card/85 px-3 py-1 text-caption text-muted-foreground"
+          onPress={() => router.push('/settings/credits')}
+        >
+          {t('map.attribution')}
+        </Text>
+        {following !== null && <TourBar row={following} position={position} />}
+        <WalkControl />
+      </View>
+
+      {selectedId !== null && (
+        <PlaceSheet
+          placeId={selectedId}
+          position={position}
+          onClose={closeSheet}
+          initialSnap={sheetSnap}
+        />
+      )}
+      <CodeResultSheet />
+      <ConsentSheetHost />
+      {areaSheet && (
+        <AreaSheet
+          areas={areaList}
+          currentId={area?.id ?? null}
+          onChoose={chooseArea}
+          onClose={() => setAreaSheet(false)}
+        />
+      )}
+    </View>
+  );
+}

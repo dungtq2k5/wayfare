@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+// UI string bundles — api-endpoints-plan §4.2, rdm-spec N-6.
+package wayfare.narration;
+
+// The bundle both apps read. Public: no device and no account reaches it.
+service UiBundleService {
+  // One namespace of one locale; an uncommitted locale is queued and answered in English.
+  rpc GetBundle(GetBundleRequest) returns (GetBundleResponse);
+}
+
+// A bundle's state.
+enum UiBundleStatus {
+  UI_BUNDLE_STATUS_UNSPECIFIED = 0;
+  UI_BUNDLE_STATUS_PENDING = 1;
+  UI_BUNDLE_STATUS_READY = 2;
+  UI_BUNDLE_STATUS_FAILED = 3;
+}
+
+message GetBundleRequest {
+  // `tourist` or `console`, as the path spells it.
+  string namespace = 1;
+  string locale = 2;
+}
+
+message GetBundleResponse {
+  string namespace = 1;
+  // The locale answered, which is the one asked for.
+  string locale = 2;
+  UiBundleStatus status = 3;
+  // The English source this translation was made from.
+  string source_hash = 4;
+  // Flat `{ key: ICU string }`; the English strings while PENDING.
+  map<string, string> messages = 5;
+  // Keys served in English because their translation broke a placeholder.
+  repeated string failed_keys = 6;
+  // PENDING only.
+  optional int32 retry_after_ms = 7;
+}

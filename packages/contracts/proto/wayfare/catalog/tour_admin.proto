@@ -1,0 +1,200 @@
+syntax = "proto3";
+
+// Staff administration of tours — api-endpoints-plan §3.6, rdm-spec C-8 to C-10.
+package wayfare.catalog;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/catalog/place_types.proto";
+import "wayfare/catalog/tour_types.proto";
+import "wayfare/common/geo.proto";
+import "wayfare/common/page.proto";
+
+// Creates, edits, publishes and deletes tours. The caller travels as metadata; the gateway checks
+// `tour.manage`, catalog the rules only it can know.
+service TourAdminService {
+  rpc ListTours(TourAdminServiceListToursRequest) returns (TourAdminServiceListToursResponse);
+  rpc GetTourAdmin(GetTourAdminRequest) returns (GetTourAdminResponse);
+  rpc CreateTour(CreateTourRequest) returns (CreateTourResponse);
+  rpc UpdateTour(UpdateTourRequest) returns (UpdateTourResponse);
+  rpc ReplaceTourStops(ReplaceTourStopsRequest) returns (ReplaceTourStopsResponse);
+  rpc RequestTourActivation(RequestTourActivationRequest) returns (RequestTourActivationResponse);
+  rpc DeactivateTour(DeactivateTourRequest) returns (DeactivateTourResponse);
+  rpc DeleteTour(DeleteTourRequest) returns (DeleteTourResponse);
+  rpc RestoreTour(RestoreTourRequest) returns (RestoreTourResponse);
+  rpc GetTourQr(GetTourQrRequest) returns (GetTourQrResponse);
+}
+
+message TourAdminServiceListToursRequest {
+  // `q` matches the Vietnamese title or the public code.
+  wayfare.common.PageNumberRequest page = 1;
+  optional TourStatus status = 2;
+  optional string area_id = 3;
+  bool include_deleted = 4;
+}
+
+message TourAdminServiceListToursResponse {
+  repeated AdminTourListItem tours = 1;
+  wayfare.common.PageNumberMeta page = 2;
+}
+
+// One console table row.
+message AdminTourListItem {
+  string id = 1;
+  string public_code = 2;
+  string title_vi = 3;
+  string area_id = 4;
+  string area_code = 5;
+  TourStatus status = 6;
+  bool inactive_by_admin = 7;
+  int32 estimated_minutes = 8;
+  int32 distance_m = 9;
+  int32 live_stops = 10;
+  int32 total_stops = 11;
+  // Fewer than two live stops: still its status, but tourists don't see it (rdm-spec C-8).
+  bool hidden_from_tourists = 12;
+  PhotoView cover = 13;
+  google.protobuf.Timestamp updated_at = 14;
+  google.protobuf.Timestamp deleted_at = 15;
+  bool activation_requested = 16;
+}
+
+message GetTourAdminRequest {
+  string tour_id = 1;
+}
+
+message GetTourAdminResponse {
+  AdminTour tour = 1;
+}
+
+// Every column of a tour, its stops as they stand and its translations.
+message AdminTour {
+  string id = 1;
+  string public_code = 2;
+  string area_id = 3;
+  string area_code = 4;
+  string title_vi = 5;
+  string description_vi = 6;
+  string content_hash = 7;
+  int32 estimated_minutes = 8;
+  int32 distance_m = 9;
+  PhotoVariantViews cover = 10;
+  TourStatus status = 11;
+  bool inactive_by_admin = 12;
+  google.protobuf.Timestamp activation_requested_at = 13;
+  int64 sync_version = 14;
+  string created_by_id = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  google.protobuf.Timestamp deleted_at = 18;
+  repeated AdminTourStop stops = 19;
+  repeated TourLocalizationReadiness localizations = 20;
+  // What the gate still waits for: `en.text`, `activation`.
+  repeated string activation_missing = 21;
+  int32 live_stops = 22;
+  bool hidden_from_tourists = 23;
+}
+
+// A stop as staff see it: whatever its Place became.
+message AdminTourStop {
+  int32 position = 1;
+  string place_id = 2;
+  string public_code = 3;
+  string name_vi = 4;
+  string category_code = 5;
+  PlaceStatus status = 6;
+  bool deleted = 7;
+  // Its Place moved out of the tour's area since it was added (rdm-spec C-10).
+  bool outside_area = 8;
+  wayfare.common.GeoPoint location = 9;
+  // The straight line from the stop before; 0 for the first.
+  int32 leg_m = 10;
+  // Its Place's English name, when narration has made it.
+  optional string name_en = 11;
+}
+
+// One language's text (api-endpoints-plan §3.6).
+message TourLocalizationReadiness {
+  string lang = 1;
+  bool text_ready = 2;
+  bool stale = 3;
+  TranslationSource translation_source = 4;
+}
+
+message CreateTourRequest {
+  string title_vi = 1;
+  string description_vi = 2;
+  string area_id = 3;
+  int32 estimated_minutes = 4;
+  optional string cover_upload_id = 5;
+  repeated string place_ids = 6;
+  bool request_activation = 7;
+}
+
+message CreateTourResponse {
+  AdminTour tour = 1;
+}
+
+// An absent field is unchanged; `remove_cover` clears the cover.
+message UpdateTourRequest {
+  string tour_id = 1;
+  optional string title_vi = 2;
+  optional string description_vi = 3;
+  optional int32 estimated_minutes = 4;
+  optional string cover_upload_id = 5;
+  bool remove_cover = 6;
+}
+
+message UpdateTourResponse {
+  AdminTour tour = 1;
+}
+
+message ReplaceTourStopsRequest {
+  string tour_id = 1;
+  repeated string place_ids = 2;
+}
+
+message ReplaceTourStopsResponse {
+  AdminTour tour = 1;
+}
+
+message RequestTourActivationRequest {
+  string tour_id = 1;
+}
+
+message RequestTourActivationResponse {
+  TourStatus status = 1;
+  repeated string missing = 2;
+}
+
+message DeactivateTourRequest {
+  string tour_id = 1;
+}
+
+message DeactivateTourResponse {
+  AdminTour tour = 1;
+}
+
+message DeleteTourRequest {
+  string tour_id = 1;
+}
+
+message DeleteTourResponse {}
+
+message RestoreTourRequest {
+  string tour_id = 1;
+}
+
+message RestoreTourResponse {
+  AdminTour tour = 1;
+}
+
+message GetTourQrRequest {
+  string tour_id = 1;
+  // The sticker host, from the gateway's configuration; catalog holds no public URL.
+  string qr_base_url = 2;
+}
+
+message GetTourQrResponse {
+  string svg = 1;
+  string public_code = 2;
+}

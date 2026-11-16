@@ -1,0 +1,114 @@
+# The console's screen baselines' own stack (apps/console/e2e/README.md): the same services as
+# compose.yaml, as Compose project `wayfare-screens`, every host port moved up by 10000 and its own
+# volumes, so it starts empty and the developer's own stack and data stay as they are. The services'
+# gRPC ports are published too (30051–30055): the host-side seeds call across services.
+#
+#   docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml \
+#     --profile apps up -d --build --wait <services>
+#
+# `apps/console/e2e/screens/stack.sh` runs it; nothing else should.
+#
+# Its databases are thrown away after every run, so they skip the flush to disk: on a nearly full
+# SSD a commit's WAL fsync can stall for seconds, and every service then misses the gateway's 2 s
+# deadline at once. Never for a database whose data must survive a crash.
+x-throwaway-postgres:
+  &throwaway-postgres [
+    'postgres',
+    '-c',
+    'fsync=off',
+    '-c',
+    'synchronous_commit=off',
+    '-c',
+    'full_page_writes=off',
+  ]
+
+services:
+  identity-db:
+    container_name: wayfare-screens-identity-db
+    command: *throwaway-postgres
+    ports: !override ['127.0.0.1:25433:5432']
+  catalog-db:
+    container_name: wayfare-screens-catalog-db
+    command: *throwaway-postgres
+    ports: !override ['127.0.0.1:25434:5432']
+  narration-db:
+    container_name: wayfare-screens-narration-db
+    command: *throwaway-postgres
+    ports: !override ['127.0.0.1:25435:5432']
+  billing-db:
+    container_name: wayfare-screens-billing-db
+    command: *throwaway-postgres
+    ports: !override ['127.0.0.1:25436:5432']
+  analytics-db:
+    container_name: wayfare-screens-analytics-db
+    command: *throwaway-postgres
+    ports: !override ['127.0.0.1:25437:5432']
+  redis:
+    container_name: wayfare-screens-redis
+    ports: !override ['127.0.0.1:26379:6379']
+  nats:
+    container_name: wayfare-screens-nats
+    ports: !override ['127.0.0.1:24222:4222', '127.0.0.1:28222:8222']
+  mailpit:
+    container_name: wayfare-screens-mailpit
+    ports: !override ['127.0.0.1:21025:1025', '127.0.0.1:28025:8025']
+  fake-gcs:
+    container_name: wayfare-screens-fake-gcs
+    command:
+      !override [
+        '-scheme',
+        'http',
+        '-port',
+        '4443',
+        '-external-url',
+        'http://localhost:24443',
+        '-public-host',
+        'localhost:24443',
+        '-backend',
+        'filesystem',
+        '-filesystem-root',
+        '/storage',
+        '-cors-headers',
+        'x-goog-content-length-range',
+      ]
+    ports: !override ['127.0.0.1:24443:4443']
+
+  identity:
+    container_name: wayfare-screens-identity
+    environment:
+      CONSOLE_URL: http://localhost:5183
+      # A tourist's mail opens the screens' web app, beside the screens' console.
+      WEB_URL: http://localhost:5184
+    ports: !override ['127.0.0.1:23101:3101', '127.0.0.1:30051:20051']
+  catalog:
+    container_name: wayfare-screens-catalog
+    environment:
+      GCS_PUBLIC_BASE_URL: http://localhost:24443/wayfare-media-local
+    ports: !override ['127.0.0.1:23102:3102', '127.0.0.1:30052:20052']
+  narration:
+    container_name: wayfare-screens-narration
+    environment:
+      GCS_PUBLIC_BASE_URL: http://localhost:24443/wayfare-media-local
+    ports: !override ['127.0.0.1:23103:3103', '127.0.0.1:30053:20053']
+  billing:
+    container_name: wayfare-screens-billing
+    environment:
+      CONSOLE_URL: http://localhost:5183
+    ports: !override ['127.0.0.1:23104:3104', '127.0.0.1:30054:20054']
+  analytics:
+    container_name: wayfare-screens-analytics
+    ports: !override ['127.0.0.1:23105:3105', '127.0.0.1:30055:20055']
+    environment:
+      # The numbers are the seed's, rebuilt with its own clock: the real-time jobs (the nightly
+      # rollup at 03:00, the hourly flushes) would move them mid-run.
+      JOBS_ENABLED: 'false'
+  gateway:
+    container_name: wayfare-screens-gateway
+    environment:
+      CORS_ORIGINS: http://localhost:5183,http://localhost:5184
+      # A sticker's scan lands on the screens' web app.
+      PUBLIC_LINK_BASE_URL: http://localhost:5184
+      PUBLIC_QR_BASE_URL: http://localhost:23000
+      # A Place counts as stuck after 15 s, so the stuck spec waits seconds, not an hour.
+      STUCK_PROCESSING_AFTER_MS: '15000'
+    ports: !override ['127.0.0.1:23000:3000']

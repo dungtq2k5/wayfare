@@ -22,17 +22,19 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
 ## 1. Core ecosystem & workspace management
 
 - **Language:** **TypeScript** — `strict: true` everywhere, no exceptions, no `any` in merged code. 📌 [ADR 0008](./decisions/0008-typescript-strict-everywhere.md).
-- **Runtime:** **Node.js 24 LTS** — pinned at **24.14.0** in `.nvmrc`, `engines`, every Dockerfile and every CI job. Version drift between laptop, container and CI is a classic late surprise.
+- **Runtime:** **Node.js 24 LTS** — pinned at **24.21.0** in `.nvmrc`, every Dockerfile and every CI job (`setup-node` reads `.nvmrc`); `engines` states the floor (`^24.14.0`), so a newer Node 24 patch on a laptop installs without a warning. Version drift between laptop, container and CI is a classic late surprise: when the laptop moves to a new Node 24 patch, `.nvmrc` and the Dockerfiles move with it.
 - **Package manager:** **pnpm** (with workspaces).
   - *Why:* strict `node_modules` layout catches phantom dependencies — a package that works on your machine because a sibling hoisted it, then breaks in CI. Also far faster and smaller on disk than npm, which matters with three React apps in one repo.
 - **Monorepo tooling:** **Turborepo**
   - *Why:* orchestrates the task graph and caches outputs (Prisma client generation, `tsc` builds, test runs) so unchanged packages are never rebuilt. In CI, `turbo run build --filter=...[origin/main]` builds only what the PR actually touched.
 - **Containerization:** **Docker & Docker Compose**
   - *Why:* one `docker compose up` boots every service's Postgres, plus NATS, Redis and the GCS emulator. Environment parity is not a nice-to-have on a distributed team — it is the difference between "works on my machine" and a working demo.
+  - **It runs beside other projects' stacks:** every long-running container is named `wayfare-<service>`, and the host ports of Postgres, Redis and NATS are their defaults plus 10000 — Postgres 15433–15437 (one per service), Redis 16379, NATS 14222 (monitoring 18222), the test broker 14223, and the host-run gateway 13000. Inside the Compose network every service keeps its default port (`identity-db:5432`, `nats:4222`). Every published port binds `127.0.0.1` only: the containers' fixed local credentials are never offered to the network the laptop is on. **A phone reaches the local stack through `adb reverse`** (over USB, or Android's wireless debugging) — `pnpm mobile:reverse` maps Metro (8081), the gateway (13000) and fake-gcs (4443) to the phone's `localhost` — never over the network. Airplane mode does not cut `adb reverse`, which rides the USB link: an offline test also removes the forwarded ports (`adb reverse --remove-all`), as a phone on the street has none. The services' gRPC ports are 20051–20055 (identity, catalog, narration, billing, analytics; the next service takes 20056), below the range operating systems hand out to outgoing connections (Linux 32768–60999; macOS and Windows 49152–65535), so no outgoing connection can be holding one when a service starts. In Compose, each service publishes its gRPC port on `127.0.0.1` too, so a seed run on the host (the screen baselines' records) reaches it. **A second, throwaway stack** for the console's screen baselines (`infra/docker/compose.screens.yaml`, Compose project `wayfare-screens`) runs beside the first with every host port up by another 10000.
+- **Pinned majors:** NestJS **11**, Prisma **7**, TypeScript **5.9**, ESLint **9**, Vitest **4** (verified: Nest 11.2.5, Prisma 7.10.0, TypeScript 5.9.3). **`@nestjs/config` is pinned at 4.0.4:** 12.x ships ES modules only, which the CommonJS services ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)) do not load, and moving to it is an upgrade decision like any other major. A newer major (Nest 12, Prisma 8, TypeScript 7) is an upgrade decision, never a side effect of `pnpm add`. **`@nestjs/websockets` and `@nestjs/platform-socket.io` are pinned at 11.2.5** for the same reason (12.x is ES modules only), and **every Nest service depends on `@nestjs/websockets` at that version**, not only the gateway: otherwise pnpm resolves a second copy of `@nestjs/core` and `@nestjs/microservices` for the services without it, and errors thrown from nest-common stop mapping to gRPC codes.
 - **Build tool (backend):** **SWC** via the Nest CLI builder, with `typeCheck: true`, for every service **except the gateway**, which builds with `tsc`. 📌 [ADR 0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md). Vitest uses `unplugin-swc` so tests get the decorator metadata Nest's DI needs.
   - ⚠️ Gotcha: under SWC, type-only imports must be written `import type`, or they can turn into runtime `require`s and a circular-import crash at boot.
-- **Build tool (web):** **Vite 7.x** with `vite-plugin-pwa`
-  - *Why:* instant HMR for the React apps, and the PWA plugin generates the manifest and wires Workbox into our service worker via `injectManifest`.
+- **Web framework:** **Next.js** (App Router), rendered on the server, for both web apps. 📌 [ADR 0060](./decisions/0060-the-web-apps-are-nextjs.md)
+  - *Why:* a Place page opened from a QR sticker arrives already rendered, fast on mobile data and with a real link preview — and since [ADR 0059](./decisions/0059-the-native-app-is-android-only.md) that page is the whole of Wayfare for an iPhone user. The Next.js server calls only the gateway's public API; it is never a second backend.
 - **Code quality:** **ESLint 9** (flat config) + **Prettier**, plus **lint-staged** on a pre-commit hook. One shared config package; no per-app bikeshedding.
 - **Commits:** **Conventional Commits**, enforced by commitlint.
 
@@ -40,12 +42,12 @@ This is a unified **TypeScript monorepo**: one language, one type system, one de
 
 📌 [ADR 0009](./decisions/0009-the-repository-layout.md) — agree on this before the first commit, because moving files later breaks everyone's open branches.
 
-```
+```text
 wayfare/
 ├─ apps/
 │  ├─ mobile/            # Expo / React Native — tourist app (primary surface)
-│  ├─ web/               # Vite React PWA — tourist web
-│  └─ console/           # Vite React SPA — owner portal + admin console
+│  ├─ web/               # Next.js PWA — tourist web
+│  └─ console/           # Next.js — owner portal + admin console
 ├─ services/
 │  ├─ gateway/           # NestJS — the only public HTTP surface (BFF)
 │  ├─ identity/          # NestJS — accounts, devices, tokens, RBAC, PII
@@ -56,7 +58,8 @@ wayfare/
 │  │  └─ prisma/schema.prisma
 │  ├─ billing/           # NestJS — Stripe: subscriptions, Connect, entitlements
 │  │  └─ prisma/schema.prisma
-│  ├─ analytics/         # NestJS — consent-gated ingest + read models        (Phase 2)
+│  ├─ analytics/         # NestJS — consent-gated ingest, rollup jobs, dashboard reads
+│  │  └─ prisma/schema.prisma
 │  └─ ai/                # NestJS — Gemini description enhancement            (Phase 2)
 ├─ packages/
 │  ├─ db/                # shared Prisma tooling ONLY — no models (see §3.2)
@@ -66,7 +69,7 @@ wayfare/
 │  ├─ nest-common/       # shared Nest guards, interceptors, gRPC client base, outbox relay
 │  ├─ ui/                # shared React components (web + console)
 │  ├─ i18n/              # locale resources, language registry, formatting helpers
-│  └─ config/            # eslint / tsconfig / tailwind presets
+│  └─ config/            # eslint / tsconfig / tailwind presets, the markdown lint rule, repo-wide guard specs
 ├─ infra/
 │  ├─ docker/            # Dockerfiles, compose files
 │  └─ tiles/             # PMTiles build scripts for offline map packs
@@ -96,12 +99,12 @@ wayfare/
   - *Why:* one schema yields both the runtime validator and the TypeScript type, and the same schema can validate a NATS event payload. Validate at every boundary: HTTP body, gRPC message, event payload, webhook body, environment variables at boot.
 - **API gateway / BFF:** a dedicated **NestJS `gateway` service**
   - *Why:* clients talk to exactly one host. The gateway verifies auth, applies rate limits, aggregates several gRPC calls into one mobile-friendly response (critical over a bad tourist data connection), and is the only service exposed to the internet.
-- **Rate limiting:** `@nestjs/throttler` with a **Redis** store, so limits are shared across replicas. Applied hardest to the endpoints that cost real money: TTS, translation, AI, analytics ingest.
+- **Rate limiting:** the gateway's own `RateLimitGuard` over an atomic **Redis** counter script (no throttler package — each route has exactly one class from `RATE_LIMITS`, and each key is its own bucket), so limits are shared across replicas. Applied hardest to the endpoints that cost real money: TTS, translation, AI, analytics ingest.
 - **Caching:** `@nestjs/cache-manager` backed by **Redis**. The hot path is the entitlement lookup that `catalog` performs on every place mutation, plus the voice catalogue and the dataset-version token.
 - **Background jobs:** **BullMQ** (Redis-backed) 📌 [ADR 0019](./decisions/0019-bullmq-for-in-service-work.md) for TTS generation, translation warmup, media cleanup and analytics rollups.
   - *Why over a plain JetStream consumer:* we need retries with backoff, concurrency limits, progress reporting, pause/resume/cancel, and a dashboard — that is precisely the Admin Console's TTS job monitor, and BullMQ gives all of it for free.
   - The division of labour: **JetStream carries facts between services** ("this description changed"); **BullMQ runs work inside one service** ("synthesise these 5 audio files, report progress, let an admin cancel").
-- **Live progress to the UI:** **WebSockets** — `@nestjs/websockets` with **socket.io** and **`@socket.io/redis-adapter`**. 📌 [ADR 0020](./decisions/0020-websocket-is-the-only-realtime-transport.md).
+- **Live progress to the UI:** **WebSockets** — `@nestjs/websockets` with **socket.io** and **`@socket.io/redis-adapter`**; other services emit through **`@socket.io/redis-emitter`** (verified: its frames reach a client through redis-adapter 8.3 on `ioredis`, although the emitter was last published in January 2023). 📌 [ADR 0020](./decisions/0020-websocket-is-the-only-realtime-transport.md).
   - *Why:* one real-time transport for everything — TTS job progress, owner review notifications, and anything live added later — rather than SSE for one thing and WebSockets for the next.
   - ⚠️ Gotcha: the Redis adapter is **not optional** the moment you run more than one replica. Without it, a job-progress broadcast only reaches clients connected to the same instance, and the bug looks like "progress bars randomly don't update".
   - ⚠️ Gotcha: socket.io defaults to an HTTP long-poll handshake before upgrading, which breaks or thrashes behind some load balancers. Either configure sticky sessions or force `transports: ['websocket']`.
@@ -139,6 +142,7 @@ Rules that make this real rather than cosmetic:
 2. A service throws `RpcException` with a gRPC status and an `ErrorCode` (via `rpcError()`); the gateway translates the status to HTTP and passes the code to the client.
 3. Responses are explicit DTOs built by mappers. Returning a Prisma row leaks database columns (including `passwordHash`) into JSON.
 4. Services are unit-tested with `PrismaService` mocked, and every query that matters — raw SQL, partial indexes, `CHECK`s, transactions — is proven by an integration test against the `_test` database.
+5. **A service initialises before it opens gRPC:** each `main.ts` awaits `app.init()` — the database connection, the schema check, every peer client — before `startAllMicroservices()`, so no call reaches a half-started service (a guard spec checks the five). **Peer channels are connected at start-up and kept connected** (`GrpcServiceCaller` reconnects an idle one), so a name lookup and a connection never spend a call's 2 s deadline. **Database pools keep their connections open** (`PG_POOL_OPTIONS`: no idle timeout, TCP keep-alive), so a burst never reopens connections inside a deadline.
 
 📚 Project convention: the `nestjs-best-practices` skill in this workspace covers module boundaries, DI patterns and security specifics — consult it while writing services.
 
@@ -152,13 +156,13 @@ Rules that make this real rather than cosmetic:
 
 ### 3.1 Database topology — one Postgres server per service
 
-📌 [ADR 0011](./decisions/0011-one-postgres-server-per-service.md). Each service gets its **own Postgres container** in Compose, and inside that server two databases: the working database and an automatically provisioned test database.
+📌 [ADR 0011](./decisions/0011-one-postgres-server-per-service.md). Each service gets its **own Postgres container** in Compose, and inside that server three databases: the working database, an automatically provisioned test database, and a shadow database that only `db:drift` uses.
 
-```
-services/identity   → postgres container  → wayfare_identity   + wayfare_identity_test
-services/catalog    → postgres container  → wayfare_catalog    + wayfare_catalog_test   (PostGIS)
-services/narration  → postgres container  → wayfare_narration  + wayfare_narration_test
-services/billing    → postgres container  → wayfare_billing    + wayfare_billing_test
+```text
+services/identity   → postgres container  → wayfare_identity   + wayfare_identity_test   + wayfare_identity_shadow
+services/catalog    → postgres container  → wayfare_catalog    + wayfare_catalog_test    + wayfare_catalog_shadow   (PostGIS)
+services/narration  → postgres container  → wayfare_narration  + wayfare_narration_test  + wayfare_narration_shadow
+services/billing    → postgres container  → wayfare_billing    + wayfare_billing_test    + wayfare_billing_shadow
 ```
 
 Connection strings follow one predictable shape, so the test URL is derivable rather than separately configured:
@@ -168,7 +172,7 @@ DATABASE_URL      = postgresql://user:pass@catalog-db:5432/wayfare_catalog?schem
 DATABASE_URL_TEST = postgresql://user:pass@catalog-db:5432/wayfare_catalog_test?schema=public
 ```
 
-Both databases are created by the container's init script on first boot, so a fresh clone plus `docker compose up` yields a working *and* a testable stack with no manual setup.
+All three databases are created by the container's init script on first boot, so a fresh clone plus `docker compose up` yields a working *and* a testable stack with no manual setup.
 
 - *Why a server per service rather than one shared server:* it is genuine database-per-service isolation. A service cannot reach another's data even by accident, migrations are fully independent, and one service's lock contention or heavy analytical query cannot affect another's latency.
 - **The cost, stated plainly:** more containers and more RAM on a development laptop (budget ~150–250 MB each). If that becomes painful, the fallback is one server with a database per service — the connection-string shape above does not change, only the host. Do not fall back to a *schema* per service, because that weakens the isolation this decision exists to buy.
@@ -195,10 +199,49 @@ This is the correct microservice trade, but it is a real loss and it must be bud
 
 - The **Rust query engine is gone** (a new query compiler runs in TypeScript), so there is no engine binary to ship in your Docker image.
 - **Driver adapters are now required.** For Postgres that means `@prisma/adapter-pg` over `pg`, passed to the client constructor.
-- The generator is **`prisma-client`**, not `prisma-client-js`, and it requires an explicit **`output`** path — the client is generated into your source tree rather than into `node_modules`.
-- The output is **ESM-first**.
+- The generator is **`prisma-client`**, not `prisma-client-js`, and it requires an explicit **`output`** path. Ours is **`../generated/prisma`** — `services/<svc>/generated/prisma`, outside `src/`, gitignored — which is why the SWC `entryFile` is `src/main` ([ADR 0056](./decisions/0056-swc-builds-backend-services-tsc-builds-the-gateway.md)).
+- The output is ESM-first by default; **we set `moduleFormat = "cjs"`** ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)).
+- **The connection URL is not in `schema.prisma`.** It lives in **`prisma.config.ts`** (`datasource: { url }`), which the CLI reads for migrations. The runtime client gets its URL through the adapter: `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })`.
+- **Prisma no longer loads `.env` itself.** `prisma.config.ts` imports `dotenv/config`.
+- **`migrate dev` and `db push` no longer run `prisma generate` or the seed.** Both are explicit steps (`pnpm db:generate`, `prisma db seed`) in every script and in CI.
 
-⚠️ I am confident about that direction but not about every field name in the generator block. **Verify it against the current Prisma docs when you scaffold the first service**, and once one service's `schema.prisma` is known-good, copy it as the template for the rest.
+**Verified in `identity` on Prisma 7.10.0 — the template for every other service:**
+
+```ts
+// services/<svc>/prisma.config.ts
+import 'dotenv/config';
+import { defineConfig, env } from 'prisma/config';
+
+const TARGETS = { working: 'DATABASE_URL', test: 'DATABASE_URL_TEST' } as const;
+const db = process.env.PRISMA_DB ?? 'working';
+if (!Object.hasOwn(TARGETS, db)) throw new Error(`Unknown PRISMA_DB "${db}"`);
+
+export default defineConfig({
+  schema: 'prisma/schema.prisma',
+  migrations: { path: 'prisma/migrations' },
+  datasource: {
+    url: env(TARGETS[db as keyof typeof TARGETS]),
+    shadowDatabaseUrl: env('DATABASE_URL_SHADOW'),
+  },
+});
+```
+
+```prisma
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+```
+
+- `prisma db execute --file …` and `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code` both work as written; the shadow URL comes from the config.
+- ⚠️ **`env()` throws when the config is loaded** if a variable is unset — including for commands that never connect, such as `prisma generate`. Every environment that runs Prisma, CI included, has the service's `.env` in place first.
+- ⚠️ **Turborepo's strict env mode hides variables from tasks.** `turbo.json` lists `DATABASE_URL*` and `PRISMA_DB` in `globalPassThroughEnv`, or every Prisma task sees them unset.
+- ⚠️ **The SWC builder compiles only `src/` unless told otherwise.** The generated client lives in `generated/`, so each service's Nest CLI config sets the builder's **`filenames: ["src", "generated"]`**; without it `dist` has no Prisma client and the service crashes at startup.
 
 What has *not* changed, and matters most to us: `Unsupported()` column types and `$queryRaw` / `$executeRaw` still work exactly as before, which is how all PostGIS access happens.
 
@@ -245,6 +288,8 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 - **BullMQ** — TTS, translation warmup, media cleanup, analytics rollup queues.
 - **WebSocket adapter** — cross-replica broadcast for job progress and notifications.
 
+It also holds identity's **revocation state** — each user's token cutoff and the signed-out session families the gateway checks on every account request. Neither is the record: a missing cutoff is re-read from identity, and a missing family marker costs at most one access-token lifetime.
+
 ⚠️ Gotcha: Redis is a *cache and a transport*, not a database. Every value in it must be reconstructible from Postgres or Stripe. Assume `FLUSHALL` could happen and the app must still be correct — the one exception is in-flight BullMQ jobs, which is why TTS jobs are also snapshotted to Postgres and recovered on boot.
 
 ### 3.6 Object storage — Google Cloud Storage
@@ -252,7 +297,9 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 📌 [ADR 0022](./decisions/0022-gcs-behind-a-storage-provider-interface.md): **GCS**, in the Firebase/Google ecosystem. No MinIO, no S3, no R2.
 
 - **SDK:** `@google-cloud/storage` with a service-account credential. Buckets provisioned through the Firebase console are ordinary GCS buckets, so either entry point works.
-- **Local development:** **`fake-gcs-server`** in Compose. Same API, no cloud account needed for day-to-day work.
+- **Local development:** **`fake-gcs-server`** in Compose, started with `-public-host localhost:4443` and `-cors-headers x-goog-content-length-range` (the browser's signed upload sends that header, and the emulator refuses its preflight without it; signed `PUT`s answer `404` without `-public-host`). Catalog **signs upload URLs with the origin of `GCS_PUBLIC_BASE_URL`** — the emulator as a browser reaches it — not `GCS_API_ENDPOINT`, which is the container name only catalog can resolve. The client is pointed at it with an explicit `apiEndpoint` (`GCS_API_ENDPOINT`), signs with a throwaway local service-account key, and the bucket is created by a setup step — the emulator starts empty and does **not** enforce `x-goog-content-length-range`, so the confirm-time size check is the only local size guard. Its objects live in a named volume (`-backend filesystem -filesystem-root /storage`), so they survive a `docker compose down`; `down -v` clears them, and then narration's `audio_assets` and catalog's rows still name files that are gone — which is why a cache hit verifies its object (rdm-spec N-3).
+- **Signing in Cloud Run** uses the service's own identity through IAM `signBlob`, which needs `roles/iam.serviceAccountTokenCreator` on that service account; no key file is deployed.
+- **Only `photos/…` (and `audio/…`, packs) are public**, through the CDN's path rules; `uploads/…` never is, and an original is deleted at confirm. The bucket's CORS allows `PUT` from the console and web origins with the `Content-Type` and `x-goog-content-length-range` headers.
 - Stores place photos, generated MP3s, and built PMTiles archives.
 - **Uploads use signed URLs**: the client uploads straight to the bucket and only tells the API the resulting object name. Never proxy a 5 MB photo through a NestJS process.
 - ⚠️ Gotcha: **Firebase Storage security rules are irrelevant to us.** Those rules govern direct client SDK access; all our writes are backend-mediated through signed URLs, and all our reads are public objects behind a CDN. Do not spend time writing rules that never execute.
@@ -275,19 +322,45 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 - **API client generation:** **Orval** 📌 [ADR 0028](./decisions/0028-orval-generates-the-api-client.md)
   - *Why:* reads the gateway's OpenAPI spec and generates the typed client, request/response interfaces and TanStack Query hooks. When a backend DTO changes, the frontend **fails to compile** — which is exactly what you want, instead of discovering the change at runtime.
   - Wire generation into CI so a stale committed client cannot pass.
+  - The spec is a committed file, `packages/api-client/openapi.json`, written by a spec in the gateway's e2e suite through the same document builder that serves `/docs-json`, so the served spec and the client's input cannot differ; the same spec fails when the committed file is stale, and `pnpm api:generate` rewrites it and runs Orval.
+  - The document is **OpenAPI 3.1**: the zod-derived schemas use JSON Schema constructs (type arrays, `prefixItems`, `const`) that are not valid 3.0, and Orval rejects them under a 3.0 header.
+  - Orval generates in `tags-split` mode, from paths without the `/api/v1` prefix, with operations named `<tag><Action>` (`areasList` → `useAreasList`). It leaves out the error responses and the `X-Wayfare-Client` parameter, which the client's one `apiFetch` handles for every call — errors arrive as an `ApiError` carrying the envelope's `code` — and which otherwise grow the generated code roughly sevenfold. `openapi.json` itself stays complete.
 - **Forms:** **React Hook Form** + the same **zod** schemas the backend uses, shared via `packages/contracts`. One definition of "a valid place", validated on both sides.
 - **i18n:** **i18next** + **react-i18next** (which works in React Native too).
   - Two independent lanes, per `product-overview.md` §10: **UI strings** (i18next bundles, fetched and cached per locale) and **content locale** (place text + audio from the API). They warm at different speeds and must not block each other.
+  - **A bundle that arrives after its language is on screen** (a long tail's, machine-translated later) redraws only if i18next-icu drops its cached fallback formats: the app sets `i18nFormat.bindI18nStore: 'added'`.
+  - The bundles' source lives in `packages/i18n/locales/<locale>/<namespace>.json` — `tourist`, `console` and `email` — with **English as the source** and the launch locales committed beside it; `/i18n/bundles/:namespace/:locale` serves them and machine-translates the long tail (rdm-spec N-6). The `tourist` bundle also carries `category.<code>` and `area.<code>`, the names those tables deliberately do not hold.
+  - **Typed:** keys are checked against the English source (i18next's `CustomTypeOptions`), and each message's ICU arguments against a map generated from it by `packages/i18n`'s own ICU parser (`pnpm i18n:types`, committed and checked in CI) — a misspelt key or a missing `{count}` is a compile error, not a blank label.
+  - ⚠️ Gotcha: on Android, Hermes's `Intl.PluralRules` is incomplete, so the mobile app loads `@formatjs/intl-pluralrules` with every served language's plural data, long tail included, before i18next; without it every plural message renders as its raw ICU source.
   - ⚠️ Gotcha: use ICU plural rules from day one. Vietnamese, Chinese, Japanese and Korean have no plural forms; English does. Hand-rolled `count === 1 ? x : y` breaks all four.
   - ⚠️ Gotcha: lazy-load namespaces. Shipping all five languages' strings in the initial bundle is a slow cold start on a hotel Wi-Fi connection, and the long-tail locales make it unbounded.
 - **Styling:** 📌 [ADR 0030](./decisions/0030-tailwind-and-nativewind.md) — **Tailwind CSS 4** on web, **NativeWind 4** on mobile, plus **shadcn/ui** for the console's data-heavy admin screens.
-  - *Why:* NativeWind gives the same class names on both platforms, so `packages/ui` primitives can be genuinely shared. shadcn/ui is copy-in source, not a dependency, so the tables, dialogs and forms the Admin Console needs come for free and stay editable.
+  - **The design system:** tokens live in `packages/design-tokens/tokens.json`, exported from the Figma file's Variables (primitives; semantic colours with Light and Dark modes; text styles), and built by **Style Dictionary** into the NativeWind preset, the web's CSS variables and plain JavaScript values. The typeface is **Be Vietnam Pro** (SIL OFL 1.1), embedded in the app; Chinese, Japanese and Korean fall back to the device's font. Icons are **Lucide** on every client (`lucide-react`, `lucide-react-native`). The base maps are Protomaps' **`light`** and **`dark`** styles, one per appearance.
+  - ⚠️ NativeWind 4 runs **Tailwind 3**, not 4: until NativeWind 5 (the release on Tailwind 4) is stable, the mobile app's class vocabulary is Tailwind 3's. Both are pinned, and moving them is a deliberate step.
+  - *Why:* NativeWind gives the mobile app Tailwind's way of styling, and the design tokens are one package every client shares; the components themselves are per platform 📌 [ADR 0061](./decisions/0061-tokens-are-shared-components-are-per-platform.md) — `packages/ui` holds the web apps' components only. shadcn/ui is copy-in source, not a dependency, so the tables, dialogs and forms the Admin Console needs come for free and stay editable.
 
 ### 4.2 Web-specific (`apps/web`, `apps/console`)
 
-- **Router:** **React Router 7** in framework mode.
+- **Router:** Next.js's **App Router**. Server components render what a link opens (a Place, a tour, an area) and the console's first paint, from the gateway's public API through the Orval client; MapLibre, the service worker, IndexedDB, the packs and audio are client components.
+- **The console** (`apps/console`, port 5173 locally; `packages/ui`'s shadcn/ui components on the shared tokens' `web.css`, ADR 0061):
+  - **One site with the gateway:** deployed, the console's own host serves the gateway at `/api/*` and `/ws`, routed at the edge, so the session cookies are first-party, the socket's `Origin` is the console's and the server receives the cookies. Locally the browser calls `http://localhost:13000` directly with `credentials: 'include'` (an `ApiClientConfig` option), which CORS allows.
+  - **Server rendering with the caller's session:** the server configures the api-client once (`GATEWAY_INTERNAL_URL`, no session) and passes each request's `cookie` and its `x-forwarded-for`, unchanged, through one server-only helper — never one visitor's cookie on another's call. A server-side `401` redirects to `/session?next=<same-site path>`, a client page that refreshes once and returns.
+  - **Refreshing:** single-flight within a tab; a `409 INVALID_STATE` with `status: ROTATED` (another tab won the race) counts as success and the call is retried.
+  - **Navigation by permission**, each item behind its read permission and every route checking its own; **an account that is neither a verified owner nor staff** — a tourist or a new applicant — sees Home and *Your registration* only, so anyone may register a venue from the console; *Your business* shows from `/users/me`'s `owner`, not from `owner.access`, which admins also hold. Owners have *My stats* (`/owner/stats`); staff with `analytics.read` have the *Insights* group's *Analytics* (`/analytics`, with *Top Places*, *Heatmap* and *Activity* as routes). Charts are the console's own small SVG components, no chart library; the heatmap is `@wayfare/ui`'s `HeatMap`, MapLibre with the Area's map, taking its style as a prop like `RouteMap`.
+  - **Development server:** `devIndicators: false` (Next's corner indicator would draw itself into every screen baseline), and the build folder from `NEXT_DIST_DIR` (default `.next`), so the screens' development server runs beside the developer's own without sharing one.
+  - **Google** through Google Identity Services' own button, its nonce bound to a `wf_gn` cookie since the console has no device. A development build uses the stack's fake issuer whenever the stack runs it, through a test hook that is absent from a production build.
+- **The tourist web app** (`apps/web`, port 5174; the same stack as the console; buttons 48 px for a phone outdoors):
+  - **Same content, less capability:** no walk and no narration by location; a story starts on a tap. A link's page (`/p/<code>`) is rendered on the server from the token-less reads, then reads `isFavorite` with the device.
+  - **IndexedDB** (`wayfare`, version 3): `device`, `opened`, `finished`, `kv` (per-browser values, the analytics id and consent among them) and `analytics` (the events waiting to be sent).
+  - **Headers:** the web's proxy (`src/proxy.ts`) sets the CSP and the protective headers on every page, leaving out `sw.js`, `_next/static`, the icons and the manifest — a service worker runs under its own script's policy. The console's proxy does the same.
+  - **The device** is registered on the first visit, its secret in IndexedDB, its 15-minute token in memory; signed in, the account rides the web's own cookies.
+  - **Audio** plays through one `<audio>` element after a tap: the stored file, then on-demand audio within the 5 s wait, then the live stream by a ticket, then the browser's `speechSynthesis`, said honestly; Media Session gives the lock screen while the tab is open.
+  - **Offline** through Serwist, the build `next build --webpack` (Next 16 builds with Turbopack by default, which `@serwist/next` doesn't hook): the shell precached, place pages network-first, photos and audio cache-first — audio through the range-request plugin so a cached story seeks on an iPhone — and an IndexedDB index of the Places opened. The media bucket's CORS allows the web's origins, or the worker sees only opaque responses. No area packs.
+  - **Open in the app** is an Android intent link (`intent://p/<code>…;package=app.wayfare`, the Play Store as fallback), since the App Links don't verify yet.
+  - **The legal pages** (`/privacy`, `/terms`, `/owner-agreement`) read committed text, `apps/web/content/legal/<document>/<version>.<lang>.md`, English and Vietnamese; another language shows the English with a line; `?v=` opens an earlier version.
 - **Maps:** **MapLibre GL JS** 📌 [ADR 0024](./decisions/0024-maplibre-on-both-platforms.md) — hardware-accelerated vector maps, no vendor lock-in, free.
-- **Offline:** **Workbox** via `vite-plugin-pwa` in `injectManifest` mode (we hand-write `sw.js`; the plugin injects the precache manifest).
+- **Legal pages:** the privacy policy is a page of the tourist web app, **`https://wayfare.app/privacy`**, showing the version in `LEGAL_DOCUMENT_VERSIONS`; the mobile app's first run links to it (`EXPO_PUBLIC_PRIVACY_POLICY_URL`).
+- **Offline:** **Workbox** through **Serwist** (`@serwist/next`, the maintained successor of `next-pwa`): we hand-write the service worker, Serwist injects the precache manifest. The offline entry point is a precached client-rendered shell; a server-rendered page is available offline only once cached.
   - Strategies: app shell precache; `CacheFirst` for audio and images with per-language sharded cache names and LRU expiration; `NetworkFirst` for place data; `StaleWhileRevalidate` for map style and glyphs.
   - ⚠️ Gotcha: `purgeOnQuotaError: true` on the runtime caches. When the disk fills during an offline-pack install, Workbox must sacrifice the small runtime caches to preserve the explicitly downloaded pack — not the other way round.
   - The app and the service worker talk over `postMessage`: pin the active language shard, activate/deactivate an audio or map pack, and flush stale chunk caches after a deploy.
@@ -298,35 +371,36 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 ⚠️ None of Workbox, IndexedDB or `idb` exists in React Native. Mobile needs a parallel stack:
 
 | Concern | Web | Mobile |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | Asset cache | Workbox + Cache API | `expo-file-system` + an HTTP cache policy |
 | Structured local data | IndexedDB (`idb`) | **`expo-sqlite`** |
 | Offline pack files | Cache API | `expo-file-system` (document directory) |
 | Background work | Service worker | `expo-task-manager` + `expo-background-task` |
-| Secret storage | httpOnly cookie | **`expo-secure-store`** (Keychain / Keystore) |
+| Secret storage | httpOnly cookie | **`expo-secure-store`** (Android Keystore) |
 
-- **Framework:** **Expo SDK 54+** with **expo-router** (file-based routing, typed routes).
+- **Framework:** **Expo SDK 54+** with **expo-router** (file-based routing, typed routes). 📌 [ADR 0059](./decisions/0059-the-native-app-is-android-only.md) — **Android only**; an iPhone user's Wayfare is the web PWA.
 - 📌 **[ADR 0025](./decisions/0025-expo-development-builds-not-expo-go.md) — Expo *development builds*, not Expo Go.** Background location, background audio, MapLibre Native and the Stripe SDK all require custom native code that Expo Go cannot load. Set up `eas build --profile development` immediately; discovering this later costs a sprint.
 - **Location:** **`expo-location`** + **`expo-task-manager`**
   - `watchPositionAsync` for foreground; `startLocationUpdatesAsync` with a registered TaskManager task for background.
   - Tuning knobs that are the whole battery story: `accuracy`, `distanceInterval`/`timeInterval`, `activityType`, `pausesUpdatesAutomatically`, and Android's `foregroundService` config (a persistent notification is **mandatory** — and it is also honest UX).
-  - ⚠️ **Gotcha — OS geofence limits.** `Location.startGeofencingAsync` is capped at roughly **20 regions on iOS** and **100 on Android**. A city has hundreds of places, so OS geofencing cannot be the primary mechanism. 📌 [ADR 0026](./decisions/0026-our-own-geofence-engine.md): run **our own** engine (`packages/core`) over the background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves.
-  - ⚠️ Gotcha — iOS requires `NSLocationAlwaysAndWhenInUseUsageDescription` plus the `location` background mode, and App Store review requires a written justification for "Always" access. Write that copy early.
-  - 🔬 **Spike, and this is the highest-priority unknown in the project:** background location + our engine + audio playback, on a real Android device *and* a real iPhone, screen off, walking outdoors. Everything else in the plan depends on the answer.
+  - ⚠️ **Gotcha — OS geofence limits.** `Location.startGeofencingAsync` is capped at roughly **100 regions on Android**. A city has hundreds of places, so OS geofencing cannot be the primary mechanism. 📌 [ADR 0026](./decisions/0026-our-own-geofence-engine.md): run **our own** engine (`packages/core`) over the background location stream, and use OS geofences only as a coarse wake-up net around the nearest N places, re-registered as the tourist moves.
+  - 🔬 **Spike, and this is the highest-priority unknown in the project:** background location + our engine + audio playback, on a real Android device, screen off, walking outdoors. Everything else in the plan depends on the answer. **Verified so far, on Android with a simulated route** (Expo SDK 57, React Native 0.86, `expo-location` and `expo-audio` 57): with the app in the background, the TaskManager task receives a fix every ~5 s, the engine decides on the phone exactly as it does in Node, and narration audio starts and finishes from the background. A JavaScript timer does not run while the app is in the background, so there the engine is called only when a fix arrives. **The walk, verified on the test phone** with a mock route at 5 km/h (Lockito), the screen off: the District 1 route's six Places narrated once each, in order, and `replay-walk.mjs` reproduced all 335 engine decisions, including a forced refusal; music and a ringing call paused and resumed the narration while the walk carried on; swiping the app away left the walk running (`killServiceOnDestroy: false`); the device voice spoke from the background. On the test phone (MIUI 14 on Android 13), *Clear all* in Recents kills a walk — the process dies and Android schedules the location service's restart about 30 minutes later — and on reopening after more than two minutes the app shows the walk as stopped by the phone; MIUI's *Restrict background apps* alone did not stop a walk in 20 minutes with the screen off. Battery, standing still with real GPS by a window, as Android attributes it to the app (the GPS chip itself is not attributed): about 0.13 % an hour with the stationary mode, 0.72 % without — far under §10's 3.75 % an hour. Still open: a moving walk outdoors with real GPS, and its drain.
 - **Geospatial maths:** **`@turf/turf`** — `distance`, `booleanPointInPolygon`, `bearing`. Runs identically in RN, the browser and Node, which is why the geofence engine is portable and testable. Import per-function (`@turf/distance`) to keep the mobile bundle small.
 - **Maps:** **`@maplibre/maplibre-react-native`**
   - *Why:* the same vector tiles, the same style JSON and the same offline pack as the web app. `react-native-maps` (Google/Apple maps) would mean a second map implementation, a second offline strategy, and a Google Maps bill.
-  - 🔬 **Spike:** reading a **PMTiles** archive from local storage in MapLibre Native. Well-trodden on the web, much less so in RN. Fallbacks if it resists: serve the pack from a tiny in-app local HTTP server, use MapLibre Native's own offline region download, or accept raster tiles for the offline case only.
+  - ✅ **Verified on Android** (`@maplibre/maplibre-react-native` 11.4, Expo SDK 57): a `pmtiles://` source pointing at the archive in the app's document directory, with the style's URL prefix swapped for the pack's directory, draws the District 1 pack in airplane mode with Vietnamese diacritics intact — no fallback needed.
+  - *The original spike:* reading a **PMTiles** archive from local storage in MapLibre Native. Well-trodden on the web, much less so in RN. Fallbacks if it resists: serve the pack from a tiny in-app local HTTP server, use MapLibre Native's own offline region download, or accept raster tiles for the offline case only.
 - **Audio:** **`expo-audio`** (the modern replacement for `expo-av`)
-  - Must be configured for **background playback** plus lock-screen / Now Playing controls: `staysActiveInBackground`, iOS `UIBackgroundModes: ["audio"]`, and an Android media notification.
-  - Must handle **audio focus**: duck or pause on an incoming call or another app's audio, then resume. A travel app that fights with the user's music gets uninstalled.
+  - Must be configured for **background playback** plus lock-screen / Now Playing controls: `staysActiveInBackground` and an Android media notification.
+  - Must handle **audio focus**: a call pauses and resumes on its own; another app's audio pauses and waits (product §F3). A travel app that fights with the user's music gets uninstalled.
+  - ⚠️ **What `expo-audio` 57 does and does not do on Android** (verified on a HyperOS phone): its config plugin must set `recordAudioAndroid: false`, or it adds the microphone permission; the lock-screen card takes metadata, *Play/Pause* and ±10 s seek, never custom actions, and it does not report a dismissed notification; it gives every media session the same empty id, so HyperOS's card keeps its slider on the first, finished session — **the app carries a pnpm patch** (`patches/expo-audio@57.0.5.patch`, built from source through `expo.autolinking.android.buildFromSource`) giving each session a unique id; a file's card is posted only once its length is known, or HyperOS never adds the slider; it never clears the previous artwork, so every card is given one (the Place's photo, or the app icon generated by `pnpm notification-artwork`); nothing listens for headphones being unplugged — a local module (`apps/mobile/modules/noisy-audio`) catches Android's *audio becoming noisy*; and the device voice (tier 3) has no player, so it has no media card.
 - **On-device TTS (audio tier 3):** **`expo-speech`** — the last-resort offline fallback. Lower quality, always available, zero bytes.
-- **QR scanning:** **`expo-camera`** with barcode scanning enabled (`expo-barcode-scanner` is deprecated and merged into it).
+- **QR scanning:** **`expo-camera`** with barcode scanning enabled (`expo-barcode-scanner` is deprecated and merged into it). Its config plugin must set `recordAudioAndroid: false`, or it adds the microphone permission. It reports no frame brightness, so the scanner's *too dark* hint shows after 6 s without a read. The camera runs only while the scanner is on screen and the app is active. The vibration on a read follows the phone's touch-haptics setting: with it off, Android drops it.
 - **Local database:** **`expo-sqlite`** 📌 [ADR 0027](./decisions/0027-expo-sqlite-for-mobile-local-data.md) — the synced place corpus, localizations, playback history, cooldown state and the pack manifest. Use **Drizzle ORM** over it if the team wants typed queries; plain SQL is acceptable and simpler.
-- **Files:** **`expo-file-system`** for offline pack storage, plus **`expo-crypto`** for the SHA-256 verification of every pack asset before activation.
+- **Files:** **`expo-file-system`** for offline pack storage, plus **`expo-crypto`** for the SHA-256 verification of every pack asset before activation. Its native `digest` over `File.bytes()` is fast enough for a whole map archive (measured on the test phone: 1.4 MB read in 42 ms, hashed in 9 ms), so nothing streams. The archive downloads through a resumable `DownloadTask`, so a pause or a kill resumes it mid-file. **Downloads go on with the app in the background and the screen off** (measured: 150 s, 3,339 files, no gap), while the app's own timers — retry back-offs, the 30 s connection probe — run only with it open.
 - **Notifications:** **`expo-notifications`** — owner review outcomes, "you are near a place you saved", pack update available.
 - **Secure storage:** **`expo-secure-store`** for refresh tokens. Never `AsyncStorage` for anything sensitive; it is plain text on disk.
-- **Deep links:** `expo-linking` with universal links / app links, so a printed QR code opens the native app when installed and the web PWA when not.
+- **Deep links:** `expo-linking` with Android App Links, so a printed QR code opens the native app when installed and the web PWA when not. The app claims **both** hosts — `https://go.wayfare.app/q/…` (the printed one, so the phone's camera opens the app directly, offline too), `https://wayfare.app/p/…` and `https://wayfare.app/t/…` (a tour) — with `autoVerify`, and every incoming link goes through `app/+native-intent.tsx`, before the first run's guard. **Every code path — a link, the scanner, a typed code — asks `GET /codes/:publicCode`** whether the code is a Place's or a tour's, since the app opens `/q/` itself and the gateway's redirect never runs there. A new App Link is a native change: it needs a rebuilt app, not a JS update. Android opens a link in the app only once it is verified, which needs `/.well-known/assetlinks.json` (the release key's SHA-256) served on both hosts; until then a link opens the browser, and a test phone enables them with `adb shell pm set-app-links-user-selection --user 0 --package app.wayfare true all`. A `/q/` code the app opens itself is counted by the app's own request to `/q/`, answered `204`. The same `wayfare.app` filter claims the account emails' pages (`/verify-email`, `/reset-password`, `/confirm-email-change`, `/revert-email-change`), whose token rides in the fragment; identity's `WEB_URL` must be `https://wayfare.app` in production for those links to name the claimed host (locally it is `http://localhost:5174`, so emailed links open the browser). **A change to the intent filters needs `expo prebuild`** and a new development build.
 
 ---
 
@@ -335,16 +409,19 @@ One Redis instance, shared, doing four jobs — all of them explicitly chosen (�
 📌 [ADR 0031](./decisions/0031-stripe-is-the-only-payment-provider.md) · [ADR 0004](./decisions/0004-usd-only-with-amounts-in-integer-cents.md) — Stripe is the only payment provider, and **all prices are in USD, always**. Read `product-overview.md` §8 for the business model before this section; the three money flows are different integrations and conflating them is the most likely architectural mistake in this project.
 
 - **Server SDK:** **`stripe`** (Node, v22+). Always instantiate a client — `const stripe = new Stripe(key)` — and call methods on that instance. The global `Stripe.setApiKey` pattern is deprecated.
-- **Pin the API version** explicitly in the constructor and upgrade deliberately. Latest as of writing: `2026-07-29.dahlia`.
+- **Pin the API version** explicitly in the constructor and upgrade deliberately. billing pins `2026-08-26.dahlia`, the version its SDK release was built for.
 - **Web client:** **`@stripe/stripe-js`** + **`@stripe/react-stripe-js`**.
 - **Mobile client:** **`@stripe/stripe-react-native`** (PaymentSheet).
-- **Local development:** the **Stripe CLI**. `stripe listen --forward-to localhost:3000/webhooks/stripe` to receive real events locally, `stripe trigger` to fire specific ones, and **test clocks** to fast-forward a subscription a month to verify renewal and dunning without waiting.
+- **Local development:** the **Stripe CLI**. `stripe listen --forward-to localhost:13000/api/webhooks/stripe` to receive real events locally, `stripe trigger` to fire specific ones, and **test clocks** to fast-forward a subscription a month to verify renewal and dunning without waiting.
   - No Stripe account needed to start: `npm i -g @stripe/cli && stripe sandbox create`.
+  - **Without any Stripe account**, billing still runs: its tests use a fake payments provider for API calls and events signed with the SDK against a local webhook secret (which the real SDK verifies), and the service starts without a key — the three Stripe-backed owner routes then answer `503`. A sandbox is needed only for a real Checkout. `pnpm --filter @wayfare/billing stripe:sandbox-setup` creates the paid plans' Products and Prices in a sandbox (refusing a live key) and prints the `STRIPE_PRICE_*` lines.
+  - **Seeded subscriptions are synthetic:** the development seed builds `customer.subscription.created` events with `cus_seed_` / `sub_seed_` ids and runs them through billing's own webhook processing, so nothing is created in Stripe and the seed needs no key. Without a key it also registers local development prices (`price_dev_…`) at the product's amounts. With a key set, those owners' portal and invoices answer `503`, since Stripe does not know their customers.
+  - **The mode comes from the key,** not `NODE_ENV`: `rk_live_` is live, `rk_test_` or no key is test, and `STRIPE_MODE` must agree. A staging environment running as production can therefore still use test keys.
 
 ### 5.1 Which API for which flow
 
 | Flow | API | Notes |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | **R1 — Owner subscription** | **Billing** + `checkout.sessions.create({ mode: 'subscription' })` | One **Product per plan** (Free/Growth/Pro), monthly + annual **Prices** per product. |
 | Owner self-service management | **Customer Portal** ([ADR 0032](./decisions/0032-stripe-hosted-checkout-and-customer-portal.md)) | Upgrades, downgrades, cancellation, invoices, card updates. Do **not** build this UI. |
 | **R2 — Discovery boost** | Billing add-on price, or one-off Checkout Session | — |
@@ -397,7 +474,7 @@ The `billing` service owns a single `POST /webhooks/stripe` endpoint.
 ### 5.5 Two things to resolve before promising anything
 
 1. ⚠️ **Tax.** Setting `automatic_tax: { enabled: true }` without an active Stripe Tax registration in the customer's jurisdiction collects **zero** tax and returns **no error**. If we charge Vietnamese businesses VAT, or international tourists, confirm the registration situation first — see `product-overview.md` §14.
-2. ⚠️ **App-store rules on digital goods.** Apple and Google require their own in-app purchase for digital content consumed inside a native app. Real-world goods and services (vouchers — R3) are exempt and may use Stripe. R1 is a B2B subscription sold on the web console and is fine. **R4 is the problem** — keep it web-only or drop it.
+2. ⚠️ **App-store rules on digital goods.** Google Play requires its own in-app purchase for digital content consumed inside a native app (the only native store: [ADR 0059](./decisions/0059-the-native-app-is-android-only.md)). Real-world goods and services (vouchers — R3) are exempt and may use Stripe. R1 is a B2B subscription sold on the web console and is fine. **R4 is the problem** — keep it web-only or drop it.
 
 ---
 
@@ -412,12 +489,12 @@ The `billing` service owns a single `POST /webhooks/stripe` endpoint.
 - **MapLibre GL JS** (web) / **`@maplibre/maplibre-react-native`** (mobile) — open-source vector rendering, one style JSON, no lock-in.
 - **Turf.js** — geospatial maths in the client: distance, bearing, point-in-polygon. This is what the geofence engine uses, and it needs no GIS server.
 - **PMTiles** — a single-file vector-tile archive read directly via HTTP range requests or from local storage, with **no tile server**.
-  - Use the `pmtiles` npm package for the protocol handler that teaches MapLibre to read `pmtiles://`.
-  - Build packs with **tippecanoe** or **planetiler** from a Geofabrik Vietnam extract, scripted in `infra/tiles/`. A pilot-district extract is tens of MB.
+  - Use the `pmtiles` npm package for the protocol handler that teaches MapLibre to read `pmtiles://`. On the web it is registered by `registerPmtiles()` (`packages/ui/src/map.tsx`), which also gives MapLibre 6 its worker's URL — bundled, the worker wouldn't load otherwise and every map would hang; every map goes through that function.
+  - Build packs by cutting the area from a **pinned Protomaps daily build** with the `pmtiles extract` CLI (seconds, little memory), with the matching Protomaps style, glyphs and sprites, scripted in `infra/tiles/`; the pinned date moves forward when the old build is removed. Zoom 10–15 (the pinned build's maximum is z15), clients overzoom beyond; a pack (archive plus style, glyphs and sprites) must stay under `MAX_MAP_PACK_BYTES` (60 MB). Only five glyph ranges per font stack are shipped — `0-255`, `256-511`, `512-767`, `7680-7935`, `8192-8447` — and they must include `7680-7935` (U+1E00–1EFF), or Vietnamese names render with missing letters. Packs live in the media bucket under immutable `maps/<areaCode>/<buildId>/` paths. The style's URLs are absolute (`pmtiles://` plus the public URL, glyphs and sprites under `GCS_PUBLIC_BASE_URL`): the web client registers the `pmtiles://` handler and uses them as they are; the mobile client swaps that prefix for the pack's local directory at activation. **Every pack carries two styles**, Protomaps' `light` and `dark` flavours over one archive and one glyph set, each with its own sprite set; the manifest names both (`style`, `styleDark`), and a client picks by appearance. **The remote mode works on Android** (verified: MapLibre React Native 11.4 reads the published `pmtiles://` archive by HTTP range requests), so an area is mapped online before any pack is downloaded; the app reads each area's manifest once per pack version to find its styles. Outside the extracted area the map shows the style's background — the pack covers its area and no more. Browser range reads need the bucket's CORS to allow the `Range` header and expose `Content-Range` and `Accept-Ranges`.
   - ⚠️ Gotcha: GCS must return `Accept-Ranges` and honour `Range` requests for online mode to work at all. Verify this early — it is a two-minute `curl -r 0-1023` check that saves a confusing afternoon.
 - **Two map modes:**
   - **Remote** — PMTiles read over range requests from the bucket. Default when online with no pack installed.
-  - **Local pack** — the same archive plus self-hosted style, glyphs and sprites, read from device storage. Automatic when a pack is installed or the device is offline. Recovery back to remote is deliberately delayed to avoid flip-flopping.
+  - **Local pack** — the same archive plus self-hosted style, glyphs and sprites, read from device storage, with the style's `pmtiles://`, glyph and sprite URLs swapped for the pack's directory. **Used whenever an installed pack holds the area, online or offline** — faster, and no data — so there is nothing to flip between. A pack without a dark style is drawn with its light one in dark mode. Verified on Android in real airplane mode, light and dark. Offline with no pack, the map is the markers on a plain background.
 - **Self-host glyphs and sprites.** If fonts come from a third-party CDN, the "offline" map renders with no labels — which is worse than no map, because it looks broken rather than absent.
 - ⚠️ **Path traversal.** The endpoints that serve pack files take a filename from the client. Every one must resolve the final path and assert it is still inside its base directory. `../../etc/passwd` is the first thing any reviewer will try.
 
@@ -428,14 +505,17 @@ The `billing` service owns a single `POST /webhooks/stripe` endpoint.
 Four layers, per `product-overview.md` §F5. The technology differs per platform; the *contract* does not.
 
 | Layer | Web | Mobile |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | 1. Asset cache | Workbox strategies, per-language sharded cache names, LRU | `expo-file-system` + HTTP cache policy |
 | 2. Structured data | IndexedDB via `idb` | `expo-sqlite` |
 | 3. Explicit packs | Cache API, separate from runtime caches | `expo-file-system` document directory |
 | 4. Degradation | content target→en→vi, audio tier 3, local map pack | identical (shared `packages/core`) |
 
-- **Delta sync protocol** (shared by both clients): the client sends its `datasetVersion` and `updatedAfter`; the server replies with changed places, `removedPlaceIds`, a new `datasetVersion` and a `syncCursor`. `ETag` / `If-None-Match` makes an unchanged corpus a 304 with no body.
+- **Delta sync protocol** (shared by both clients, api-endpoints-plan §2.1): the client sends the `datasetVersion` it last received as `since`; the server replies with the changed Places, `removedPlaceIds`, a new `datasetVersion`, and `meta.complete: false` when the client should re-request from that version. `ETag` / `If-None-Match` makes an unchanged corpus a 304 with no body. The mobile app applies each page in one SQLite transaction, so a crash mid-sync leaves a resumable state.
 - **Pack installation order:** map → places → images → audio. Each asset is **SHA-256 verified before activation**, and activation is atomic — a half-downloaded pack is never live.
+- **The mobile pack on the phone:** two tables, `packs` (one row per area and language, with its state) and `pack_files` (one row per file, which is what makes resume and repair cheap), and files under the document directory's `packs/<areaId>/`. **The map and the card photos are shared by every language of an area** and deleted with its last pack; map files keep their path relative to the map pack's prefix, so the swapped style finds its glyphs and sprites; **photos and audio are named by their SHA-256**, so no server path reaches the disk. A pack's photo or story is used only while its hash equals the Place's current record, so a story changed since never plays its old file. **The snapshot replaces the area's local rows only when it is newer than the phone's sync cursor**, and raises the cursor; an older one changes nothing. After an update, files no record names are deleted. At launch, files are checked for presence and size (not re-hashed); *Repair* re-fetches what fails.
+- **The network is checked before every file**, not only when a download starts: losing Wi-Fi raises no error, and a Wi-Fi-only download must stop at the next file rather than carry on over mobile data.
+- ⚠️ Gotcha: **free space on Android is a guide, not a promise.** `Paths.availableDiskSpace` counts space Android would free from other apps' caches on demand (on the test phone, about 225 MB above what an app can write at once, and MIUI cleared gigabytes as the phone filled), while the legacy `getFreeDiskStorageAsync` ignores it and would refuse downloads that succeed. The app uses the first, and a write failing for space stops the download in its *phone is full* state. A really full phone cannot be reproduced on MIUI; Diagnostics' *Report free space* is the test path.
 - **Cache-busting by content:** audio URLs carry `?v={updatedAt}&l={lang}`, so a regenerated file invalidates cleanly and the cache shards by language at the same time.
 - ⚠️ Gotcha: **storage quota**. Browsers grant a fraction of free disk and can evict without warning; iOS evicts non-persisted web storage aggressively. Call `navigator.storage.persist()`, show the user a real storage manager, and handle `QuotaExceededError` as a normal code path rather than an exception you log and forget.
 
@@ -448,8 +528,13 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 
 - **Content translation (server-side):** a `TranslationProvider` interface with **two** implementations.
 - **Text-to-speech (server-side):** a `SpeechProvider` interface with **two** implementations.
-  - Free tier: an **Edge TTS** client giving access to Microsoft neural voices. ⚠️ Verify the exact published package at install time — candidates include `edge-tts-universal`, `msedge-tts` and `node-edge-tts`, and this corner of npm churns.
+  - Free tier: an **Edge TTS** client giving access to Microsoft neural voices — **`msedge-tts`**, pinned exactly. ⚠️ This corner of npm churns: re-check the package (CommonJS, no native build, published within six months) whenever it is upgraded; `edge-tts-universal` and `node-edge-tts` failed that check. **2.1.0 or later:** Microsoft answers 2.0.7's endpoint with HTTP 403 since October 2026, and 2.1.0 connects to the new host.
   - Paid fallback: **Google Cloud TTS** (already in our ecosystem) or **Azure Speech**, configured and smoke-tested from day one.
+- **What ships first:** a deterministic **fake** of each interface (the local and test default — a translation is `[<lang>] text`, a synthesis is valid silent MP3), **Google Cloud Translation v3 and Text-to-Speech** as the paid providers, and the free routes as the second implementation once a package passes the install-time criteria (CommonJS, no native build, recently published), smoke-tested by hand and never in CI.
+- **The free translation route** is **`google-translate-api-x`**, pinned exactly, under the same criteria.
+- ⚠️ **The Google voice ids in the registry are unconfirmed:** no Google project exists yet, so they have not been checked with `listVoices` or synthesized. Check them before a Google order is deployed.
+- **Long texts are split** at sentence boundaries into chunks under each provider's input limit (Google Text-to-Speech takes 5 000 bytes per request) and joined into one MP3, which carries a Xing/Info header (frame and byte counts, a seek table when there is room) so players know its length and can seek; each provider declares its own output format.
+- **A language with no pinned voice is text-only:** its text is published, and its audio is reported failed (`NO_VOICE`), so the device's on-device voice covers it. The registry starts with the five launch languages.
 - ⚠️ **Gotcha, and read this twice.** The free Edge-TTS and Google-Translate-wrapper route talks to **undocumented internal endpoints**. They are not products, have no SLA, and can rate-limit or break with no notice. Two consequences, both structural:
   1. **Provider interfaces from commit one.** Never call a translation or TTS library directly from a service; call the interface. Swapping providers must be a DI change, not a refactor.
   2. **Pre-generate and store.** Audio lives in GCS with a content hash. A provider outage then affects *authoring* only — tourists keep hearing cached audio, and the tier-3 on-device fallback covers the rest.
@@ -475,20 +560,25 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 ## 10. Security & identity
 
 - **Password hashing:** **argon2** (`argon2` npm) — the current recommendation. bcrypt is acceptable if argon2's native build causes trouble in Docker; do not invent anything else.
-- **Tokens:** **`jose`** for JWT signing and verification (modern, typed, no `jsonwebtoken` footguns). Access tokens are **EdDSA-signed by `identity` and only verified elsewhere** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Access token 30 min, refresh token 7 days with **rotation** and reuse detection.
+- **Tokens:** **`node:crypto`** for JWT signing and verification — EdDSA is `crypto.sign(null, …)` / `crypto.verify(null, …)` over the JWS signing input, in one small shared module with `kid`, `iss`, `aud` and `exp` checks. No JWT library: the maintained one (`jose` 6) is ESM-only, the services are CommonJS ([ADR 0058](./decisions/0058-nest-services-and-shared-packages-are-commonjs.md)), and the whole need is a few dozen lines. Access tokens are **EdDSA-signed by `identity` and only verified elsewhere** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Access token 30 min, refresh token 7 days with **rotation** and reuse detection.
 - **Transport of tokens:**
   - Web console → **httpOnly, `Secure`, `SameSite=Lax` cookies**. JavaScript cannot read them, so an XSS cannot exfiltrate a session.
-  - Mobile → bearer token from **`expo-secure-store`** (Keychain / Keystore).
+  - Mobile → bearer token from **`expo-secure-store`** (Android Keystore).
   - The gateway accepts both.
+- **Continue with Google** ([ADR 0062](./decisions/0062-tourists-may-continue-with-google.md)–[0064](./decisions/0064-google-links-by-itself-only-where-google-owns-the-mailbox.md)): the Android app asks **Credential Manager** for a Google ID token through a local Expo module (`apps/mobile/modules/google-sign-in` — the free React Native libraries were pre-1.0 or wrap the deprecated Google Sign-In SDK); **identity** verifies it against Google's published keys with a **server-issued nonce**, bound to the device and spent once, so a captured token cannot be replayed. Locally and in tests a fake issuer stands in (`GOOGLE_ISSUER=fake`, §14). The confirmation and the link ticket are identity's own short-lived signed tokens, of a type the gateway never accepts as a session. **The API client retries a `401` only for the bearer's own codes** (`UNAUTHENTICATED`, `DEVICE_REVOKED`), never for a `401` about the request (`INVALID_CREDENTIALS`, `INVALID_GOOGLE_TOKEN`, `CONFIRMATION_EXPIRED`).
 - **Anonymous devices are first-class.** Per `product-overview.md` §3.1, the device is the primary identity and `userId` is nullable. `identity` issues a device token on first launch with no credentials, and account creation *claims* the device rather than replacing it. Design the tables this way from the first migration.
 - **Authorization:** a **static permission catalogue in code** + **dynamic roles in the database**. Route guards declare the permission (`place:delete`), never the role. Permissions are embedded in the access token so the common path needs no database round-trip — accept the tradeoff consciously: a permission change takes effect within one access-token lifetime.
 - **PII encryption at rest:** national ID numbers encrypted with **AES-256-GCM** via Node's built-in `crypto`, stored with a version prefix (`v1:`) so keys can be rotated. Decrypt only when an admin actually views the value, return `null` on failure (never leak plaintext or a stack trace), and auto-redact after 180 days.
   - (If you see Python's Fernet used for this elsewhere, AES-256-GCM through `node:crypto` is the direct equivalent. Do not add a dependency for it.)
-- **HTTP hardening:** `helmet`, a real CORS allowlist (not `*`), a **CSP** including `https://*.stripe.com`, and HSTS in staging.
+- **HTTP hardening:**
+  - **The gateway:** `helmet`'s defaults (a strict CSP, `frame-ancestors 'self'`, `nosniff`, `Referrer-Policy: no-referrer`, HSTS) everywhere and a looser CSP under `/docs`; a real CORS allowlist (`CORS_ORIGINS`, never `*`) with `Retry-After` exposed for clients that read headers (ours read the same wait from the error body). **The CSRF defence is `ClientHeaderGuard`:** `X-Wayfare-Client` is required on every route but the webhooks, `/q/` and the stream's `GET`, and a custom header forces a CORS preflight the allowlist refuses — a gateway spec pins it.
+  - **The console and the web app:** each app's proxy sets a **nonce-based CSP** built by one tested function (`src/security/csp.ts`, `contentSecurityPolicy({ nonce, development, origins })`) — `script-src 'self' 'nonce-…' 'strict-dynamic'`, `default-src 'self'`, `frame-ancestors 'none'`, the media origins from `MEDIA_ORIGINS`, the API origin, and Google's `accounts.google.com/gsi/` — **the one hard-coded host**, only when a Google client id is set; development adds only `'unsafe-eval'`. No Stripe origin: Checkout is a redirect. Beside it `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, a `Permissions-Policy` (the web allows `geolocation` to itself, the console nothing), and HSTS.
+  - **HSTS everywhere**, effective wherever TLS is (browsers ignore it over plain HTTP).
 - **Input validation** with zod at every boundary, including environment variables at boot — a service that starts with a missing `JWT_PRIVATE_KEY` and fails at 3 a.m. is a self-inflicted wound. Fail fast at startup instead.
 - **Rate limiting** on every public write and every endpoint that costs money.
 - **Audit log** for every admin mutation: actor, action, resource, timestamp, before/after.
-- **Secrets:** `.env` locally (gitignored, with a committed `.env.example`), GitHub Actions secrets in CI, and Google Secret Manager in staging. Never in source, never in logs.
+- **Secrets:** `.env` locally (gitignored, with a committed `.env.example`), GitHub Actions secrets in CI, and Google Secret Manager in staging. Never in source, never in logs. **CI scans for them** (gitleaks, pinned, on every pull request's full history; `.gitleaks.toml` allows test-data paths and exact values only).
+- **Dependencies:** CI runs `pnpm audit --prod --audit-level=high` and fails on an unaccepted high or critical advisory in a shipped dependency; Dependabot proposes updates weekly (npm, GitHub Actions, the Dockerfile and the Compose images).
 - **Transactional email:** **Resend** in staging and production, behind an `EmailProvider` interface; **Nodemailer** to a **Mailpit** container in Compose for local development. 📌 [ADR 0049](./decisions/0049-transactional-email-via-resend-metadata-only.md). Open and click tracking **off**; delivery webhooks signed and verified; only delivery metadata recorded. Outside production, mail reaches only an allowlist of team addresses.
   - ⚠️ Firebase is not a substitute: Firebase Auth sends only its own login emails, and the Trigger Email extension still needs an SMTP provider and emits no delivery webhooks.
 
@@ -498,8 +588,8 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 
 - **Distributed tracing:** **OpenTelemetry** (`@opentelemetry/sdk-node` + auto-instrumentations).
   - *Why:* a single "play narration in Japanese" request crosses gateway → catalog → narration → GCS, plus a JetStream hop. Without trace propagation, a latency problem is unattributable.
-  - ⚠️ Gotcha: HTTP and gRPC context propagate automatically; **NATS does not.** Inject and extract the trace context in the message headers yourself, or every async hop starts a new, disconnected trace.
-- **Traces locally:** **Jaeger** in Docker Compose (one container, a UI at `:16686`).
+  - ⚠️ Gotcha: HTTP and gRPC context propagate automatically; **NATS does not** — and an event leaves through the outbox on a *later* poll, outside the request's context. So the W3C `traceparent` is **stored on the outbox row at insert time** (`outbox_events.trace_parent`), copied into the NATS headers by the relay, and extracted by the consumer. Without that, the trace stops at the write.
+- **Traces locally:** **Jaeger v2** (verified with 2.21.0) in Docker Compose — OTLP on 4317/4318, UI at `:16686`, query API under `/api/v3/…`. Jaeger v1's `all-in-one` image is reportedly end-of-life — to be confirmed when the stack is scaffolded.
 - **Structured logging:** **pino** — JSON logs with a correlation/trace ID on every line. Never log tokens, PII, Stripe keys or full webhook bodies.
 - **Metrics:** Prometheus-format `/metrics` via `@willsoto/nestjs-prometheus`, scraped into **Grafana**. Dashboard the four things that matter: nearby-query p95, TTS queue depth, Stripe webhook failures, geofence trigger rate.
 - **Error tracking:** **Sentry** across all three clients and all services, with source maps uploaded from CI. A crash on a tester's phone is otherwise unreproducible.
@@ -512,7 +602,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 Not optional, and not something to bolt on at the end. The geofence engine in particular **cannot** be tested by walking around; it has to be tested with synthetic GPS traces.
 
 | Level | Tool | Database | What it covers |
-| --- | --- | --- | --- |
+| :---- | :---- | :---- | :---- |
 | Unit | **Vitest** | none | `packages/core`: geofence engine, fallback chains, entitlement maths, distance helpers. Fast, no I/O. |
 | Unit (services) | **Vitest** | none (`PrismaService` mocked) | Business rules and orchestration. |
 | Integration | **Vitest** | the service's **`_test` database** | Services against real Postgres/PostGIS. PostGIS behaviour cannot be mocked. |
@@ -520,14 +610,20 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 | E2E (web) | **Playwright** | `_test` | Console flows: login, place CRUD, submission review, Stripe Checkout in test mode. |
 | E2E (mobile) | **Maestro** ([ADR 0035](./decisions/0035-maestro-for-mobile-e2e.md)) | `_test` | Onboarding, language switch, QR scan, playback. |
 | Payments | **Stripe CLI** + test clocks | `_test` | Subscription lifecycle, renewal, failed payment, dunning, webhook replay and idempotency. |
-| Load | **k6** | `_test` | The nearby query and the sync endpoint under concurrency. |
+| Load | **k6** (`grafana/k6` in Docker, `infra/load/`) | the development databases, with `seed:load`'s 2,000 Places | A crowd of tourists (300 held, a 900 spike) against the Compose stack — nearby, sync, prefetch, on-demand, the stream, analytics, QR. **Run by hand** (`pnpm load`), never in CI; the budgets and the latest numbers are in `infra/load/README.md`. |
+
+### 12.0 The load test
+
+- **`pnpm load`** runs k6 (`infra/load/crowd.js`) on the Compose network against the gateway, with `compose.load.yaml` applied for the run — the gateway trusts one `X-Forwarded-For` hop (each simulated install sends its own address, so every per-IP limit applies per install) and keeps one trace in ten — and the normal gateway restored on exit. `pnpm load -- --smoke` checks every call of the contract first. `pnpm seed:load` adds 2,000 Editorial Places through the normal creation path and waits until they are live.
+- **Budgets fail only during the steady hold**: nearby p95 < 150 ms (product §10), a Place < 200 ms, a delta page < 300 ms, a whole full sync < 1.5 s, prefetch < 300 ms, analytics < 200 ms, QR < 100 ms, on-demand text ready < 5 s, errors < 0.5 % (a `429` counts), a delta's body < 50 KB. The spike and recovery are reported and fail only past 1 % errors.
+- **The first run** (2026-11-12, the screens stack): every latency budget held with a wide margin — nearby 48 ms, a Place 21 ms, a delta page 42 ms, a full sync 142 ms — spikes under 110 ms, no error in any phase. **The delta's size missed** (247 KB) until each language's delta carried only its own changes; the rerun (2026-11-13) measured an empty 91-byte page, a delta page at 18 ms and a full sync at 164 ms.
 
 ### 12.1 The test database
 
 📌 [ADR 0034](./decisions/0034-vitest-is-the-only-test-runner.md) (topology in §3.1): every service's Postgres container holds a second database, `wayfare_<service>_test`, created by the container init script. Tests read `DATABASE_URL_TEST`, which differs from `DATABASE_URL` only in the database name — so it is derivable, not separately configured, and there is no way to accidentally point a test suite at development data.
 
 - **Migrate once, truncate between specs.** Run `prisma migrate deploy` against the test database in a global setup hook, then `TRUNCATE ... RESTART IDENTITY CASCADE` between specs. Re-migrating per spec is slow enough that you will feel it on every run.
-- **Seed from the committed seed scripts** (`product-overview.md` §12.1), so tests and local development share one realistic corpus instead of drifting apart.
+- **Seed from the committed seed scripts** (`product-overview.md` §12.1), so tests and local development share one realistic corpus instead of drifting apart. The integration global setup runs each service's system seed (roles, permissions, categories); suites build their own small fixtures on top — catalog's use a fixture area, so a test never depends on the pilot geometry — and the pilot corpus has its own integration test.
 - ⚠️ **Gotcha — concurrent CI jobs.** If two CI jobs run against the same `_test` database, you get tests that pass locally and flake in CI, which is miserable to debug. Give each job its own database created from a template:
 
   ```sql
@@ -539,16 +635,16 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 
 ### 12.2 The geofence test harness
 
-🎓 Build a fixture format of `[timestamp, lat, lng, accuracy]` traces and replay them through the engine in Vitest. Encode the nasty cases as fixtures rather than discovering them outdoors:
+🎓 Build a fixture format of `{ t, lat, lng, accuracyM }` traces (conventions §17.3) and replay them through the engine in Vitest. Encode the nasty cases as fixtures rather than discovering them outdoors:
 
 - Jitter across a radius boundary (should not fire twice).
 - Two overlapping radii with different `narrationPriority` (correct winner).
 - A Venue and an Editorial Place overlapping (Editorial wins; commercial cap respected).
 - Sitting still inside a radius for ten minutes (cooldown holds).
-- A language switch mid-narration (stale audio discarded).
+- A language switch mid-narration (stale audio discarded) — the player's suite, not the engine's.
 - A GPS hole in a tunnel, then re-acquisition (safety reconcile recovers).
 
-**Coverage target:** ≥80% on `packages/core`. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
+**Coverage target:** ≥ 90 % lines and branches on `packages/core`. SonarCloud's quality gate reads the same report (`lcov`) and counts coverage on `packages/core/src` only. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
 
 ---
 
@@ -562,24 +658,25 @@ Set this up while there is nothing to break, not once there is everything to bre
 
 1. `pnpm install --frozen-lockfile` (cached)
 2. `turbo run lint typecheck test --filter=...[origin/main]` — only affected packages
-3. Integration tests against Postgres service containers, one per service, using the `_test` databases
-4. `turbo run build` — including Docker builds for changed services
-5. Playwright E2E against a Compose-booted stack
-6. Verify the Orval client is current (regenerate; fail if the diff is non-empty)
-7. Verify no pending Prisma migration drift, per service
+3. `pnpm lint:md` and the repo-wide guard specs (`vitest --project unit:guards`: ADR structure, archive references, DTO / mapper / module-file naming, the env contract) — always, since they read the whole tree
+4. Integration tests against Postgres service containers, one per service, using the `_test` databases
+5. `turbo run build` — including Docker builds for changed services
+6. Playwright against a Compose-booted stack: first the console's **`screens`** baselines, on the fresh stack before anything else writes to it (the seed and the super admin first), then the flows; on a failure the report, with each moved screen's expected, actual and diff images, is uploaded
+7. Verify the Orval client is current (regenerate; fail if the diff is non-empty)
+8. Verify no pending Prisma migration drift, per service
 
 **`main.yml` — on merge to `main`**
 
 1. Everything above
 2. Build and push service images to **Artifact Registry**, tagged with the commit SHA
-3. `prisma migrate deploy` per service against staging
+3. Each service's `pnpm db:deploy` (migrations, schema objects, system rows) against staging, as a job that must succeed before the new revision takes traffic; for identity, also `email:check-domain`
 4. Deploy services
-5. Deploy `apps/web` and `apps/console` to static hosting with a preview URL
+5. Deploy `apps/web` and `apps/console` to Firebase App Hosting ([ADR 0060](./decisions/0060-the-web-apps-are-nextjs.md))
 6. Smoke-test `/health/ready` on every service; roll back on failure
 
 **`mobile.yml` — on merge to `main` or on a tag**
 
-1. `eas build --profile preview --platform all` (Android APK + iOS simulator build for testers)
+1. `eas build --profile preview --platform android` (an Android APK for testers)
 2. On a release tag: `eas build --profile production` then `eas submit`
 3. **EAS Update** for JS-only changes, so a copy fix does not need a store review
 
@@ -604,7 +701,7 @@ Given the commitment to GCS and the Google ecosystem, the aligned choice is Goog
 - **NATS:** a small container on Cloud Run or Compute Engine. There is no managed NATS on GCP.
 - **Object storage:** **GCS**, behind Cloud CDN for the audio, images and PMTiles archives.
 - **Secrets:** **Secret Manager**, read by Cloud Run at deploy time.
-- **Web apps:** **Firebase Hosting** — preview channels per PR come free, which is genuinely useful for review.
+- **Web apps:** **Firebase App Hosting** (Next.js on Cloud Run underneath) 📌 [ADR 0060](./decisions/0060-the-web-apps-are-nextjs.md). Plain Firebase Hosting's free per-PR preview channels are not assumed to carry over.
 - **Mobile:** **EAS Build** → internal distribution for testers.
 
 Fly.io or Render remain perfectly reasonable alternatives if Cloud Run's cold starts or the VPC connector become an irritation; the containers are portable either way.
@@ -613,43 +710,98 @@ Fly.io or Render remain perfectly reasonable alternatives if Cloud Run's cold st
 
 ## 14. Environment variables
 
-Validate all of these with zod at service startup and fail fast on anything missing. Keep a committed `.env.example` with every key and no value.
+Every Nest service loads these through `@nestjs/config` and validates them with its zod schema at startup, failing fast on anything missing (development-conventions §13). Keep a committed `.env.example` with every key and no value.
 
 | Variable | Used by | Notes |
-| --- | --- | --- |
+| :---- | :---- | :---- |
 | `DATABASE_URL` | each service | Its **own** Postgres. `postgresql://…/wayfare_<service>?schema=public` |
 | `DATABASE_URL_TEST` | each service | Same server, `wayfare_<service>_test`. Derivable from the above |
-| `REDIS_URL` | all services | throttler, cache, BullMQ, WebSocket adapter |
+| `REDIS_URL` | all services | rate-limit counters, revocation state, cache, BullMQ, WebSocket adapter; the gateway and every service that emits socket frames must point at the same Redis |
 | `NATS_URL` | all services | JetStream event bus |
-| `JWT_PRIVATE_KEY` | identity | Ed25519 signing key — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). ⚠️ refuse to boot without it outside dev |
+| `JWT_PRIVATE_KEY` | identity | Ed25519 signing key, a base64-encoded PKCS#8 PEM — **identity only** ([ADR 0043](./decisions/0043-access-tokens-are-asymmetrically-signed.md)). Required in every environment; `pnpm keys:dev` generates a local pair |
+| `JWT_KEY_ID` | identity | The `kid` written into every token header |
+| `SEED_ACCOUNT_PASSWORD` | identity's `seed:dev` script only | The password of the local development accounts (`moderator@wayfare.test`, `tourist@wayfare.test`); unset, they are not created. Never set in a deployed environment |
+| `BOOTSTRAP_SUPER_ADMIN_EMAIL`, `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | identity's `bootstrap:super-admin` script only | The first `SUPER_ADMIN` (rdm-spec I-4). Set for the one run, then removed; never read by the running service |
 | `GLOBAL_PREFIX` | gateway | `api`. Combined with Nest URI versioning to give `/api/v1/…`; never hard-coded elsewhere |
-| `JWT_PUBLIC_KEY` | gateway (and any verifier) | Verification only. Refresh tokens and device secrets are opaque and hashed, so they need no key |
+| `PORT` | gateway | Public HTTP port |
+| `CORS_ORIGINS` | gateway | Comma-separated allowlist; never `*` with credentials |
+| `SWAGGER_ENABLED` | gateway | Mounts `/docs` and `/docs-json`; **false in production** |
+| `GRPC_URL` | every backend service | The service's own gRPC bind address |
+| `<PEER>_GRPC_URL` | every gRPC caller | A peer's address, e.g. `IDENTITY_GRPC_URL` on the gateway |
+| `OTEL_SERVICE_NAME` | every service | The service name on every span |
+| `LOG_LEVEL` | every service | pino level; `info` by default |
+| `APP_VERSION`, `GIT_SHA`, `BUILT_AT` | every service | Served by `/version`; set at image build time |
+| `NATS_URL_TEST` | each NATS-using service | The **separate** test broker (`nats-test`, host port 14223). Integration tests never publish to the development broker, or their events land in the running services' databases |
+| `DATABASE_URL_SHADOW` | each service | `wayfare_<service>_shadow`, used only by `db:drift` |
+| `PRISMA_DB` | Prisma CLI only | `working` (default) or `test` — picks the URL in `prisma.config.ts`; unknown values throw. The shadow database is never a target; its URL is `shadowDatabaseUrl` in the same file |
+| `JWT_PUBLIC_KEYS` | gateway (and any verifier) | JSON `{ "<kid>": "<base64 SPKI PEM>" }`; two entries during a key rotation. Verification only — refresh tokens and device secrets are opaque and hashed, so they need no key |
 | `PII_ENCRYPTION_KEY` | identity | 32 bytes, AES-256-GCM, versioned for rotation |
-| `GCS_BUCKET_MEDIA`, `GCS_BUCKET_AUDIO`, `GCS_BUCKET_TILES` | catalog, narration | separate buckets; tiles and audio have different cache policies |
-| `GOOGLE_APPLICATION_CREDENTIALS` | catalog, narration | service-account key path; Secret Manager in staging |
+| `GCS_BUCKET_MEDIA` | catalog, narration | the media bucket: uploads, photos, and narration audio under `audio/` — photos and audio share one immutable cache policy |
+| `GOOGLE_APPLICATION_CREDENTIALS` | catalog, narration | service-account key path; Secret Manager in staging. Locally `pnpm keys:dev` writes the same throwaway key path into both services' `.env` |
 | `STORAGE_EMULATOR_HOST` | catalog, narration | points at `fake-gcs-server` locally; **unset** in staging |
-| `STRIPE_SECRET_KEY` | billing | ⚠️ restricted key (`rk_`), least privilege |
-| `STRIPE_WEBHOOK_SECRET` | billing | signature verification |
+| `PAYMENTS_PROVIDER` | billing | `stripe` (default) or `fake` — **`fake` on the local and CI stacks**, where billing answers from an in-memory Stripe seeded with the dev plans' `price_dev_*` prices and a few fixed test prices (one in EUR, one inactive, one on another product); refused under `NODE_ENV=production`. `stripe` without a key keeps the Stripe-backed owner routes at `503`. In development builds, a Stripe event whose object's metadata holds `wayfare_fake_failure` fails processing on every try, so a test can reach a `FAILED` event |
+| `STRIPE_MODE` | billing | `test` (default) or `live`; must agree with the key's prefix, and decides which `livemode` events are applied |
+| `STRIPE_SECRET_KEY` | billing | ⚠️ restricted key (`rk_`), least privilege: `rk_test_` in test mode, `rk_live_` in live mode, never `sk_`. Optional in test mode (the Stripe-backed owner routes answer `503` without it). Its permissions include Customers **write** and PaymentMethods **write**, which account erasure needs to redact the customer and detach its cards |
+| `STRIPE_WEBHOOK_SECRET` | billing | signature verification; always required. `pnpm keys:dev` writes a local one when absent (never replacing it); `stripe listen`'s replaces it for a sandbox |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | billing | the separate Connect endpoint |
 | `STRIPE_VOUCHER_PMC_ID` | billing | payment method configuration allowing instant methods only, for voucher checkout |
 | `VOUCHER_CODE_HASH_KEY` | billing | HMAC key for voucher short codes |
-| `RESEND_API_KEY` | identity | transactional email; **unset locally**, where Nodemailer → Mailpit is used |
+| `RESEND_API_KEY` | identity | transactional email — a **sending-only** key; **unset locally**, where Nodemailer → Mailpit is used |
+| `MEDIA_ORIGINS` | console, web | **server-only**, read by the proxy per request: the origins the browser may load media from and send uploads to — the media bucket's public origin (photos, audio, map packs; the same host as `GCS_PUBLIC_BASE_URL`) and, for the console, the signed-upload origin. `http://localhost:4443` locally (the storage emulator), `http://localhost:24443` on the screens stack |
+| `NEXT_PUBLIC_API_ORIGIN` | console, web | the gateway's origin for the browser — **empty when deployed** (same origin, the edge routes `/api` and `/ws`); `http://localhost:13000` locally. The api-client's `baseUrl` is it plus `/api/v1` |
+| `NEXT_PUBLIC_LEGAL_BASE_URL` | console | where the terms and the owner agreement are read (`/terms`, `/owner-agreement` under it); `https://wayfare.app` by default — pages of the tourist web app, as the privacy policy is |
+| `NEXT_PUBLIC_PLAY_STORE_URL` | web | the Android app's Play Store page — *Open in the app*'s fallback and *Get the app* |
+| `NEXT_PUBLIC_APP_VERSION` | web | the web app's package version, sent as its device's `appVersion` |
+| `GATEWAY_INTERNAL_URL` | console, web (server only) | the gateway as the Next.js server reaches it |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | console, web | the Google OAuth Web client's id, for Google Identity Services; the console's origin is one of the client's authorised JavaScript origins |
+| `GOOGLE_ISSUER` | identity, gateway | `google` or `fake` — **`fake` locally and in CI**, where identity trusts tokens it signs itself and `POST /dev/google-token` mints them; **both services refuse `fake` at start-up in production** |
+| `GOOGLE_SERVER_CLIENT_ID` | identity | the Google Cloud OAuth **Web** client's id — the `aud` every Google ID token must carry; required when `GOOGLE_ISSUER=google` |
+| `GOOGLE_FAKE_SIGNING_KEY` | identity | the fake issuer's private key, `fake` only — **identity only**: the gateway's dev route asks identity's `MintFakeGoogleToken` |
+| `EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID` | mobile | the same Web client id, which Credential Manager asks Google to address the token to. A real build also needs an OAuth consent screen named "Wayfare" and an **Android** client per signing key (`app.wayfare`, the debug and the release SHA-1) |
+| `RESEND_ADMIN_API_KEY` | identity's `email:check-domain` deploy step only | a full-access key, used once per deploy to confirm the sending domain's open and click tracking are off; never given to the running service |
 | `RESEND_WEBHOOK_SECRET` | identity | delivery-webhook signature verification |
 | `EMAIL_HASH_KEY` | identity | HMAC key for addresses in delivery records |
-| `EMAIL_NONPROD_ALLOWLIST` | identity | staging only: addresses that may receive mail; everything else goes to the team catch-all |
+| `EMAIL_PROVIDER` | identity | `resend` (deployed) or `smtp` (local, Mailpit); production refuses `smtp` |
+| `EMAIL_FROM` | identity | `Name <address>` on every transactional mail |
+| `EMAIL_DELIVERY_MODE` | identity | `restricted` or `open`, required, no default — only production is `open` |
+| `EMAIL_NONPROD_ALLOWLIST` | identity | with `restricted`: addresses (or `*@domain`) that may receive mail |
+| `EMAIL_NONPROD_CATCHALL` | identity | with `restricted`: where every other mail goes |
+| `RESEND_DOMAIN_ID` | identity's `email:check-domain` deploy step only | the sending domain whose tracking settings the deploy checks |
+| `CONSOLE_URL`, `WEB_URL` | identity; billing reads `CONSOLE_URL` | bases for emailed links — the console for staff and owners, and for any mail sent for an action taken in the console (registering, resending the verification, forgetting the password from `X-Wayfare-Client: console`); the web app for everyone else; billing's Checkout success and cancel pages and the Customer Portal's return page |
 | `SMTP_URL` | identity | local only: the Mailpit container |
-| `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing | Price IDs, never hardcoded |
-| `PLATFORM_COMMISSION_BPS` | billing | 1500 = 15%; 1000 on Pro. Basis points, integer |
+| `STRIPE_PRICE_GROWTH_MONTHLY`, `…_ANNUAL`, `…_PRO_*` | billing's `seed:dev` only | Price IDs, never hardcoded; the seed registers them as the admin price route would. The running service reads prices from `plan_prices` |
 | `GEMINI_API_KEY` | ai | never reaches a client |
 | `PROXYPAL_*` | ai | LLM gateway config |
-| `TTS_PROVIDER`, `TRANSLATION_PROVIDER` | narration | selects the provider implementation |
-| `GOOGLE_TTS_CREDENTIALS` / `AZURE_SPEECH_KEY` | narration | paid fallback provider |
+| `TTS_PROVIDER_ORDER`, `TRANSLATION_PROVIDER_ORDER` | narration | the providers to try, in order (`fake` locally; e.g. `google,free` deployed) |
+| `GOOGLE_CLOUD_PROJECT` | narration | the project for Google Translation and Text-to-Speech; credentials come from ADC — a key file locally, the service identity in Cloud Run |
+| `CATALOG_GRPC_URL` | narration | catalog's gRPC address, for `GetLocalizationSource` |
+| `SYNTHESIS_CONCURRENCY` | narration | optional; tasks run at once per process, 1 to `MAX_CONCURRENT_TTS_JOBS` (the default) |
+| `FAKE_PROVIDER_FAILURES` | narration | local and test only: `translation`, `speech` or both — the fake of that kind fails every call; refused in production, as is `fake` in a provider order. Without it, the fake speech provider still fails **one** text: any holding the marker `[fake:speech-fails]` (development builds only), so a test can strand one Place without stopping the stack's narration |
+| `STUCK_PROCESSING_AFTER_MS` | gateway | How long a Place may sit in `PROCESSING` with no narration job before the console lists it as stuck; `3600000` (an hour) by default, `15000` in the Compose stacks so tests need not wait an hour |
 | `MAP_PACK_DATA_DIR` | catalog | base directory for the path-traversal guard |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | all services | Jaeger locally (OTLP) |
+| `OTEL_SDK_DISABLED` | all services | `true` turns tracing off; the test config sets it. Read by the OTel bootstrap in `nest-common`, not by the env schema |
+| `OTEL_TRACES_SAMPLER` | all services | `parentbased_always_on` locally and in staging. Set in the environment, never in code, so switching to a ratio later needs no deploy |
+| `MIN_SUPPORTED_APP_VERSION` | gateway | Semver; a mobile build below it gets `426 APP_VERSION_UNSUPPORTED`. `0.0.0` by default. Configuration, not a constant, so a floor moves without a client release |
+| `CATALOG_GRPC_URL` | gateway | catalog's gRPC address |
+| `NARRATION_GRPC_URL` | gateway | narration's gRPC address |
+| `IDENTITY_GRPC_URL` | billing | identity's gRPC address, for the verified-owner reconcile |
+| `BILLING_GRPC_URL` | gateway, catalog, identity, narration | billing's gRPC address — entitlements, obligations, the owner summary |
+| `CATALOG_GRPC_URL` | billing | catalog's gRPC address, for the plan dry run's place counts |
+| `PUBLIC_QR_BASE_URL` | gateway, catalog's QR rendering | the host printed on every QR sticker (`https://go.wayfare.app`), mapped to the gateway; **it can never change** once stickers exist |
+| `GCS_API_ENDPOINT` | catalog, narration | local only: the fake-gcs origin |
+| `PUBLIC_LINK_BASE_URL` | gateway | the universal-link host `/q/:code` redirects to (`https://wayfare.app` in production) |
+| `GCS_PUBLIC_BASE_URL` | catalog, narration | where clients fetch media — photos and narration audio alike — the CDN in front of the media bucket; the emulator locally |
+| `TRUST_PROXY_HOPS` | gateway | Exact number of proxies in front of the gateway (0 locally). Too low records the proxy's IP in every provenance column; too high lets a client forge `X-Forwarded-For` |
+| `OPS_PORT` | backend services | The HTTP port for `/health*` and `/version`. The gateway has none — its ops routes are on `PORT` |
+| `JOBS_ENABLED` | analytics | `true` by default; `false` turns its scheduled jobs off — set only on the screens stack, whose numbers are the seed's, so a nightly rollup can't move them mid-run |
+| `METRICS_PORT` | every service | The separate internal `/metrics` port |
+| `NODE_ENV` | every service | `development`, `test` or `production`; drives `isProduction` (production silence, Swagger off) |
 | `SENTRY_DSN` | all apps + services | separate DSN per surface |
 | `EXPO_PUBLIC_API_URL` | mobile | ⚠️ `EXPO_PUBLIC_*` is **baked into the bundle** — public values only |
-| `VITE_API_URL`, `VITE_STRIPE_PUBLISHABLE_KEY` | web, console | ⚠️ same: `VITE_*` ships to the browser |
+| `EXPO_PUBLIC_PRIVACY_POLICY_URL` | mobile | the privacy policy the first run links to; default `https://wayfare.app/privacy` |
+| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | web, console | ⚠️ same: `NEXT_PUBLIC_*` ships to the browser |
 
-⚠️ The last two rows are a recurring accident. Anything prefixed `EXPO_PUBLIC_` or `VITE_` is compiled into the client bundle and is public. A secret key in one of those is a secret key on the internet.
+⚠️ The last two rows are a recurring accident. Anything prefixed `EXPO_PUBLIC_` or `NEXT_PUBLIC_` is compiled into the client bundle and is public. A secret key in one of those is a secret key on the internet.
 
 Note there is no map tile API key — that is deliberate (§6).

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+// Resend's delivery webhook, forwarded by the gateway — api-endpoints-plan §1.9, rdm-spec I-13.
+package wayfare.identity;
+
+// identity holds the signing secret and verifies; the gateway only forwards.
+service EmailWebhookService {
+  rpc ReceiveResendEvent(ReceiveResendEventRequest) returns (ReceiveResendEventResponse);
+}
+
+message ReceiveResendEventRequest {
+  // Exactly as received: the signature covers these bytes. Never logged — it names the recipient.
+  bytes raw_body = 1;
+  string svix_id = 2;
+  string svix_timestamp = 3;
+  string svix_signature = 4;
+}
+
+message ReceiveResendEventResponse {}

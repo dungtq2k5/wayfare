@@ -1,0 +1,34 @@
+# CI's `images` job: the services' image builds read and write Buildx's GitHub Actions cache, one
+# scope per service, so an image whose inputs didn't change isn't built again. The only writer:
+# the end-to-end stacks read it (compose.ci-read.yaml). Laid over compose.yaml (and,
+# for the screens' stack, compose.screens.yaml):
+#
+#   docker compose -f compose.yaml -f infra/docker/compose.ci.yaml --profile apps up --build …
+#
+# It needs a docker-container Buildx builder and the Actions runtime's cache token in the
+# environment (docker/setup-buildx-action, crazy-max/ghaction-github-runtime): never locally.
+services:
+  identity:
+    build:
+      cache_from: ['type=gha,scope=identity']
+      cache_to: ['type=gha,scope=identity,mode=max']
+  catalog:
+    build:
+      cache_from: ['type=gha,scope=catalog']
+      cache_to: ['type=gha,scope=catalog,mode=max']
+  narration:
+    build:
+      cache_from: ['type=gha,scope=narration']
+      cache_to: ['type=gha,scope=narration,mode=max']
+  billing:
+    build:
+      cache_from: ['type=gha,scope=billing']
+      cache_to: ['type=gha,scope=billing,mode=max']
+  analytics:
+    build:
+      cache_from: ['type=gha,scope=analytics']
+      cache_to: ['type=gha,scope=analytics,mode=max']
+  gateway:
+    build:
+      cache_from: ['type=gha,scope=gateway']
+      cache_to: ['type=gha,scope=gateway,mode=max']

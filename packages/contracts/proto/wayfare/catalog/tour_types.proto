@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+// Types shared by the tour services — rdm-spec C-8 to C-10.
+package wayfare.catalog;
+
+import "wayfare/catalog/place_types.proto";
+import "wayfare/common/geo.proto";
+
+// A tour's lifecycle: the Place machine (rdm-spec C-8).
+enum TourStatus {
+  TOUR_STATUS_UNSPECIFIED = 0;
+  TOUR_STATUS_DRAFT = 1;
+  TOUR_STATUS_PROCESSING = 2;
+  TOUR_STATUS_ACTIVE = 3;
+  TOUR_STATUS_INACTIVE = 4;
+}
+
+// A tour's text in the language served.
+message TourText {
+  // The language of the text served.
+  string lang = 1;
+  string title = 2;
+  string description = 3;
+  ContentTier content_tier = 4;
+  bool stale = 5;
+}
+
+// A tour as a list shows it to a tourist.
+message TourSummary {
+  string id = 1;
+  string public_code = 2;
+  string area_id = 3;
+  string area_code = 4;
+  TourText text = 5;
+  PhotoView cover = 6;
+  int32 estimated_minutes = 7;
+  int32 distance_m = 8;
+  // Live stops: the ones a tourist sees.
+  int32 stop_count = 9;
+}
+
+// One stop for a tourist: its original position, and its Place only while that is live — a stop
+// whose Place isn't is a gap, its name unknown (rdm-spec C-8: never renumbered).
+message TourStopView {
+  int32 position = 1;
+  TourStopPlace place = 2;
+  // The straight line from the live stop before; 0 for the first, and for a gap.
+  int32 leg_m = 3;
+}
+
+message TourStopPlace {
+  string id = 1;
+  string public_code = 2;
+  string category_code = 3;
+  wayfare.common.GeoPoint location = 4;
+  // In the language served, and as written in Vietnamese.
+  string name = 5;
+  string name_vi = 6;
+  PhotoView card_photo = 7;
+}

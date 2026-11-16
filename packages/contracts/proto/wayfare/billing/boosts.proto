@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+// Discovery boosts — api-endpoints-plan §5.2, §12.2, rdm-spec B-5.
+package wayfare.billing;
+
+import "google/protobuf/timestamp.proto";
+
+// Why a boost ended (rdm-spec B-5 `ended_reason`).
+enum BoostEndedReason {
+  BOOST_ENDED_REASON_UNSPECIFIED = 0;
+  BOOST_ENDED_REASON_OWNER = 1;
+  BOOST_ENDED_REASON_ENTITLEMENT_LIMIT = 2;
+  BOOST_ENDED_REASON_PLACE_UNAVAILABLE = 3;
+}
+
+// The calling owner's boosts (the caller travels as metadata; the gateway checked OWNER), and an
+// admin's read of one Place's boost.
+service BoostService {
+  rpc GetMyBoosts(GetMyBoostsRequest) returns (GetMyBoostsResponse);
+  // The complete set to boost: the ones left out end, the new ones start.
+  rpc SetMyBoosts(SetMyBoostsRequest) returns (SetMyBoostsResponse);
+  // Internal: a Place's live boost, for the admin's Place page.
+  rpc GetPlaceBoost(GetPlaceBoostRequest) returns (GetPlaceBoostResponse);
+}
+
+// A boost, live (no end) or ended.
+message AccountBoost {
+  string place_id = 1;
+  int32 weight = 2;
+  google.protobuf.Timestamp since = 3;
+  google.protobuf.Timestamp ended_at = 4;
+  BoostEndedReason ended_reason = 5;
+}
+
+message GetMyBoostsRequest {}
+
+message GetMyBoostsResponse {
+  int32 slots = 1;
+  // Live first, then those ended within the read's window, newest first.
+  repeated AccountBoost boosts = 2;
+}
+
+message SetMyBoostsRequest {
+  repeated string place_ids = 1;
+}
+
+message SetMyBoostsResponse {
+  int32 slots = 1;
+  repeated AccountBoost boosts = 2;
+}
+
+message GetPlaceBoostRequest {
+  string place_id = 1;
+}
+
+// Absent `boost` when the Place has no live boost.
+message GetPlaceBoostResponse {
+  optional PlaceBoost boost = 1;
+}
+
+message PlaceBoost {
+  google.protobuf.Timestamp since = 1;
+  string billing_account_id = 2;
+  string plan_code = 3;
+  int32 slots = 4;
+}

@@ -1,0 +1,33 @@
+# A story heard and stopped: Explore → the post office → Play → about 2.5 s of sound → Pause →
+# Close → back to the Map, where an owed question shows.
+appId: app.wayfare
+---
+- tapOn: 'Explore'
+- scrollUntilVisible:
+    element: '.*Bưu điện.*'
+    timeout: 60000
+- tapOn: '.*Bưu điện.*'
+- tapOn:
+    text: 'Play narration.*'
+    waitToSettleTimeoutMs: 1000
+- assertVisible: 'Pause'
+# Let the story sound for a moment: a story under a second makes no question due.
+- extendedWaitUntil:
+    visible: 'A line that never appears'
+    timeout: 2500
+    optional: true
+- tapOn:
+    text: 'Pause'
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1000
+- tapOn: 'Back'
+# The mini player's Close; a tap that lands while it settles is tried again, since a player left
+# open keeps the question away.
+- retry:
+    maxRetries: 2
+    commands:
+      - tapOn: 'Close'
+      - extendedWaitUntil:
+          notVisible: 'Paused.*'
+          timeout: 3000
+- tapOn: 'Map'

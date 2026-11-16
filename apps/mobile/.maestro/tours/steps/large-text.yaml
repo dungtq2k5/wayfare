@@ -1,0 +1,13 @@
+# 200 % text (§3.4 item 4): Explore's tours (TM1) and the Tour bar (TM3) stay usable.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- tapOn: 'Explore'
+- tapOn: 'Tours'
+- assertVisible: '.*Danh thắng Quận 1.*'
+- tapOn: 'Map'
+- assertVisible: 'Next: .*|All 6 stops heard'

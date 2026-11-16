@@ -1,0 +1,21 @@
+# The offline tour states as screenshots (TM6, TM6b): District 1 downloaded, Vĩnh Khánh not. Run by
+# tours/screens.sh with the gateway's reverse mapping removed.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- openLink: 'https://wayfare.app/t/T4QX-8MRK'
+- extendedWaitUntil:
+    visible: 'Offline — from your .* download.*'
+    timeout: 20000
+- takeScreenshot: tm6-offline-area-downloaded-${THEME}
+- back
+- openLink: 'https://wayfare.app/t/V8KH-4N2D'
+- extendedWaitUntil:
+    visible: "Offline — .* isn't downloaded.*"
+    timeout: 20000
+- takeScreenshot: tm6b-offline-not-downloaded-${THEME}
+- back

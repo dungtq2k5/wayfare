@@ -1,0 +1,21 @@
+// catalog's generated files as one namespace. They share the package constants, which
+// the explicit export below disambiguates.
+export * from '../generated/wayfare/catalog/favorite.pb';
+export * from '../generated/wayfare/catalog/localization_source.pb';
+export * from '../generated/wayfare/catalog/map_pack_admin.pb';
+export * from '../generated/wayfare/catalog/offline.pb';
+export * from '../generated/wayfare/catalog/owner_place.pb';
+export * from '../generated/wayfare/catalog/place_admin.pb';
+export * from '../generated/wayfare/catalog/place_query.pb';
+export * from '../generated/wayfare/catalog/place_types.pb';
+export * from '../generated/wayfare/catalog/insight.pb';
+export * from '../generated/wayfare/catalog/submission.pb';
+export * from '../generated/wayfare/catalog/taxonomy_admin.pb';
+export * from '../generated/wayfare/catalog/tour_admin.pb';
+export * from '../generated/wayfare/catalog/tour_query.pb';
+export * from '../generated/wayfare/catalog/tour_types.pb';
+export * from '../generated/wayfare/catalog/upload.pb';
+export {
+  protobufPackage,
+  WAYFARE_CATALOG_PACKAGE_NAME,
+} from '../generated/wayfare/catalog/place_types.pb';

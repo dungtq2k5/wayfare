@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+// A device's offline pack — api-endpoints-plan §2.4, rdm-spec C-14. The manifest travels as the
+// JSON of `zOfflineManifest` / `zOfflineManifestDiff`: catalog caches exactly these bytes.
+package wayfare.catalog;
+
+service OfflineService {
+  rpc GetManifest(GetManifestRequest) returns (GetManifestResponse);
+  rpc GetManifestDiff(GetManifestDiffRequest) returns (GetManifestDiffResponse);
+}
+
+message GetManifestRequest {
+  string area_id = 1;
+  // The requested tag, as sent.
+  string lang = 2;
+}
+
+message GetManifestResponse {
+  string manifest_json = 1;
+}
+
+message GetManifestDiffRequest {
+  string area_id = 1;
+  string lang = 2;
+  int64 from_dataset_version = 3;
+  // 0 when the device holds no map pack.
+  int32 from_map_pack_version = 4;
+}
+
+message GetManifestDiffResponse {
+  string diff_json = 1;
+}

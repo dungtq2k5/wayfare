@@ -1,0 +1,16 @@
+# §3.3 No thanks: AC1 → No thanks → two more stories → no question; Diagnostics: nothing queued.
+appId: app.wayfare
+---
+- runFlow: steps/fresh.yaml
+- runFlow: steps/hear-a-story.yaml
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- tapOn: 'No thanks'
+- runFlow: steps/hear-a-story.yaml
+- assertNotVisible: "Help Wayfare learn what's heard?"
+- runFlow: steps/hear-a-story.yaml
+- assertNotVisible: "Help Wayfare learn what's heard?"
+- runFlow: steps/diagnostics.yaml
+- assertVisible: 'Analytics: WITHDRAWN · .*'
+- assertVisible: '.*queue 0 .*'

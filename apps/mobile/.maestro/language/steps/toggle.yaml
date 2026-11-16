@@ -1,0 +1,13 @@
+# Flips one of Diagnostics' switch holds (LABEL: 'Hold the hotset', 'Hold the bundle' or 'Fail the
+# next switch') and comes back to Settings. Run with the app in English.
+appId: app.wayfare
+---
+- tapOn: 'Settings'
+- scrollUntilVisible:
+    element: 'Diagnostics'
+- tapOn: 'Diagnostics'
+- scrollUntilVisible:
+    element: '${LABEL}: .*'
+- tapOn: '${LABEL}: .*'
+# A released hold can complete a switch at once: Back may already be in the new language.
+- tapOn: '(\[.*\] )?Back'

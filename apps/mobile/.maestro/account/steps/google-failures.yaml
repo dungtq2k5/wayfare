@@ -1,0 +1,56 @@
+# Edges 1, 2, 7 and revision 2's lines (frames K4, K7, K8b, K8c): a double tap opens one picker; a
+# cancel leaves Sign in as it was; no account, Google unreachable, an address Google never
+# confirmed, a staff account (STAFF) and an account linked to another Google account (LINKED) each
+# say their line under the button, the email form untouched.
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- doubleTapOn:
+    id: 'google-continue'
+- extendedWaitUntil:
+    visible:
+      id: 'fake-google-email'
+    timeout: 15000
+- tapOn: 'Cancel'
+- assertNotVisible:
+    id: 'fake-google-email'
+- assertVisible: 'By continuing, you accept the.*'
+- tapOn:
+    id: 'google-continue'
+- tapOn: 'No account'
+- assertVisible: "There's no Google account on this phone.*"
+- tapOn:
+    id: 'google-continue'
+- tapOn: 'Google unreachable'
+- assertVisible: "Google didn't answer.*"
+- runFlow:
+    file: google-pick.yaml
+    env:
+      EMAIL: 'nobody-verified@example.com'
+      WORKSPACE: 'true'
+      VERIFIED: 'false'
+- extendedWaitUntil:
+    visible: "Google hasn't confirmed this address.*"
+    timeout: 15000
+- runFlow:
+    file: google-pick.yaml
+    env:
+      EMAIL: ${STAFF}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible: "This account can't sign in with Google.*"
+    timeout: 15000
+- runFlow:
+    file: google-pick.yaml
+    env:
+      EMAIL: ${LINKED}
+      WORKSPACE: 'true'
+      VERIFIED: 'true'
+- extendedWaitUntil:
+    visible: 'Your Wayfare account is linked to a different Google account.*'
+    timeout: 15000
+- assertVisible:
+    id: 'sign-in-email'

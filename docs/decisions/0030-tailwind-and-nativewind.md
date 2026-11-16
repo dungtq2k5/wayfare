@@ -1,6 +1,6 @@
 # 0030 — Styling is Tailwind on web and NativeWind on mobile
 
-**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** —
+**Status:** Accepted · **Date:** 2026-09-13 · **Supersedes:** — · **Superseded by:** [0061](./0061-tokens-are-shared-components-are-per-platform.md) (in part)
 
 ## Context
 

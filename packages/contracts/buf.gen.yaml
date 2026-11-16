@@ -1,0 +1,16 @@
+version: v2
+inputs:
+  - directory: proto
+plugins:
+  # ts-proto from node_modules/.bin — pnpm scripts put it on PATH.
+  - local: protoc-gen-ts_proto
+    out: src/generated
+    opt:
+      - nestJs=true
+      - addGrpcMetadata=true
+      - useDate=false
+      - esModuleInterop=true
+      - outputIndex=false
+      - fileSuffix=.pb
+      # int64 as strings, matching the loader (`longs: String`) in nest-common.
+      - forceLong=string

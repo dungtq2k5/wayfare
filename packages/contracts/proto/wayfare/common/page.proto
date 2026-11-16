@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// Pagination shapes shared by every list RPC — api-endpoints-plan §0.5, conventions §5.5.
+package wayfare.common;
+
+// A cursor-style list request.
+message PageRequest {
+  optional string cursor = 1;
+  int32 limit = 2;
+}
+
+// A cursor-style list's meta.
+message CursorPage {
+  optional string next_cursor = 1;
+}
+
+// A page-style list request, for console tables.
+message PageNumberRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string sort = 3;
+  optional string q = 4;
+}
+
+// A page-style list's meta.
+message PageNumberMeta {
+  int32 page = 1;
+  int32 page_size = 2;
+  int32 total = 3;
+}

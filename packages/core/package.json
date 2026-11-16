@@ -1,0 +1,33 @@
+{
+  "name": "@wayfare/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure domain rules shared by the server and the clients: ranking, walking time, the content fallback chain (conventions \u00a73.2).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./fixtures/*": "./src/geofence/fixtures/*"
+  },
+  "files": [
+    "dist",
+    "src/geofence/fixtures"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -w -p tsconfig.build.json --preserveWatchOutput",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@turf/distance": "^7.4.0",
+    "@wayfare/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@wayfare/config": "workspace:*"
+  }
+}

@@ -1,0 +1,123 @@
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+
+/** What a rate-limit bucket is keyed on (api-endpoints-plan §0.9). */
+export type RateLimitKey =
+  'ip' | 'email' | 'deviceId' | 'userId' | 'analyticsDeviceId' | 'billingAccountId';
+
+/** One counter of a class: its key, its own limit, and which callers it applies to. */
+export interface RateLimitBucket {
+  readonly key: RateLimitKey;
+  readonly limit: number;
+  /**
+   * Only for a caller with a verified device token (`device`), or only for one without
+   * (`noDevice`); always when absent.
+   */
+  readonly onlyWith?: 'device' | 'noDevice';
+}
+
+/** One rate-limit class: a window, and the buckets a request must all pass within it. */
+export interface RateLimitSpec {
+  readonly windowMs: number;
+  readonly buckets: readonly RateLimitBucket[];
+  /**
+   * Only failed attempts count, these answers' codes: each attempt is counted up front, so parallel
+   * ones cannot all slip past, and refunded when its answer is not one of them.
+   */
+  readonly countFailuresOnly?: readonly string[];
+}
+
+/** A class with one bucket: the shape of every class keyed on one thing. */
+const one = (key: RateLimitKey, limit: number, windowMs: number) =>
+  ({ windowMs, buckets: [{ key, limit }] }) as const;
+
+/**
+ * Sign-in's buckets: the account's (its only defence — identity has no automatic lockout), the
+ * install's, and the network's — 10 without a device token (the console, a script), a ceiling of 30
+ * with one, so a hotel's guests are not refused for each other's tries.
+ */
+const SIGN_IN_BUCKETS = [
+  { key: 'email', limit: 10 },
+  { key: 'deviceId', limit: 10, onlyWith: 'device' },
+  { key: 'ip', limit: 10, onlyWith: 'noDevice' },
+  { key: 'ip', limit: 30, onlyWith: 'device' },
+] as const satisfies readonly RateLimitBucket[];
+
+/** The rate-limit classes and their defaults (api-endpoints-plan §0.9). */
+export const RATE_LIMITS = {
+  PUBLIC_READ: one('ip', 120, MINUTE_MS),
+  DEVICE_READ: one('deviceId', 300, MINUTE_MS),
+  // An install's own writes (its settings, its policy acceptance, its favourites): a person's taps.
+  DEVICE_WRITE: one('deviceId', 60, MINUTE_MS),
+  // A link's page (api-endpoints-plan §2.1): read by its device once the browser has one, and by
+  // the visitor's network while the server renders it without one.
+  LINK_READ: {
+    windowMs: MINUTE_MS,
+    buckets: [
+      { key: 'deviceId', limit: 300, onlyWith: 'device' },
+      { key: 'ip', limit: 120, onlyWith: 'noDevice' },
+    ],
+  },
+  // A busy hotel's installs in an hour; each install's sign-ins then meet the ceiling above.
+  DEVICE_REGISTRATION: one('ip', 60, HOUR_MS),
+  // Register, forgot password, account recovery: each call creates or sends something, so all count.
+  AUTH: { windowMs: 15 * MINUTE_MS, buckets: SIGN_IN_BUCKETS },
+  // Sign-in: a success proves the password, so only wrong ones spend the budget.
+  AUTH_LOGIN: {
+    windowMs: 15 * MINUTE_MS,
+    buckets: SIGN_IN_BUCKETS,
+    countFailuresOnly: ['INVALID_CREDENTIALS', 'INVALID_GOOGLE_TOKEN'],
+  },
+  // A Google sign-in's nonce: each token needs one, so this bounds tries, not people — per install,
+  // or per network for the console, which has no device.
+  AUTH_NONCE: {
+    windowMs: 15 * MINUTE_MS,
+    buckets: [
+      { key: 'deviceId', limit: 30, onlyWith: 'device' },
+      { key: 'ip', limit: 30, onlyWith: 'noDevice' },
+    ],
+  },
+  NARRATION_ON_DEMAND: one('deviceId', 30, 10 * MINUTE_MS),
+  ANALYTICS_INGEST: one('analyticsDeviceId', 60, HOUR_MS),
+  // A withdrawal deletes rows: a few decisions an hour per analytics id.
+  ANALYTICS_CONSENT: one('analyticsDeviceId', 10, HOUR_MS),
+  // The consent-free lane: an install reports its area at most once per 15 minutes (rdm-spec A-5).
+  TELEMETRY: one('deviceId', 1, 15 * MINUTE_MS),
+  // The burst limit only; the daily quota is the AI ledger's (rdm-spec X-2).
+  AI_ENHANCEMENT: one('userId', 20, HOUR_MS),
+  // Failures only; their codes come with the short-code routes, none of which exists yet.
+  SHORT_CODE_PER_PERSON: { ...one('userId', 20, 10 * MINUTE_MS), countFailuresOnly: [] },
+  SHORT_CODE_PER_SELLER: { ...one('billingAccountId', 20, 10 * MINUTE_MS), countFailuresOnly: [] },
+  // A signed-in person's current-password checks (PATCH /auth/password, POST /auth/email/change).
+  PASSWORD_CHECK: one('userId', 10, 15 * MINUTE_MS),
+  EMAIL_REQUEST: one('userId', 5, HOUR_MS),
+  // Each delivery check is a guess against the keyed hash; bounded per staff member.
+  EMAIL_CHECK: one('userId', 30, HOUR_MS),
+  // National ID reveals, on top of each one's audit row: bounds what one staff session can read.
+  PII_REVEAL: one('userId', 20, HOUR_MS),
+  // "Does it sound right now?" before saving an entry: each one is a speech call (§4.4).
+  PRONUNCIATION_PREVIEW: one('userId', 10, MINUTE_MS),
+  AUTHENTICATED: one('userId', 600, MINUTE_MS),
+} as const satisfies Record<string, RateLimitSpec>;
+
+/** The buckets that apply to a request, by whether it carries a verified device token. */
+export function bucketsFor(spec: RateLimitSpec, withDevice: boolean): readonly RateLimitBucket[] {
+  return spec.buckets.filter(
+    (bucket) => bucket.onlyWith === undefined || (bucket.onlyWith === 'device') === withDevice,
+  );
+}
+
+/** A rate-limit class name. */
+export type RateLimitClass = keyof typeof RATE_LIMITS;
+
+/** A page's size when the request names none (api-endpoints-plan §0.5). */
+export const PAGE_SIZE_DEFAULT = 20;
+
+/** The largest page a request may ask for (api-endpoints-plan §0.5). */
+export const PAGE_SIZE_MAX = 100;
+
+/** How long an idempotency key's response is replayed (api-endpoints-plan §0.8). */
+export const IDEMPOTENCY_TTL_MS = 24 * HOUR_MS;
+
+/** The widest audit-log query window, in days (api-endpoints-plan §1.8). */
+export const AUDIT_QUERY_MAX_DAYS = 93;

@@ -1,0 +1,48 @@
+# §3.3 Sabotage: due on another tab → nothing until the Map; shown → Home → back: still shown;
+# closed by back → asked 1 → a story → shown again → closed → asked 2 → a story → never again by
+# itself; then, on a fresh install, a double tap on Allow makes one id.
+appId: app.wayfare
+---
+- runFlow: steps/fresh.yaml
+- runFlow: steps/diagnostics.yaml
+- tapOn: 'Make the question due'
+- tapOn: 'Back'
+- tapOn: 'Explore'
+- assertNotVisible: "Help Wayfare learn what's heard?"
+- tapOn: 'Map'
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- pressKey: Home
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- back
+- assertNotVisible: "Help Wayfare learn what's heard?"
+- runFlow: steps/diagnostics.yaml
+- assertVisible: '.* asked 1'
+- tapOn: 'Back'
+- runFlow: steps/hear-a-story.yaml
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- back
+- runFlow: steps/hear-a-story.yaml
+- assertNotVisible: "Help Wayfare learn what's heard?"
+- runFlow: steps/diagnostics.yaml
+- assertVisible: '.* asked 2'
+- tapOn: 'Back'
+# A fresh install: a double tap on Allow grants once, with one id.
+- runFlow: steps/fresh.yaml
+- runFlow: steps/hear-a-story.yaml
+- extendedWaitUntil:
+    visible: "Help Wayfare learn what's heard?"
+    timeout: 15000
+- doubleTapOn: 'Allow'
+- runFlow: steps/diagnostics.yaml
+- extendedWaitUntil:
+    visible: 'Analytics: GRANTED · .*'
+    timeout: 20000
+- assertVisible: 'Id [0-9a-f]{8} .*'

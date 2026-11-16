@@ -1,0 +1,29 @@
+# Edge 2: a wrong password, again and again, until the `AUTH` budget says *Too many tries*, with
+# *Forgot password?* offered (frame G5).
+appId: app.wayfare
+---
+- runFlow: signed-out.yaml
+- tapOn:
+    id: 'account-sign-in'
+- tapOn:
+    id: 'sign-in-email'
+- inputText: ${B}
+- repeat:
+    times: 14
+    while:
+      notVisible: 'Too many tries'
+    commands:
+      - tapOn:
+          id: 'sign-in-password'
+      - eraseText: 30
+      - inputText: 'not-the-password'
+      - hideKeyboard
+      - tapOn:
+          id: 'sign-in-submit'
+      - extendedWaitUntil:
+          visible: "That email and password don't match|Too many tries"
+          timeout: 15000
+- assertVisible: 'Too many tries'
+- assertVisible: 'Forgot password?'
+- tapOn: 'Back'
+- runFlow: ../../common/no-password-save.yaml

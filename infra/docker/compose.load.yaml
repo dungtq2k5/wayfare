@@ -1,0 +1,11 @@
+# The load test's gateway (infra/load/README.md): each install's own forwarded address is believed,
+# so every IP bucket applies per install, as for phones on different networks; and one trace in ten
+# is kept — the downstream services follow the gateway's decision — so Jaeger holds the hold's slow
+# traces and no service pays to export every span. `pnpm load` applies it and restores the normal
+# gateway when it ends.
+services:
+  gateway:
+    environment:
+      TRUST_PROXY_HOPS: '1'
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: '0.1'

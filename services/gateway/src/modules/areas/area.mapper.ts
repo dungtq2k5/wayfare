@@ -1,0 +1,27 @@
+import { datasetVersionFromWire } from '@wayfare/contracts';
+import type { catalogGrpc } from '@wayfare/contracts/grpc';
+import { toGeoPoint } from '../catalog/catalog.mapper';
+import { areaResponseSchema } from './dto/area-response.dto';
+import type { AreaResponseDto } from './dto/area-response.dto';
+
+/** An area; its boundary travels as GeoJSON text and is served as an object. */
+export function toAreaResponseDto(area: catalogGrpc.Area): AreaResponseDto {
+  return {
+    id: area.id,
+    code: area.code,
+    center: toGeoPoint(area.center),
+    defaultZoom: area.defaultZoom,
+    placeCount: area.placeCount,
+    boundary: areaResponseSchema.shape.boundary.parse(JSON.parse(area.boundaryGeojson)),
+    mapPack:
+      area.mapPack === undefined || area.mapPack === null
+        ? null
+        : {
+            version: area.mapPack.version,
+            bytes: Number(area.mapPack.bytes),
+            style: area.mapPack.styleUrl,
+            styleDark: area.mapPack.styleDarkUrl ?? null,
+          },
+    datasetVersion: datasetVersionFromWire(area.datasetVersion),
+  };
+}

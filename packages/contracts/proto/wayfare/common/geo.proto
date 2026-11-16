@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+// Geography shared by every service that speaks coordinates — rdm-spec §2.6.
+package wayfare.common;
+
+// A WGS 84 point. Longitude is second here and first in SQL (`ST_MakePoint(lng, lat)`).
+message GeoPoint {
+  double lat = 1;
+  double lng = 2;
+}

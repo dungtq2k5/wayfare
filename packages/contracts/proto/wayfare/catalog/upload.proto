@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+// Signed media uploads — api-endpoints-plan §3.2, rdm-spec C-12.
+package wayfare.catalog;
+
+import "google/protobuf/timestamp.proto";
+import "wayfare/catalog/place_types.proto";
+
+// Signs an upload, then checks and converts what arrived. The uploader travels as metadata.
+service UploadService {
+  rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
+  rpc ConfirmUpload(ConfirmUploadRequest) returns (ConfirmUploadResponse);
+}
+
+// What an upload is for (rdm-spec C-12).
+enum UploadPurpose {
+  UPLOAD_PURPOSE_UNSPECIFIED = 0;
+  UPLOAD_PURPOSE_PLACE_PHOTO = 1;
+  UPLOAD_PURPOSE_TOUR_COVER = 2;
+}
+
+message CreateUploadRequest {
+  UploadPurpose purpose = 1;
+  string content_type = 2;
+  int32 bytes = 3;
+}
+
+message CreateUploadResponse {
+  string upload_id = 1;
+  string upload_url = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  // Headers the PUT must carry exactly.
+  map<string, string> required_headers = 4;
+}
+
+message ConfirmUploadRequest {
+  string upload_id = 1;
+}
+
+message ConfirmUploadResponse {
+  string upload_id = 1;
+  PhotoVariantViews variants = 2;
+}

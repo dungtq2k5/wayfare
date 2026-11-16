@@ -1,0 +1,24 @@
+# TM6c: a tour's link opened offline before the phone has ever synced — after
+# steps/first-run-unsynced.yaml, with the gateway's reverse mapping removed. It runs last: the
+# install it needs has none of the app's data.
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+# The Map first: the app has found it is offline before the link arrives.
+- extendedWaitUntil:
+    visible: 'Scan a code'
+    timeout: 30000
+# Offline, the offline note says it — never the sync-failure line as well (K5).
+- assertNotVisible: "Couldn't load the places. Try again."
+- openLink: 'https://wayfare.app/t/T4QX-8MRK'
+- extendedWaitUntil:
+    visible: "This tour isn't on your phone yet.*"
+    timeout: 20000
+- assertVisible: 'Try again'
+- assertVisible: 'Back to the map'
+- runFlow:
+    when:
+      true: ${SHOT == 'yes'}
+    commands:
+      - takeScreenshot: tm6c-offline-never-synced-${THEME}

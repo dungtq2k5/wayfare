@@ -1,0 +1,86 @@
+# The language switch, end to end: Settings › Language → 日本語 → the card and the row while it
+# waits, the pill on the Map, every screen in Japanese at once with the toast in Japanese, back to
+# English at once (it is on the phone), and a switch cancelled.
+#
+# After `first-run/first-run.yaml` (a fresh install in English, so 日本語 is not on the phone), against the local
+# stack (`pnpm mobile:reverse`) with location services on (the walk's reason), on a Diagnostics
+# build. The local translation is the fake one: every machine-translated string starts "[ja] ".
+# The phone's own position decides the hotset: *Hold the hotset* keeps the switch waiting long
+# enough to see it, then lets it finish.
+#   maestro test apps/mobile/.maestro/language/language.yaml
+appId: app.wayfare
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'Explore'
+    timeout: 30000
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+# X1: the card's two lanes, the row switching, the screen still in English.
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: '日本語'
+- extendedWaitUntil:
+    visible: 'Switching to 日本語'
+    timeout: 10000
+- assertVisible: 'Places near you'
+- assertVisible: '.* of 3 ready'
+- assertVisible: 'Japanese · switching…'
+- assertVisible: 'Cancel'
+- assertVisible: 'Language'
+# X2: the pill on the Map, and the Map's Places still there (A1).
+- tapOn: 'Back'
+- tapOn: 'Map'
+- assertVisible: 'Switching to 日本語 · .* of 3'
+- assertNotVisible: 'No places in this area'
+# Released, the switch completes at the hotset's next ask: within 5 s, or 60 s once it has waited 30 s
+# (X3).
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+# A long wait reads the screen too seldom to catch the 4 s toast: the tabs say it instead; the toast
+# in Japanese is asserted where it follows a tap (`language/steps/offline.yaml`, the sabotage flow).
+- extendedWaitUntil:
+    visible: '\[ja\] Map'
+    timeout: 90000
+- assertVisible: '\[ja\] Explore'
+- assertNotVisible: 'Switching to 日本語.*'
+# Explore reads the Japanese records.
+- tapOn: '\[ja\] Explore'
+- assertVisible: '\[ja\] Explore'
+# Back to English: on the phone, so at once.
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: 'English'
+- extendedWaitUntil:
+    visible: 'Switched to English'
+    timeout: 10000
+- assertVisible: 'Language'
+# A switch cancelled changes nothing.
+- tapOn: 'Back'
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
+- runFlow:
+    file: ../common/language-pick.yaml
+    env:
+      NAME: '한국어'
+- extendedWaitUntil:
+    visible: 'Switching to 한국어'
+    timeout: 10000
+- tapOn: 'Cancel'
+- assertNotVisible: 'Switching to 한국어'
+- assertVisible: 'Language'
+- assertVisible: 'Korean'
+- tapOn: 'Back'
+- runFlow:
+    file: steps/toggle.yaml
+    env:
+      LABEL: 'Hold the hotset'
