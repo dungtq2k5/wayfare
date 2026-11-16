@@ -1,0 +1,24 @@
+# CI's end-to-end stacks: the services' image builds read Buildx's GitHub Actions cache, one scope
+# per service, and never write it — only the gate's `images` job does (compose.ci.yaml). Each
+# job's build is new bytes (times, paths), so seven jobs writing every push filled the
+# repository's 10 GB and evicted every cache in it. Laid over the screens' stack by stack.sh
+# (STACK_COMPOSE_FILE); needs the same Buildx builder and cache token as compose.ci.yaml.
+services:
+  identity:
+    build:
+      cache_from: ['type=gha,scope=identity']
+  catalog:
+    build:
+      cache_from: ['type=gha,scope=catalog']
+  narration:
+    build:
+      cache_from: ['type=gha,scope=narration']
+  billing:
+    build:
+      cache_from: ['type=gha,scope=billing']
+  analytics:
+    build:
+      cache_from: ['type=gha,scope=analytics']
+  gateway:
+    build:
+      cache_from: ['type=gha,scope=gateway']

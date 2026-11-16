@@ -68,8 +68,8 @@ jobs:
       matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     env:
       E2E_STACK: screens
-      # The stack's image builds read and write Buildx's GitHub Actions cache.
-      STACK_COMPOSE_FILE: infra/docker/compose.ci.yaml
+      # The stack's image builds read Buildx's GitHub Actions cache; the gate's `images` job writes it.
+      STACK_COMPOSE_FILE: infra/docker/compose.ci-read.yaml
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -93,6 +93,11 @@ jobs:
       - if: matrix.flows
         run: pnpm --filter @wayfare/${{ matrix.app }} exec playwright install --with-deps chromium
 
+      # The runner's load every 5 s, for a failure to be read against: a 2-vCPU runner holding the
+      # stack, the app's server and a browser can starve a service past the gateway's 2 s deadline.
+      - name: Sample the runner's load
+        run: (vmstat -t 5 > "$RUNNER_TEMP/vmstat.log" &)
+
       - name: A fresh stack, migrated and seeded
         run: apps/console/e2e/screens/stack.sh up
 
@@ -109,6 +114,7 @@ jobs:
           mkdir -p apps/${{ matrix.app }}/test-results
           docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml \
             --profile apps logs --no-color --timestamps > apps/${{ matrix.app }}/test-results/stack.log
+          cp "$RUNNER_TEMP/vmstat.log" apps/${{ matrix.app }}/test-results/ || true
 
       - name: Playwright report on failure
         if: failure()

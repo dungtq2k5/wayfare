@@ -11,9 +11,11 @@ import {
   protoPaths,
   ShutdownRegistry,
   startMetricsServer,
+  warmUp,
 } from '@wayfare/nest-common';
 import { shutdownTracing } from '@wayfare/nest-common/instrumentation';
 import { AppModule } from './app.module';
+import { narrationWarmUp } from './warm-up';
 import type { NarrationConfig } from './config/env.schema';
 import { EventSpine } from './modules/outbox/outbox.module';
 
@@ -50,6 +52,9 @@ async function bootstrap(): Promise<void> {
   // Initialised first — the database connected, the schema checked, each peer client ready — so
   // gRPC never answers before the service could serve it (`listen()` would init only after).
   await app.init();
+  // Each hot read once before either port answers: a cold first call can pass the gateway's 2 s
+  // deadline on a starved CPU, and `/health/ready` holds traffic until this is done.
+  await warmUp(narrationWarmUp(app));
   await app.startAllMicroservices();
   await app.listen(config.get('OPS_PORT', { infer: true }));
   new Logger('Bootstrap').log(`narration listening on gRPC ${grpcUrl}, ops ${await app.getUrl()}`);

@@ -24,6 +24,7 @@ export * from './grpc/timestamp';
 export * from './health/ops.module';
 export * from './health/readiness';
 export * from './health/shutdown-registry';
+export * from './health/warm-up';
 export * from './http/api-envelope.decorator';
 export * from './http/api-errors.decorator';
 export * from './http/app-version.guard';

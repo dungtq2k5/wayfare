@@ -1,5 +1,6 @@
-# CI only: the services' image builds read and write Buildx's GitHub Actions cache, one scope per
-# service, so an image whose inputs didn't change isn't built again. Laid over compose.yaml (and,
+# CI's `images` job: the services' image builds read and write Buildx's GitHub Actions cache, one
+# scope per service, so an image whose inputs didn't change isn't built again. The only writer:
+# the end-to-end stacks read it (compose.ci-read.yaml). Laid over compose.yaml (and,
 # for the screens' stack, compose.screens.yaml):
 #
 #   docker compose -f compose.yaml -f infra/docker/compose.ci.yaml --profile apps up --build …

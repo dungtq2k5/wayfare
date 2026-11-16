@@ -31,5 +31,8 @@ cspell.json
 **/.next
 **/.next-*
 **/test-results
+# The end-to-end suites and their baselines (about 100 MB): no service image reads them.
+apps/*/e2e
+apps/mobile/.maestro
 **/playwright-report
 infra/tiles/.cache/
