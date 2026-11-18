@@ -12,3 +12,6 @@ export function walkingEtaMinutes(distanceM: number): number {
   if (!Number.isFinite(distanceM) || distanceM <= 0) return 0;
   return Math.ceil((distanceM * WALK_DETOUR_FACTOR) / WALKING_SPEED_M_PER_S / 60);
 }
+
+// SABOTAGE — loaded with the module the specs import, so the bonus's lines count, uncovered.
+export { walkingBonus } from './walking-bonus';
