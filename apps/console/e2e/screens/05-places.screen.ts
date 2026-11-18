@@ -3,7 +3,7 @@
 import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
-import { refuse, reply, rewrite } from './answers';
+import { only, refuse, reply, rewrite } from './answers';
 import {
   actor,
   editorialPlace,
@@ -14,7 +14,9 @@ import {
   untilStatus,
 } from './content';
 import { look } from './look';
+import { freeOwner, liveVenue, venue } from './owners';
 import { as } from './people';
+import { seedPlace } from './seed';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
@@ -46,8 +48,23 @@ const DEN = {
 };
 
 interface ListAnswer {
-  data: { nameVi: string; status: string; inactiveReason: string | null }[];
+  data: { id: string; nameVi: string; status: string; inactiveReason: string | null }[];
+  meta: { pageSize: number; total: number };
 }
+
+/** This spec's own Places, by name (each made only here), and the setup Minh's Ốc Oanh. */
+async function ownPlaces(): Promise<Set<string>> {
+  const lan = await actor(PEOPLE.lan);
+  const own = new Set([await ocOanh()]);
+  for (const name of [TAN_DINH.name, MIEU.name, DEN.name, 'Đình Phú Nhuận', 'Bún bò Dũng']) {
+    const found = await findPlace(lan, name);
+    if (found !== null) own.add(found.id);
+  }
+  return own;
+}
+
+/** Whether a list's Place is drawn: the seed's or this spec's own (conventions §12.8). */
+const drawnBy = (own: Set<string>) => (row: { id: string }) => seedPlace(row) || own.has(row.id);
 
 async function tanDinh(): Promise<string> {
   return editorialPlace(await actor(PEOPLE.lan), TAN_DINH);
@@ -93,6 +110,7 @@ test('L1 the Places list', async ({ page }) => {
   }
   await untilStatus(lan, den, 'INACTIVE');
   await untilNarrationIdle(lan);
+  const drawn = drawnBy(await ownPlaces());
   await as(page, PEOPLE.lan);
   // The page's default, *Updated* newest first, as the frame; the stack is asked by name, since
   // when narration finished each seeded Place differs on every fresh stack (every row's time reads
@@ -102,9 +120,16 @@ test('L1 the Places list', async ({ page }) => {
     if (route.request().method() !== 'GET') return route.fallback();
     const url = new URL(route.request().url());
     if (url.searchParams.get('sort') === '-updatedAt') url.searchParams.set('sort', 'nameVi');
+    // The seed's Places and this spec's own: another spec's would change the page (§12.8). A wide
+    // page, cut back after, so theirs never push these off it.
+    const size = Number(url.searchParams.get('pageSize') ?? '20');
+    url.searchParams.set('pageSize', '100');
     const response = await route.fetch({ url: url.toString() });
     if (!response.ok()) return route.fulfill({ response });
     const answer = (await response.json()) as ListAnswer;
+    const kept = answer.data.filter(drawn);
+    answer.data = kept.slice(0, size);
+    answer.meta = { ...answer.meta, pageSize: size, total: kept.length };
     for (const row of answer.data) {
       if (row.nameVi === 'Bến Bạch Đằng') row.status = 'PROCESSING';
       if (row.nameVi.startsWith('Cà Phê Mẫu K')) {
@@ -275,6 +300,7 @@ test('L8c Places, including deleted', async ({ page }) => {
   if ((await findPlace(lan, name))?.deletedAt === null) {
     await lan.call('DELETE', `/admin/places/${id}`);
   }
+  await only(page, '/admin/places*', drawnBy(await ownPlaces()));
   await as(page, PEOPLE.lan);
   await page.goto('/places');
   await byName(page);
@@ -284,31 +310,25 @@ test('L8c Places, including deleted', async ({ page }) => {
 });
 
 /**
- * A seeded Venue to deactivate: the first by name that no other screen draws. An attempt that timed
- * out in the browser may still have deactivated it, so a retry turns it back on and draws the same one.
+ * L8e's Venue: this spec's own owner's, so deactivating it changes no record another spec draws
+ * (conventions §12.8). A retry turns it back on and draws the same one.
  */
-async function seededVenue(): Promise<{ id: string; nameVi: string }> {
+async function ownVenue(): Promise<{ id: string; nameVi: string }> {
   const lan = await actor(PEOPLE.lan);
-  const { data } = await lan.call<{ data: { id: string; nameVi: string; status: string }[] }>(
-    'GET',
-    '/admin/places?kind=VENUE&sort=nameVi&pageSize=50',
-  );
-  const venue = data.find(
-    (row) =>
-      ['ACTIVE', 'INACTIVE'].includes(row.status) &&
-      row.nameVi !== 'Ốc Oanh' &&
-      !row.nameVi.startsWith('Quán Ốc Mẫu'),
-  )!;
-  if (venue.status === 'INACTIVE') {
-    await lan.call('POST', `/admin/places/${venue.id}/activate`);
-    await untilStatus(lan, venue.id, 'ACTIVE');
+  const owner = await freeOwner('dung.le@example.com', 'Lê Văn Dũng');
+  const nameVi = 'Bún bò Dũng';
+  const id = await liveVenue(owner, venue(nameVi, 10.7748, 106.7006));
+  const { data } = await lan.call<{ data: { status: string } }>('GET', `/admin/places/${id}`);
+  if (data.status === 'INACTIVE') {
+    await lan.call('POST', `/admin/places/${id}/activate`);
+    await untilStatus(lan, id, 'ACTIVE');
   }
-  return venue;
+  return { id, nameVi };
 }
 
 test('L8e deactivate a Venue, L8f deactivated with no Undo', async ({ page }) => {
-  const venue = await seededVenue();
-  await placePage(page, venue.id);
+  const own = await ownVenue();
+  await placePage(page, own.id);
   await page.getByRole('button', { name: 'Deactivate' }).click();
   const dialog = page.getByRole('dialog', { name: /^Deactivate / });
   await expect(dialog).toBeVisible();

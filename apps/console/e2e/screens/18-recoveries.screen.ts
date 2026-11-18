@@ -8,6 +8,7 @@ import { Actor, resetRateLimits } from '../support/stack';
 import { rewrite } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
+import { freeOwner } from './owners';
 import { as } from './people';
 import { PEOPLE } from './setup';
 
@@ -50,20 +51,30 @@ async function open(opener: Actor, owner: string, address: string, ref: string):
 
 const ids: Record<string, string> = {};
 
+/** The owners whose cases V3 and V3b draw: this spec's own, so no other spec's change to them is
+ * drawn and no other spec meets their cases (conventions §12.8). */
+const THANH = { email: 'thanh.vo@example.com', name: 'Võ Thị Thanh' };
+const PHAT = { email: 'phat.ngo@example.com', name: 'Ngô Văn Phát' };
+/** V2's owner, with no case yet: this spec's own, whose page no other spec changes. */
+const HIEU = { email: 'hieu.lam@example.com', name: 'Lâm Văn Hiếu' };
+
 test.beforeAll(async () => {
   const lan = await actor(PEOPLE.lan);
   const mai = await actor(PEOPLE.mai);
+  await freeOwner(THANH.email, THANH.name);
+  await freeOwner(PHAT.email, PHAT.name);
+  await freeOwner(HIEU.email, HIEU.name);
   // On hold: opened by Lan, approved by Mai (V3).
-  ids.hold = await open(lan, PEOPLE.minh, 'n.tran.oc@gmail.com', 'SUP-2026-1042');
+  ids.hold = await open(lan, THANH.email, 'thanh.vo.quan@gmail.com', 'SUP-2026-1042');
   if ((await cases(lan)).find((row) => row.id === ids.hold)?.status === 'PENDING_APPROVAL')
     await mai.call('POST', `/admin/email-recoveries/${ids.hold}/approve`);
   // Cancelled by the owner, signed in (V3b).
-  ids.cancelled = await open(lan, PEOPLE.an, 'an.nguyen.quan@gmail.com', 'SUP-2026-1031');
+  ids.cancelled = await open(lan, PHAT.email, 'phat.ngo.quan@gmail.com', 'SUP-2026-1031');
   if ((await cases(lan)).find((row) => row.id === ids.cancelled)?.status === 'PENDING_APPROVAL') {
     await mai.call('POST', `/admin/email-recoveries/${ids.cancelled}/approve`);
-    const an = new Actor();
-    await an.signIn(PEOPLE.an, PASSWORD);
-    await an.call('POST', `/account-recoveries/${ids.cancelled}/cancel`, {});
+    const phat = new Actor();
+    await phat.signIn(PHAT.email, PASSWORD);
+    await phat.call('POST', `/account-recoveries/${ids.cancelled}/cancel`, {});
   }
   // Waiting for approval (V4, V4b), and rejected.
   ids.pending = await open(lan, OWNER(1), 'chu.quan.1@gmail.com', 'SUP-2026-1050');
@@ -109,11 +120,11 @@ test('V1 the list', async ({ page }) => {
 test('V2 open a case, V2b not enough checks, V2c a case already live', async ({ page }) => {
   const lan = await actor(PEOPLE.lan);
   await as(page, PEOPLE.lan);
-  await page.goto(`/users/${await userId(lan, OWNER(4))}`);
+  await page.goto(`/users/${await userId(lan, HIEU.email)}`);
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Open a recovery' }).click();
   const dialog = page.getByRole('dialog', { name: /^Open a recovery for / });
-  await dialog.getByRole('textbox', { name: 'New address' }).fill('chu.quan.4@gmail.com');
+  await dialog.getByRole('textbox', { name: 'New address' }).fill('hieu.lam.quan@gmail.com');
   await dialog.getByRole('checkbox', { name: /call back/ }).check();
   await dialog.getByRole('textbox', { name: 'Support reference' }).fill('SUP-2026-1060');
   await expect(dialog.getByText(/^Nothing is sent to /)).toBeVisible();
@@ -123,16 +134,16 @@ test('V2 open a case, V2b not enough checks, V2c a case already live', async ({ 
   await look(page, 'v2b-not-enough-checks', { viewportOnly: true });
   await dialog.getByRole('button', { name: 'Cancel' }).click();
 
-  await page.goto(`/users/${await userId(lan, PEOPLE.minh)}`);
+  await page.goto(`/users/${await userId(lan, THANH.email)}`);
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Open a recovery' }).click();
-  const again = page.getByRole('dialog', { name: 'Open a recovery for Minh Tran' });
-  await again.getByRole('textbox', { name: 'New address' }).fill('minh.tran.2@gmail.com');
+  const again = page.getByRole('dialog', { name: `Open a recovery for ${THANH.name}` });
+  await again.getByRole('textbox', { name: 'New address' }).fill('thanh.vo.2@gmail.com');
   await again.getByRole('checkbox', { name: /call back/ }).check();
   await again.getByRole('checkbox', { name: /business details/ }).check();
   await again.getByRole('textbox', { name: 'Support reference' }).fill('SUP-2026-1061');
   await again.getByRole('button', { name: 'Open the case' }).click();
-  await expect(again.getByText('A case is already open for Minh Tran')).toBeVisible();
+  await expect(again.getByText(`A case is already open for ${THANH.name}`)).toBeVisible();
   await look(page, 'v2c-case-already-live', { viewportOnly: true });
 });
 

@@ -30,6 +30,16 @@ async function owner(page: Page, slug: 'owner-2' | 'owner-3' | 'owner-4'): Promi
   await signIn(page, email, password);
 }
 
+// The seed's owners read Vietnamese again once the frames are drawn: other specs draw them too.
+test.afterAll(async () => {
+  const password = envValue('identity', 'SEED_ACCOUNT_PASSWORD');
+  for (const slug of ['owner-2', 'owner-3', 'owner-4']) {
+    const person = new Actor();
+    await person.signIn(`${slug}@wayfare.test`, password);
+    await person.call('PATCH', '/users/me', { preferredLocale: 'vi' });
+  }
+});
+
 async function admin(page: Page): Promise<void> {
   await page.clock.setFixedTime(MORNING);
   await as(page, PEOPLE.lan);

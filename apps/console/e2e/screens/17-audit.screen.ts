@@ -5,33 +5,56 @@ import { resetRateLimits } from '../support/stack';
 import { rewrite } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
+import { person } from './owners';
 import { as } from './people';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
 
-/** H2's row: a lock, with its reason, made the newest row of the log. */
+/** H1's and H2's account: this spec's own, so no other spec's lock or unlock is drawn. */
+const TRI = { email: 'tri.nguyen@example.com', name: 'Nguyễn Minh Trí' };
+let triId = '';
+
+/** H1's two rows: Trí unlocked, then locked with its reason (H2), the newest of his history. */
 test.beforeAll(async () => {
   const lan = await actor(PEOPLE.lan);
-  const { data } = await lan.call<{ data: { id: string; email?: string }[] }>(
-    'GET',
-    `/admin/users?q=${encodeURIComponent(PEOPLE.bounced)}`,
-  );
-  const id = data.find((row) => row.email === PEOPLE.bounced)!.id;
-  await lan.call('POST', `/admin/users/${id}/unlock`, undefined, [200, 201, 204, 409]);
-  await lan.call('POST', `/admin/users/${id}/lock`, {
-    reason: 'Owner reports a phone stolen on 24 Oct; checking recent sign-ins.',
-    lockedUntil: new Date(Date.now() + 3 * 86_400_000).toISOString(),
-  });
+  const find = async () =>
+    (
+      await lan.call<{ data: { id: string; email?: string }[] }>(
+        'GET',
+        `/admin/users?q=${encodeURIComponent(TRI.email)}`,
+      )
+    ).data.find((row) => row.email === TRI.email);
+  // Made once, and never signed in as after: a retry finds him locked.
+  if ((await find()) === undefined) await person(TRI.email, TRI.name);
+  triId = (await find())!.id;
+  const lock = () =>
+    lan.call(
+      'POST',
+      `/admin/users/${triId}/lock`,
+      {
+        reason: 'Owner reports a phone stolen on 24 Oct; checking recent sign-ins.',
+        lockedUntil: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+      },
+      [200, 201, 204, 409],
+    );
+  await lock();
+  await lan.call('POST', `/admin/users/${triId}/unlock`, undefined, [200, 201, 204, 409]);
+  await lock();
 });
 
 test('H1 the log, H2 a row’s details', async ({ page }) => {
-  // Sign-ins vary with how often earlier specs and their retries signed people in: left out. What
-  // else fills the first page varies with them, so the page is the two rows this spec made: Bảo
-  // Đỗ unlocked, then locked (the users spec locked him first).
-  await rewrite<{ data: { action: string }[] }>(page, '/admin/audit-logs?*', (answer) => {
-    answer.data = answer.data.filter((row) => !/^USER_LOG(IN|OUT)/.test(row.action)).slice(0, 2);
-  });
+  // What fills the log's first page varies with every spec before this one, so the page is the
+  // two newest rows of this spec's own account: Trí unlocked, then locked.
+  await rewrite<{ data: { action: string; resource: { id: string | null } }[] }>(
+    page,
+    '/admin/audit-logs?*',
+    (answer) => {
+      answer.data = answer.data
+        .filter((row) => row.resource.id === triId && !/^USER_LOG(IN|OUT)/.test(row.action))
+        .slice(0, 2);
+    },
+  );
   await as(page, PEOPLE.lan);
   await page.goto('/audit');
   const table = page.getByRole('table', { name: 'Audit log' });

@@ -9,7 +9,7 @@ Two Playwright projects (`playwright.config.ts`), one worker each run: the accou
 
 ## The screens
 
-- **Every state of each handoff's state matrix**, one spec per screen, numbered so they run in a fixed order: later screens draw records earlier ones made.
+- **Every state of each handoff's state matrix**, one spec per screen, numbered as the rounds go. Each stands on its own: it makes the records it draws, with names of its own, so it runs alone, in a shard or in any order.
 - **Baselines** are in `screens/__screenshots__/`, named by their frame: `c6-admin-shell-1440-light.png`, `l3-narration-1440-dark.png`.
   - At 1440, in light and dark, for every state.
   - At 720 (200 % zoom) and 360, in light only, for the states the handoffs draw at those widths (the ★ frames).
@@ -25,7 +25,7 @@ Two Playwright projects (`playwright.config.ts`), one worker each run: the accou
 
 The baselines draw everything the stack holds, so the screens need a stack nothing else has written to: empty, migrated and seeded. The setup refuses one that an earlier run has used.
 
-- **In CI** (`.github/workflows/e2e.yml`), on the same stack, booted fresh by `stack.sh up` in each job: the screens in four ranges of spec files, each on its own runner. A range (`E2E_SCREENS_RANGE=17-25`, `screens/range.ts`) replays the specs before it without checking or drawing them, since later screens draw records earlier ones made, then checks and draws its own; Playwright's `--shard` would split the specs from those records.
+- **In CI** (`.github/workflows/e2e.yml`), on the same stack, booted fresh by `stack.sh up` in each job: the screens in four plain shards (`--shard=1/4` … `4/4`), each on its own runner. No screens file depends on another (conventions §12.8): each makes what it draws, under its own names, and a list or a count keeps the seed's rows and the file's own (`screens/seed.ts`, `only` in `screens/answers.ts`). Once a week CI runs the shards last to first on one stack (`screens/order-check.sh`), so a new dependency fails in the open.
 - **Locally**, on a stack of its own beside yours, so your own data is never touched: Compose project `wayfare-screens`, every port up by 10000 (`infra/docker/compose.screens.yaml`), and the console on port 5183.
 
 ```bash

@@ -2,12 +2,30 @@
 // edit in a dialog, a taken code, and deactivating with its Undo.
 import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
+import type { Page } from '@playwright/test';
+import { rewrite } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
 import { as } from './people';
+import { seedPlaces } from './seed';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
+
+/**
+ * Each category's Places counted as the seed holds them: other specs' Places would change the
+ * counts (conventions §12.8). The list, its phone cards and the deactivate dialog all read them.
+ */
+async function seedCounts(page: Page): Promise<void> {
+  await rewrite<{ data: { code: string; placeCount: number }[] }>(
+    page,
+    '/admin/categories*',
+    (answer) => {
+      for (const row of answer.data)
+        row.placeCount = seedPlaces((place) => place.categoryCode === row.code);
+    },
+  );
+}
 
 /** G1's new code, added between releases: no name yet, the map pin for an icon. */
 const NIGHT_MARKET = 'NIGHT_MARKET';
@@ -33,6 +51,7 @@ test.beforeAll(async () => {
 });
 
 test('G1 the list', async ({ page }) => {
+  await seedCounts(page);
   await as(page, PEOPLE.lan);
   await page.goto('/categories');
   const table = page.getByRole('table', { name: 'Categories' });
@@ -44,6 +63,7 @@ test('G1 the list', async ({ page }) => {
 });
 
 test('G2 create, G2c a taken code, G2b edit', async ({ page }) => {
+  await seedCounts(page);
   await as(page, PEOPLE.lan);
   await page.goto('/categories');
   await page.getByRole('button', { name: 'New category' }).click();
@@ -67,6 +87,7 @@ test('G2 create, G2c a taken code, G2b edit', async ({ page }) => {
 });
 
 test('G3 deactivate, G3b deactivated with Undo', async ({ page }) => {
+  await seedCounts(page);
   await as(page, PEOPLE.lan);
   await page.goto('/categories');
   await page.getByRole('button', { name: 'Actions for Street food' }).click();

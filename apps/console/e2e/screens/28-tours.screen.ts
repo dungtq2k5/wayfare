@@ -8,9 +8,11 @@ import type { Page } from '@playwright/test';
 import { photoFile } from '../support/content';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
+import { only } from './answers';
 import { actor, editorialPlace } from './content';
 import { look } from './look';
 import { as } from './people';
+import { seedPlace } from './seed';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
@@ -90,6 +92,13 @@ async function tour(
 }
 
 async function open(page: Page, path: string): Promise<void> {
+  // The stop picker and a tour's map list the seed's Places and this spec's own draft only:
+  // another spec's Places in District 1 would be listed too (conventions §12.8).
+  await only<{ id: string }>(
+    page,
+    '/admin/places*',
+    (row) => seedPlace(row) || row.id === ids.draftPlace,
+  );
   await as(page, PEOPLE.lan);
   await page.goto(path);
   await page.waitForLoadState('networkidle');

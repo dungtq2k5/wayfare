@@ -7,6 +7,14 @@ name: e2e
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      order:
+        description: Run the screens' order check instead (their shards last to first)
+        type: boolean
+        default: false
+  # Monday 02:00 in Vietnam: the screens' order check (conventions §12.8).
+  schedule:
+    - cron: '0 19 * * 0'
 
 concurrency:
   group: e2e-${{ github.ref }}
@@ -17,6 +25,7 @@ jobs:
   # changed, or when run by hand. A suite not needed is left out of the matrix, not skipped, so the
   # final `e2e` check always reports.
   changes:
+    if: github.event_name != 'schedule' && !inputs.order
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -40,16 +49,14 @@ jobs:
       - id: matrix
         env:
           SCREENS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.screens == 'true' }}
-          # The console's baselines run in four ranges of spec files (apps/console/e2e/screens/range.ts):
-          # later specs draw records earlier ones made, so a range replays the specs before it
-          # without drawing them, then checks and draws its own. Cut so each shard takes about as
-          # long; Playwright's own --shard would split the specs from the records they need.
+          # The console's baselines in four plain shards, each on a fresh stack: no screens file
+          # depends on another (conventions §12.8), which the weekly order check below proves.
           SUITES: >-
             [
-            {"name": "console screens 01–16", "key": "console-screens-01-16", "app": "console", "run": "test:screens", "range": "1-16", "timeout": 50, "screens": true},
-            {"name": "console screens 17–25", "key": "console-screens-17-25", "app": "console", "run": "test:screens", "range": "17-25", "timeout": 50, "screens": true},
-            {"name": "console screens 26–28", "key": "console-screens-26-28", "app": "console", "run": "test:screens", "range": "26-28", "timeout": 50, "screens": true},
-            {"name": "console screens 29", "key": "console-screens-29", "app": "console", "run": "test:screens", "range": "29-29", "timeout": 50, "screens": true},
+            {"name": "console screens 1/4", "key": "console-screens-1", "app": "console", "run": "test:screens", "shard": "1/4", "timeout": 40, "screens": true},
+            {"name": "console screens 2/4", "key": "console-screens-2", "app": "console", "run": "test:screens", "shard": "2/4", "timeout": 40, "screens": true},
+            {"name": "console screens 3/4", "key": "console-screens-3", "app": "console", "run": "test:screens", "shard": "3/4", "timeout": 40, "screens": true},
+            {"name": "console screens 4/4", "key": "console-screens-4", "app": "console", "run": "test:screens", "shard": "4/4", "timeout": 40, "screens": true},
             {"name": "web screens", "key": "web-screens", "app": "web", "run": "test:screens", "timeout": 30, "screens": true},
             {"name": "console flows", "key": "console-flows", "app": "console", "run": "e2e", "flows": true, "timeout": 30},
             {"name": "web flows", "key": "web-flows", "app": "web", "run": "e2e", "flows": true, "timeout": 25}
@@ -102,9 +109,9 @@ jobs:
         run: apps/console/e2e/screens/stack.sh up
 
       - name: ${{ matrix.name }}
-        run: pnpm --filter @wayfare/${{ matrix.app }} ${{ matrix.run }}
-        env:
-          E2E_SCREENS_RANGE: ${{ matrix.range }}
+        run: >-
+          pnpm --filter @wayfare/${{ matrix.app }} ${{ matrix.run }}
+          ${{ matrix.shard && format('--shard={0}', matrix.shard) || '' }}
 
       # Every service's whole log, with times, beside the report: a failure early in a long run
       # is gone from any tail by the time the job ends.
@@ -129,9 +136,46 @@ jobs:
 
   # One check for branch protection: every suite this run needed passed.
   e2e:
-    if: always()
+    if: always() && github.event_name != 'schedule' && !inputs.order
     needs: [changes, suite]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - run: test "${{ needs.changes.result }}" = success && test "${{ needs.suite.result }}" = success
+
+  # Conventions §12.8's order check, weekly: the console's screens shards last to first on one
+  # stack (apps/console/e2e/screens/order-check.sh). A new dependency between files fails here.
+  order:
+    if: github.event_name == 'schedule' || inputs.order
+    name: screens order check
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      STACK_COMPOSE_FILE: infra/docker/compose.ci-read.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          build: '@wayfare/console^...'
+      - uses: docker/setup-buildx-action@v3
+        with:
+          cleanup: false
+      - uses: crazy-max/ghaction-github-runtime@v3
+      - name: Sample the runner's load
+        run: (vmstat -t 5 > "$RUNNER_TEMP/vmstat.log" &)
+      - run: apps/console/e2e/screens/order-check.sh
+      - name: Stack logs on failure
+        if: failure()
+        run: |
+          mkdir -p apps/console/test-results
+          docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml \
+            --profile apps logs --no-color --timestamps > apps/console/test-results/stack.log
+          cp "$RUNNER_TEMP/vmstat.log" apps/console/test-results/ || true
+      - name: Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screens-order
+          path: |
+            apps/console/playwright-report
+            apps/console/test-results

@@ -20,11 +20,12 @@ import {
   subscription,
   untilEvent,
 } from '../support/stripe';
-import { reply } from './answers';
+import { only, reply, rewrite } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
 import { freeOwner, OWNERS, subscribe } from './owners';
 import { as } from './people';
+import { seeded } from './seed';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
@@ -48,10 +49,6 @@ const GRANTS = {
 };
 /** The events this spec sends, by their fixed ids. */
 const EVENTS = {
-  minhCheckout: 'evt_screensMinhCheckout',
-  minhCreated: 'evt_screensMinhCreated',
-  anCheckout: 'evt_screensAnCheckout',
-  anCreated: 'evt_screensAnCreated',
   pastDue: 'evt_screensThuyPastDue',
   invoiceFailed: 'evt_screensThuyInvoiceFailed',
   cancelled: 'evt_screensPhucDeleted',
@@ -61,6 +58,8 @@ const EVENTS = {
 };
 
 const ids: Record<string, string> = {};
+/** W2e's pinned owner: this spec's own. */
+const KIM = { email: 'kim.ho@example.com', name: 'Hồ Thị Kim' };
 /** What a History with no rows says. */
 const HISTORY_EMPTY = en['place.historyEmpty'];
 
@@ -122,8 +121,6 @@ test.beforeAll(async () => {
   ids.thuy = (await accountOf(mai, OWNERS.thuy)).id;
   ids.phuc = (await accountOf(mai, OWNERS.phuc)).id;
   ids.owner4 = (await accountOf(mai, OWNER(4))).id;
-  ids.minh = (await accountOf(mai, PEOPLE.minh)).id;
-  ids.an = (await accountOf(mai, PEOPLE.an)).id;
   const month = 30 * 86_400;
   await sendOnce(
     mai,
@@ -168,59 +165,18 @@ test.beforeAll(async () => {
     },
     ['PROCESSED'],
   );
-  // Minh subscribes to Growth and stays on it as it is (round 36's K17: his venues are drawn there).
-  await sendOnce(mai, {
-    id: EVENTS.minhCheckout,
-    type: 'checkout.session.completed',
-    created: seconds(-6),
-    object: checkout(ids.minh, 'cus_screensMinh', 'sub_screensMinh'),
-  });
-  await sendOnce(
-    mai,
-    {
-      id: EVENTS.minhCreated,
-      type: 'customer.subscription.created',
-      created: seconds(-5),
-      object: subscription({
-        id: 'sub_screensMinh',
-        customer: 'cus_screensMinh',
-        status: 'active',
-        price: 'price_dev_growth_month',
-        periodEnd: seconds(month),
-      }),
-    },
-    ['PROCESSED'],
-  );
-  // W2e: An subscribes to Growth, then Mai gives her more Places and pins it.
-  await sendOnce(mai, {
-    id: EVENTS.anCheckout,
-    type: 'checkout.session.completed',
-    created: seconds(-6),
-    object: checkout(ids.an, 'cus_screensAn', 'sub_screensAn'),
-  });
-  await sendOnce(
-    mai,
-    {
-      id: EVENTS.anCreated,
-      type: 'customer.subscription.created',
-      created: seconds(-5),
-      object: subscription({
-        id: 'sub_screensAn',
-        customer: 'cus_screensAn',
-        status: 'active',
-        price: 'price_dev_growth_month',
-        periodEnd: seconds(month),
-      }),
-    },
-    ['PROCESSED'],
-  );
-  const an = await mai.call<{ data: { pinned: boolean; entitlements: Record<string, unknown> } }>(
+  // W2e: Kim subscribes to Growth, then Mai gives her more Places and pins it — this spec's own
+  // owner, so the setup's people keep the plans the other specs draw (conventions §12.8).
+  await freeOwner(KIM.email, KIM.name);
+  await subscribe(mai, KIM.email, 'Kim');
+  ids.kim = (await accountOf(mai, KIM.email)).id;
+  const kim = await mai.call<{ data: { pinned: boolean; entitlements: Record<string, unknown> } }>(
     'GET',
-    `/admin/billing/accounts/${ids.an}`,
+    `/admin/billing/accounts/${ids.kim}`,
   );
-  if (!an.data.pinned)
-    await mai.call('PATCH', `/admin/billing/accounts/${ids.an}/entitlements`, {
-      grants: { ...an.data.entitlements, maxPlaces: 15, aiCreditsPerDay: 20 },
+  if (!kim.data.pinned)
+    await mai.call('PATCH', `/admin/billing/accounts/${ids.kim}/entitlements`, {
+      grants: { ...kim.data.entitlements, maxPlaces: 15, aiCreditsPerDay: 20 },
       reason:
         'Pilot partner for the Vĩnh Khánh food tour: 15 Places and more AI credits until March.',
     });
@@ -286,11 +242,56 @@ async function open(page: Page, viewer: string, path: string): Promise<void> {
   await expect(page.locator('[data-count]').first()).toBeVisible({ timeout: 30_000 });
 }
 
+/** Whether a billing account is one the frames draw: the seed's or this spec's own (§12.8). */
+const drawn = (row: { id: string }): boolean =>
+  seeded('billingAccounts')(row) || [ids.thuy, ids.phuc, ids.kim].includes(row.id);
+
+interface Subscribers {
+  total: number;
+  active: number;
+  pastDue: number;
+  cancelling: number;
+  pinned: number;
+}
+
+/**
+ * Each plan's subscribers counted on the accounts the frames draw (`drawn`), on the list and on a
+ * plan's page (which reads its plan again in the browser): another spec's owners would change them.
+ * None of those cancels at the period's end.
+ */
+async function drawnSubscribers(page: Page): Promise<void> {
+  const mai = await actor(PEOPLE.mai);
+  const accounts: { id: string; planCode: string; subscriptionStatus: string; pinned: boolean }[] =
+    [];
+  for (let index = 1; ; index++) {
+    const { data } = await mai.call<{ data: typeof accounts }>(
+      'GET',
+      `/admin/billing/accounts?page=${index}&pageSize=100`,
+    );
+    accounts.push(...data.filter(drawn));
+    if (data.length < 100) break;
+  }
+  const count = (plan: { code: string; subscribers: Subscribers }) => {
+    const on = accounts.filter((account) => account.planCode === plan.code);
+    plan.subscribers = {
+      total: on.length,
+      active: on.filter((row) => ['ACTIVE', 'TRIALING'].includes(row.subscriptionStatus)).length,
+      pastDue: on.filter((row) => row.subscriptionStatus === 'PAST_DUE').length,
+      cancelling: 0,
+      pinned: on.filter((row) => row.pinned).length,
+    };
+  };
+  type Row = { code: string; subscribers: Subscribers };
+  await rewrite<{ data: Row[] }>(page, '/admin/plans*', (answer) => answer.data.forEach(count));
+  await rewrite<{ data: Row }>(page, '/admin/plans/*', (answer) => count(answer.data));
+}
+
 const dialog = (page: Page) => page.getByRole('dialog');
 
 // ---- Plans --------------------------------------------------------------------------------------
 
 test('B1 the plans, B1b including retired', async ({ page }) => {
+  await drawnSubscribers(page);
   await open(page, PEOPLE.mai, '/billing/plans');
   for (const text of ['Sold through Stripe', 'Assigned', '$9.00'])
     await expect(page.getByText(text).first()).toBeVisible();
@@ -303,6 +304,7 @@ test('B1 the plans, B1b including retired', async ({ page }) => {
 });
 
 test('B2 a plan', async ({ page }) => {
+  await drawnSubscribers(page);
   await open(page, PEOPLE.mai, `/billing/plans/${ids.growth}`);
   await expect(page.getByText('The platform allows 100')).toBeVisible();
   await expect(page.getByText('deactivated accounts included', { exact: false })).toBeVisible();
@@ -350,6 +352,7 @@ test('B3 create, B3b with errors', async ({ page }) => {
 });
 
 test('B3c edit', async ({ page }) => {
+  await drawnSubscribers(page);
   await open(page, PEOPLE.mai, `/billing/plans/${ids.growth}/edit`);
   await expect(
     page.getByText('keep their grants until you apply the plan', { exact: false }),
@@ -367,6 +370,7 @@ async function priceDialog(page: Page, id: string, answered: RegExp): Promise<vo
 test('B4 register a price, B4b a price Stripe doesn’t know, B4c another currency', async ({
   page,
 }) => {
+  await drawnSubscribers(page);
   await open(page, PEOPLE.mai, `/billing/plans/${ids.growth}`);
   await page.getByRole('button', { name: 'Register a price' }).click();
   await priceDialog(page, 'price_testGrowthMonthly2', /^\$12\.00 a month, USD$/);
@@ -381,6 +385,7 @@ test('B4 register a price, B4b a price Stripe doesn’t know, B4c another curren
 });
 
 test('B5 apply, the dry run; B5c applied; B5b nothing to change', async ({ page }) => {
+  await drawnSubscribers(page);
   // The stack's subscribers hold their plans' grants already: the frame's numbers, drawn on the real
   // answer's shape.
   await page.route(`**/api/v1/admin/plans/${ids.growth}/apply?dryRun=true`, async (route) => {
@@ -434,6 +439,7 @@ test('B5 apply, the dry run; B5c applied; B5b nothing to change', async ({ page 
 });
 
 test('B6 retire, refused; B6b retire', async ({ page }) => {
+  await drawnSubscribers(page);
   await open(page, PEOPLE.mai, `/billing/plans/${ids.growth}`);
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Retire…' }).click();
@@ -449,6 +455,7 @@ test('B6 retire, refused; B6b retire', async ({ page }) => {
 // ---- Billing accounts ---------------------------------------------------------------------------
 
 test('W1 the accounts (admin)', async ({ page }) => {
+  await only(page, '/admin/billing/accounts*', drawn);
   await open(page, PEOPLE.lan, '/billing/accounts');
   const nav = page.getByRole('navigation', { name: 'Sections' });
   await expect(nav.getByRole('link', { name: 'Billing accounts' })).toBeVisible();
@@ -488,7 +495,7 @@ test('W2d never subscribed', async ({ page }) => {
 });
 
 test('W2e pinned, W4 unpin', async ({ page }) => {
-  await open(page, PEOPLE.mai, `/billing/accounts/${ids.an}`);
+  await open(page, PEOPLE.mai, `/billing/accounts/${ids.kim}`);
   await expect(page.getByText(/^Pinned by /)).toBeVisible();
   await expect(page.getByText('Override').first()).toBeVisible();
   await look(page, 'w2e-pinned');
@@ -525,6 +532,15 @@ test('W5 read-only (admin)', async ({ page }) => {
 // ---- Stripe events ------------------------------------------------------------------------------
 
 test('E1 the events (admin), E1b one account', async ({ page }) => {
+  // The seed's events and this spec's own: other specs' owners send theirs (conventions §12.8).
+  const fromSeed = seeded('stripeEvents');
+  await only<{ id: string; stripeEventId: string }>(
+    page,
+    '/admin/billing/events*',
+    (row) =>
+      fromSeed(row) ||
+      /^evt_screens(Thuy|Phuc|Kim|Owner1|LiveOnTest|CheckoutFails)/.test(row.stripeEventId),
+  );
   await open(page, PEOPLE.lan, '/billing/events');
   await expect(page.getByText('Skipped as stale').first()).toBeVisible();
   await expect(page.getByText('live event').first()).toBeVisible();

@@ -22,6 +22,8 @@ test('AC3 the question ★', async ({ page }) => {
     content:
       '[role="dialog"] button:focus-visible { outline: none !important; box-shadow: none !important; }',
   });
+  // Its focus styles beyond the ring differ by load too: the button is drawn unfocused.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   // The week of opening hours varies by day; its mask would be drawn over the dialog, so the week
   // under the overlay is hidden instead.
   await page.evaluate(() => {

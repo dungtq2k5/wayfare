@@ -3,23 +3,40 @@
 // deliveries, and an account above the viewer's level.
 import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
-import { PASSWORD, verifiedUser } from '../support/people';
+import { owner, PASSWORD, verifiedUser } from '../support/people';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
-import { refuse } from './answers';
+import { only, refuse } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
 import { as } from './people';
+import { seeded } from './seed';
 import { PEOPLE } from './setup';
 
-test.beforeEach(() => resetRateLimits());
+/**
+ * Every test's roles: the seed's and the setup's, as the dialogs draw them — another spec's
+ * custom roles would be listed too (conventions §12.8).
+ */
+const SETUP_ROLES = ['Submissions reader', 'Content lead', 'Tiles build'];
+test.beforeEach(async ({ page }) => {
+  resetRateLimits();
+  const fromSeed = seeded('roles');
+  await only<{ id: string; name: string }>(
+    page,
+    '/admin/roles*',
+    (role) => fromSeed(role) || SETUP_ROLES.includes(role.name),
+  );
+});
 
 /** U1b's deactivated account, which U6b restores. */
 const LINH = { email: 'linh.pham@example.com', name: 'Linh Phạm' };
 /** U1b's erased account: a placeholder. */
 const ERASED = 'erased.tourist@example.com';
-/** U5b's locked account. */
-const LOCKED = PEOPLE.bounced;
+/** U5b's locked account: this spec's own, so no other spec meets a lock it didn't make. */
+const LOCKED = { email: 'son.dang@example.com', name: 'Đặng Văn Sơn' };
+/** The owner whose page U2, U5, U6, U7 and U8 draw: this spec's own, whose history no other spec
+ * adds to (conventions §12.8). */
+const TOAN = { email: 'toan.pham@example.com', name: 'Phạm Quốc Toàn' };
 
 interface UserRow {
   id: string;
@@ -65,7 +82,15 @@ test.beforeAll(async () => {
         : await actor(ERASED);
     await erased.call('DELETE', '/users/me', { currentPassword: PASSWORD, confirm: 'DELETE' });
   }
-  const locked = (await findUser(lan, LOCKED))!;
+  if ((await findUser(lan, TOAN.email)) === undefined) {
+    const toan = await owner(lan, TOAN.email);
+    await toan.call('PATCH', '/users/me', { fullName: TOAN.name });
+  }
+  if ((await findUser(lan, LOCKED.email)) === undefined) {
+    const son = await verifiedUser(LOCKED.email);
+    await son.call('PATCH', '/users/me', { fullName: LOCKED.name });
+  }
+  const locked = (await findUser(lan, LOCKED.email))!;
   if (!locked.isLocked)
     await lan.call('POST', `/admin/users/${locked.id}/lock`, {
       reason: 'Owner reports a phone stolen on 24 Oct; checking recent sign-ins.',
@@ -85,6 +110,15 @@ async function open(page: Page, email: string, viewer: string = PEOPLE.lan): Pro
 }
 
 test('U1 the list, U1b including deactivated', async ({ page }) => {
+  // The seed's accounts, the setup's people and this spec's own: another spec's accounts would
+  // change the list (conventions §12.8). Its one erased account is this spec's.
+  const fromSeed = seeded('users');
+  const known = new Set<string>([...Object.values(PEOPLE), LINH.email, LOCKED.email, TOAN.email]);
+  await only<{ id: string; email?: string; erased?: boolean }>(
+    page,
+    '/admin/users*',
+    (row) => fromSeed(row) || known.has(row.email ?? '') || row.erased === true,
+  );
   await as(page, PEOPLE.lan);
   await page.goto('/users');
   await expect(page.getByText(/^until /).first()).toBeVisible();
@@ -124,14 +158,16 @@ async function steadyHistory(page: Page): Promise<void> {
 
 test('U2 a user’s page, U7 sign out everywhere', async ({ page }) => {
   await steadyHistory(page);
-  await open(page, PEOPLE.minh);
+  await open(page, TOAN.email);
   for (const section of ['Signing in', 'Devices and sessions', 'Email deliveries', 'History'])
     await expect(page.getByRole('heading', { name: section })).toBeVisible();
   await expect(page.getByText('Plan')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Change roles' })).toHaveCount(0);
   await look(page, 'u2-user');
   await page.getByRole('button', { name: 'Sign out everywhere' }).click();
-  await expect(page.getByRole('dialog', { name: 'Sign Minh Tran out everywhere?' })).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: `Sign ${TOAN.name} out everywhere?` }),
+  ).toBeVisible();
   await look(page, 'u7-sign-out-everywhere', { viewportOnly: true });
 });
 
@@ -183,16 +219,16 @@ test('U4b permissions the viewer lacks', async ({ page }) => {
 });
 
 test('U5 lock, U5b locked', async ({ page }) => {
-  await open(page, PEOPLE.minh);
+  await open(page, TOAN.email);
   await page.getByRole('button', { name: 'Lock' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Lock Minh Tran?' });
+  const dialog = page.getByRole('dialog', { name: `Lock ${TOAN.name}?` });
   await expect(dialog.getByRole('button', { name: 'Lock account' })).toBeDisabled();
   await dialog.getByRole('textbox', { name: 'Reason' }).fill('Owner reports a phone stolen.');
   await look(page, 'u5-lock', { viewportOnly: true });
   await dialog.getByRole('button', { name: 'Cancel' }).click();
 
   await steadyHistory(page);
-  await open(page, LOCKED);
+  await open(page, LOCKED.email);
   await expect(page.getByText(/^Locked until /)).toBeVisible();
   // Who locked it is read from the audit log after the page.
   await expect(page.getByText(/Locked by .+ on /)).toBeVisible();
@@ -201,7 +237,7 @@ test('U5 lock, U5b locked', async ({ page }) => {
 });
 
 test('U6 deactivate an owner with live vouchers', async ({ page }) => {
-  await open(page, PEOPLE.minh);
+  await open(page, TOAN.email);
   // Vouchers are Phase 3: the stack's refusal is answered here (K28).
   await refuse(page, 'DELETE', '/admin/users/*', 409, 'OWNER_HAS_LIVE_VOUCHERS', {
     issuedVoucherCount: 12,
@@ -209,7 +245,7 @@ test('U6 deactivate an owner with live vouchers', async ({ page }) => {
   });
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Deactivate' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Deactivate Minh Tran?' });
+  const dialog = page.getByRole('dialog', { name: `Deactivate ${TOAN.name}?` });
   await dialog
     .getByRole('textbox', { name: 'Reason' })
     .fill('Closing the business, by his request.');
@@ -230,10 +266,10 @@ test('U6b restore', async ({ page }) => {
 });
 
 test('U8 email deliveries', async ({ page }) => {
-  const id = await userId(await actor(PEOPLE.lan), PEOPLE.minh);
+  const id = await userId(await actor(PEOPLE.lan), TOAN.email);
   await as(page, PEOPLE.lan);
   await page.goto(`/users/${id}/email-deliveries`);
-  await page.getByRole('textbox', { name: 'Address' }).fill('minh.tran@gmail.com');
+  await page.getByRole('textbox', { name: 'Address' }).fill('toan.pham@gmail.com');
   await page.getByRole('button', { name: 'Check' }).click();
   await expect(page.getByText(/^Doesn't match:/)).toBeVisible();
   await look(page, 'u8-email-deliveries');
