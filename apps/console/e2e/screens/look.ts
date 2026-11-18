@@ -83,8 +83,10 @@ export async function look(
   }
   // A toast stays while the pointer is on it: its seconds would end before the last capture on a
   // slow machine (the dark one drawn without it). Held here for every state that shows one.
+  // A spec already holding one (the pointer on it) keeps its own: moving to another would let go.
+  const held = (await page.locator('[data-sonner-toast]:hover').count()) > 0;
   const toast = page.locator('[data-sonner-toast]').first();
-  if (await toast.isVisible()) await toast.hover();
+  if (!held && (await toast.isVisible())) await toast.hover();
   const initial = page.viewportSize();
   const widths = (Object.keys(WIDTHS) as Width[]).filter(
     (width) => options.only === undefined || options.only.includes(width),
