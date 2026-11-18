@@ -40,7 +40,8 @@ jobs:
     # satisfy the required check, and an unanalysed pull request could merge.
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Measured at 3.9 minutes on the first runs.
+    timeout-minutes: 10
     steps:
       # A fork's pull request gets no secrets: it fails here, never passes unanalysed.
       - name: A token to analyse with
