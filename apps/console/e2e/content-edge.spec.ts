@@ -136,7 +136,9 @@ test('4: Activate without English audio shows what it waits for (L7)', async ({ 
   const admin = await adminActor();
   const { data } = await admin.call<{ data: { place: { id: string } } }>('POST', '/admin/places', {
     nameVi: `Chùa e4 ${stamp}`,
-    descriptionVi: 'Một ngôi chùa nhỏ trong hẻm.',
+    // The fake speech provider fails a text holding this marker: no English audio ever comes, so
+    // Activate always meets the gate — a quick pipeline can't make the Place live first.
+    descriptionVi: 'Một ngôi chùa nhỏ trong hẻm. [fake:speech-fails]',
     categoryCode: 'TEMPLE',
     location: { lat: 10.7781, lng: 106.7003 },
     addressVi: null,
@@ -146,13 +148,19 @@ test('4: Activate without English audio shows what it waits for (L7)', async ({ 
     openingHours: [],
     requestActivation: false,
   });
-  await asAdmin(page);
-  await page.goto(`/places/${data.place.id}`);
-  await expect(page.getByText('Draft', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Activate' }).click();
-  await expect(page.getByText('Not live yet — activation requested')).toBeVisible();
-  await expect(page.getByText(/^English (text|audio) — /).first()).toBeVisible();
-  await expectAccessible(page);
+  // Its narration never finishes: deleted whether the checks pass or not, so no other flow finds
+  // it stuck on Home.
+  try {
+    await asAdmin(page);
+    await page.goto(`/places/${data.place.id}`);
+    await expect(page.getByText('Draft', { exact: true }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Activate' }).click();
+    await expect(page.getByText('Not live yet — activation requested')).toBeVisible();
+    await expect(page.getByText(/^English (text|audio) — /).first()).toBeVisible();
+    await expectAccessible(page);
+  } finally {
+    await admin.call('DELETE', `/admin/places/${data.place.id}`);
+  }
 });
 
 test('5: a Venue’s delete refused in its dialog; a real delete has no Undo; Restore (L8b, L8c)', async ({

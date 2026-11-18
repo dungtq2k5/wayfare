@@ -142,7 +142,7 @@ Rules that make this real rather than cosmetic:
 2. A service throws `RpcException` with a gRPC status and an `ErrorCode` (via `rpcError()`); the gateway translates the status to HTTP and passes the code to the client.
 3. Responses are explicit DTOs built by mappers. Returning a Prisma row leaks database columns (including `passwordHash`) into JSON.
 4. Services are unit-tested with `PrismaService` mocked, and every query that matters — raw SQL, partial indexes, `CHECK`s, transactions — is proven by an integration test against the `_test` database.
-5. **A service initialises before it opens gRPC:** each `main.ts` awaits `app.init()` — the database connection, the schema check, every peer client — before `startAllMicroservices()`, so no call reaches a half-started service (a guard spec checks the five). **Peer channels are connected at start-up and kept connected** (`GrpcServiceCaller` reconnects an idle one), so a name lookup and a connection never spend a call's 2 s deadline. **Database pools keep their connections open** (`PG_POOL_OPTIONS`: no idle timeout, TCP keep-alive), so a burst never reopens connections inside a deadline.
+5. **A service initialises, warms and fills its pools before it opens gRPC:** each `main.ts` awaits `app.init()` — the database connection, the schema check, every peer client — before `startAllMicroservices()`, so no call reaches a half-started service (a guard spec checks the five). **Peer channels are connected at start-up and kept connected** (`GrpcServiceCaller` reconnects an idle one), so a name lookup and a connection never spend a call's 2 s deadline. **Database pools are filled at boot and keep their connections** (`fillPools()`; `PG_POOL_OPTIONS`: no idle timeout, TCP keep-alive) — opening a connection runs a host lookup and the password's PBKDF2 on libuv's thread pool, where `sharp`'s image work can hold it for seconds, so no request may ever open one. **Each service then runs its hot reads once** (`warmUp()`, through its own gRPC controllers) — a fresh service's first call of a query shape is its dearest — and only then answers gRPC or `/health/ready`.
 
 📚 Project convention: the `nestjs-best-practices` skill in this workspace covers module boundaries, DI patterns and security specifics — consult it while writing services.
 
@@ -593,6 +593,7 @@ Four layers, per `product-overview.md` §F5. The technology differs per platform
 - **Structured logging:** **pino** — JSON logs with a correlation/trace ID on every line. Never log tokens, PII, Stripe keys or full webhook bodies.
 - **Metrics:** Prometheus-format `/metrics` via `@willsoto/nestjs-prometheus`, scraped into **Grafana**. Dashboard the four things that matter: nearby-query p95, TTS queue depth, Stripe webhook failures, geofence trigger rate.
 - **Error tracking:** **Sentry** across all three clients and all services, with source maps uploaded from CI. A crash on a tester's phone is otherwise unreproducible.
+- **Slow calls explain themselves:** every backend service logs a gRPC call slower than 1 s as one warning — its method, trace id and outcome (answered, failed, or cancelled at the caller's deadline), the time **waiting for a database connection**, **in queries** and the rest, and each pool's waiting, total and idle counts (`timedPool()`, `packages/nest-common/src/observability/slow-calls.ts`).
 - **Health endpoints:** `/health` (liveness) and `/health/ready` (readiness — checks its own database, Redis, NATS and GCS). Compose and any orchestrator depend on these.
 
 ---
@@ -654,16 +655,19 @@ Set this up while there is nothing to break, not once there is everything to bre
 
 ### 13.1 GitHub Actions pipelines
 
-**`pr.yml` — on every pull request (must be green to merge)**
+**Two workflows on every pull request, both required to merge** (`secrets`, `checks`, `build`, `integration`, `images`, `e2e`):
 
-1. `pnpm install --frozen-lockfile` (cached)
-2. `turbo run lint typecheck test --filter=...[origin/main]` — only affected packages
-3. `pnpm lint:md` and the repo-wide guard specs (`vitest --project unit:guards`: ADR structure, archive references, DTO / mapper / module-file naming, the env contract) — always, since they read the whole tree
-4. Integration tests against Postgres service containers, one per service, using the `_test` databases
-5. `turbo run build` — including Docker builds for changed services
-6. Playwright against a Compose-booted stack: first the console's **`screens`** baselines, on the fresh stack before anything else writes to it (the seed and the super admin first), then the flows; on a failure the report, with each moved screen's expected, actual and diff images, is uploaded
-7. Verify the Orval client is current (regenerate; fail if the diff is non-empty)
-8. Verify no pending Prisma migration drift, per service
+**`pr.yml` — the gate, its time the product's CI budget (product §13: under 10 minutes)** — parallel jobs, each from the shared `.github/actions/setup` (Node, the pnpm cache, install, the example env, dev keys, Prisma's client) and turbo's cache across runs:
+
+| Job | Runs |
+| :---- | :---- |
+| `secrets` | gitleaks over the full history |
+| `checks` | the audit, the generated-code checks (gRPC, the OpenAPI client, i18n types), typecheck, lint, format, Markdown, the guard specs, unit tests and coverage |
+| `build` | `turbo run build`; the mobile bundle check |
+| `integration` | the Compose stack, migrations, schema objects and drift, the integration suite |
+| `images` | every service image built (Buildx's GitHub Actions cache, one scope per service — **the only job that writes it**), booted and smoke-tested |
+
+**`e2e.yml` — the Playwright lane** — a job per suite, in parallel, **each on its own stack** from `apps/console/e2e/screens/stack.sh up` (`E2E_STACK=screens`: a production build, the screens seed, the same ports as a laptop), building only its app's workspace packages first; the image cache read, never written. **The console's screens run in four range shards** (`E2E_SCREENS_RANGE`: each replays the files before its range with drawing skipped, since files still depend on earlier ones — to become plain `--shard` once they don't), then the web's screens and both apps' flows. **The screens jobs run only when what they draw can have changed** (`apps/console`, `apps/web`, `packages/ui`, `packages/i18n`, `packages/design-tokens`) or by hand; a final `e2e` job is the one required check and always reports. A newer push cancels the older run. A failed job uploads its report, every service's whole log (`stack.log`) and a 5-second `vmstat` (`vmstat.log`).
 
 **`main.yml` — on merge to `main`**
 

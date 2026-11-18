@@ -13,7 +13,7 @@ import {
   subscription,
   untilEvent,
 } from '../support/stripe';
-import { actor, findPlace, OC_OANH, untilStatus, upload } from './content';
+import { actor, OC_OANH, untilStatus, upload } from './content';
 import { PEOPLE } from './setup';
 
 /** The round's people beside Minh: an applicant approved onto Free, and the applicants' states. */
@@ -41,6 +41,13 @@ export const OWNERS = {
   /** The submissions' owner: his update of his venue is the queue's S2 and S3. */
   binh: 'binh.tran@example.com',
 } as const;
+
+/**
+ * Minh Tran and Trần Bảo Ngọc as one spec's own owners: the frames' names, an address of the
+ * spec's, so no two specs change one account (conventions §12.8).
+ */
+export const minhOf = (spec: string) => `minh.tran.${spec}@example.com`;
+export const ngocOf = (spec: string) => `ngoc.tran.${spec}@example.com`;
 
 const exists = async (admin: Actor, email: string) =>
   (await admin.call<{ data: unknown[] }>('GET', `/admin/users?q=${encodeURIComponent(email)}`)).data
@@ -194,11 +201,23 @@ export async function sentVenue(
   }
 }
 
+/** The owner's own venue named `name`, in any status: another owner's of that name is not it. */
+export async function ownVenue(
+  person: Actor,
+  name: string,
+): Promise<{ id: string; status: string } | undefined> {
+  const { data } = await person.call<{ data: { id: string; nameVi: string; status: string }[] }>(
+    'GET',
+    '/owner/places',
+  );
+  return data.find((row) => row.nameVi === name);
+}
+
 /** A live venue of the owner's: their creation, approved, its audio made; its id. */
 export async function liveVenue(person: Actor, payload: VenuePayload): Promise<string> {
   const lan = await actor(PEOPLE.lan);
-  const found = await findPlace(lan, payload.nameVi);
-  if (found !== null) return found.id;
+  const found = await ownVenue(person, payload.nameVi);
+  if (found !== undefined) return found.id;
   const id = await sentVenue(person, payload);
   const { data } = await lan.call<{ data: { submission: { placeId: string } } }>(
     'POST',
@@ -290,3 +309,41 @@ export const NGOC_VENUES = {
   ocNgoc: venue('Ốc Ngọc Vĩnh Khánh', 10.7746, 106.7003),
   che: venue('Chè Ngọc', 10.7744, 106.7009),
 };
+
+/** Closes a live venue for now (the owner's own route), once. */
+export async function closedByOwner(person: Actor, placeId: string): Promise<void> {
+  const lan = await actor(PEOPLE.lan);
+  const { data } = await lan.call<{ data: { status: string } }>('GET', `/admin/places/${placeId}`);
+  if (data.status === 'ACTIVE') await person.call('POST', `/owner/places/${placeId}/deactivate`);
+  await untilStatus(lan, placeId, 'INACTIVE');
+}
+
+/**
+ * A Minh's venues as round 36 draws them (M1–M4b, Z1): Ốc Oanh live, Bánh xèo live with a change
+ * waiting, Ốc Vũ closed by him, Lẩu dê taken down by Wayfare, Sò điệp waiting for review. On his
+ * own account (`minhOf`), on Growth; their ids.
+ */
+export async function minhsVenues(minh: Actor): Promise<Record<string, string>> {
+  const lan = await actor(PEOPLE.lan);
+  const ids: Record<string, string> = {
+    ocOanh: await liveVenue(minh, OC_OANH),
+    banhXeo: await liveVenue(minh, MINH_VENUES.banhXeo),
+    ocVu: await liveVenue(minh, MINH_VENUES.ocVu),
+    lauDe: await liveVenue(minh, MINH_VENUES.lauDe),
+  };
+  await changeWaiting(minh, ids.banhXeo!, {
+    ...MINH_VENUES.banhXeo,
+    descriptionVi:
+      'Bánh xèo miền Tây giòn rụm, đổ bằng chảo gang trên bếp than. Mới có bánh xèo chay, ăn với rau rừng.',
+    websiteUrl: 'https://banhxeomuoixiem.vn',
+  });
+  await closedByOwner(minh, ids.ocVu!);
+  const lauDe = await lan.call<{ data: { status: string } }>('GET', `/admin/places/${ids.lauDe}`);
+  if (lauDe.data.status === 'ACTIVE')
+    await lan.call('POST', `/admin/places/${ids.lauDe}/deactivate`, {
+      reason: 'A tourist reported that the venue moved to another street.',
+    });
+  await untilStatus(lan, ids.lauDe!, 'INACTIVE');
+  await sentVenue(minh, MINH_VENUES.soDiep);
+  return ids;
+}

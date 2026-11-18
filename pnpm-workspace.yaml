@@ -62,3 +62,6 @@ auditConfig:
     # phone that opens it, nothing else.
     - GHSA-vcc3-ghjq-m6fr
     - GHSA-qr28-fpjm-wq7f
+    # 2026-11-18 — picomatch, no patched release; only Expo's dev CLI matching its own file globs
+    # (@expo/cli, @expo/metro-file-map's jest-util). Goes when a fixed picomatch reaches @expo/cli.
+    - GHSA-fc5q-39xc-vjpf

@@ -8,6 +8,8 @@ import { actor, OC_OANH, untilNarrationIdle, upload } from './content';
 import { BINH_VENUE, freeOwner, liveVenue, OWNERS } from './owners';
 import { look } from './look';
 import { as } from './people';
+import { only } from './answers';
+import { seeded } from './seed';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
@@ -73,7 +75,8 @@ async function queue(): Promise<{ admin: Actor; rows: Row[] }> {
     });
   }
   if (!rows.some((row) => row.payload.nameVi === 'Bánh mì Hòa Mã')) {
-    const an = await actor(PEOPLE.an);
+    // This spec's own An Nguyen: the setup's, an owner and a moderator, keeps the shell 02 draws.
+    const an = await freeOwner('an.nguyen.queue@example.com', 'An Nguyen');
     await an.call('POST', '/owner/submissions', {
       kind: 'CREATE',
       payload: {
@@ -127,6 +130,13 @@ test('S2 a submission, S4 approve, S5 reject', async ({ page }) => {
 test('S1 the queue', async ({ page }) => {
   const { admin } = await queue();
   await conflict(admin);
+  // The seed's submissions and this spec's own: other specs' owners send theirs (§12.8).
+  const fromSeed = seeded('submissions');
+  await only<Row>(
+    page,
+    '/admin/submissions*',
+    (row) => fromSeed(row) || [BINH_VENUE.nameVi, 'Bánh mì Hòa Mã'].includes(row.payload.nameVi),
+  );
   await as(page, PEOPLE.lan);
   await page.goto('/submissions');
   await expect(page.getByText('Changed since sent').first()).toBeVisible();

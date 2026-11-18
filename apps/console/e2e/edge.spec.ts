@@ -90,7 +90,9 @@ test('3: a session that ends returns to the same page (C5), and mid-form saves a
   await page.goto('/account');
   await context.clearCookies({ name: 'wf_at' });
   await context.clearCookies({ name: 'wf_rt' });
-  await page.reload();
+  // The lost session sends the page on to sign-in before its own load: the reload waits only for
+  // the response, and the expect below waits for where it lands.
+  await page.reload({ waitUntil: 'commit' });
   await expect(
     page.getByText('You were signed out. Sign in to go back to where you were.'),
   ).toBeVisible();

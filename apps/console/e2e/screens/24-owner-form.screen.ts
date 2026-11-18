@@ -5,19 +5,48 @@ import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { photoFile } from '../support/content';
 import { resetRateLimits } from '../support/stack';
-import { actor, findPlace } from './content';
+import { actor } from './content';
 import { from, look, tabsThrough } from './look';
-import { MINH_VENUES, OWNERS } from './owners';
-import { as } from './people';
+import {
+  changeWaiting,
+  freeOwner,
+  liveVenue,
+  MINH_VENUES,
+  minhOf,
+  NGOC_VENUES,
+  ngocOf,
+  subscribe,
+} from './owners';
+import { as, notificationsSettled } from './people';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
 
 const ids: Record<string, string> = {};
 
+/**
+ * This spec's own owners (conventions §12.8): Minh Tran on Growth, Bánh xèo live with a change
+ * waiting (F2); Trần Bảo Ngọc on Free with her one venue live, at her plan's limit (F3, F6).
+ */
+const MINH = minhOf('form');
+const NGOC = ngocOf('form');
+
 test.beforeAll(async () => {
-  const lan = await actor(PEOPLE.lan);
-  ids.banhXeo = (await findPlace(lan, MINH_VENUES.banhXeo.nameVi))!.id;
+  test.setTimeout(600_000);
+  const minh = await freeOwner(MINH, 'Minh Tran');
+  await subscribe(await actor(PEOPLE.mai), MINH, 'MinhForm');
+  ids.banhXeo = await liveVenue(minh, MINH_VENUES.banhXeo);
+  await changeWaiting(minh, ids.banhXeo, {
+    ...MINH_VENUES.banhXeo,
+    descriptionVi:
+      'Bánh xèo miền Tây giòn rụm, đổ bằng chảo gang trên bếp than. Mới có bánh xèo chay, ăn với rau rừng.',
+    websiteUrl: 'https://banhxeomuoixiem.vn',
+  });
+  const ngoc = await freeOwner(NGOC, 'Trần Bảo Ngọc');
+  await liveVenue(ngoc, NGOC_VENUES.che);
+  // Her approvals' notifications arrive by event: read, so the bell draws no count.
+  await notificationsSettled(NGOC, 3);
+  await ngoc.call('POST', '/notifications/read-all');
 });
 
 async function open(page: Page, email: string, path: string): Promise<void> {
@@ -40,7 +69,7 @@ async function newVenue(page: Page, name: string): Promise<void> {
 }
 
 test('F1 a new venue, F5 sent', async ({ page }) => {
-  await open(page, PEOPLE.minh, '/owner/venues/new');
+  await open(page, MINH, '/owner/venues/new');
   await expect(page.getByText('Trigger radius')).toHaveCount(0);
   await newVenue(page, 'Hủ tiếu Nam Vang Thành Đạt');
   await look(page, 'f1-new-venue', { extra: ['720', '360'] });
@@ -52,7 +81,7 @@ test('F1 a new venue, F5 sent', async ({ page }) => {
 });
 
 test('F2 an edit, a change already waiting', async ({ page }) => {
-  await open(page, PEOPLE.minh, `/owner/venues/${ids.banhXeo}/edit`);
+  await open(page, MINH, `/owner/venues/${ids.banhXeo}/edit`);
   await expect(page.getByText('A change is already waiting for review')).toBeVisible();
   await page.getByLabel('Website').fill('https://banhxeomuoixiem.vn/thuc-don');
   await expect(page.getByText('Changed', { exact: true }).first()).toBeVisible();
@@ -60,7 +89,7 @@ test('F2 an edit, a change already waiting', async ({ page }) => {
 });
 
 test('F3 the plan’s limits in the form', async ({ page }) => {
-  await open(page, OWNERS.ngoc, '/owner/venues/new');
+  await open(page, NGOC, '/owner/venues/new');
   await page
     .locator('input[type=file]')
     .setInputFiles([
@@ -82,7 +111,7 @@ test('F3 the plan’s limits in the form', async ({ page }) => {
 });
 
 test('F4 uploads', async ({ page }) => {
-  await open(page, PEOPLE.minh, '/owner/venues/new');
+  await open(page, MINH, '/owner/venues/new');
   // The storage PUT held: the row stays in flight through the captures.
   await page.route('**/*', (route) =>
     route.request().method() === 'PUT' ? undefined : route.fallback(),
@@ -102,7 +131,7 @@ test('F4 uploads', async ({ page }) => {
 });
 
 test('F6 over the place limit', async ({ page }) => {
-  await open(page, OWNERS.ngoc, '/owner/venues/new');
+  await open(page, NGOC, '/owner/venues/new');
   await newVenue(page, 'Chè Ngọc 2');
   await page.getByRole('button', { name: 'Send for review' }).click();
   await expect(page.getByText("You're using every place on your plan")).toBeVisible();
@@ -112,7 +141,7 @@ test('F6 over the place limit', async ({ page }) => {
 });
 
 test('F6b changed since, and a field refused', async ({ page }) => {
-  await open(page, PEOPLE.minh, `/owner/venues/${ids.banhXeo}/edit`);
+  await open(page, MINH, `/owner/venues/${ids.banhXeo}/edit`);
   // Outside every area: refused at the location.
   await page.getByLabel('Latitude').fill('10.8500');
   await page.getByLabel('Longitude').fill('106.6000');
