@@ -4,6 +4,9 @@ name: e2e
 # fresh stack, the screens' stack a developer runs them on (apps/console/e2e/screens/stack.sh), so
 # a run here and a run on a laptop see the same ports, seed and build. A newer push cancels the
 # older run.
+# Every action from outside the repository is pinned to its release's full commit, the version
+# in a comment beside it: a tag can be moved to other code (SonarCloud's githubactions:S7637).
+# Dependabot's github-actions updates move both.
 on:
   pull_request:
   workflow_dispatch:
@@ -81,22 +84,22 @@ jobs:
       # The stack's image builds read Buildx's GitHub Actions cache; the gate's `images` job writes it.
       STACK_COMPOSE_FILE: infra/docker/compose.ci-read.yaml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
         with:
           # The packages the app imports, compiled; its web server builds the app itself.
           build: '@wayfare/${{ matrix.app }}^...'
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           # The runner is thrown away; removing the builder only adds minutes.
           cleanup: false
       # The cache's token and URLs, for the stack's `docker compose` build.
-      - uses: crazy-max/ghaction-github-runtime@v3
+      - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
 
       # The flows run in this machine's Chromium; the screens in the pinned image's (screens/browser.ts).
       - name: Cache Playwright's Chromium
         if: matrix.flows
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -146,7 +149,7 @@ jobs:
 
       - name: Playwright report on failure
         if: failure() || steps.flaky.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           # An artefact's name can't hold `:`: the suite's own key, `-flaky` when the job passed.
           name: playwright-${{ matrix.key }}${{ steps.flaky.outputs.found == 'true' && '-flaky' || '' }}
@@ -174,14 +177,14 @@ jobs:
     env:
       STACK_COMPOSE_FILE: infra/docker/compose.ci-read.yaml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
         with:
           build: '@wayfare/console^...'
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           cleanup: false
-      - uses: crazy-max/ghaction-github-runtime@v3
+      - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
       - name: Sample the runner's load
         run: (vmstat -t 5 > "$RUNNER_TEMP/vmstat.log" &)
       - run: apps/console/e2e/screens/order-check.sh
@@ -194,7 +197,7 @@ jobs:
           cp "$RUNNER_TEMP/vmstat.log" apps/console/test-results/ || true
       - name: Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-screens-order
           path: |

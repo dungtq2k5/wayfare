@@ -2,6 +2,9 @@ name: pr
 
 # The merge gate product §13 times: parallel jobs, the gate's time being the slowest one's. The
 # Playwright suites run beside it in e2e.yml.
+# Every action from outside the repository is pinned to its release's full commit, the version
+# in a comment beside it: a tag can be moved to other code (SonarCloud's githubactions:S7637).
+# Dependabot's github-actions updates move both.
 on:
   pull_request:
   push:
@@ -20,11 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      # v3.0.0, pinned to its commit.
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
@@ -49,7 +51,7 @@ jobs:
             echo "::error::no SONAR_TOKEN — a fork's pull request is analysed once its branch is pushed to this repository"
             exit 1
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Blame and new-code detection read the history.
           fetch-depth: 0
@@ -58,8 +60,7 @@ jobs:
           build: '@wayfare/core^...'
       # packages/core carries the coverage the gate reads (conventions §17.3).
       - run: pnpm test:coverage
-      # v8.4.1, pinned to its commit.
-      - uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65
+      - uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
@@ -75,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
 
       # A known hole in a shipped package fails the pull request; accepted advisories are listed,
@@ -115,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
       - run: pnpm build
       # The JavaScript bundle builds with no device and no EAS: a Node-only import stops the pull request.
@@ -127,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
 
       - name: Boot the stack
@@ -151,14 +152,14 @@ jobs:
       # Each service's image build reads and writes Buildx's GitHub Actions cache.
       COMPOSE_FILE: compose.yaml:infra/docker/compose.ci.yaml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           # The runner is thrown away; removing the builder took 100 s.
           cleanup: false
       # The cache's token and URLs, for the `docker compose` steps below.
-      - uses: crazy-max/ghaction-github-runtime@v3
+      - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
 
       - name: Boot the stack
         run: docker compose up -d --wait
