@@ -645,7 +645,7 @@ Not optional, and not something to bolt on at the end. The geofence engine in pa
 - A language switch mid-narration (stale audio discarded) — the player's suite, not the engine's.
 - A GPS hole in a tunnel, then re-acquisition (safety reconcile recovers).
 
-**Coverage target:** ≥ 90 % lines and branches on `packages/core`. SonarCloud's quality gate reads the same report (`lcov`) and counts coverage on `packages/core/src` only. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
+**Coverage target:** ≥ 90 % lines and branches on `packages/core`. SonarCloud's quality gate reads the same report (`lcov`), sent by CI's `sonar` job alone, and counts coverage on `packages/core/src` only. Elsewhere, aim for tests that would actually have caught a bug rather than a percentage.
 
 ---
 
@@ -655,7 +655,7 @@ Set this up while there is nothing to break, not once there is everything to bre
 
 ### 13.1 GitHub Actions pipelines
 
-**Two workflows on every pull request, both required to merge** (`secrets`, `checks`, `build`, `integration`, `images`, `e2e`):
+**Two workflows on every pull request, both required to merge** — the ruleset *Safe operations* on `main` requires `secrets`, `checks`, `build`, `integration`, `images`, `sonar` and `e2e` (source GitHub Actions; a check is required by its job's name), and GitGuardian's own check. **Every action is pinned to its release's full commit**, the version in a comment beside it (`@<sha> # v4.4.0`), first-party ones too: a tag can be moved to other code. Dependabot's `github-actions` updates move both.
 
 **`pr.yml` — the gate, its time the product's CI budget (product §13: under 10 minutes)** — parallel jobs, each from the shared `.github/actions/setup` (Node, the pnpm cache, install, the example env, dev keys, Prisma's client) and turbo's cache across runs:
 
@@ -666,6 +666,7 @@ Set this up while there is nothing to break, not once there is everything to bre
 | `build` | `turbo run build`; the mobile bundle check |
 | `integration` | the Compose stack, migrations, schema objects and drift, the integration suite |
 | `images` | every service image built (Buildx's GitHub Actions cache, one scope per service — **the only job that writes it**), booted and smoke-tested |
+| `sonar` | `pnpm test:coverage`, then SonarCloud's scan with full history; **it waits for the quality gate and fails with it** (the default *Sonar way*: on new code, A ratings, coverage ≥ 80 %, duplication ≤ 3 %, every hotspot reviewed). The only analysis of `main` — a laptop never sends one. Without `SONAR_TOKEN` (a fork's pull request) it fails rather than skips, since a skipped job satisfies a required check |
 
 **`e2e.yml` — the Playwright lane** — a job per suite, in parallel, **each on its own stack** from `apps/console/e2e/screens/stack.sh up` (`E2E_STACK=screens`: a production build, the screens seed, the same ports as a laptop), building only its app's workspace packages first; the image cache read, never written. **The console's screens run in four plain shards** (`--shard=1/4` … `4/4`), beside the web's screens and both apps' flows, **all seven on every pull request** — the screens draw the services' real answers, so a backend change can move them, and a public repository's runner minutes cost nothing; a final `e2e` job is the one required check and always reports. **Once a week** (Monday 02:00, Vietnam time) **or by hand** (`order: true`), an `order` job runs the console's shards last to first on one stack (`apps/console/e2e/screens/order-check.sh`), outside the merge check: a new dependency between files fails there. A newer push cancels the older run. A failed job uploads its report, every service's whole log (`stack.log`) and a 5-second `vmstat` (`vmstat.log`); **so does a job with a test that passed only on its retry** — it stays green, with a warning naming the test (from Playwright's `results.json`), and its artefact ends in `-flaky`.
 
