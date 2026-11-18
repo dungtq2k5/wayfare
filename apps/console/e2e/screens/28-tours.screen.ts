@@ -192,8 +192,6 @@ test('TA6 the link and the sticker, the link copied', async ({ page, context }) 
   await open(page, `/tours/${ids.landmarks}#qr`);
   await page.getByRole('button', { name: 'Copy link' }).click();
   await expect(page.getByText('Link copied')).toBeVisible();
-  // The pointer over the toast holds it: its seconds would end before the dark capture.
-  await page.getByText('Link copied').hover();
   await look(page, 'ta6-tour-share', { viewportOnly: true, keepScroll: true });
 });
 

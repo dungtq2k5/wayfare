@@ -428,8 +428,6 @@ test('B5 apply, the dry run; B5c applied; B5b nothing to change', async ({ page 
   await dialog(page).getByRole('button', { name: 'Apply to 312 accounts' }).click();
   const applied = page.getByText('312 accounts changed; 4 pinned were skipped.');
   await expect(applied).toBeVisible();
-  // The pointer over the toast holds it: its seconds would end before the dark capture.
-  await applied.hover();
   await look(page, 'b5c-applied', { viewportOnly: true });
 
   await page.goto(`/billing/plans/${ids.hoiAn}`);
@@ -602,7 +600,6 @@ test('E3b replayed, processed', async ({ page }) => {
   await open(page, PEOPLE.lan, `/billing/events/${ids.failed}`);
   await replayed(page, 'PROCESSED');
   await expect(page.getByText('Replayed: processed')).toBeVisible({ timeout: 15_000 });
-  await page.getByText('Replayed: processed').hover();
   await look(page, 'e3b-replayed-processed', {
     viewportOnly: true,
     mask: [page.locator('[data-payload]')],
@@ -613,7 +610,6 @@ test('E3c replayed, skipped as stale', async ({ page }) => {
   await open(page, PEOPLE.lan, `/billing/events/${ids.failed}`);
   await replayed(page, 'SKIPPED_STALE');
   await expect(page.getByText('Replayed: skipped as stale')).toBeVisible({ timeout: 15_000 });
-  await page.getByText('Replayed: skipped as stale').hover();
   await look(page, 'e3c-replayed-stale', {
     viewportOnly: true,
     mask: [page.locator('[data-payload]')],

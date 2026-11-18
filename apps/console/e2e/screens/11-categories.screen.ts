@@ -98,8 +98,6 @@ test('G3 deactivate, G3b deactivated with Undo', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Deactivate' }).click();
   const toast = page.getByText('Street food deactivated');
   await expect(toast).toBeVisible();
-  // The pointer over the toast holds it: its 6 s would end before the dark capture.
-  await toast.hover();
   await look(page, 'g3b-deactivated', { viewportOnly: true });
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(

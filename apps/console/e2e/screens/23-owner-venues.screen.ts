@@ -112,8 +112,6 @@ test('M3 close for now, M3b closed with Undo', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: 'Close for now' }).click();
   const toast = page.locator('[data-sonner-toast]');
   await expect(toast.getByText('Ốc Oanh is closed for now')).toBeVisible();
-  // The toast stays while the pointer is on it, through every capture.
-  await toast.hover();
   await expect(page.getByRole('button', { name: 'Reopen', exact: true })).toBeVisible();
   await look(page, 'm3b-closed-with-undo', { viewportOnly: true });
   // Back as it was for the other frames: reopened, its audio already made.

@@ -5,7 +5,7 @@ import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
 import { rewrite } from './answers';
-import { actor } from './content';
+import { actor, editorialPlace, untilStatus } from './content';
 import { from, look, tabsThrough } from './look';
 import { PACKS_AREA, registerMapPack } from './map-pack';
 import { as } from './people';
@@ -28,16 +28,26 @@ const NEW_AREA = { code: 'hcmc-d1-pham-ngu-lao', nameVi: 'Phạm Ngũ Lão' };
 
 type Counts = Record<'DRAFT' | 'PROCESSING' | 'ACTIVE' | 'INACTIVE', number>;
 
+/** This spec's own Place in District 1, taken down: the frames' *Inactive* and "· N other". */
+const OWN_PLACE = {
+  name: 'Đình thử khu vực',
+  description: 'Một ngôi đình nhỏ trong khu trung tâm, tạm ẩn khỏi bản đồ.',
+  category: 'TEMPLE',
+  location: { lat: 10.7785, lng: 106.699 },
+};
+let ownPlace: { id: string; areaId: string } | undefined;
+
 /**
- * Each area's Places counted as the seed holds them, on the list and on an area's page (which reads
- * its area again in the browser): other specs' Places would change the counts (conventions §12.8).
+ * Each area's Places counted as the seed holds them, and this spec's own, on the list and on an
+ * area's page (which reads its area again in the browser): other specs' Places would change the
+ * counts (conventions §12.8).
  */
 async function seedCounts(page: Page): Promise<void> {
   const count = (row: { id: string; placeCounts: Counts }) => {
     for (const status of Object.keys(row.placeCounts) as (keyof Counts)[])
-      row.placeCounts[status] = seedPlaces(
-        (place) => place.areaId === row.id && place.status === status,
-      );
+      row.placeCounts[status] =
+        seedPlaces((place) => place.areaId === row.id && place.status === status) +
+        (status === 'INACTIVE' && ownPlace?.areaId === row.id ? 1 : 0);
   };
   await rewrite<{ data: { id: string; placeCounts: Counts }[] }>(page, '/admin/areas*', (answer) =>
     answer.data.forEach(count),
@@ -72,6 +82,17 @@ function westOf(ring: Ring): Ring {
 
 test.beforeAll(async () => {
   const lan = await actor(PEOPLE.lan);
+  const id = await editorialPlace(lan, OWN_PLACE);
+  const { data: place } = await lan.call<{ data: { status: string; areaId: string } }>(
+    'GET',
+    `/admin/places/${id}`,
+  );
+  if (place.status === 'ACTIVE')
+    await lan.call('POST', `/admin/places/${id}/deactivate`, {
+      reason: 'Đang trùng tu, tạm ẩn khỏi bản đồ.',
+    });
+  await untilStatus(lan, id, 'INACTIVE');
+  ownPlace = { id, areaId: place.areaId };
   const all = await areas(lan);
   // A5 needs a version being built; a retry after A6 published it gets a new one.
   const d1 = all.find((area) => area.code === PACKS_AREA)!;
@@ -131,7 +152,6 @@ test('A2 an area, A5 its packs, A6 publish, A6b published, A4c deactivate refuse
   const toast = page.getByText(/^Version \d+ published$/);
   await expect(toast).toBeVisible();
   await expect(packs.getByText('Retired')).toBeVisible();
-  await toast.hover();
   // The whole page: the retired version's row is what the state proves.
   await look(page, 'a6b-published');
 

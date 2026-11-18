@@ -262,8 +262,6 @@ test('L7 Activate, and the gate; L7b activated while the page is open', async ({
   await untilStatus(lan, id, 'ACTIVE');
   await page.unrouteAll({ behavior: 'wait' });
   await expect(page.getByText("It's live")).toBeVisible({ timeout: 30_000 });
-  // The pointer over the toast holds it: its 6 s would end before the dark capture.
-  await page.getByText("It's live").hover();
   await look(page, 'l7b-activated', { viewportOnly: true });
 });
 

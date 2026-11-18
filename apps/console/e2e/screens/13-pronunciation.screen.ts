@@ -77,7 +77,6 @@ test('D2 an entry, D2b a duplicate term, D4 saved', async ({ page }) => {
   await page.getByRole('button', { name: 'Save entry' }).click();
   const toast = page.getByText('Entry saved');
   await expect(toast).toBeVisible();
-  await toast.hover();
   await look(page, 'd4-saved', { viewportOnly: true });
 });
 

@@ -8,6 +8,7 @@ import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { signIn } from '../support/console';
 import { Actor, envValue, resetRateLimits } from '../support/stack';
+import { rewrite } from './answers';
 import { look } from './look';
 import { as } from './people';
 import { PEOPLE } from './setup';
@@ -116,6 +117,19 @@ test('AD1 the overview ★', async ({ page }) => {
 });
 
 test('AD2 top Places', async ({ page }) => {
+  // One ranked Place not live, as the frame draws it: the seed's Places are never taken down here,
+  // since other specs draw them live (conventions §12.8).
+  await rewrite<{ data: { places: { categoryCode: string; status: string }[] } }>(
+    page,
+    '/admin/analytics/places/top*',
+    (answer) => {
+      // A Landmark when one is ranked (the handoff's City Hall); the seed ranks none, so the last.
+      const shown =
+        answer.data.places.find((place) => place.categoryCode === 'LANDMARK') ??
+        answer.data.places.at(-1);
+      if (shown !== undefined) shown.status = 'INACTIVE';
+    },
+  );
   await admin(page);
   await page.goto('/analytics/top');
   await counted(page);

@@ -81,6 +81,10 @@ export async function look(
       content: '[role="status"][data-tone="error"] { display: none !important; }',
     });
   }
+  // A toast stays while the pointer is on it: its seconds would end before the last capture on a
+  // slow machine (the dark one drawn without it). Held here for every state that shows one.
+  const toast = page.locator('[data-sonner-toast]').first();
+  if (await toast.isVisible()) await toast.hover();
   const initial = page.viewportSize();
   const widths = (Object.keys(WIDTHS) as Width[]).filter(
     (width) => options.only === undefined || options.only.includes(width),

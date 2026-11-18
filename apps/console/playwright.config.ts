@@ -29,7 +29,16 @@ export default defineConfig({
   // One baseline per frame, width and scheme, by the frame's name: no platform suffix, because
   // every baseline is drawn by the same image.
   snapshotPathTemplate: '{testDir}/screens/__screenshots__/{arg}{ext}',
-  reporter: process.env.CI === undefined ? 'list' : [['list'], ['html', { open: 'never' }]],
+  // On CI a JSON report too: a test that passed only on its retry is read from it (e2e.yml), so a
+  // flaky run keeps its evidence instead of passing in silence.
+  reporter:
+    process.env.CI === undefined
+      ? 'list'
+      : [
+          ['list'],
+          ['html', { open: 'never' }],
+          ['json', { outputFile: 'test-results/results.json' }],
+        ],
   use: {
     baseURL: CONSOLE,
     locale: 'en-US',

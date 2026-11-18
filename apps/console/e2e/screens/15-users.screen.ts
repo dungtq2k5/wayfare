@@ -4,12 +4,12 @@
 import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { owner, PASSWORD, verifiedUser } from '../support/people';
-import { resetRateLimits } from '../support/stack';
+import { CONSOLE, resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
 import { only, refuse } from './answers';
 import { actor } from './content';
 import { from, look, tabsThrough } from './look';
-import { as } from './people';
+import { as, continueWithGoogle } from './people';
 import { seeded } from './seed';
 import { PEOPLE } from './setup';
 
@@ -59,7 +59,7 @@ async function userId(lan: Actor, email: string): Promise<string> {
 }
 
 // Each step checks its own state, so a retry after a step timed out finishes the rest.
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   const lan = await actor(PEOPLE.lan);
   if ((await findUser(lan, LINH.email)) === undefined) await verifiedUser(LINH.email);
   const linh = (await findUser(lan, LINH.email))!;
@@ -85,10 +85,16 @@ test.beforeAll(async () => {
   if ((await findUser(lan, TOAN.email)) === undefined) {
     const toan = await owner(lan, TOAN.email);
     await toan.call('PATCH', '/users/me', { fullName: TOAN.name });
+    // Signed in once with Google, as the frames draw him: linked, and a last sign-in.
+    const context = await browser.newContext({ baseURL: CONSOLE });
+    await continueWithGoogle(await context.newPage(), TOAN.email);
+    await context.close();
   }
   if ((await findUser(lan, LOCKED.email)) === undefined) {
     const son = await verifiedUser(LOCKED.email);
     await son.call('PATCH', '/users/me', { fullName: LOCKED.name });
+    // Signed in once before the lock, as U5b draws him: a last sign-in beside his open session.
+    await actor(LOCKED.email);
   }
   const locked = (await findUser(lan, LOCKED.email))!;
   if (!locked.isLocked)

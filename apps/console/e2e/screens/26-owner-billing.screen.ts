@@ -132,7 +132,6 @@ test('Y3 back from Checkout, Y3b confirmed; Y1 the plan; Y4 the portal; Y7 Strip
     await page.unroute('**/api/v1/owner/billing');
     const toast = page.locator('[data-sonner-toast]');
     await expect(toast.getByText("You're on Growth")).toBeVisible({ timeout: 60_000 });
-    await toast.hover();
     await look(page, 'y3b-confirmed', { viewportOnly: true });
     await page.waitForURL(/\/owner\/billing$/);
   }
@@ -162,7 +161,6 @@ test('Y3 back from Checkout, Y3b confirmed; Y1 the plan; Y4 the portal; Y7 Strip
   await page.getByRole('button', { name: 'Manage in Stripe' }).click();
   const toast = page.locator('[data-sonner-toast]');
   await expect(toast.getByText(/Stripe didn't answer/)).toBeVisible();
-  await toast.hover();
   await look(page, 'y7-stripe-not-answering', { viewportOnly: true });
 });
 
