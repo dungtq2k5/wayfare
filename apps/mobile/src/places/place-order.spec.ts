@@ -67,3 +67,53 @@ describe('byAreaThenName', () => {
     expect(listed.every((item) => item.distanceM === null)).toBe(true);
   });
 });
+
+describe('names, when the runtime can’t order them', () => {
+  it('order names that fold the same by their marks, and equal names as equal', () => {
+    const compare = nameComparer('vi', () => null);
+    expect(['Bò', 'Bo'].sort(compare)).toEqual(['Bo', 'Bò']);
+    expect(['bo', 'Bo'].sort(compare)).toEqual(['Bo', 'bo']);
+    expect(compare('Bo', 'Bo')).toBe(0);
+    expect([compare('Bo', 'Bò'), compare('Bò', 'Bo')]).toEqual([-1, 1]);
+    expect(['Dinh', 'Chợ'].sort(compare)).toEqual(['Chợ', 'Dinh']);
+  });
+
+  it('have no collator for a locale the runtime ignores, or one it refuses', () => {
+    expect(makeCollator('zz')).toBeNull();
+    expect(makeCollator('not a locale!')).toBeNull();
+  });
+});
+
+describe('ties', () => {
+  it('break by id between two Places at the same distance', () => {
+    const origin = { lat: 10.77, lng: 106.7 };
+    for (const order of [
+      ['b', 'a'],
+      ['a', 'b'],
+    ]) {
+      const listed = byDistance(
+        order.map((id) => place(id, id)),
+        origin,
+      );
+      expect(listed.map((item) => item.record.id)).toEqual(['a', 'b']);
+    }
+  });
+
+  it('order the other areas by their ids, after the one in view, and with no area in view', () => {
+    const records = [
+      place('1', 'A', 'area-3'),
+      place('2', 'A', 'area-2'),
+      place('3', 'A', 'area-1'),
+    ];
+    expect(byAreaThenName(records, 'area-3', 'en').map((item) => item.record.id)).toEqual([
+      '1',
+      '3',
+      '2',
+    ]);
+    expect(byAreaThenName(records, null, 'en').map((item) => item.record.id)).toEqual([
+      '3',
+      '2',
+      '1',
+    ]);
+  });
+});

@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
@@ -47,9 +48,14 @@ const alias = [
   },
 ];
 
-const unit = (name: string, dir: string, include: string[]) => ({
+const unit = (
+  name: string,
+  dir: string,
+  include: string[],
+  extra: { alias?: typeof alias; inline?: RegExp[] } = {},
+) => ({
   plugins: [swcPlugin()],
-  resolve: { alias },
+  resolve: { alias: [...(extra.alias ?? []), ...alias] },
   test: {
     name: `unit:${name}`,
     root: root(dir),
@@ -57,8 +63,25 @@ const unit = (name: string, dir: string, include: string[]) => ({
     environment: 'node',
     setupFiles: [root('./vitest.setup.ts')],
     env: { OTEL_SDK_DISABLED: 'true' },
+    ...(extra.inline ? { server: { deps: { inline: extra.inline } } } : {}),
   },
 });
+
+/**
+ * The mobile app's specs render its hooks with the web's React and `react-dom` (React Native's
+ * React has no `react-dom` of its own version), and read `react-native` from a fake: its real
+ * entry is Flow, which only Metro reads. zustand and React Query are inlined, so they share it.
+ */
+const fromWeb = createRequire(root('./apps/web/package.json'));
+const mobileTest = {
+  alias: [
+    { find: /^react$/, replacement: fromWeb.resolve('react') },
+    { find: /^react\/jsx-runtime$/, replacement: fromWeb.resolve('react/jsx-runtime') },
+    { find: /^react-dom\/client$/, replacement: fromWeb.resolve('react-dom/client') },
+    { find: /^react-native$/, replacement: root('./apps/mobile/src/testing/react-native.ts') },
+  ],
+  inline: [/zustand/, /@tanstack\/react-query/, /react-i18next/],
+};
 
 /**
  * The source the coverage figure counts: every app's, service's and package's `src`, and the
@@ -110,7 +133,7 @@ export const coverageExclude = [
  */
 const coverageFloors = {
   'apps/console/src/**': { lines: 66, branches: 67 },
-  'apps/mobile/{src,app,modules}/**': { lines: 37, branches: 39 },
+  'apps/mobile/{src,app,modules}/**': { lines: 90, branches: 90 },
   'apps/web/src/**': { lines: 90, branches: 90 },
   'packages/api-client/src/**': { lines: 73, branches: 64 },
   'packages/contracts/src/**': { lines: 90, branches: 90 },
@@ -142,7 +165,7 @@ export default defineConfig({
       unit('core', './packages/core', ['src/**/*.spec.ts']),
       unit('nest-common', './packages/nest-common', ['src/**/*.spec.ts']),
       unit('i18n', './packages/i18n', ['src/**/*.spec.ts']),
-      unit('mobile', './apps/mobile', ['src/**/*.spec.ts']),
+      unit('mobile', './apps/mobile', ['src/**/*.spec.ts'], mobileTest),
       unit('console', './apps/console', ['src/**/*.spec.ts', 'e2e/screens/*.spec.ts']),
       unit('web', './apps/web', ['src/**/*.spec.ts', 'e2e/screens/*.spec.ts']),
       unit('ui', './packages/ui', ['src/**/*.spec.ts']),

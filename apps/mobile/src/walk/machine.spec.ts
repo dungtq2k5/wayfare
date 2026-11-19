@@ -118,4 +118,23 @@ describe('the walk machine', () => {
     expect(minutesOn(walk, 10 + 24 * 60_000)).toBe(24);
     expect(minutesOn(initialWalk(), 99)).toBe(0);
   });
+
+  it('ignores an event that doesn’t apply in the phase it meets (a late callback)', () => {
+    const off = initialWalk();
+    const on = run(ON);
+    const idle = run([[{ type: 'idle' }, 20]], on);
+    for (const [walk, event] of [
+      [off, { type: 'abandon' }],
+      [off, { type: 'settle' }],
+      [off, { type: 'idle' }],
+      [off, { type: 'background-revoked' }],
+      [off, { type: 'background-granted' }],
+      [off, { type: 'dismiss-notice' }],
+      [on, { type: 'settle' }],
+      [on, { type: 'background-granted' }],
+      [idle, { type: 'settle' }],
+    ] as const) {
+      expect(step(walk, event, 30, UNDO)).toEqual({ walk, effects: [] });
+    }
+  });
 });

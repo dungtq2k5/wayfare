@@ -111,6 +111,14 @@ describe('the start flow', () => {
     expect(calls).not.toContain('requestBackground');
   });
 
+  it('becomes foreground-only, explained once, when the tourist declines the settings step', async () => {
+    const { deps, calls, flags, shown } = setup({ answers: ['primary', 'secondary'] });
+    expect(await runStartFlow(deps)).toEqual({ kind: 'ready', background: false });
+    expect(shown.slice(0, 2)).toEqual(['background-explainer', 'settings-step']);
+    expect(calls).not.toContain('requestBackground');
+    expect(flags.backgroundExplained).toBe(true);
+  });
+
   it('becomes foreground-only when Android settings leave background off', async () => {
     const { deps } = setup({ backgroundAfterSettings: false });
     expect(await runStartFlow(deps)).toEqual({ kind: 'ready', background: false });

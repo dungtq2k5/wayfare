@@ -36,3 +36,11 @@ describe('routeApiError', () => {
     expect(a.requirePolicy).not.toHaveBeenCalled();
   });
 });
+
+describe('an update refusal with no version named', () => {
+  it('still shows Update required', () => {
+    const a = actions();
+    routeApiError(new ApiError(426, 'APP_VERSION_UNSUPPORTED', 'x'), a);
+    expect(a.requireUpdate).toHaveBeenCalledWith('');
+  });
+});
