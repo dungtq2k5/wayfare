@@ -20,6 +20,8 @@ const notifications = vi.hoisted(() => ({
 vi.mock('expo-notifications', () => notifications);
 const files = vi.hoisted(() => ({
   exists: false,
+  /** The file system can't say how big the file is (expo's `size: number | null`). */
+  unknownSize: false,
   text: '',
   shareable: true,
   shared: [] as unknown[],
@@ -32,7 +34,7 @@ vi.mock('expo-file-system', () => ({
       return files.exists;
     }
     get size() {
-      return files.text.length;
+      return files.unknownSize ? null : files.text.length;
     }
     create() {
       files.exists = true;
@@ -114,6 +116,7 @@ describe('the idle-end notification (N1)', () => {
 describe('the walk log on the phone', () => {
   beforeEach(() => {
     files.exists = false;
+    files.unknownSize = false;
     files.text = '';
     files.shareable = true;
     files.shared = [];
@@ -129,6 +132,15 @@ describe('the walk log on the phone', () => {
     expect(info).toHaveBeenCalledTimes(1);
     expect(info.mock.calls[0]![0]).toMatch(/^WALKLOG \{"type":"walk","event":"begin"\}$/);
     info.mockRestore();
+  });
+
+  it('counts a file whose size the phone can’t say as empty: it keeps every line', async () => {
+    const old = '{"old":1}\n'.repeat(600_000);
+    files.exists = true;
+    files.unknownSize = true;
+    files.text = old;
+    await walkLog.append({ type: 'walk', event: 'stop' });
+    expect(files.text.startsWith(old)).toBe(true);
   });
 
   it('rolls past 5 MB, keeping the newest half from a line boundary', async () => {

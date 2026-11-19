@@ -51,11 +51,10 @@ export const openGate: PrefetchGate = { nextAt: 0, throttled: 0 };
 /** The wait after the n-th `429` in a row: the listed steps, then doubling up to the cap. */
 export function backoffMs(throttled: number): number {
   const steps = NARRATION_CONFIG.prefetchBackoffMs;
-  const last = steps.at(-1) ?? NARRATION_CONFIG.prefetchMinIntervalMs;
-  const wait =
-    throttled <= steps.length
-      ? (steps[throttled - 1] ?? last)
-      : last * 2 ** (throttled - steps.length);
+  // The step for this 429 (the first for the first), the last one doubling past the list. The
+  // list is the config's own three, so the index is always in it.
+  const step = steps[Math.min(Math.max(throttled, 1), steps.length) - 1]!;
+  const wait = step * 2 ** Math.max(0, throttled - steps.length);
   return Math.min(wait, NARRATION_CONFIG.prefetchBackoffCapMs);
 }
 

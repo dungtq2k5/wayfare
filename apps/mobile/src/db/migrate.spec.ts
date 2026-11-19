@@ -17,6 +17,15 @@ const tables = async (db: ReturnType<typeof openTestDatabase>) =>
     )
   ).map((row) => row.name);
 
+describe('the schema version', () => {
+  it('is 0 when the database answers no version row', async () => {
+    const silent = { all: () => Promise.resolve([]) } as unknown as Parameters<
+      typeof schemaVersion
+    >[0];
+    expect(await schemaVersion(silent)).toBe(0);
+  });
+});
+
 describe('migrate', () => {
   it('numbers the shipped migrations 1..n with no gap', () => {
     expect(MIGRATIONS.map((m) => m.version)).toEqual(MIGRATIONS.map((_, i) => i + 1));

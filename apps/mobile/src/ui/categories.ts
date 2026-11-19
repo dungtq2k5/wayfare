@@ -29,7 +29,8 @@ const COMPONENTS: Readonly<Record<string, LucideIcon>> = {
 
 /** The icon for a category code. */
 export function categoryIcon(code: string): LucideIcon {
-  return COMPONENTS[categoryIconName(code)] ?? MapPin;
+  // Every icon category-icons.json names has its component here (categories.spec.ts holds it).
+  return COMPONENTS[categoryIconName(code)]!;
 }
 
 /** The category codes in the order the chips show them. */

@@ -29,18 +29,20 @@ export function evictions(
 ): CacheEntry[] {
   const doomed = new Set<CacheEntry>();
   const byLang = new Map<string, CacheEntry[]>();
-  for (const entry of entries) byLang.set(entry.lang, [...(byLang.get(entry.lang) ?? []), entry]);
+  for (const entry of entries) {
+    const list = byLang.get(entry.lang);
+    if (list === undefined) byLang.set(entry.lang, [entry]);
+    else list.push(entry);
+  }
 
   // Whole languages first: the least recently played one that is not pinned.
   const recency = (list: readonly CacheEntry[]) => Math.max(...list.map((e) => e.lastPlayed));
-  const langs = [...byLang.keys()].sort(
-    (a, b) => recency(byLang.get(a) ?? []) - recency(byLang.get(b) ?? []),
-  );
+  const langs = [...byLang].sort(([, a], [, b]) => recency(a) - recency(b));
   let kept = langs.length;
-  for (const lang of langs) {
+  for (const [lang, list] of langs) {
     if (kept <= limits.maxLanguages) break;
     if (lang === pinnedLang) continue;
-    for (const entry of byLang.get(lang) ?? []) doomed.add(entry);
+    for (const entry of list) doomed.add(entry);
     byLang.delete(lang);
     kept -= 1;
   }
