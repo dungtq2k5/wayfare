@@ -243,7 +243,7 @@ export function NarrationSection({
         className="relative overflow-x-auto"
         role="region"
         aria-label={t('a11y.table', { name: t('narration.title') })}
-        tabIndex={0}
+        tabIndex={0} // NOSONAR: S6845, a labelled region that scrolls on its own must be reachable by keyboard (axe scrollable-region-focusable)
       >
         <table className="w-full text-left text-sm">
           <caption className="sr-only">{t('narration.title')}</caption>

@@ -7,7 +7,10 @@ output.B = 'alexa' + ts + 'a@example.com';
 output.C = 'tourist-' + ts + '@example.com';
 output.B2 = 'moved-' + ts + '@example.com';
 output.NOBODY = 'nobody-' + ts + '@example.com';
-output.PASSWORD = 'lantern-river-82';
+// The local stack's seed password, passed with -e (never written here).
+if (typeof PASSWORD === 'undefined')
+  throw new Error('-e PASSWORD=<SEED_ACCOUNT_PASSWORD from services/identity/.env>');
+output.PASSWORD = PASSWORD;
 output.NEWPASS = 'harbour-lamp-47';
 const headers = {
   'content-type': 'application/json',

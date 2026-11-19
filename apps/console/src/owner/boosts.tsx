@@ -308,7 +308,7 @@ export function BoostChooser({
             const since = sinceOf.get(venue.id);
             const reasonId = `boost-reason-${venue.id}`;
             return (
-              <label
+              <label // NOSONAR: S6853, the checkbox inside is named by this label's text, the venue's name (BO1 finds it so; axe passes)
                 key={venue.id}
                 className={cn(
                   'flex items-start gap-3 rounded-md px-3 py-2',

@@ -6,7 +6,8 @@
 # Against the local stack on GOOGLE_ISSUER=fake (`pnpm mobile:reverse`), its Mailpit on
 # localhost:8025, a Diagnostics build in English, location off and animations off. The address is
 # a Workspace one under example.com: Google owns its mailbox, and Mailpit receives its mail.
-#   maestro test apps/mobile/.maestro/account/google.yaml
+#   maestro test -e PASSWORD="$(sed -n 's/^SEED_ACCOUNT_PASSWORD=//p' services/identity/.env)" \
+#     apps/mobile/.maestro/account/google.yaml
 appId: app.wayfare
 ---
 - runScript: steps/new-email.js

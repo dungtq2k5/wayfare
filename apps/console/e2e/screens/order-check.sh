@@ -31,7 +31,7 @@ done
 failed=0
 for shard in 4 3 2 1; do
   reuse=1
-  [ "$shard" = 4 ] && reuse=0
+  [[ "$shard" = 4 ]] && reuse=0
   echo "── shard $shard/4"
   E2E_STACK=screens E2E_SCREENS_REUSE=$reuse E2E_SUITE=screens \
     pnpm exec playwright test --project=screens --retries=0 --shard="$shard/4" \
