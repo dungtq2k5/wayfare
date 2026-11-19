@@ -2,6 +2,9 @@ name: pr
 
 # The merge gate product §13 times: parallel jobs, the gate's time being the slowest one's. The
 # Playwright suites run beside it in e2e.yml.
+# Every action from outside the repository is pinned to its release's full commit, the version
+# in a comment beside it: a tag can be moved to other code (SonarCloud's githubactions:S7637).
+# Dependabot's github-actions updates move both.
 on:
   pull_request:
   push:
@@ -20,15 +23,57 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      # v3.0.0, pinned to its commit.
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
           GITLEAKS_VERSION: 8.24.3
+
+  # SonarCloud's analysis of the pull request (or of main, on a push to it) and its quality gate
+  # (architecture §12). It reads the coverage of both vitest tiers, merged here from the blob
+  # reports `checks` and `integration` leave; the merge also holds each package's coverage floor.
+  # The job fails with either. CI is the only sender: a laptop's analysis would overwrite main's.
+  sonar:
+    # The full-history scan alone when run by hand. Never skipped otherwise: a skipped job would
+    # satisfy the required check, and an unanalysed pull request could merge.
+    if: github.event_name != 'workflow_dispatch'
+    needs: [checks, integration]
+    runs-on: ubuntu-latest
+    # 3.9 minutes measured when it ran core's unit suite itself; it now waits for the tiers instead.
+    timeout-minutes: 10
+    steps:
+      # A fork's pull request gets no secrets: it fails here, never passes unanalysed.
+      - name: A token to analyse with
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::no SONAR_TOKEN — a fork's pull request is analysed once its branch is pushed to this repository"
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Blame and new-code detection read the history.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: vitest-blob-*
+          path: .vitest-reports
+          merge-multiple: true
+      # One lcov for the scanner, and the floors (vitest.config.mts) checked on it.
+      - run: pnpm coverage:report
+      - uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          # Waits for the quality gate, and fails with it.
+          args: >-
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
 
   # The static checks and the unit suites.
   checks:
@@ -37,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
 
       # A known hole in a shipped package fails the pull request; accepted advisories are listed,
@@ -68,16 +113,21 @@ jobs:
       - run: pnpm lint:md
       # Guard specs also run inside `pnpm test`; this step names them so a failure reads as a rule, not a unit test.
       - run: pnpm vitest run --project unit:guards
-      - run: pnpm test
-      # packages/core carries a coverage bar (conventions §17.3).
+      # The unit suites, with their coverage kept for the merge in `sonar`.
       - run: pnpm test:coverage
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vitest-blob-unit
+          path: .vitest-reports/unit.json
+          include-hidden-files: true
+          retention-days: 3
 
   build:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
       - run: pnpm build
       # The JavaScript bundle builds with no device and no EAS: a Node-only import stops the pull request.
@@ -89,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
 
       - name: Boot the stack
@@ -98,7 +148,14 @@ jobs:
       - name: Migrate, apply schema objects, verify, check drift
         run: pnpm db:setup && pnpm db:verify && pnpm db:drift
 
-      - run: pnpm test:integration
+      # The integration suites, with their coverage kept for the merge in `sonar`.
+      - run: pnpm test:integration:coverage
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vitest-blob-integration
+          path: .vitest-reports/integration.json
+          include-hidden-files: true
+          retention-days: 3
 
       - name: Stack logs on failure
         if: failure()
@@ -113,14 +170,14 @@ jobs:
       # Each service's image build reads and writes Buildx's GitHub Actions cache.
       COMPOSE_FILE: compose.yaml:infra/docker/compose.ci.yaml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           # The runner is thrown away; removing the builder took 100 s.
           cleanup: false
       # The cache's token and URLs, for the `docker compose` steps below.
-      - uses: crazy-max/ghaction-github-runtime@v3
+      - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
 
       - name: Boot the stack
         run: docker compose up -d --wait
