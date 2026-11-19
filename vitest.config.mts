@@ -93,23 +93,28 @@ export const coverageExclude = [
   'packages/core/src/geofence/trace-generator.ts',
   // Type-only.
   '**/*.d.ts',
+  // The UI's pages, screens, layouts and components: proved by the screens suites, the flows and
+  // Maestro. A decision doesn't hide in one: it goes in a `.ts` beside it, which counts.
+  'apps/**/*.tsx',
+  'packages/ui/**/*.tsx',
 ];
 
 /**
  * Each package's floor, lines and branches, from its measured figure rounded down. A floor is
- * raised, never lowered, until every package is at 90 % and one bar holds the project. Checked
+ * raised, never lowered, until every package is at 90 % and one bar holds the project: the lowest
+ * first (the apps' logic: web, mobile, console; then api-client and the services' branches). Checked
  * on the merged report alone (`pnpm coverage:report`): one tier by itself is short of it.
  */
 const coverageFloors = {
-  'apps/console/src/**': { lines: 7, branches: 6 },
-  'apps/mobile/{src,app,modules}/**': { lines: 21, branches: 18 },
-  'apps/web/src/**': { lines: 9, branches: 10 },
+  'apps/console/src/**': { lines: 66, branches: 67 },
+  'apps/mobile/{src,app,modules}/**': { lines: 37, branches: 39 },
+  'apps/web/src/**': { lines: 26, branches: 35 },
   'packages/api-client/src/**': { lines: 73, branches: 64 },
   'packages/contracts/src/**': { lines: 99, branches: 91 },
   'packages/core/src/**': { lines: 99, branches: 96 },
   'packages/i18n/src/**': { lines: 94, branches: 85 },
   'packages/nest-common/src/**': { lines: 86, branches: 82 },
-  'packages/ui/src/**': { lines: 16, branches: 21 },
+  'packages/ui/src/**': { lines: 96, branches: 84 },
   'services/analytics/src/**': { lines: 86, branches: 78 },
   'services/billing/src/**': { lines: 86, branches: 75 },
   'services/catalog/src/**': { lines: 91, branches: 83 },
