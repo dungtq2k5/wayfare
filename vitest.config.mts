@@ -60,16 +60,74 @@ const unit = (name: string, dir: string, include: string[]) => ({
   },
 });
 
+/**
+ * The source the coverage figure counts: every app's, service's and package's `src`, and the
+ * mobile app's routes and its native modules' bindings, which live beside it. Each tier's run
+ * adds the files no test loaded, at 0 %, looking from each project's root, so the globs are
+ * relative to it.
+ */
+export const coverageInclude = ['src/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}', 'modules/*/src/**/*.ts'];
+
+/**
+ * What isn't counted, each for its reason: nothing is left out for being hard to test.
+ * SonarCloud's `sonar.coverage.exclusions` names the same globs, so no braces here
+ * (packages/config/guards/coverage-exclusions.spec.ts).
+ */
+export const coverageExclude = [
+  // Not ours.
+  '**/node_modules/**',
+  // The tests themselves.
+  '**/*.spec.ts',
+  '**/*.spec.tsx',
+  // Generated: the gRPC code, the i18n argument types, the API client's operations.
+  '**/generated/**',
+  // Bootstrap: a process's start and its tracing, run by the stack, not by a test.
+  '**/src/main.ts',
+  '**/src/instrumentation.ts',
+  // Nest's module wiring: declarations, no logic.
+  '**/*.module.ts',
+  // Operators' scripts (seeding the system rows, recovery), run by hand.
+  '**/src/scripts/**',
+  // Test support: shared fixtures and fakes the specs import, and core's GPS trace generator.
+  '**/src/testing/**',
+  'packages/core/src/geofence/trace-generator.ts',
+  // Type-only.
+  '**/*.d.ts',
+];
+
+/**
+ * Each package's floor, lines and branches, from its measured figure rounded down. A floor is
+ * raised, never lowered, until every package is at 90 % and one bar holds the project. Checked
+ * on the merged report alone (`pnpm coverage:report`): one tier by itself is short of it.
+ */
+const coverageFloors = {
+  'apps/console/src/**': { lines: 7, branches: 6 },
+  'apps/mobile/{src,app,modules}/**': { lines: 21, branches: 18 },
+  'apps/web/src/**': { lines: 9, branches: 10 },
+  'packages/api-client/src/**': { lines: 73, branches: 64 },
+  'packages/contracts/src/**': { lines: 99, branches: 91 },
+  'packages/core/src/**': { lines: 99, branches: 96 },
+  'packages/i18n/src/**': { lines: 94, branches: 85 },
+  'packages/nest-common/src/**': { lines: 86, branches: 82 },
+  'packages/ui/src/**': { lines: 16, branches: 21 },
+  'services/analytics/src/**': { lines: 86, branches: 78 },
+  'services/billing/src/**': { lines: 86, branches: 75 },
+  'services/catalog/src/**': { lines: 91, branches: 83 },
+  'services/gateway/src/**': { lines: 88, branches: 64 },
+  'services/identity/src/**': { lines: 93, branches: 85 },
+  'services/narration/src/**': { lines: 87, branches: 77 },
+};
+
 export default defineConfig({
   test: {
-    // Measured only where a bar is set: packages/core (conventions §17.3). `pnpm test:coverage`.
+    // Both tiers write a blob report (`test:coverage`, `test:integration:coverage`); the merge
+    // makes one lcov, which SonarCloud reads in CI's `sonar` job (architecture §12).
     coverage: {
       provider: 'v8',
-      include: ['packages/core/src/**/*.ts'],
-      exclude: ['**/*.spec.ts', '**/index.ts', '**/geofence/trace-generator.ts'],
-      thresholds: { lines: 90, branches: 90 },
-      // lcov is read by the SonarCloud scanner, in CI's `sonar` job (architecture §12.2).
-      reporter: ['text', 'html', 'lcov'],
+      include: coverageInclude,
+      exclude: coverageExclude,
+      thresholds: process.argv.includes('--merge-reports') ? coverageFloors : {},
+      reporter: ['text-summary', 'json-summary', 'html', 'lcov'],
     },
     projects: [
       unit('contracts', './packages/contracts', ['src/**/*.spec.ts']),
