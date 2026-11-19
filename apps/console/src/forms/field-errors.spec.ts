@@ -63,4 +63,61 @@ describe('field errors (K13)', () => {
     expect(errorCount(errors)).toBe(2);
     expect(serverFieldErrors(undefined, {}, en)).toEqual({});
   });
+
+  it('give the first issue per field, a format’s own sentence, and the generic one otherwise', () => {
+    const schema = z.object({
+      email: z.email(),
+      code: z.string().regex(/^\d+$/).min(4),
+      count: z.number(),
+      kind: z.enum(['a', 'b']),
+    });
+    const result = validateForm(
+      schema,
+      { email: 'not-an-email', code: 'ab', count: 'three', kind: 'c' },
+      en,
+    );
+    expect(result).toEqual({
+      ok: false,
+      errors: {
+        email: en.t('issue.email'),
+        code: en.t('issue.generic'),
+        count: en.t('issue.required'),
+        kind: en.t('issue.generic'),
+      },
+    });
+  });
+
+  it('keep the general sentence where an override has none, and name a form-wide issue blank', () => {
+    const schema = z.object({ password: z.string().min(10).max(12) });
+    const result = validateForm(schema, { password: 'way too long a password' }, en, {
+      password: passwordShort(en),
+    });
+    expect(result).toEqual({
+      ok: false,
+      errors: { password: en.t('issue.tooBig', { maximum: 12, count: 23 }) },
+    });
+    const whole = validateForm(
+      z.object({}).refine(() => false),
+      {},
+      en,
+    );
+    expect(whole).toEqual({ ok: false, errors: { '': en.t('issue.required') } });
+  });
+
+  it('skip a server issue with no field, keep the first per field, and read a missing code generically', () => {
+    const errors = serverFieldErrors(
+      {
+        issues: [
+          { path: 42, code: 'too_small' },
+          { path: '/name' },
+          { path: '/name', code: 'invalid_type' },
+          { path: '', code: 'invalid_type' },
+        ],
+      },
+      { name: 'Phở' },
+      en,
+    );
+    expect(errors).toEqual({ name: en.t('issue.generic') });
+    expect(serverFieldErrors({ issues: 'none' }, {}, en)).toEqual({});
+  });
 });

@@ -132,7 +132,7 @@ export const coverageExclude = [
  * itself is short of it.
  */
 const coverageFloors = {
-  'apps/console/src/**': { lines: 66, branches: 67 },
+  'apps/console/src/**': { lines: 90, branches: 90 },
   'apps/mobile/{src,app,modules}/**': { lines: 90, branches: 90 },
   'apps/web/src/**': { lines: 90, branches: 90 },
   'packages/api-client/src/**': { lines: 73, branches: 64 },

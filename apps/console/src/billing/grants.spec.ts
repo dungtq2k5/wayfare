@@ -4,10 +4,14 @@ import {
   EMPTY_DRAFT,
   GRANT_KEYS,
   checkGrants,
+  draftOf,
   formatMoney,
+  grantLabel,
   grantNote,
   grantPaused,
   grantValue,
+  scopeLanguages,
+  typedGrants,
   vouchersPaused,
 } from './grants';
 import type { Entitlements, GrantsDraft } from './grants';
@@ -113,5 +117,100 @@ describe('the plan form (K12)', () => {
     expect(checkGrants({ ...FILLED, commissionPercent: '31' }, en).errors).toHaveProperty(
       'commissionPercent',
     );
+  });
+});
+
+describe('the grants beside a plan (B2, W2)', () => {
+  const OFF: Entitlements = {
+    ...GROWTH,
+    autoNarration: false,
+    canSellVouchers: false,
+    voucherCommissionBps: null,
+  };
+
+  it('names each grant, and says auto-narration short in the account’s columns', () => {
+    expect(grantLabel('maxPlaces', en)).toBe(en.tDynamic('grants.maxPlaces'));
+    expect(grantValue('autoNarration', GROWTH, en, true)).toBe(en.t('grants.on'));
+    expect(grantValue('autoNarration', OFF, en, true)).toBe(en.t('grants.offShort'));
+    expect(grantValue('autoNarration', OFF, en)).toBe(en.t('grants.autoOff'));
+    expect(grantValue('canSellVouchers', OFF, en)).toBe(en.t('grants.vouchersNo'));
+    expect(grantValue('maxPlaces', GROWTH, en)).toBe('10');
+  });
+
+  it('says auto-narration’s rule on every plan, the commission’s most only while selling, nothing else', () => {
+    expect(grantNote('autoNarration', OFF, en)).toBe(en.t('grants.autoNote'));
+    expect(grantNote('canSellVouchers', GROWTH, en)).toBe(
+      en.t('grants.commissionCeiling', { n: 30 }),
+    );
+    expect(grantNote('canSellVouchers', OFF, en)).toBeNull();
+    expect(grantNote('analyticsLevel', GROWTH, en)).toBeNull();
+  });
+
+  it('names a scope’s languages: the basic ones, the launch five, or the long tail as more', () => {
+    expect(scopeLanguages('BASIC', en)).not.toContain('Japanese');
+    expect(scopeLanguages('LAUNCH', en)).toContain('Japanese');
+    expect(scopeLanguages('EXTENDED', en)).toMatch(/^Also /);
+  });
+});
+
+describe('a plan’s grants as a form holds them (B3, W3)', () => {
+  it('makes a draft of grants, the commission as a percentage or empty', () => {
+    expect(draftOf(GROWTH)).toEqual(FILLED);
+    expect(
+      draftOf({ ...GROWTH, canSellVouchers: false, voucherCommissionBps: null }).commissionPercent,
+    ).toBe('');
+  });
+
+  it('refuses a limit that isn’t whole or is under its least', () => {
+    for (const typed of ['1.5', '0', '-1', 'ten'])
+      expect(checkGrants({ ...FILLED, maxPlaces: typed }, en).errors).toHaveProperty('maxPlaces');
+    expect(checkGrants({ ...FILLED, maxPhotosPerPlace: '0' }, en).errors).toBeNull();
+  });
+
+  it('requires the commission while selling vouchers, a whole percentage', () => {
+    expect(checkGrants({ ...FILLED, commissionPercent: ' ' }, en).errors).toEqual({
+      commissionPercent: en.t('issue.required'),
+    });
+    expect(checkGrants({ ...FILLED, commissionPercent: '12.5' }, en).errors).toHaveProperty(
+      'commissionPercent',
+    );
+  });
+
+  it('lists what was typed, keeping the earlier value where a number isn’t whole', () => {
+    const typed = typedGrants(
+      {
+        ...EMPTY_DRAFT,
+        maxPlaces: ' 20 ',
+        maxPhotosPerPlace: 'many',
+        canSellVouchers: true,
+        commissionPercent: '',
+      },
+      GROWTH,
+    );
+    expect(typed).toMatchObject({
+      maxPlaces: 20,
+      maxPhotosPerPlace: 8,
+      autoNarration: true,
+      narrationLanguageScope: 'LAUNCH',
+      analyticsLevel: 'BASIC',
+      voucherCommissionBps: 1500,
+    });
+    const chosen = typedGrants(
+      { ...FILLED, autoNarration: false, narrationLanguageScope: 'BASIC', analyticsLevel: 'FULL' },
+      { ...GROWTH, voucherCommissionBps: null },
+    );
+    expect(chosen).toMatchObject({
+      autoNarration: false,
+      narrationLanguageScope: 'BASIC',
+      analyticsLevel: 'FULL',
+      voucherCommissionBps: 1500,
+    });
+    expect(
+      typedGrants({ ...FILLED, canSellVouchers: false }, GROWTH).voucherCommissionBps,
+    ).toBeNull();
+    expect(
+      typedGrants({ ...FILLED, commissionPercent: 'x' }, { ...GROWTH, voucherCommissionBps: null })
+        .voucherCommissionBps,
+    ).toBe(0);
   });
 });
