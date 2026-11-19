@@ -1,6 +1,6 @@
 import { ON_DEMAND_RETRY_AFTER_MS } from '@wayfare/contracts';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveSource } from './ladder';
+import { resolveSource, rungBelow } from './ladder';
 import type { LadderDeps, OnDemandAnswer } from './ladder';
 import type { PlaceAudio, PlayerPlace } from '../data/player-place';
 
@@ -172,5 +172,90 @@ describe('resolveSource', () => {
       },
     });
     expect(await resolveSource(place(true), 'en', 'file', deps)).toEqual({ kind: 'discarded' });
+  });
+});
+
+describe('resolveSource, when the language changes or a route fails mid-way', () => {
+  /** A language that turns to Japanese once `step` is called. */
+  const switching = () => {
+    let lang: 'en' | 'ja' = 'en';
+    return { currentLang: () => lang, step: () => (lang = 'ja') };
+  };
+
+  it('discards a language already left before it starts', async () => {
+    expect(await resolveSource(place(true), 'ja', 'file', fake())).toEqual({ kind: 'discarded' });
+  });
+
+  it('discards an on-demand answer, a wait, or a voice check for a language left meanwhile', async () => {
+    const onDemand = switching();
+    const answered = fake({
+      currentLang: onDemand.currentLang,
+      onDemand: () => {
+        onDemand.step();
+        return Promise.resolve({ status: 'READY', audio });
+      },
+    });
+    expect(await resolveSource(place(false), 'en', 'file', answered)).toEqual({
+      kind: 'discarded',
+    });
+    const waiting = switching();
+    const waited = fake({
+      currentLang: waiting.currentLang,
+      onDemand: () => Promise.resolve({ status: 'PENDING', retryAfterMs: 1_000 }),
+      sleep: () => {
+        waiting.step();
+        return Promise.resolve();
+      },
+    });
+    expect(await resolveSource(place(false), 'en', 'file', waited)).toEqual({ kind: 'discarded' });
+    const voice = switching();
+    const checked = fake({
+      currentLang: voice.currentLang,
+      hasDeviceVoice: () => {
+        voice.step();
+        return Promise.resolve(true);
+      },
+    });
+    expect(await resolveSource(place(false), 'en', 'device', checked)).toEqual({
+      kind: 'discarded',
+    });
+  });
+
+  it('streams when the status route fails during the wait, and when the made file can’t be fetched', async () => {
+    const pending = (): Promise<OnDemandAnswer> =>
+      Promise.resolve({ status: 'PENDING', retryAfterMs: 1_000 });
+    const statusFails = fake({
+      onDemand: pending,
+      status: () => failure(503, 'UPSTREAM_UNAVAILABLE'),
+    });
+    expect(await resolveSource(place(false), 'en', 'file', statusFails)).toEqual({
+      kind: 'stream',
+      fellBack: false,
+    });
+    const fetchFails = fake({ download: () => Promise.reject(new Error('404')) });
+    expect(await resolveSource(place(false), 'en', 'on-demand', fetchFails)).toEqual({
+      kind: 'stream',
+      fellBack: true,
+    });
+  });
+
+  it('reads an answer with no status or code as a lost connection, and a stream offline as the voice', async () => {
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- a transport rejecting with nothing, the case failureOf guards
+    const lost = fake({ onDemand: () => Promise.reject(null) });
+    expect(await resolveSource(place(false), 'en', 'on-demand', lost)).toEqual({
+      kind: 'stream',
+      fellBack: true,
+    });
+    expect(
+      await resolveSource(place(false), 'en', 'stream', fake({ isOffline: () => true })),
+    ).toEqual({
+      kind: 'device',
+      fellBack: false,
+    });
+  });
+
+  it('falls one rung below a source that failed while playing', () => {
+    expect(rungBelow('file')).toBe('stream');
+    expect(rungBelow('stream')).toBe('device');
   });
 });

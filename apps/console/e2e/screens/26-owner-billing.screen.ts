@@ -104,8 +104,8 @@ test('Y1b on Free, Y2 choose a plan, Y3c Checkout cancelled, Y3d still waiting',
   await page.goto('/owner/billing?checkout=cancelled');
   await expect(page.getByText('Checkout was cancelled')).toBeVisible();
   await look(page, 'y3c-checkout-cancelled');
-  // Back from a Checkout the webhook never confirms: a minute later, still waiting.
-  await page.clock.install();
+  // Back from a Checkout the webhook never confirms: a minute later, still waiting (the screens
+  // fixture's clock, run forward).
   await page.goto('/owner/billing?checkout=success');
   await expect(page.getByText('Confirming with Stripe…')).toBeVisible();
   await page.clock.runFor(61_000);

@@ -143,3 +143,36 @@ describe('the rules', () => {
     ]);
   });
 });
+
+describe('the forms’ edges', () => {
+  it('say an address taken outside the create form without the sign-in offer', () => {
+    expect(formErrorOf('email', failure('EMAIL_TAKEN'), t)).toEqual({
+      place: 'email',
+      title: 'account.error.emailTaken',
+    });
+  });
+
+  it('wait a minute when a rate limit names no time, and own no failure that isn’t the API’s', () => {
+    expect(retryAfterSeconds(failure('RATE_LIMITED'))).toBeNull();
+    expect(retryAfterSeconds(failure('RATE_LIMITED', { retryAfterSeconds: 'soon' }))).toBeNull();
+    expect(retryAfterSeconds(failure('EMAIL_TAKEN'))).toBeNull();
+    expect(retryAfterSeconds(new Error('offline'))).toBeNull();
+    expect(formErrorOf('signIn', failure('RATE_LIMITED'), t)?.body).toBe(
+      'account.error.tooMany.body {"minutes":1}',
+    );
+    expect(formErrorOf('signIn', new Error('offline'), t)).toBeNull();
+  });
+});
+
+describe('the account links’ edges (K8, K9)', () => {
+  it('read nothing for an unknown page or a link with no token', () => {
+    expect(accountLinkOf('https://wayfare.app/other-page#token=abc')).toBeNull();
+    expect(accountLinkOf('https://wayfare.app/verify-email#token=')).toBeNull();
+    expect(accountLinkOf('https://wayfare.app/verify-email#x=1')).toBeNull();
+  });
+
+  it('show the confirmed and reverted results for their pages', () => {
+    expect(linkResultOf('confirm', { sameAccount: true }, true)).toBe('confirmed');
+    expect(linkResultOf('revert', { sameAccount: false }, false)).toBe('reverted');
+  });
+});

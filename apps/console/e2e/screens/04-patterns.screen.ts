@@ -94,9 +94,9 @@ test('P5 toasts', async ({ page }) => {
     .getByRole('button', { name: 'Unpublish' })
     .click();
   await expect(page.getByText('Place unpublished')).toBeVisible();
-  // The pointer rests on the toasts from here on: it holds them (the success toast's 6 s would end
-  // before the dark capture) and spreads them out, both drawn whole. The error toast is raised from
-  // the keyboard, so the pointer never leaves.
+  // The pointer rests on the toasts from here on: it spreads them out, drawn whole (look() stops the
+  // clock, so the success toast's 6 s never run out between captures). The error toast is raised
+  // from the keyboard, so the pointer never leaves.
   await page.locator('[data-sonner-toast]').first().hover();
   await page.getByRole('button', { name: "Couldn't save" }).focus();
   await page.keyboard.press('Enter');

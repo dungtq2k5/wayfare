@@ -354,3 +354,198 @@ describe('the first run’s picker', () => {
     expect(store()).toMatchObject({ language: 'en', pendingLanguage: 'ja', switchFirstRun: true });
   });
 });
+
+describe('the lanes’ edges', () => {
+  it('a bundled language’s words are ready at once; only its places are waited for', async () => {
+    const f = fakes();
+    startLanguageSwitch(f.deps);
+    switchTo('vi');
+    await flush();
+    expect(f.deps.loadUi).not.toHaveBeenCalled();
+    expect(useSwitchStore.getState().ui).toBe('ready');
+    f.sync.resolve();
+    f.hotset.resolve({ ready: 3, required: 3 });
+    await flush();
+    expect(store().language).toBe('vi');
+  });
+
+  it('Diagnostics’ hotset hold answers as not ready, and asks again', async () => {
+    const f = fakes();
+    f.holds.holdHotset = true;
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    f.ui.resolve('ready');
+    f.sync.resolve();
+    await flush();
+    expect(f.deps.hotset).not.toHaveBeenCalled();
+    expect(useSwitchStore.getState().ready).toBe(0);
+    expect(f.waits.map((w) => w.ms)).toContain(5_000);
+    expect(store().language).toBe('en');
+  });
+
+  it('a sync the server refuses fails the switch', async () => {
+    const f = fakes({ sync: vi.fn(() => Promise.reject(new ApiError(500, 'INTERNAL', '-'))) });
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    await flush();
+    expect(useSwitchStore.getState().phase).toBe('failed');
+  });
+
+  it('a 429 without a Retry-After waits the usual 5 s', async () => {
+    const f = fakes({
+      hotset: vi.fn().mockRejectedValueOnce(new ApiError(429, 'RATE_LIMITED', '-')),
+    });
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    f.ui.resolve('ready');
+    f.sync.resolve();
+    await flush();
+    expect(f.waits.map((w) => w.ms)).toContain(5_000);
+    expect(useSwitchStore.getState().phase).toBe('running');
+  });
+
+  it('turns slow once its patience runs out, and Switch now completes it without the hotset', async () => {
+    const f = fakes();
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    f.ui.resolve('ready');
+    f.sync.resolve();
+    await flush();
+    switchNow();
+    expect(store().language).toBe('en');
+    f.waits[0]!.done();
+    await flush();
+    expect(useSwitchStore.getState().phase).toBe('slow');
+    switchNow();
+    expect(store()).toMatchObject({ language: 'ja', pendingLanguage: null });
+  });
+
+  it('picking the language already switched to does nothing; picking the current one cancels', async () => {
+    const f = fakes();
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    await flush();
+    const runs = vi.mocked(f.deps.syncedLike).mock.calls.length;
+    switchTo('ja');
+    await flush();
+    expect(vi.mocked(f.deps.syncedLike).mock.calls.length).toBe(runs);
+    switchTo('en');
+    expect(store().pendingLanguage).toBeNull();
+  });
+
+  it('compares with English when no language was set yet', async () => {
+    const f = fakes();
+    startLanguageSwitch(f.deps);
+    useAppStore.setState({ language: null });
+    switchTo('ja');
+    await flush();
+    expect(f.deps.syncedLike).toHaveBeenCalledWith('ja', 'en');
+  });
+
+  it('a language on the phone completes offline with no sync, and syncs online', async () => {
+    const f = fakes({
+      syncedLike: vi.fn(() => Promise.resolve(true)),
+      online: vi.fn(() => Promise.resolve(false)),
+    });
+    startLanguageSwitch(f.deps);
+    switchTo('vi');
+    await flush();
+    expect(f.deps.completed).toHaveBeenCalledWith('vi', { offline: true, toast: true });
+    expect(f.deps.sync).not.toHaveBeenCalled();
+  });
+
+  it('a network back while no switch waits for it runs nothing', async () => {
+    const f = fakes();
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    await flush();
+    const runs = vi.mocked(f.deps.syncedLike).mock.calls.length;
+    resumeSwitch();
+    resumeSwitch('ko');
+    await flush();
+    expect(vi.mocked(f.deps.syncedLike).mock.calls.length).toBe(runs);
+  });
+
+  it('offline, asks again every 30 s while it waits', async () => {
+    const f = fakes({ online: vi.fn(() => Promise.resolve(false)) });
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    await flush();
+    expect(useSwitchStore.getState().phase).toBe('offline');
+    // The patience is 30 s too: the retry is the later wait.
+    const retry = f.waits.filter((w) => w.ms === 30_000).at(-1)!;
+    vi.mocked(f.deps.online).mockResolvedValue(true);
+    retry.done();
+    await flush();
+    expect(useSwitchStore.getState().phase).toBe('running');
+  });
+});
+
+describe('a cancelled switch’s late answers', () => {
+  it('keeps asking for the words while they are still being translated', async () => {
+    const f = fakes({
+      loadUi: vi
+        .fn<SwitchDeps['loadUi']>()
+        .mockResolvedValueOnce('pending')
+        .mockResolvedValue('ready'),
+    });
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    await flush();
+    expect(f.deps.loadUi).toHaveBeenCalledTimes(2);
+    expect(useSwitchStore.getState().ui).toBe('ready');
+  });
+
+  it('a failed sync after Cancel changes nothing', async () => {
+    const f = fakes();
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    await flush();
+    cancelSwitch();
+    f.sync.reject(new ApiError(500, 'INTERNAL', '-'));
+    await flush();
+    expect(useSwitchStore.getState().phase).toBe('running');
+  });
+
+  it('a hotset answer, or its failure, after Cancel changes nothing', async () => {
+    const f = fakes();
+    startLanguageSwitch(f.deps);
+    switchTo('ja');
+    f.ui.resolve('ready');
+    f.sync.resolve();
+    await flush();
+    cancelSwitch();
+    f.hotset.resolve({ ready: 3, required: 3 });
+    await flush();
+    expect(store().language).toBe('en');
+
+    const g = fakes();
+    startLanguageSwitch(g.deps);
+    switchTo('ko');
+    g.ui.resolve('ready');
+    g.sync.resolve();
+    await flush();
+    cancelSwitch();
+    g.hotset.reject(new ApiError(500, 'INTERNAL', '-'));
+    await flush();
+    expect(useSwitchStore.getState().phase).toBe('running');
+  });
+
+  it('a connection check answering after Cancel completes nothing', async () => {
+    for (const onPhone of [true, false]) {
+      const online = deferred<boolean>();
+      const f = fakes({
+        online: vi.fn(() => online.promise),
+        syncedLike: vi.fn(() => Promise.resolve(onPhone)),
+      });
+      startLanguageSwitch(f.deps);
+      switchTo('vi');
+      await flush();
+      cancelSwitch();
+      online.resolve(true);
+      await flush();
+      expect(f.deps.completed).not.toHaveBeenCalled();
+      expect(f.deps.loadUi).not.toHaveBeenCalled();
+    }
+  });
+});
