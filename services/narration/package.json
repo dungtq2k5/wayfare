@@ -22,8 +22,8 @@
     "providers:smoke": "turbo run build --filter=@wayfare/narration --output-logs=errors-only && node dist/src/scripts/providers-smoke.js"
   },
   "dependencies": {
-    "@google-cloud/text-to-speech": "7.1.0",
-    "@google-cloud/translate": "10.1.0",
+    "@google-cloud/text-to-speech": "7.2.0",
+    "@google-cloud/translate": "10.3.0",
     "@grpc/grpc-js": "^1.14.5",
     "@grpc/proto-loader": "^0.8.1",
     "@nestjs/common": "11.2.9",
@@ -33,8 +33,8 @@
     "@nestjs/platform-express": "11.2.9",
     "@nestjs/swagger": "11.4.7",
     "@nestjs/websockets": "11.2.9",
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@wayfare/contracts": "workspace:*",
     "@wayfare/core": "workspace:*",
     "@wayfare/i18n": "workspace:*",
@@ -42,9 +42,9 @@
     "dotenv": "^17.4.2",
     "google-translate-api-x": "10.7.3",
     "ioredis": "^5.11.1",
-    "msedge-tts": "2.1.0",
-    "nestjs-zod": "^5.5.0",
-    "pg": "^8.23.0",
+    "msedge-tts": "2.1.1",
+    "nestjs-zod": "^5.6.0",
+    "pg": "^8.23.1",
     "prom-client": "^15.1.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -55,10 +55,10 @@
     "@nats-io/transport-node": "^3.4.0",
     "@nestjs/cli": "11.0.24",
     "@nestjs/testing": "11.2.9",
-    "@swc/cli": "^0.8.1",
+    "@swc/cli": "^0.8.2",
     "@types/node": "^24.13.5",
     "@types/pg": "^8.15.0",
     "@wayfare/config": "workspace:*",
-    "prisma": "7.10.0"
+    "prisma": "7.10.1"
   }
 }
