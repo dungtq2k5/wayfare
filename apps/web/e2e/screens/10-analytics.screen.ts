@@ -12,18 +12,26 @@ test('AC3 the question ★', async ({ page }) => {
   // The browser's database exists once the app opened it; the question is then made due.
   await page.goto(`/p/${state().church.code}`);
   await storeAnalytics(page, { due: true });
+  // The dialog opens without its zoom: a layer that animated can draw its text a pixel off until
+  // Chrome paints it plainly again, and when that happens varies by run (the 720 frame's labels).
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const still = document.createElement('style');
+      still.textContent = '[role="dialog"], [data-overlay] { animation: none !important; }';
+      document.head.append(still);
+    });
+  });
   await page.reload();
   await expect(
     page.getByRole('dialog', { name: "Help Wayfare learn what's heard?" }),
   ).toBeVisible();
-  // The dialog focuses *No thanks* as it opens, and whether Chrome draws that focus's ring
-  // (`:focus-visible`) differs by load: the frame is drawn without it, as the handoff's is.
+  // The dialog focuses *No thanks* as it opens and keeps it there (a blur would be undone by its
+  // trap, sooner or later). Whether Chrome draws that focus (`:focus-visible`) differs by load, so
+  // everything a focus draws on a button is taken off: the frame shows none, as the handoff's.
   await page.addStyleTag({
     content:
-      '[role="dialog"] button:focus-visible { outline: none !important; box-shadow: none !important; }',
+      '[role="dialog"] button:focus, [role="dialog"] button:focus-visible { outline: none !important; box-shadow: none !important; transition: none !important; }',
   });
-  // Its focus styles beyond the ring differ by load too: the button is drawn unfocused.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   // The week of opening hours varies by day; its mask would be drawn over the dialog, so the week
   // under the overlay is hidden instead.
   await page.evaluate(() => {
