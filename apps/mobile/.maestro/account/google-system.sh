@@ -19,7 +19,7 @@ D="google-only-${TS}@example.com"
 E="large-${TS}@example.com"
 LINKED="linked-elsewhere-${TS}@example.com"
 STAFF=superadmin@wayfare.local
-. ../common/seed-password.sh
+. ../common/run-password.sh
 
 FONT=$(adb shell settings get system font_scale)
 LOCATION=$(adb shell settings get secure location_mode)
