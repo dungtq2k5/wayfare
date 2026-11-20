@@ -6,7 +6,7 @@ import type { ComponentProps } from 'react';
 import { cn } from './cn';
 
 const surface =
-  'z-50 min-w-48 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-2 outline-none duration-(--duration-fast) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out motion-reduce:animate-none';
+  'z-50 min-w-48 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-2 outline-none duration-(--duration-fast) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out';
 const item =
   'flex cursor-default items-center gap-2 rounded-sm px-2 py-2 text-sm outline-none select-none data-[highlighted]:bg-muted data-[disabled]:opacity-50';
 

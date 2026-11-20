@@ -77,6 +77,8 @@ test('D2 an entry, D2b a duplicate term, D4 saved', async ({ page }) => {
   await page.getByRole('button', { name: 'Save entry' }).click();
   const toast = page.getByText('Entry saved');
   await expect(toast).toBeVisible();
+  // The frame is the list read again with the new entry in it, not the read under way.
+  await expect(page.getByText('The market and the ward')).toBeVisible();
   await look(page, 'd4-saved', { viewportOnly: true });
 });
 

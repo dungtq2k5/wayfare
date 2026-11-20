@@ -142,14 +142,7 @@ export function NarrationSection({
       );
     if (making(row.lang))
       return (
-        <State
-          icon={
-            <LoaderCircle
-              aria-hidden
-              className="animate-spin text-info-foreground motion-reduce:animate-none"
-            />
-          }
-        >
+        <State icon={<LoaderCircle aria-hidden className="animate-spin text-info-foreground" />}>
           {t('narration.beingMade')}
         </State>
       );
@@ -183,14 +176,7 @@ export function NarrationSection({
       );
     if (row.audioStatus === 'PENDING' || making(row.lang))
       return (
-        <State
-          icon={
-            <LoaderCircle
-              aria-hidden
-              className="animate-spin text-info-foreground motion-reduce:animate-none"
-            />
-          }
-        >
+        <State icon={<LoaderCircle aria-hidden className="animate-spin text-info-foreground" />}>
           {t('narration.beingMade')}
         </State>
       );

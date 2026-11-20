@@ -105,8 +105,8 @@ function OfferDialog({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
-        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 flex w-100 max-w-full -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-2xl bg-card p-6 text-card-foreground shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 motion-reduce:animate-none">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in" />
+        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 flex w-100 max-w-full -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-2xl bg-card p-6 text-card-foreground shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95">
           <DialogPrimitive.Title className="text-lg font-semibold text-foreground">
             {t('offer.title')}
           </DialogPrimitive.Title>

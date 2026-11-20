@@ -236,7 +236,7 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
           <ul className="flex flex-col gap-1 pl-6 [&_svg]:size-4 [&_svg]:shrink-0">
             {missing.includes('en.text') ? (
               <li className="flex items-center gap-2">
-                <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" />
+                <LoaderCircle aria-hidden className="animate-spin" />
                 {t('gate.enText')}
               </li>
             ) : null}
@@ -248,7 +248,7 @@ export function PlacePage({ initial }: { initial: PlaceDetail }) {
                 </li>
               ) : (
                 <li className="flex items-center gap-2">
-                  <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" />
+                  <LoaderCircle aria-hidden className="animate-spin" />
                   {t('gate.enAudioMaking')}
                 </li>
               )

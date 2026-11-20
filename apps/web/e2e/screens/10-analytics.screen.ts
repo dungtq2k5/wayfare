@@ -12,19 +12,14 @@ test('AC3 the question ★', async ({ page }) => {
   // The browser's database exists once the app opened it; the question is then made due.
   await page.goto(`/p/${state().church.code}`);
   await storeAnalytics(page, { due: true });
-  // The dialog opens without its zoom: a layer that animated can draw its text a pixel off until
-  // Chrome paints it plainly again, and when that happens varies by run (the 720 frame's labels).
-  await page.addInitScript(() => {
-    document.addEventListener('DOMContentLoaded', () => {
-      const still = document.createElement('style');
-      still.textContent = '[role="dialog"], [data-overlay] { animation: none !important; }';
-      document.head.append(still);
-    });
-  });
   await page.reload();
-  await expect(
-    page.getByRole('dialog', { name: "Help Wayfare learn what's heard?" }),
-  ).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: "Help Wayfare learn what's heard?" });
+  await expect(dialog).toBeVisible();
+  // The screens ask for reduced motion: the dialog opens without its zoom (globals.css ends every
+  // animation at once), so no capture catches a layer still settling.
+  expect(await dialog.evaluate((element) => getComputedStyle(element).animationDuration)).toBe(
+    '1e-05s',
+  );
   // The dialog focuses *No thanks* as it opens and keeps it there (a blur would be undone by its
   // trap, sooner or later). Whether Chrome draws that focus (`:focus-visible`) differs by load, so
   // everything a focus draws on a button is taken off: the frame shows none, as the handoff's.

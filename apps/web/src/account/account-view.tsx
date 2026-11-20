@@ -127,8 +127,8 @@ function FormDialog({
     return (
       <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
-          <AlertDialog.Content className="fixed inset-x-4 top-1/2 z-50 mx-auto flex max-h-dvh max-w-md -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-3 outline-none duration-(--duration-fast) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 motion-reduce:animate-none">
+          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in" />
+          <AlertDialog.Content className="fixed inset-x-4 top-1/2 z-50 mx-auto flex max-h-dvh max-w-md -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-3 outline-none duration-(--duration-fast) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95">
             <div className="flex flex-col gap-2">
               <AlertDialog.Title className="text-lg font-semibold text-foreground">
                 {title}

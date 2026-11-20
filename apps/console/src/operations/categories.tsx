@@ -215,9 +215,7 @@ export function Categories() {
           rows={list.data}
           rowKey={(row) => row.id}
           rowClassName={(row) =>
-            changed.has(row.id)
-              ? 'bg-accent'
-              : 'transition-colors duration-(--duration-slow) motion-reduce:transition-none'
+            changed.has(row.id) ? 'bg-accent' : 'transition-colors duration-(--duration-slow)'
           }
           cell={(row, column) => {
             switch (column) {
