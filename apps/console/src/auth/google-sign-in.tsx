@@ -94,7 +94,7 @@ export function GoogleSignIn({
       // import (an imported constant would not be).
       const fake =
         process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEV_TOOLS === '1'
-          ? await import('./fake-google')
+          ? await import('@wayfare/ui/fake-google')
           : null;
       const next =
         fake !== null && (await fake.fakeIssuer())
@@ -156,7 +156,7 @@ export function GoogleSignIn({
     )
       return;
     let undo: (() => void) | undefined;
-    void import('./fake-google').then(({ exposeCallback }) => {
+    void import('@wayfare/ui/fake-google').then(({ exposeCallback }) => {
       undo = exposeCallback(nonce, credential);
     });
     return () => undo?.();
@@ -174,7 +174,7 @@ export function GoogleSignIn({
           if (email === null || email.trim() === '' || nonce === null) return;
           if (process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_DEV_TOOLS !== '1')
             return;
-          void import('./fake-google')
+          void import('@wayfare/ui/fake-google')
             .then(({ mintFake }) => mintFake(email.trim(), nonce))
             .then((idToken) => credential({ credential: idToken }));
         }}

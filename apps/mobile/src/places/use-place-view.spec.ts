@@ -2,7 +2,7 @@
 import { ApiError } from '@wayfare/api-client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryKv } from '../testing/shell-fakes';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 
 vi.mock('expo-sqlite/kv-store', () => ({ default: memoryKv() }));
 interface Answer {

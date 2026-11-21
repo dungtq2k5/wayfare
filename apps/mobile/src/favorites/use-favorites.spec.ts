@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { keyTourist, memoryKv } from '../testing/shell-fakes';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 vi.mock('expo-sqlite/kv-store', () => ({ default: memoryKv() }));
 vi.mock('../i18n/use-tourist', () => ({ useTourist: () => keyTourist }));

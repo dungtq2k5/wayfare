@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { session } from '../../../client/browser-api';
-import { readPageCookie, SIGNED_IN_MARKER } from '../../../client/cookies';
+import { readPageCookie } from '@wayfare/ui/cookies';
+import { SIGNED_IN_MARKER } from '../../../client/cookies';
 import { LinkWorking } from '../../../auth/link';
 import { safeNext, signInHref } from '../../../session/next';
 

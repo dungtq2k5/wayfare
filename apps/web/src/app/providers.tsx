@@ -6,7 +6,7 @@ import { Toaster } from '@wayfare/ui/toaster';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import '../client/browser-api';
-import { setPageCookie } from '../client/cookies';
+import { setPageCookie } from '@wayfare/ui/cookies';
 import type { Messages } from '../i18n/messages';
 import { I18nProvider } from '../i18n/provider';
 import { AccountOfferProvider } from '../favourites/account-offer';

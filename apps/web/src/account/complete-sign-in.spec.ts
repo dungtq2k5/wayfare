@@ -8,7 +8,7 @@ vi.mock('../client/db', () => kv);
 
 const { completeSignIn, countSavedHere, MERGE_NOTE_KEY, safeNext } =
   await import('./complete-sign-in');
-const { readPageCookie } = await import('../client/cookies');
+const { readPageCookie } = await import('@wayfare/ui/cookies');
 
 const saved = (n: number) => ({ data: Array.from({ length: n }, (_, i) => ({ id: `p${i}` })) });
 

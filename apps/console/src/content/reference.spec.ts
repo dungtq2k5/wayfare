@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { createTranslator } from '../i18n/messages';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 vi.mock('../i18n/provider', () => ({ useConsole: () => createTranslator('en') }));
 const api = vi.hoisted(() => ({

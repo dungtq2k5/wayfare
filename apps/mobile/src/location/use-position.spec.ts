@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nativeFake } from '../testing/react-native';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 import { phone, resetPhone } from '../testing/walk-fakes';
 
 vi.mock('expo-location', async () => (await import('../testing/walk-fakes')).expoLocation);

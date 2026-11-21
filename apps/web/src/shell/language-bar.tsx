@@ -3,7 +3,7 @@
 import { Button } from '@wayfare/ui/button';
 import { Languages } from 'lucide-react';
 import { useEffect } from 'react';
-import { setPageCookie } from '../client/cookies';
+import { setPageCookie } from '@wayfare/ui/cookies';
 import { LANGUAGE_COOKIE } from '../i18n/language';
 import { useWeb } from '../i18n/provider';
 import { useLanguagePicker } from './language-picker-state';

@@ -3,7 +3,7 @@ import { ApiError } from '@wayfare/api-client';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTranslator, ENGLISH } from '../i18n/messages';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 
 vi.mock('../i18n/provider', () => ({ useWeb: () => createTranslator('en', ENGLISH) }));
 const api = vi.hoisted(() => ({ authGoogleSignIn: vi.fn() }));

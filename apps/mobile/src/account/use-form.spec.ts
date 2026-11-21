@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 
 vi.mock('../env', () => ({ API_URL: 'http://localhost:13000/api/v1' }));
 

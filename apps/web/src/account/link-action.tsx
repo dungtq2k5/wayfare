@@ -10,7 +10,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Undo2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { clearPageCookie } from '../client/cookies';
+import { clearPageCookie } from '@wayfare/ui/cookies';
 import { useWeb } from '../i18n/provider';
 import { ME_KEY } from './me';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';

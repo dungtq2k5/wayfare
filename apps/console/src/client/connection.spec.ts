@@ -2,7 +2,7 @@
 import { ApiError, NETWORK_ERROR_CODE } from '@wayfare/api-client';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 import { noteOutcome, useConnection } from './connection';
 
 const online = (value: boolean) => vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(value);

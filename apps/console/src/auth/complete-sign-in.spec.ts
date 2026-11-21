@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readPageCookie } from '../client/cookies';
-import { forgetCookie } from '../testing/cookies';
+import { readPageCookie } from '@wayfare/ui/cookies';
+import { forgetCookie } from '@wayfare/ui/testing';
 import { completeSignIn } from './complete-sign-in';
 
 describe('a session just opened (C5, K12)', () => {

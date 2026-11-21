@@ -3,7 +3,7 @@ import type { InfiniteData } from '@tanstack/react-query';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FeedNotification } from '../notifications/text';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 
 /** The socket's handlers by event, as the hook registers them; the test delivers the events. */
 const socket = vi.hoisted(() => ({ handlers: new Map<string, (payload: unknown) => void>() }));

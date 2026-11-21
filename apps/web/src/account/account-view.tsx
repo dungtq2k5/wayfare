@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation';
 import { AlertDialog } from 'radix-ui';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { clearPageCookie } from '../client/cookies';
+import { clearPageCookie } from '@wayfare/ui/cookies';
 import { useWeb } from '../i18n/provider';
 import { WebErrorState } from '../ui/error-state';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';

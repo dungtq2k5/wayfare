@@ -1,6 +1,7 @@
 'use client';
 
-import { setPageCookie, SIGNED_IN_MARKER } from '../client/cookies';
+import { setPageCookie } from '@wayfare/ui/cookies';
+import { SIGNED_IN_MARKER } from '../client/cookies';
 import { accountLocale, LANGUAGE_COOKIE } from '../i18n/language';
 import { safeNext } from '../session/next';
 

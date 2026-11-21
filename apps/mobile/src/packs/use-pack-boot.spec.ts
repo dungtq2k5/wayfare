@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nativeFake } from '../testing/react-native';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 import type { Pack } from './db';
 import type { PackFile } from './plan';
 

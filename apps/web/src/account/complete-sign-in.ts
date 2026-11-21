@@ -1,7 +1,7 @@
 'use client';
 
 import { favoritesList } from '@wayfare/api-client';
-import { setPageCookie } from '../client/cookies';
+import { setPageCookie } from '@wayfare/ui/cookies';
 import { writeKv } from '../client/db';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
 

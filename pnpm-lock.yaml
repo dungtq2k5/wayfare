@@ -353,6 +353,9 @@ importers:
       '@types/react':
         specifier: ~19.2.2
         version: 19.2.18
+      '@wayfare/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       babel-preset-expo:
         specifier: ~57.0.13
         version: 57.0.13(@babel/core@7.29.7)(@babel/runtime@7.29.7)(expo@57.0.26)(react-refresh@0.14.2)
@@ -705,6 +708,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@wayfare/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -730,6 +736,9 @@ importers:
         specifier: 3.7.0
         version: 3.7.0
     devDependencies:
+      '@tanstack/react-query':
+        specifier: ^5.104.0
+        version: 5.104.0(react@19.3.1)
       '@types/react':
         specifier: ~19.3.0
         version: 19.3.0

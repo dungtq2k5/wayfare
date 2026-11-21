@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 /** A client whose snapshots the test pushes. */
 const client = vi.hoisted(() => {

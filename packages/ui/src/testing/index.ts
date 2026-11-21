@@ -1,4 +1,5 @@
-// Renders a hook in a happy-dom document, for a spec that declares `@vitest-environment happy-dom`.
+// The apps' spec helpers (test files only, as `@wayfare/contracts/testing`): a hook rendered in a
+// happy-dom document, for a spec that declares `@vitest-environment happy-dom`, and a cookie removed.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, createElement } from 'react';
 import type { ReactNode } from 'react';
@@ -40,4 +41,12 @@ export async function settle(): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
   }
+}
+
+/**
+ * Removes a cookie from happy-dom's document. Its `Max-Age=0` leaves the cookie behind, empty
+ * (a browser removes it), so a spec starts clean with a past `Expires` instead.
+ */
+export function forgetCookie(name: string): void {
+  document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }

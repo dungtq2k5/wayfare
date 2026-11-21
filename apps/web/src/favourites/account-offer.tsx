@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { createContext, useCallback, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { readPageCookie } from '../client/cookies';
+import { readPageCookie } from '@wayfare/ui/cookies';
 import { readKv, writeKv } from '../client/db';
 import { useWeb } from '../i18n/provider';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';

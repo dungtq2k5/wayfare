@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * A first-party cookie the web app's own pages read: a year, every path, lax. Each name is the web
- * app's own (`wf_web_*`): cookies ignore ports, so locally the console's would otherwise mix in.
+ * A first-party cookie an app's own pages read: a year unless said, every path, lax. Each app keeps
+ * its own names (the web's `wf_web_*`, the console's `wf_*`): cookies ignore ports, so locally the
+ * two apps' would otherwise mix.
  */
 export function setPageCookie(name: string, value: string, maxAgeSeconds = 31_536_000): void {
   document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`;

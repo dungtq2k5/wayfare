@@ -52,10 +52,10 @@ const unit = (
   name: string,
   dir: string,
   include: string[],
-  extra: { alias?: typeof alias; inline?: RegExp[] } = {},
+  extra: { alias?: typeof alias; inline?: RegExp[]; dedupe?: string[] } = {},
 ) => ({
   plugins: [swcPlugin()],
-  resolve: { alias: [...(extra.alias ?? []), ...alias] },
+  resolve: { alias: [...(extra.alias ?? []), ...alias], dedupe: extra.dedupe },
   test: {
     name: `unit:${name}`,
     root: root(dir),
@@ -99,9 +99,10 @@ const integration = (name: string, include: string[]) => ({
 });
 
 /**
- * The mobile app's specs render its hooks with the web's React and `react-dom` (React Native's
- * React has no `react-dom` of its own version), and read `react-native` from a fake: its real
- * entry is Flow, which only Metro reads. zustand and React Query are inlined, so they share it.
+ * The mobile app's specs render its hooks (`@wayfare/ui/testing`) with the web's React and
+ * `react-dom` (React Native's React has no `react-dom` of its own version), and read `react-native`
+ * from a fake: its real entry is Flow, which only Metro reads. zustand and React Query are inlined,
+ * so they share it.
  */
 const fromWeb = createRequire(root('./apps/web/package.json'));
 const mobileTest = {
@@ -111,7 +112,9 @@ const mobileTest = {
     { find: /^react-dom\/client$/, replacement: fromWeb.resolve('react-dom/client') },
     { find: /^react-native$/, replacement: root('./apps/mobile/src/testing/react-native.ts') },
   ],
-  inline: [/zustand/, /@tanstack\/react-query/, /react-i18next/],
+  inline: [/zustand/, /@tanstack\/react-query/, /react-i18next/, /@wayfare\/ui/],
+  // The app's own React Query for `@wayfare/ui/testing`'s provider too: one copy, one context.
+  dedupe: ['@tanstack/react-query'],
 };
 
 /**

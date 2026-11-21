@@ -3,7 +3,7 @@ import { NARRATION_CONFIG } from '@wayfare/contracts';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nativeFake } from '../testing/react-native';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 const network = vi.hoisted(() => {
   const listeners = new Set<(state: { isConnected: boolean | null }) => void>();
