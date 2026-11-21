@@ -56,9 +56,10 @@ erase() {
 # The AUTH budget, and the device registration's, back to full.
 fresh() {
   local keys
-  keys=$(docker exec wayfare-redis redis-cli --scan --pattern 'rl:AUTH:*')
-  [[ -n "$keys" ]] && docker exec wayfare-redis redis-cli DEL $keys > /dev/null
-  docker exec wayfare-redis redis-cli DEL 'rl:DEVICE_REGISTRATION:ip:::ffff:127.0.0.1' > /dev/null
+  # Every AUTH bucket (AUTH_LOGIN by IP, email and device; the rest) and the registration budget,
+  # by pattern: the keys' names follow the gateway's buckets and its IPv6 /64 grouping.
+  keys=$(docker exec wayfare-redis redis-cli --scan --pattern 'rl:AUTH*'; docker exec wayfare-redis redis-cli --scan --pattern 'rl:DEVICE_REGISTRATION:*')
+  if [[ -n "$keys" ]]; then docker exec wayfare-redis redis-cli DEL $keys > /dev/null; fi
 }
 part() {
   local flow=$1
