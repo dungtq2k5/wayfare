@@ -68,6 +68,37 @@ const unit = (
 });
 
 /**
+ * A service's integration suites against its real `_test` database (conventions §17.2): one global
+ * setup per service, which reads its own `.env` and never writes `process.env`; the suites run
+ * serially, since they share the database.
+ */
+const integration = (name: string, include: string[]) => ({
+  plugins: [swcPlugin()],
+  resolve: { alias },
+  test: {
+    name: `integration:${name}`,
+    root: root(`./services/${name}`),
+    include,
+    environment: 'node',
+    globalSetup: ['test/setup/global-setup.ts'],
+    setupFiles: [
+      root('./vitest.setup.ts'),
+      root('./vitest.integration.setup.ts'),
+      'test/setup/env.ts',
+    ],
+    // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
+    // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
+    // output. Quiet in the integration runs only; the services keep the warning.
+    execArgv: ['--disable-warning=MaxListenersExceededWarning'],
+    env: { OTEL_SDK_DISABLED: 'true' },
+    // One database: suites run serially (conventions §17.2).
+    fileParallelism: false,
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
+  },
+});
+
+/**
  * The mobile app's specs render its hooks with the web's React and `react-dom` (React Native's
  * React has no `react-dom` of its own version), and read `react-native` from a fake: its real
  * entry is Flow, which only Metro reads. zustand and React Query are inlined, so they share it.
@@ -180,131 +211,11 @@ export default defineConfig({
       unit('config', './packages/config', ['markdownlint/**/*.spec.ts']),
       // Repo-wide rules as tests (conventions §17.4); also a named step in pr.yml.
       unit('guards', './packages/config', ['guards/**/*.spec.ts']),
-      {
-        plugins: [swcPlugin()],
-        resolve: { alias },
-        test: {
-          name: 'integration:identity',
-          root: root('./services/identity'),
-          include: ['test/integration/**/*.spec.ts', 'test/contract/**/*.spec.ts'],
-          environment: 'node',
-          globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [
-            root('./vitest.setup.ts'),
-            root('./vitest.integration.setup.ts'),
-            'test/setup/env.ts',
-          ],
-          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
-          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
-          // output. Quiet in the integration runs only; the services keep the warning.
-          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
-          env: { OTEL_SDK_DISABLED: 'true' },
-          // One database: suites run serially (conventions §17.2).
-          fileParallelism: false,
-          testTimeout: 30_000,
-          hookTimeout: 60_000,
-        },
-      },
-      {
-        plugins: [swcPlugin()],
-        resolve: { alias },
-        test: {
-          name: 'integration:catalog',
-          root: root('./services/catalog'),
-          include: ['test/integration/**/*.spec.ts'],
-          environment: 'node',
-          globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [
-            root('./vitest.setup.ts'),
-            root('./vitest.integration.setup.ts'),
-            'test/setup/env.ts',
-          ],
-          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
-          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
-          // output. Quiet in the integration runs only; the services keep the warning.
-          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
-          env: { OTEL_SDK_DISABLED: 'true' },
-          // One database: suites run serially (conventions §17.2).
-          fileParallelism: false,
-          testTimeout: 30_000,
-          hookTimeout: 60_000,
-        },
-      },
-      {
-        plugins: [swcPlugin()],
-        resolve: { alias },
-        test: {
-          name: 'integration:narration',
-          root: root('./services/narration'),
-          include: ['test/integration/**/*.spec.ts'],
-          environment: 'node',
-          globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [
-            root('./vitest.setup.ts'),
-            root('./vitest.integration.setup.ts'),
-            'test/setup/env.ts',
-          ],
-          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
-          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
-          // output. Quiet in the integration runs only; the services keep the warning.
-          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
-          env: { OTEL_SDK_DISABLED: 'true' },
-          // One database: suites run serially (conventions §17.2).
-          fileParallelism: false,
-          testTimeout: 30_000,
-          hookTimeout: 60_000,
-        },
-      },
-      {
-        plugins: [swcPlugin()],
-        resolve: { alias },
-        test: {
-          name: 'integration:billing',
-          root: root('./services/billing'),
-          include: ['test/integration/**/*.spec.ts'],
-          environment: 'node',
-          globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [
-            root('./vitest.setup.ts'),
-            root('./vitest.integration.setup.ts'),
-            'test/setup/env.ts',
-          ],
-          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
-          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
-          // output. Quiet in the integration runs only; the services keep the warning.
-          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
-          env: { OTEL_SDK_DISABLED: 'true' },
-          // One database: suites run serially (conventions §17.2).
-          fileParallelism: false,
-          testTimeout: 30_000,
-          hookTimeout: 60_000,
-        },
-      },
-      {
-        plugins: [swcPlugin()],
-        resolve: { alias },
-        test: {
-          name: 'integration:analytics',
-          root: root('./services/analytics'),
-          include: ['test/integration/**/*.spec.ts'],
-          environment: 'node',
-          globalSetup: ['test/setup/global-setup.ts'],
-          setupFiles: [
-            root('./vitest.setup.ts'),
-            root('./vitest.integration.setup.ts'),
-            'test/setup/env.ts',
-          ],
-          // @google-cloud/storage's request stream (teeny-request@11.0.1) puts more than ten listeners
-          // on one short-lived PassThrough per call: not ours, not a leak, and it fills the run's
-          // output. Quiet in the integration runs only; the services keep the warning.
-          execArgv: ['--disable-warning=MaxListenersExceededWarning'],
-          env: { OTEL_SDK_DISABLED: 'true' },
-          // One database: suites run serially (conventions §17.2).
-          fileParallelism: false,
-          testTimeout: 30_000,
-          hookTimeout: 60_000,
-        },
-      },
+      integration('identity', ['test/integration/**/*.spec.ts', 'test/contract/**/*.spec.ts']),
+      integration('catalog', ['test/integration/**/*.spec.ts']),
+      integration('narration', ['test/integration/**/*.spec.ts']),
+      integration('billing', ['test/integration/**/*.spec.ts']),
+      integration('analytics', ['test/integration/**/*.spec.ts']),
     ],
   },
 });
