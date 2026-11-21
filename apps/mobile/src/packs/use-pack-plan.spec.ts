@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { OfflineManifest } from '@wayfare/contracts';
 import { describe, expect, it, vi } from 'vitest';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 import type { Pack } from './db';
 import type { PackFile } from './plan';
 

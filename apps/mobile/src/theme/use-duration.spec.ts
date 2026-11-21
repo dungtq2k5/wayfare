@@ -3,7 +3,7 @@ import { duration } from '@wayfare/design-tokens/tokens';
 import { act } from 'react';
 import { describe, expect, it } from 'vitest';
 import { nativeFake } from '../testing/react-native';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 import { useDuration } from './use-duration';
 
 describe('an animation’s length (conventions §12.5)', () => {

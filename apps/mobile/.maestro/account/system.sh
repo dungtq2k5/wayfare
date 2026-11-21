@@ -20,7 +20,7 @@ B="alexa${TS}a@example.com"
 C="tourist-${TS}@example.com"
 B2="moved-${TS}@example.com"
 NOBODY="nobody-${TS}@example.com"
-PASSWORD=lantern-river-82
+. ../common/run-password.sh
 NEWPASS=harbour-lamp-47
 # A Place the second device saves: Phố đi bộ Nguyễn Huệ.
 FAV_PLACE=01a0b373-d3eb-73c0-bd63-bf84794a5ab2
@@ -57,7 +57,7 @@ erase() {
 fresh() {
   local keys
   keys=$(docker exec wayfare-redis redis-cli --scan --pattern 'rl:AUTH:*')
-  [ -n "$keys" ] && docker exec wayfare-redis redis-cli DEL $keys > /dev/null
+  [[ -n "$keys" ]] && docker exec wayfare-redis redis-cli DEL $keys > /dev/null
   docker exec wayfare-redis redis-cli DEL 'rl:DEVICE_REGISTRATION:ip:::ffff:127.0.0.1' > /dev/null
 }
 part() {

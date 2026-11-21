@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { ApiError } from '@wayfare/api-client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setPageCookie } from '../client/cookies';
-import { forgetCookie } from '../testing/cookies';
-import { renderHook, settle } from '../testing/render-hook';
+import { setPageCookie } from '@wayfare/ui/cookies';
+import { forgetCookie } from '@wayfare/ui/testing';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 const api = vi.hoisted(() => ({ usersMe: vi.fn() }));
 vi.mock('@wayfare/api-client', async (importOriginal) => ({

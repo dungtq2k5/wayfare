@@ -1,7 +1,8 @@
 'use client';
 
-// The stack's fake Google issuer (ADR 0063), for a development build only: google-sign-in.tsx
-// imports this module behind its development check, so a production build never loads it.
+// The stack's fake Google issuer (ADR 0063), for a development build only: each app's
+// google-sign-in.tsx imports this module behind its development check, so a production build
+// never loads it.
 import { apiFetch } from '@wayfare/api-client';
 
 declare global {

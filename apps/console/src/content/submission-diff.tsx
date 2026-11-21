@@ -319,7 +319,7 @@ function HoursDiff({ columns }: { columns: readonly DiffColumn[] }) {
       className="relative overflow-x-auto"
       role="region"
       aria-label={t('a11y.table', { name: t('placeForm.hours') })}
-      tabIndex={0}
+      tabIndex={0} // NOSONAR: S6845, a labelled region that scrolls on its own must be reachable by keyboard (axe scrollable-region-focusable)
     >
       <table className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">

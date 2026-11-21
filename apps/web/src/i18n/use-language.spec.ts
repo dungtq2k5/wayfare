@@ -2,9 +2,9 @@
 import { AnalyticsEventType } from '@wayfare/contracts';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readPageCookie, setPageCookie } from '../client/cookies';
-import { forgetCookie } from '../testing/cookies';
-import { renderHook, settle } from '../testing/render-hook';
+import { readPageCookie, setPageCookie } from '@wayfare/ui/cookies';
+import { forgetCookie } from '@wayfare/ui/testing';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 const router = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));

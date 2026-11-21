@@ -86,6 +86,16 @@ test('WL1 the language picker', async ({ page }) => {
     ),
   );
   await look(page, 'wl1-language-picker', { extra: ['720', '1440'], viewportOnly: true });
+  // The options keep one Tab stop between them (the chosen language) and the arrows move within;
+  // the list holds focus only by script, never as a Tab stop of its own.
+  const list = page.getByRole('listbox', { name: 'Language' });
+  await expect(list).toHaveAttribute('tabindex', '-1');
+  await page.getByRole('option', { name: /English/ }).focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator(':focus')).toHaveAttribute('role', 'option');
+  await expect(page.locator(':focus')).not.toHaveAccessibleName(/English/);
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator(':focus')).not.toHaveAttribute('role', 'listbox');
 });
 
 test('WL2 switching while a story plays', async ({ page }) => {

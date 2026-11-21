@@ -450,7 +450,7 @@ export function PlanForm({ plan }: { plan: Plan | null }) {
             {/* Only while vouchers are sold, so a commission without selling can't be typed (K12). */}
             <div aria-live="polite">
               {draft.canSellVouchers ? (
-                <div className="grid gap-4 duration-(--duration-normal) animate-in fade-in md:grid-cols-2 motion-reduce:animate-none">
+                <div className="grid gap-4 duration-(--duration-normal) animate-in fade-in md:grid-cols-2">
                   <Field
                     label={t('planForm.commission')}
                     required

@@ -19,7 +19,7 @@ D="google-only-${TS}@example.com"
 E="large-${TS}@example.com"
 LINKED="linked-elsewhere-${TS}@example.com"
 STAFF=superadmin@wayfare.local
-PASSWORD=lantern-river-82
+. ../common/run-password.sh
 
 FONT=$(adb shell settings get system font_scale)
 LOCATION=$(adb shell settings get secure location_mode)
@@ -83,7 +83,7 @@ echo "mail to A: $mail"
 case "$mail" in *"Your Wayfare password was removed"*) ;; *) echo 'FAILED: no removal email'; exit 1 ;; esac
 status=$(api -o /dev/null -w '%{http_code}' -X POST "$API/auth/login" -d "{\"email\":\"$A\",\"password\":\"$PASSWORD\"}")
 echo "A's old password: $status"
-[ "$status" = 401 ] || { echo 'FAILED: the old password still works'; exit 1; }
+[[ "$status" = 401 ]] || { echo 'FAILED: the old password still works'; exit 1; }
 part google-linked B="$B"
 part google-password-step C="$C" PASSWORD="$PASSWORD"
 part google-only D="$D"

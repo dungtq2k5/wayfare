@@ -4,8 +4,8 @@ import { ApiError } from '@wayfare/api-client';
 import { LEGAL_DOCUMENT_VERSIONS, LegalDocument } from '@wayfare/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WebSessionOptions } from '../session/web-session';
-import { forgetCookie } from '../testing/cookies';
-import { readPageCookie, setPageCookie } from './cookies';
+import { forgetCookie } from '@wayfare/ui/testing';
+import { readPageCookie, setPageCookie } from '@wayfare/ui/cookies';
 
 const api = vi.hoisted(() => ({
   authRefresh: vi.fn(),

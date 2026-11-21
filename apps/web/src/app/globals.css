@@ -81,3 +81,17 @@
     font-family: var(--font-be-vietnam-pro), var(--font-noto-tc, 'Noto Sans TC'), sans-serif;
   }
 }
+
+/* Reduced motion, for every component at once (conventions §12.8): every animation and transition
+   ends at once, whatever its classes say. Unlayered and important, so no component's own
+   `data-[state=open]:animate-in` outranks it, as it outranked `motion-reduce:` classes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

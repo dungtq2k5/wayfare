@@ -200,7 +200,7 @@ function InlinePlayer({ language }: { language: string | null }) {
         className={`${round} bg-now-playing-foreground text-now-playing`}
       >
         {preparing ? (
-          <LoaderCircle aria-hidden className="size-6 animate-spin motion-reduce:animate-none" />
+          <LoaderCircle aria-hidden className="size-6 animate-spin" />
         ) : playing ? (
           <Pause aria-hidden className="size-6" />
         ) : (

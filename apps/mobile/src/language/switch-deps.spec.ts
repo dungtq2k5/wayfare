@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 import type { SwitchDeps } from './switch';
 
 vi.mock('expo-sqlite/kv-store', async () => ({

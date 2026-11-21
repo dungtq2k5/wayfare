@@ -59,7 +59,7 @@ export function ChartCard({
         ) : (
           <div
             // Scrolls on its own: a keyboard reaches it, and it says what it holds.
-            tabIndex={0}
+            tabIndex={0} // NOSONAR: S6845, a labelled region that scrolls on its own must be reachable by keyboard (axe scrollable-region-focusable)
             role="region"
             aria-label={title}
             className="max-h-96 overflow-y-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"

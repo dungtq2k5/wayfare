@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { describe, expect, it } from 'vitest';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 import { setInlineVisible, useInlineVisible } from './inline-visibility';
 
 describe('the inline player on screen (WQ2)', () => {

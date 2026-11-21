@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 
 /** The heard_places table, as far as heard-records uses it. */
 const db = vi.hoisted(() => {

@@ -75,7 +75,7 @@ const JOB_TONES: Record<JobTone, { className: string; icon: ReactNode }> = {
   waiting: { className: 'bg-muted text-muted-foreground', icon: <Clock aria-hidden /> },
   running: {
     className: 'bg-info text-info-foreground',
-    icon: <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" />,
+    icon: <LoaderCircle aria-hidden className="animate-spin" />,
   },
   paused: { className: 'bg-warning text-warning-foreground', icon: <Pause aria-hidden /> },
   done: { className: 'bg-success text-success-foreground', icon: <CircleCheck aria-hidden /> },
@@ -108,7 +108,7 @@ export function Progress({ value, max, label }: { value: number; max: number; la
     <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
       <span aria-hidden className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
         <span
-          className="block h-full rounded-full bg-primary transition-all duration-(--duration-normal) ease-linear motion-reduce:transition-none"
+          className="block h-full rounded-full bg-primary transition-all duration-(--duration-normal) ease-linear"
           style={{ width: `${share}%` }}
         />
       </span>

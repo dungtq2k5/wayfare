@@ -9,7 +9,7 @@ import {
 } from '@wayfare/ui/menu';
 import { ChevronDown, Languages } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { setPageCookie } from '../client/cookies';
+import { setPageCookie } from '@wayfare/ui/cookies';
 import { LANGUAGE_COOKIE } from '../i18n/language';
 import { CONSOLE_LOCALES } from '../i18n/messages';
 import { useConsole } from '../i18n/provider';

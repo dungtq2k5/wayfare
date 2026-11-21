@@ -64,7 +64,7 @@ down() { "${compose[@]}" --profile apps down -v --remove-orphans; }
 # (a database that closed a connection, a service that exited), to stderr.
 on_exit() {
   local status=$?
-  if [ "$status" -ne 0 ]; then
+  if [[ "$status" -ne 0 ]]; then
     echo "stack.sh failed ($status): each container's last lines" >&2
     "${compose[@]}" --profile apps logs --no-color --timestamps --tail=40 >&2 || true
   fi

@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlayerPlace } from '../data/player-place';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 import type { Narration } from './types';
 
 vi.mock('expo-sqlite/kv-store', () =>

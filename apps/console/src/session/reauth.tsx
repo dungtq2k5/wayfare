@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from '@wayfare/ui/d
 import { Field, FormAlert, Input, PasswordInput } from '@wayfare/ui/field';
 import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { clearPageCookie, SIGNED_IN_MARKER } from '../client/cookies';
+import { clearPageCookie } from '@wayfare/ui/cookies';
+import { SIGNED_IN_MARKER } from '../client/cookies';
 import { errorText } from '../client/errors';
 import { validateForm } from '../forms/field-errors';
 import { useConsole } from '../i18n/provider';

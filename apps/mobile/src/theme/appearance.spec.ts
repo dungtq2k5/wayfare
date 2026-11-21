@@ -3,7 +3,7 @@ import { colors } from '@wayfare/design-tokens/tokens';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryKv } from '../testing/shell-fakes';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 const scheme = vi.hoisted(() => ({ chosen: 'system', system: 'light', shown: 'light' }));
 vi.mock('nativewind', () => ({

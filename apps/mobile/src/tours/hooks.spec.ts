@@ -3,7 +3,7 @@ import { newId } from '@wayfare/contracts';
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { memoryKv, tourRecord } from '../testing/shell-fakes';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 
 vi.mock('expo-sqlite/kv-store', () => ({ default: memoryKv() }));
 vi.mock('../data/boot', async () => {

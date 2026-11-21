@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { renderHook } from '../testing/render-hook';
+import { renderHook } from '@wayfare/ui/testing';
 
 const state = vi.hoisted(() => ({
   areas: undefined as undefined | { data: { id: string }[] },

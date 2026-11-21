@@ -196,7 +196,7 @@ export function TourPage({ initial }: { initial: TourDetail }) {
           </strong>
           <span className="pl-6">{t('tour.gateBody')}</span>
           <span className="flex items-center gap-2 pl-6">
-            <LoaderCircle aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
+            <LoaderCircle aria-hidden className="size-4 animate-spin" />
             {t('tour.gateText')}
           </span>
         </div>

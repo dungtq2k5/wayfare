@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { renderHook, settle } from '../testing/render-hook';
+import { renderHook, settle } from '@wayfare/ui/testing';
 import type { Pack } from './db';
 
 vi.mock('expo-file-system', async () => (await import('../testing/packs-fakes')).fileSystem);
