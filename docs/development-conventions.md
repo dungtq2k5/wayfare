@@ -126,6 +126,8 @@ A table belongs to the service that owns its domain in rdm-spec §1.1, **whether
 | A pure domain rule used by one service | `services/<svc>/src/modules/<mod>/domain/` |
 | A Nest guard, interceptor or decorator shared by services | `packages/nest-common/src/<kind>/` |
 | A React component used by`web` and `console` | `packages/ui/src/` |
+| Browser code used by `web` and `console` (a page cookie, the development fake Google issuer) — never copied into each app | `packages/ui/src/`, its own export (`@wayfare/ui/cookies`) |
+| A test helper the apps' specs share (`renderHook`, `settle`, `forgetCookie`) | `packages/ui/src/testing/`, imported as `@wayfare/ui/testing` by test files only (mobile's specs too, through a dev dependency) |
 | An i18n message | `packages/i18n/locales/<locale>/<namespace>.json` |
 | A provider adapter (the one file that imports a vendor SDK) | `services/<svc>/src/providers/<kind>/<vendor>.<kind>-provider.ts` — outside `modules/`; an adapter two services use lives in `packages/nest-common/src/providers/<kind>/`, exported from its own subpath (`@wayfare/nest-common/<kind>`) so services that do not use it never load its SDK |
 | SQL Prisma cannot express | `services/<svc>/prisma/sql/schema-objects.sql` ([ADR 0045](./decisions/0045-schema-objects-prisma-cannot-express-live-in-committed-sql.md)) |
