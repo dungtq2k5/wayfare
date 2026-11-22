@@ -86,18 +86,20 @@ export function PlayStory({
   // the one playing, not on the player's state: that changes with every tick of the elapsed time,
   // and each new observer would hand the mini player back for a frame (it flickered on a phone).
   const active = current !== null;
+  // Each player reports only itself: another of the same Place may be in view (WQ2).
+  const playerId = useId();
   useEffect(() => {
     const element = box.current;
     if (element === null || !active) return;
     const observer = new IntersectionObserver(([entry]) =>
-      setInlineVisible(entry?.isIntersecting === true ? track.placeId : null),
+      setInlineVisible(playerId, entry?.isIntersecting === true ? track.placeId : null),
     );
     observer.observe(element);
     return () => {
       observer.disconnect();
-      setInlineVisible(null);
+      setInlineVisible(playerId, null);
     };
-  }, [active, track.placeId]);
+  }, [active, playerId, track.placeId]);
 
   const label = englishFallback
     ? length === null
