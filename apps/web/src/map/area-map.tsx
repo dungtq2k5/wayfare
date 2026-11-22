@@ -84,6 +84,9 @@ export function AreaMap({
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef(new Map<string, { marker: maplibregl.Marker; element: HTMLElement }>());
   const [elements, setElements] = useState<ReadonlyMap<string, HTMLElement>>(new Map());
+  // The pins wait for the map (WM5): without streets under them they place nothing, and while it
+  // draws the message there sends the reader to the list, which holds the same Places.
+  const [drawn, setDrawn] = useState(false);
   const userMarker = useRef<maplibregl.Marker | null>(null);
   const moved = useRef(onMoved);
   const loaded = useRef(onLoaded);
@@ -116,6 +119,7 @@ export function AreaMap({
     instance.on('moveend', report);
     void instance.once('load', () => {
       report();
+      setDrawn(true);
       loaded.current?.();
     });
     map.current = instance;
@@ -124,6 +128,7 @@ export function AreaMap({
       instance.remove();
       map.current = null;
       placed.clear();
+      setDrawn(false);
     };
     // The style is the map itself; a new style is a new map.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -188,7 +193,7 @@ export function AreaMap({
       <div ref={container} role="application" aria-label={label} className="size-full" />
       {[...elements].map(([id, element]) => {
         const place = byId.get(id);
-        if (place === undefined) return null;
+        if (place === undefined || !drawn) return null;
         const selected = id === selectedId;
         const sponsored = place.sponsored === true;
         // MapLibre stacks marker elements, not their contents: the selected one first, a sponsored
