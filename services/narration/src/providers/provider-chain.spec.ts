@@ -141,6 +141,25 @@ describe('redact', () => {
     );
     expect(redact(new Error('x'.repeat(500)))).toHaveLength(200);
   });
+
+  it('reads a thrown value that is not an Error as its text', () => {
+    expect(redact('quota\n exceeded')).toBe('quota exceeded');
+  });
+});
+
+describe('a provider that throws something other than an Error', () => {
+  it('fails over as for any failure, and is never read as an outage', async () => {
+    const providers = chain(['a', 'b'], { now: 0 });
+    expect(providers.candidates().map((p) => p.name)).toEqual(['a', 'b']);
+    // A bare string, as some client libraries reject with.
+    const thrown = 'ECONNREFUSED' as unknown as Error;
+    const answer = await providers.run(all, (p) =>
+      p.name === 'a' ? Promise.reject(thrown) : Promise.resolve('ok'),
+    );
+    expect(answer.result).toBe('ok');
+    expect(providers.states()[0]!.consecutiveFailures).toBe(1);
+    expect(isUnreachable(thrown)).toBe(false);
+  });
 });
 
 /** Edge's WebSocket failure with no network: the code sits on the cause. */

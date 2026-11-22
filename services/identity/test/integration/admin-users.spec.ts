@@ -104,6 +104,12 @@ describe('ListUsers', () => {
     );
     expect(lockedOnly.users.map((item) => item.user?.id)).toEqual([locked.id]);
     expect(lockedOnly.users[0]?.user?.isLocked).toBe(true);
+    const unlocked = await adminUsers.listUsers(
+      { page: PAGE, includeDeleted: false, isLocked: false },
+      actor.context,
+    );
+    expect(unlocked.page?.total).toBe(3);
+    expect(unlocked.users.map((item) => item.user?.id)).not.toContain(locked.id);
 
     const admins = await adminUsers.listUsers(
       { page: PAGE, includeDeleted: false, roleId: await roleId(SystemRole.ADMIN) },

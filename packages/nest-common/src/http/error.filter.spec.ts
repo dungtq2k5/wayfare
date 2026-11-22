@@ -1,11 +1,16 @@
 import { Metadata, status } from '@grpc/grpc-js';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  PayloadTooLargeException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 import { ZodValidationException } from 'nestjs-zod';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { AppHttpException } from './app-http.exception';
-import { ErrorFilter, toJsonPointer } from './error.filter';
+import { AppHttpException, ReplayedHttpError } from './app-http.exception';
+import { ErrorFilter, resolveHttpError, toJsonPointer } from './error.filter';
 import type { ErrorBody } from './error.filter';
 
 interface FakeResponse {
@@ -142,6 +147,33 @@ describe('ErrorFilter mapping', () => {
     expect(run(new BadRequestException('Unexpected token')).body?.error.code).toBe(
       'MALFORMED_REQUEST',
     );
+  });
+
+  it('maps a framework 5xx to INTERNAL, logged, and any other framework 4xx to MALFORMED_REQUEST', () => {
+    expect(resolveHttpError(new ServiceUnavailableException('pool')).code).toBe('INTERNAL');
+    expect(run(new PayloadTooLargeException()).body?.error.code).toBe('MALFORMED_REQUEST');
+  });
+
+  it('replays a stored refusal as it was answered, with or without details', () => {
+    expect(resolveHttpError(new ReplayedHttpError(409, 'SUBSCRIPTION_EXISTS', undefined))).toEqual({
+      status: 409,
+      code: 'SUBSCRIPTION_EXISTS',
+      message: 'SUBSCRIPTION_EXISTS',
+    });
+    expect(
+      resolveHttpError(new ReplayedHttpError(400, 'VALIDATION_FAILED', { issues: [] })).details,
+    ).toEqual({ issues: [] });
+  });
+
+  it('reads a zod failure with no issues as an empty list', () => {
+    const empty = new ZodValidationException(undefined);
+    expect(resolveHttpError(empty).details).toEqual({ issues: [] });
+  });
+
+  it('rethrows anything outside HTTP for its own transport to answer', () => {
+    const boom = new Error('boom');
+    const host = { getType: () => 'rpc' } as unknown as ArgumentsHost;
+    expect(() => new ErrorFilter(false).catch(boom, host)).toThrow(boom);
   });
 
   it('maps anything else to 500 INTERNAL', () => {
