@@ -17,7 +17,13 @@ const swcPlugin = (): Plugin =>
     jsc: {
       target: 'es2023',
       parser: { syntax: 'typescript', decorators: true },
-      transform: { legacyDecorator: true, decoratorMetadata: true, useDefineForClassFields: false },
+      transform: {
+        legacyDecorator: true,
+        decoratorMetadata: true,
+        useDefineForClassFields: false,
+        // A component a spec renders compiles as the apps do: React's automatic JSX runtime.
+        react: { runtime: 'automatic' },
+      },
       keepClassNames: true,
     },
   }) as Plugin;

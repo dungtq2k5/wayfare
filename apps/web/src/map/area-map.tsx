@@ -24,6 +24,12 @@ export interface MapView {
   readonly radiusM: number;
 }
 
+/**
+ * Whether a map has drawn on this page yet (WM5). The page's, not one map's: a narrower window lays
+ * the page out anew and mounts a new map, which offline never loads, and the pins must stay.
+ */
+let drewOnPage = false;
+
 /** The radius from the centre to the farthest corner the map shows. */
 function visibleRadius(map: maplibregl.Map): number {
   const bounds = map.getBounds();
@@ -84,9 +90,11 @@ export function AreaMap({
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef(new Map<string, { marker: maplibregl.Marker; element: HTMLElement }>());
   const [elements, setElements] = useState<ReadonlyMap<string, HTMLElement>>(new Map());
-  // The pins wait for the map (WM5): without streets under them they place nothing, and while it
-  // draws the message there sends the reader to the list, which holds the same Places.
-  const [drawn, setDrawn] = useState(false);
+  // The pins wait for the page's first draw of a map (WM5): without streets under them they place
+  // nothing, and while it draws the message there sends the reader to the list. Only the first: a
+  // map rebuilt (a new style) or mounted anew (another layout) may never load offline, and the pins
+  // stay.
+  const [drawn, setDrawn] = useState(drewOnPage);
   const userMarker = useRef<maplibregl.Marker | null>(null);
   const moved = useRef(onMoved);
   const loaded = useRef(onLoaded);
@@ -119,6 +127,7 @@ export function AreaMap({
     instance.on('moveend', report);
     void instance.once('load', () => {
       report();
+      drewOnPage = true;
       setDrawn(true);
       loaded.current?.();
     });
@@ -128,7 +137,6 @@ export function AreaMap({
       instance.remove();
       map.current = null;
       placed.clear();
-      setDrawn(false);
     };
     // The style is the map itself; a new style is a new map.
     // eslint-disable-next-line react-hooks/exhaustive-deps
