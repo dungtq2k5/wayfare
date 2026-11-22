@@ -54,7 +54,7 @@ vi.mock('maplibre-gl', () => ({ Map: maps.FakeMap, Marker: maps.FakeMarker }));
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
 vi.mock('@wayfare/ui/map', () => ({ registerPmtiles: () => undefined }));
 
-// The page's first draw is the module's: each test loads it afresh.
+// The styles drawn in the tab are the module's: each test loads it afresh, so none leaks.
 let AreaMap: typeof AreaMapType;
 beforeEach(async () => {
   vi.resetModules();
@@ -92,24 +92,26 @@ describe('the map’s pins (WM5)', () => {
     maps.built.length = 0;
   });
 
-  it('wait for the page’s first draw: none while the map has never loaded', () => {
+  it('wait for the area’s first draw: none while its map has never loaded', () => {
     draw('light.json');
     expect(pins()).toBe(0);
     act(() => maps.built[0]!.load());
     expect(pins()).toBe(1);
   });
 
-  it('stay when a new style rebuilds the map, even one that never loads (the theme, offline)', () => {
-    draw('light.json');
+  it('wait again for another area: area A drawn, area B’s map mounted and never loaded', () => {
+    draw('area-a.json');
     act(() => maps.built[0]!.load());
-    draw('dark.json');
+    draw('area-b.json');
     expect(maps.built).toHaveLength(2);
     expect(maps.built[0]!.removed).toBe(true);
-    // The dark map never loads: offline, its style never arrives.
+    // Area B's map never loads (a slow connection): its pins wait for its own first draw.
+    expect(pins()).toBe(0);
+    act(() => maps.built[1]!.load());
     expect(pins()).toBe(1);
   });
 
-  it('stay when the page lays out anew and mounts another map that never loads (offline)', () => {
+  it('stay when the page lays out anew and mounts the same area’s map, which never loads (offline)', () => {
     draw('light.json');
     act(() => maps.built[0]!.load());
     act(() => root?.unmount());

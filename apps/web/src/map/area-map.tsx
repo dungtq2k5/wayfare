@@ -25,10 +25,12 @@ export interface MapView {
 }
 
 /**
- * Whether a map has drawn on this page yet (WM5). The page's, not one map's: a narrower window lays
- * the page out anew and mounts a new map, which offline never loads, and the pins must stay.
+ * The styles (an area's pack; `null` for an area without one) whose map has drawn in this tab
+ * (WM5). By what was drawn, not by one map: a narrower window lays the page out anew and mounts a
+ * new map of the same area, which offline never loads, and its pins stay; another area's map waits
+ * for its own first draw.
  */
-let drewOnPage = false;
+const drawnStyles = new Set<string | null>();
 
 /** The radius from the centre to the farthest corner the map shows. */
 function visibleRadius(map: maplibregl.Map): number {
@@ -90,11 +92,11 @@ export function AreaMap({
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef(new Map<string, { marker: maplibregl.Marker; element: HTMLElement }>());
   const [elements, setElements] = useState<ReadonlyMap<string, HTMLElement>>(new Map());
-  // The pins wait for the page's first draw of a map (WM5): without streets under them they place
-  // nothing, and while it draws the message there sends the reader to the list. Only the first: a
-  // map rebuilt (a new style) or mounted anew (another layout) may never load offline, and the pins
-  // stay.
-  const [drawn, setDrawn] = useState(drewOnPage);
+  // The pins wait for this area's first draw in the tab (WM5): without streets under them they place
+  // nothing, and while it draws the message there sends the reader to the list. Only the first: the
+  // same area's map mounted anew (another layout) may never load offline, and its pins stay.
+  const [, drewNow] = useState(0);
+  const drawn = style !== undefined && drawnStyles.has(style);
   const userMarker = useRef<maplibregl.Marker | null>(null);
   const moved = useRef(onMoved);
   const loaded = useRef(onLoaded);
@@ -127,8 +129,8 @@ export function AreaMap({
     instance.on('moveend', report);
     void instance.once('load', () => {
       report();
-      drewOnPage = true;
-      setDrawn(true);
+      drawnStyles.add(style);
+      drewNow((n) => n + 1);
       loaded.current?.();
     });
     map.current = instance;
