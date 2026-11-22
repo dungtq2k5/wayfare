@@ -124,6 +124,17 @@ describe('renderEmail', () => {
     expect(email.text).toContain('n***w@example.com');
   });
 
+  it('refuses a link for a slot the template doesn’t declare', () => {
+    expect(() =>
+      renderEmail(
+        EmailTemplate.PASSWORD_RESET,
+        'en',
+        {},
+        { action: 'https://x', cancel: 'https://y' },
+      ),
+    ).toThrow('PASSWORD_RESET has no cancel label');
+  });
+
   it('renders Vietnamese, and refuses data outside the schema', () => {
     expect(
       renderEmail(EmailTemplate.PASSWORD_RESET, 'vi', {}, { action: 'https://x' }).subject,

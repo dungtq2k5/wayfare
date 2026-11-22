@@ -121,6 +121,87 @@ async function ownersVenue(status: PlaceStatus = PlaceStatus.ACTIVE) {
   return place.id;
 }
 
+describe("the owner's own submissions (GET /owner/submissions)", () => {
+  it('lists them newest first, a page at a time, by Place and status, and refuses a cursor it never gave', async () => {
+    const first = (await create(payload({ nameVi: 'Quán một' }))).submission!;
+    const second = (await create(payload({ nameVi: 'Quán hai' }))).submission!;
+    const third = (await create(payload({ nameVi: 'Quán ba' }))).submission!;
+    await services.submissions.withdrawSubmission({ submissionId: first.id }, owner);
+    const list = (request: Partial<catalogGrpc.ListMySubmissionsRequest> = {}) =>
+      services.submissions.listMySubmissions(
+        request as catalogGrpc.ListMySubmissionsRequest,
+        owner,
+      );
+
+    const one = await list({ page: { limit: 2 } });
+    expect(one.submissions.map((row) => row.id)).toEqual([third.id, second.id]);
+    const two = await list({ page: { limit: 2, cursor: one.page!.nextCursor } });
+    expect(two.submissions.map((row) => row.id)).toEqual([first.id]);
+    expect(two.page!.nextCursor).toBeUndefined();
+    expect((await list({ page: { limit: 0 } })).submissions).toHaveLength(3);
+
+    const pending = await list({ status: submissionStatusProto.toProto(SubmissionStatus.PENDING) });
+    expect(pending.submissions.map((row) => row.id)).toEqual([third.id, second.id]);
+    expect((await list({ placeId: newId() })).submissions).toEqual([]);
+    const someoneElse = buildAccountContext({ ownerVerified: true, permissions: ['owner.access'] });
+    expect(
+      (
+        await services.submissions.listMySubmissions(
+          {} as catalogGrpc.ListMySubmissionsRequest,
+          someoneElse,
+        )
+      ).submissions,
+    ).toEqual([]);
+
+    expect(await errorOf(list({ page: { limit: 2, cursor: 'not-a-cursor' } }))).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { issues: [{ path: '/cursor', code: 'invalid_value' }] },
+    });
+  });
+
+  it('queues pending reviews by kind and area, and refuses a review of one already decided', async () => {
+    const created = (await create(payload())).submission!;
+    const queue = (request: Partial<catalogGrpc.ListSubmissionsRequest>) =>
+      services.review
+        .listSubmissions(request as catalogGrpc.ListSubmissionsRequest, moderator())
+        .then((answer) => answer.submissions.map((row) => row.submission!.id));
+    expect(
+      await queue({ kind: submissionKindProto.toProto(SubmissionKind.CREATE), page: undefined }),
+    ).toEqual([created.id]);
+    expect(
+      await queue({ kind: submissionKindProto.toProto(SubmissionKind.UPDATE), page: undefined }),
+    ).toEqual([]);
+    expect(await queue({ areaId: tax.area.id, page: undefined })).toEqual([created.id]);
+    expect(await queue({ areaId: newId(), page: undefined })).toEqual([]);
+    expect(
+      await queue({
+        status: submissionStatusProto.toProto(SubmissionStatus.WITHDRAWN),
+        page: undefined,
+      }),
+    ).toEqual([]);
+
+    await services.submissions.withdrawSubmission({ submissionId: created.id }, owner);
+    expect(await errorOf(approve(created.id))).toMatchObject({ code: 'INVALID_STATE' });
+    expect(
+      (await errorOf(services.review.getSubmission({ submissionId: newId() }, moderator()))).code,
+    ).toBe('RESOURCE_NOT_FOUND');
+  });
+
+  it('refuses a payload that is not JSON, at /payload', async () => {
+    expect(
+      await errorOf(
+        services.submissions.createSubmission(
+          { kind: submissionKindProto.toProto(SubmissionKind.CREATE), payloadJson: '{not json' },
+          owner,
+        ),
+      ),
+    ).toEqual({
+      code: 'VALIDATION_FAILED',
+      details: { issues: [{ path: '/payload', code: 'invalid_type' }] },
+    });
+  });
+});
+
 describe('creating a submission', () => {
   it('stores a pending CREATE that reserves a slot, without consuming its uploads', async () => {
     const upload = await confirmedUpload(prisma, owner.userId);

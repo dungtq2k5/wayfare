@@ -172,6 +172,16 @@ describe('EmailService', () => {
     expect(await email.send(paymentFailed(user.id, eventId))).toBe('SENT');
   });
 
+  it('records a provider crash that is no EmailSendError as FAILED, even from the consumer form', async () => {
+    const user = await tourist();
+    mailbox.failNext(new TypeError('provider bug') as unknown as EmailSendError);
+    const eventId = newId();
+    expect(await email.send(paymentFailed(user.id, eventId))).toBe('FAILED');
+    expect((await prisma.emailDelivery.findFirstOrThrow({ where: { eventId } })).status).toBe(
+      'FAILED',
+    );
+  });
+
   it('the dispatcher answers at once and drains on shutdown', async () => {
     const user = await tourist();
     const pending = await Promise.all([

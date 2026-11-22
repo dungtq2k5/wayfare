@@ -157,31 +157,12 @@ export const coverageExclude = [
 ];
 
 /**
- * Each package's floor, lines and branches: its measured figure rounded down, and never above 90.
- * A floor rises with its package's coverage up to 90 % and stays there; it is never lowered. Above
- * 90, SonarCloud's 80 % on new code and the rule for tests (conventions §17.2) hold it, so a well-
- * tested new file at 92 % never fails a pull request. The lowest rise first (the apps' logic: web,
- * mobile, console; then api-client and the services' branches); when every package is at 90, one
- * bar holds the project. Checked on the merged report alone (`pnpm coverage:report`): one tier by
- * itself is short of it.
+ * The project's bar: 90 % of lines and branches over its logic, every package having reached it.
+ * It is never lowered. A new file is held by SonarCloud's 80 % on new code and the rule for tests
+ * (conventions §17.2), so a well-tested file at 92 % never fails a pull request. Checked on the
+ * merged report alone (`pnpm coverage:report`): one tier by itself is short of it.
  */
-const coverageFloors = {
-  'apps/console/src/**': { lines: 90, branches: 90 },
-  'apps/mobile/{src,app,modules}/**': { lines: 90, branches: 90 },
-  'apps/web/src/**': { lines: 90, branches: 90 },
-  'packages/api-client/src/**': { lines: 73, branches: 64 },
-  'packages/contracts/src/**': { lines: 90, branches: 90 },
-  'packages/core/src/**': { lines: 90, branches: 90 },
-  'packages/i18n/src/**': { lines: 90, branches: 85 },
-  'packages/nest-common/src/**': { lines: 86, branches: 82 },
-  'packages/ui/src/**': { lines: 90, branches: 84 },
-  'services/analytics/src/**': { lines: 86, branches: 78 },
-  'services/billing/src/**': { lines: 86, branches: 75 },
-  'services/catalog/src/**': { lines: 90, branches: 83 },
-  'services/gateway/src/**': { lines: 88, branches: 64 },
-  'services/identity/src/**': { lines: 90, branches: 85 },
-  'services/narration/src/**': { lines: 87, branches: 77 },
-};
+const coverageBar = { lines: 90, branches: 90 };
 
 export default defineConfig({
   test: {
@@ -191,7 +172,7 @@ export default defineConfig({
       provider: 'v8',
       include: coverageInclude,
       exclude: coverageExclude,
-      thresholds: process.argv.includes('--merge-reports') ? coverageFloors : {},
+      thresholds: process.argv.includes('--merge-reports') ? coverageBar : {},
       reporter: ['text-summary', 'json-summary', 'html', 'lcov'],
     },
     projects: [

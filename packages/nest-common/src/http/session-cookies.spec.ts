@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express';
 import { describe, expect, it } from 'vitest';
+import { Metadata, status } from '@grpc/grpc-js';
+import { AppHttpException } from './app-http.exception';
 import {
+  cookieFromHeader,
+  httpStatusOf,
   readCookie,
   SessionCookieService,
   sessionCookieNames,
@@ -125,5 +129,34 @@ describe("the console's Google nonce binding", () => {
       { op: 'set', name: 'wf_gn', value: 'binding', options: { ...options, maxAge: 300_000 } },
       { op: 'clear', name: 'wf_gn', options },
     ]);
+  });
+});
+
+describe('cookieFromHeader (api-endpoints-plan §9)', () => {
+  it('finds one cookie by name, decoded, skipping a part with no value', () => {
+    expect(cookieFromHeader('flag; wf_a=1; wf_b=a%20b', 'wf_b')).toBe('a b');
+    expect(cookieFromHeader('wf_a=1', 'wf_b')).toBeNull();
+    expect(cookieFromHeader(undefined, 'wf_b')).toBeNull();
+  });
+
+  it('keeps a value that isn’t valid percent-encoding as it is', () => {
+    expect(cookieFromHeader('wf_b=%E0%A4%A', 'wf_b')).toBe('%E0%A4%A');
+  });
+});
+
+describe('httpStatusOf', () => {
+  it('reads a refusal’s status, a peer’s from its metadata, and 500 for anything else', () => {
+    expect(httpStatusOf(new AppHttpException('UNAUTHENTICATED'))).toBe(401);
+    const metadata = new Metadata();
+    metadata.set('wf-error-code', 'RESOURCE_NOT_FOUND');
+    expect(httpStatusOf(Object.assign(new Error('x'), { code: status.NOT_FOUND, metadata }))).toBe(
+      404,
+    );
+    expect(
+      httpStatusOf(
+        Object.assign(new Error('x'), { code: status.UNAVAILABLE, metadata: new Metadata() }),
+      ),
+    ).toBe(500);
+    expect(httpStatusOf(new Error('boom'))).toBe(500);
   });
 });

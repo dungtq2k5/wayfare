@@ -98,6 +98,18 @@ describe('device lifecycle', () => {
     expect(rows.map((row) => row.pushToken)).toEqual([null, 'ExponentPushToken[abc]']);
   });
 
+  it('changes only the fields an update names', async () => {
+    const device = await registerDevice(services);
+    await devices.updateDevice({ pushToken: 'ExponentPushToken[keep]' }, device.context);
+    const { device: updated } = await devices.updateDevice(
+      { osVersion: '15', contentLocale: 'vi' },
+      device.context,
+    );
+    expect(updated).toMatchObject({ osVersion: '15', contentLocale: 'vi' });
+    const row = await prisma.device.findUniqueOrThrow({ where: { id: device.deviceId } });
+    expect(row.pushToken).toBe('ExponentPushToken[keep]');
+  });
+
   it('forgets a device: revokes its sessions, publishes, and refuses it afterwards', async () => {
     const device = await registerDevice(services);
     const { session } = await registerAccount(services, {

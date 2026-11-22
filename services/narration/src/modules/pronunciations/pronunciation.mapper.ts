@@ -1,5 +1,4 @@
-import { ReplacementType } from '@wayfare/contracts';
-import type { PronunciationEntry as Entry } from '@wayfare/contracts';
+import type { ReplacementType } from '@wayfare/contracts';
 import { replacementTypeProto } from '@wayfare/contracts/grpc';
 import type { narrationGrpc } from '@wayfare/contracts/grpc';
 import { toProtoTimestamp } from '@wayfare/nest-common';
@@ -21,22 +20,5 @@ export function toPronunciationEntry(row: PronunciationRow): narrationGrpc.Pronu
     isActive: row.isActive,
     updatedAt: toProtoTimestamp(row.updatedAt),
     updatedById: row.updatedById,
-  };
-}
-
-/** An entry as the domain reads it: what a write states, whatever wire shape it arrived in. */
-export function fromProtoPronunciationDraft(
-  draft: narrationGrpc.PronunciationDraft,
-): Omit<Entry, 'updatedById' | 'updatedBy'> {
-  return {
-    id: '',
-    term: draft.term,
-    targetLang: draft.targetLang ?? null,
-    replacementType: replacementTypeProto.fromProto(draft.replacementType) ?? ReplacementType.SUB,
-    replacement: draft.replacement,
-    alphabet: draft.alphabet ?? null,
-    note: draft.note ?? null,
-    isActive: draft.isActive ?? true,
-    updatedAt: new Date(0).toISOString(),
   };
 }

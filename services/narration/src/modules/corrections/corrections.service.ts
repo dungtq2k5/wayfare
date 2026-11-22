@@ -211,7 +211,7 @@ export class CorrectionsService {
       description: request.description ?? null,
     });
     const targetType = this.narratedTarget(fields.targetType);
-    this.correctable(targetType, lang);
+    this.correctable(lang);
     const target = await this.target(targetType, fields.targetId);
     if (target.contentHash !== input.sourceContentHash)
       throw rpcError('LOCALIZATION_SOURCE_CHANGED');
@@ -262,7 +262,7 @@ export class CorrectionsService {
     const fields = parseRpcRequest(targetFields, request);
     const { lang } = parseRpcRequest(langField, request);
     const targetType = this.narratedTarget(fields.targetType);
-    this.correctable(targetType, lang);
+    this.correctable(lang);
     const target = await this.target(targetType, fields.targetId);
     const active = await this.prisma.localizationOverride.findFirst({
       where: { targetType, targetId: fields.targetId, lang, status: OverrideStatus.ACTIVE },
@@ -321,22 +321,14 @@ export class CorrectionsService {
     return toProtoCorrection(toCorrection(row, currentHash));
   }
 
-  /** `vi` is the source, and a voucher offer is never corrected (rdm-spec N-7). */
-  private correctable(targetType: LocalizationTargetType, lang: string): void {
+  /** `vi` is the source, never corrected (rdm-spec N-7). */
+  private correctable(lang: string): void {
     if (lang === SOURCE_LANGUAGE) {
       throw rpcError('VALIDATION_FAILED', { issues: [{ path: '/lang', code: 'source_language' }] });
     }
-    if (
-      targetType !== LocalizationTargetType.PLACE &&
-      targetType !== LocalizationTargetType.MENU_ITEM &&
-      targetType !== LocalizationTargetType.TOUR
-    ) {
-      throw rpcError('VALIDATION_FAILED', {
-        issues: [{ path: '/targetType', code: 'not_correctable' }],
-      });
-    }
   }
 
+  /** A Place, a menu line or a tour; a voucher offer is never corrected (rdm-spec N-7). */
   private narratedTarget(value: number): CorrectableTarget {
     const targetType = requireProtoEnum(localizationTargetTypeProto, value, '/targetType');
     if (

@@ -6,9 +6,11 @@ import {
   newId,
 } from '@wayfare/contracts';
 import type { AuditRecordPayload } from '@wayfare/contracts';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PoisonMessage } from '../errors/poison-message';
+import type { NatsClient } from './nats.client';
 import {
+  ConsumerRunner,
   DLQ_HEADERS,
   handleMessage,
   JetStreamConsumer,
@@ -169,5 +171,68 @@ describe('handleMessage — poison detection before the handler runs', () => {
     const consumer = new RecordingConsumer();
     const msg = message(valid, { msgId: newId() });
     expect(await handleMessage(consumer, msg, new FakeDlq(), silent)).toBe('acked');
+  });
+});
+
+describe('handleMessage — a message with no headers', () => {
+  it('dead-letters it, its id empty and its trace a new root', async () => {
+    const consumer = new RecordingConsumer();
+    const dlq = new FakeDlq();
+    const bare = { ...message(valid), headers: undefined };
+    expect(await handleMessage(consumer, bare, dlq, silent)).toBe('dead-lettered');
+    expect(dlq.letters[0]?.headers).toMatchObject({ [DLQ_HEADERS.messageId]: '' });
+    expect(consumer.seen).toHaveLength(0);
+  });
+});
+
+describe('ConsumerRunner', () => {
+  /** NATS's manager and client, a durable's messages fed from an array. */
+  function nats(messages: FakeMessage[]) {
+    const close = vi.fn(() => Promise.resolve());
+    const consume = vi.fn(() =>
+      Promise.resolve({
+        close,
+        // `for await` reads a plain iterable as well.
+        [Symbol.iterator]: () => messages[Symbol.iterator](),
+      }),
+    );
+    const add = vi.fn(() => Promise.resolve());
+    const get = vi.fn(() => Promise.resolve({ consume }));
+    const publish = vi.fn(() => Promise.resolve());
+    const client = { jsm: { consumers: { add } }, js: { consumers: { get } }, publish };
+    return { client: client as unknown as NatsClient, add, get, consume, close };
+  }
+
+  it('creates each durable over the whole stream, and handles what it delivers until stopped', async () => {
+    const msg = message(valid);
+    const fake = nats([msg]);
+    const consumer = new RecordingConsumer();
+    const runner = new ConsumerRunner(fake.client);
+    await runner.start([consumer]);
+    await runner.stop();
+    expect(fake.add).toHaveBeenCalledWith(
+      'AUDIT',
+      expect.objectContaining({
+        durable_name: 'identity-audit-record',
+        filter_subject: 'audit.record',
+        deliver_policy: 'all',
+        max_deliver: MAX_DELIVER,
+      }),
+    );
+    expect(fake.get).toHaveBeenCalledWith('AUDIT', 'identity-audit-record');
+    expect(fake.consume).toHaveBeenCalledWith({ max_messages: 10 });
+    expect(msg.outcome).toEqual(['ack']);
+    expect(fake.close).toHaveBeenCalled();
+  });
+
+  it('reads only new messages for a test durable', async () => {
+    const fake = nats([]);
+    const runner = new ConsumerRunner(fake.client);
+    await runner.start([new RecordingConsumer()], { deliverPolicy: 'new' });
+    await runner.stop();
+    expect(fake.add).toHaveBeenCalledWith(
+      'AUDIT',
+      expect.objectContaining({ deliver_policy: 'new' }),
+    );
   });
 });
