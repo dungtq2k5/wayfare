@@ -89,4 +89,25 @@ describe('the mini player and the inline players (WQ2)', () => {
     act(() => old.unmount());
     expect(miniPlayer()).toBeNull();
   });
+
+  it('stays aside once a sheet has slid in, without waiting for the observer’s next report', () => {
+    mount(createElement(MiniPlayer));
+    const sheet = mount(inline());
+    // The sheet mounts below the viewport (its slide's first frame): the observer says so.
+    act(() => observers.all[0]!.report(false));
+    expect(miniPlayer()).not.toBeNull();
+    // The slide ends with the box in view; the observer stays silent.
+    const box = document.body.lastElementChild!.firstElementChild!;
+    vi.spyOn(box, 'getBoundingClientRect').mockReturnValue({
+      top: 596,
+      bottom: 748,
+      height: 152,
+    } as DOMRect);
+    act(() => {
+      box.dispatchEvent(new Event('animationend', { bubbles: true }));
+    });
+    expect(miniPlayer()).toBeNull();
+    act(() => sheet.unmount());
+    expect(miniPlayer()).not.toBeNull();
+  });
 });

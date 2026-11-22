@@ -91,12 +91,22 @@ export function PlayStory({
   useEffect(() => {
     const element = box.current;
     if (element === null || !active) return;
-    const observer = new IntersectionObserver(([entry]) =>
-      setInlineVisible(playerId, entry?.isIntersecting === true ? track.placeId : null),
-    );
+    const report = (inView: boolean) => setInlineVisible(playerId, inView ? track.placeId : null);
+    const observer = new IntersectionObserver(([entry]) => report(entry?.isIntersecting === true));
     observer.observe(element);
+    // A sheet slides in: the box mounts below the viewport, and the observer's next report waits
+    // on the browser recomputing intersections, which a finished slide alone may not prompt. So
+    // the box is measured again whenever an animation or transition ends.
+    const recheck = () => {
+      const box = element.getBoundingClientRect();
+      report(box.height > 0 && box.bottom > 0 && box.top < innerHeight);
+    };
+    document.addEventListener('animationend', recheck, true);
+    document.addEventListener('transitionend', recheck, true);
     return () => {
       observer.disconnect();
+      document.removeEventListener('animationend', recheck, true);
+      document.removeEventListener('transitionend', recheck, true);
       setInlineVisible(playerId, null);
     };
   }, [active, playerId, track.placeId]);
