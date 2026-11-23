@@ -31,29 +31,29 @@
     "@nestjs/platform-express": "11.2.9",
     "@nestjs/swagger": "11.4.7",
     "@nestjs/websockets": "11.2.9",
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@wayfare/contracts": "workspace:*",
     "@wayfare/core": "workspace:*",
     "@wayfare/nest-common": "workspace:*",
     "dotenv": "^17.4.2",
     "ioredis": "^5.11.1",
-    "nestjs-zod": "^5.5.0",
-    "pg": "^8.23.0",
+    "nestjs-zod": "^5.6.0",
+    "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "stripe": "22.6.2",
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@nats-io/jetstream": "^3.4.0",
-    "@nats-io/transport-node": "^3.4.0",
+    "@nats-io/jetstream": "^3.5.0",
+    "@nats-io/transport-node": "^3.5.0",
     "@nestjs/cli": "11.0.24",
     "@nestjs/testing": "11.2.9",
-    "@swc/cli": "^0.8.1",
+    "@swc/cli": "^0.8.2",
     "@types/node": "^24.13.5",
     "@types/pg": "^8.15.0",
     "@wayfare/config": "workspace:*",
-    "prisma": "7.10.0"
+    "prisma": "7.10.1"
   }
 }
