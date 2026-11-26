@@ -9,7 +9,7 @@ import { useAllPlaces } from '../../src/data/hooks';
 import { errorMessage } from '../../src/i18n';
 import { useTourist } from '../../src/i18n/use-tourist';
 import { useFavourites } from '../../src/favorites/use-favorites';
-import { useAccountStore } from '../../src/session/account-store';
+import { openFavourites, useAccountStore } from '../../src/session/account-store';
 import { Icon } from '../../src/theme/icon';
 import { Button } from '../../src/ui/button';
 import { InlineNote } from '../../src/ui/inline-note';
@@ -31,16 +31,7 @@ export default function FavoritesScreen() {
   const dismissed = useAccountStore((state) => state.offerDismissed);
   const signedOutElsewhere = useAccountStore((state) => state.favouritesNotice);
   // Frame A8 tops Favourites the first time it opens after; leaving it has said its piece (K2).
-  useFocusEffect(
-    useCallback(
-      () => () => {
-        if (useAccountStore.getState().favouritesNotice) {
-          useAccountStore.setState({ favouritesNotice: false });
-        }
-      },
-      [],
-    ),
-  );
+  useFocusEffect(useCallback(() => openFavourites(), []));
   const offer = shouldOfferAccount({
     signedIn: user !== null,
     dismissed,

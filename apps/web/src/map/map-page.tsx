@@ -358,10 +358,7 @@ export function MapPage({
           role="status"
           className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-center text-sm text-muted-foreground"
         >
-          <LoaderCircle
-            aria-hidden
-            className="size-6 animate-spin text-primary motion-reduce:animate-none"
-          />
+          <LoaderCircle aria-hidden className="size-6 animate-spin text-primary" />
           <p className="font-medium text-foreground">{t('map.drawing')}</p>
           {slow ? <p>{t('map.slow')}</p> : null}
         </div>

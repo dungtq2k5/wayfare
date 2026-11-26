@@ -269,18 +269,29 @@ describe("an account's lock", () => {
     const boostId = (await live(account.accountId))[0]!.id;
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
-    // One transaction updates a boost twice — `KEY SHARE` on the account — and waits.
+    let wrote!: () => void;
+    const written = new Promise<void>((resolve) => (wrote = resolve));
+    // One transaction updates a boost twice — `KEY SHARE` on the account — and holds its row.
     const child = prisma.$transaction(async (tx) => {
       await tx.discoveryBoost.update({ where: { id: boostId }, data: { weight: 49 } });
       await tx.discoveryBoost.update({ where: { id: boostId }, data: { weight: 50 } });
+      wrote();
       await held;
     });
-    // Another locks the account meanwhile: `FOR UPDATE` would wait for the child; this doesn't.
-    await prisma.$transaction(async (tx) => {
-      await services.entitlements.lockAccount(tx, { id: account.accountId });
-    });
+    await written;
+    // Another locks the account meanwhile: `FOR UPDATE` would wait for the child to end; this
+    // commits while the child still holds its row.
+    const locked = prisma
+      .$transaction(async (tx) => {
+        await services.entitlements.lockAccount(tx, { id: account.accountId });
+      })
+      .then(() => 'committed' as const);
+    const waited = new Promise<'waited'>((resolve) => setTimeout(() => resolve('waited'), 5_000));
+    const first = await Promise.race([locked, waited]);
     release();
     await child;
+    await locked;
+    expect(first).toBe('committed');
   });
 });
 

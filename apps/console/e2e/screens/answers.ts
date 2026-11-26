@@ -89,3 +89,44 @@ export async function rewrite<T>(
     });
   });
 }
+
+/** A list's answer: its rows, and its page meta (a page number with its total, or a cursor). */
+interface ListAnswer<Row> {
+  data: Row[];
+  meta?: { page?: number; pageSize?: number; total?: number; nextCursor?: string | null };
+}
+
+/**
+ * Answers every `GET path` (a list) with only the rows a spec owns — the seed's and its own
+ * (conventions §12.8): a list draws the same whatever other specs made, before it or after. The
+ * stack is asked for a wide page, so another spec's newer rows never push the spec's own off the
+ * first; the answer is then cut to the page the screen asked for, its total or cursor to match.
+ */
+export async function only<Row>(
+  page: Page,
+  path: string,
+  keep: (row: Row) => boolean,
+): Promise<void> {
+  await page.route(`${API}${path}`, async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const url = new URL(route.request().url());
+    const size = Number(url.searchParams.get('pageSize') ?? url.searchParams.get('limit') ?? 20);
+    for (const key of ['pageSize', 'limit'])
+      if (url.searchParams.has(key)) url.searchParams.set(key, '100');
+    const response = await route.fetch({ url: url.toString() });
+    if (!response.ok()) return route.fulfill({ response });
+    const answer = (await response.json()) as ListAnswer<Row>;
+    const kept = answer.data.filter(keep);
+    answer.data = kept.slice(0, size);
+    if (answer.meta?.total !== undefined) {
+      answer.meta.total = kept.length;
+      answer.meta.pageSize = size;
+    }
+    if (answer.meta?.nextCursor !== undefined) answer.meta.nextCursor = null;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(answer),
+    });
+  });
+}

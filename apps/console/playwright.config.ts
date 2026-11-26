@@ -1,6 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 import { BROWSER_WS } from './e2e/screens/browser';
-import { SCREENS_MATCH } from './e2e/screens/range';
 import { CONSOLE, GATEWAY, SCREENS_STACK } from './e2e/support/stack';
 
 /**
@@ -30,7 +29,16 @@ export default defineConfig({
   // One baseline per frame, width and scheme, by the frame's name: no platform suffix, because
   // every baseline is drawn by the same image.
   snapshotPathTemplate: '{testDir}/screens/__screenshots__/{arg}{ext}',
-  reporter: process.env.CI === undefined ? 'list' : [['list'], ['html', { open: 'never' }]],
+  // On CI a JSON report too: a test that passed only on its retry is read from it (e2e.yml), so a
+  // flaky run keeps its evidence instead of passing in silence.
+  reporter:
+    process.env.CI === undefined
+      ? 'list'
+      : [
+          ['list'],
+          ['html', { open: 'never' }],
+          ['json', { outputFile: 'test-results/results.json' }],
+        ],
   use: {
     baseURL: CONSOLE,
     locale: 'en-US',
@@ -45,8 +53,7 @@ export default defineConfig({
     },
     {
       name: 'screens',
-      // A shard's specs (screens/range.ts): every one, unless E2E_SCREENS_RANGE names a shard.
-      testMatch: SCREENS_MATCH,
+      testMatch: 'screens/**/*.screen.ts',
       timeout: 900_000,
       // The stack, its console and the renderer on one machine: an upstream can time out under
       // load. A spec's records are found or made, so it runs again from where it was.

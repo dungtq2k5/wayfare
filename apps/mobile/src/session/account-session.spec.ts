@@ -143,3 +143,55 @@ describe('the account session', () => {
     expect(carriesDevice('not-a-token')).toBe(false);
   });
 });
+
+describe('the account session’s edges', () => {
+  it('a launch with a kept refresh token refreshes before the first call, keeping when it signed in', async () => {
+    const { store, session, api } = setup();
+    store.value = { refreshToken: 'kept', signedInAt: 500 };
+    expect(await session.accessToken()).toBe(withDevice(101));
+    expect(api.refresh).toHaveBeenCalledWith('kept');
+    expect(store.value).toEqual({ refreshToken: 'refresh-1', signedInAt: 500 });
+    expect(await session.accountToken()).toBe(withDevice(101));
+  });
+
+  it('a token kept with no time counts its session from the refresh', async () => {
+    const { store, session } = setup({ now: () => 7_000 });
+    store.value = { refreshToken: 'kept', signedInAt: null };
+    await session.accountToken();
+    expect(store.value.signedInAt).toBe(7_000);
+  });
+
+  it('signed out, has no account token, and asks for no refresh', async () => {
+    const { session, api } = setup();
+    expect(await session.accountToken()).toBeNull();
+    expect(await session.accessToken()).toBe('device-token');
+    expect(api.refresh).not.toHaveBeenCalled();
+  });
+
+  it('a refused refresh with no sign-in time is ended elsewhere', async () => {
+    const { store, session, ended } = setup();
+    store.value = { refreshToken: 'revoked', signedInAt: null };
+    expect(await session.accountToken()).toBeNull();
+    expect(ended).toEqual(['elsewhere']);
+  });
+
+  it('offline at launch, carries the device’s token', async () => {
+    const { store, session } = setup();
+    store.value = { refreshToken: 'offline', signedInAt: 1 };
+    expect(await session.accessToken()).toBe('device-token');
+    expect(await session.isSignedIn()).toBe(true);
+  });
+
+  it('a 401 on a token it put on the wire after the session ended goes again with the device', async () => {
+    const { session } = setup();
+    await session.start({ accessToken: withDevice(1), refreshToken: 'r' });
+    await session.end();
+    expect(await session.recover(refused, withDevice(1))).toBe(true);
+  });
+
+  it('a token with no payload, or one that isn’t JSON, carries no device', () => {
+    expect(carriesDevice('nodots')).toBe(false);
+    expect(carriesDevice('h.!!!.s')).toBe(false);
+    expect(carriesDevice(jwt({ did: '' }))).toBe(false);
+  });
+});

@@ -357,7 +357,7 @@ export function BoundaryMap({
         role="application"
         aria-label={label}
         aria-describedby={describedBy}
-        tabIndex={editable ? 0 : -1}
+        tabIndex={editable ? 0 : -1} // NOSONAR: S6845, the boundary map is an application a keyboard edits; it takes focus only while editable
         onKeyDown={onKeyDown}
         className="size-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       />

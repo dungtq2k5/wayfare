@@ -370,6 +370,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 export const LITTLE_DATA_VENUE_ID = '01a0b998-8eca-750d-9430-a9806a5c061e';
 
+/** How long the pinning waits for the Venues' audio, and how often it looks. */
+const LIVE_WAIT: SeedWait = { timeoutMs: 120_000, intervalMs: 1_000 };
+
 /**
  * Fixes when each live pilot Venue last changed status — "Live since" on *My stats* — against the
  * analytics seed's end day (`ANALYTICS_SEED_END_DAY`, else yesterday): sixty days before it, the
@@ -379,7 +382,7 @@ export async function pinLiveDates(
   prisma: Pick<PrismaService, 'place'>,
   venueIds: readonly string[],
   endDay: string,
-  wait: SeedWait = { timeoutMs: 120_000, intervalMs: 1_000 },
+  wait: SeedWait = LIVE_WAIT,
 ): Promise<void> {
   // A Venue goes live once its audio is made, after the approval: its status changes then, so the
   // dates are pinned once none is still processing (or the wait runs out).

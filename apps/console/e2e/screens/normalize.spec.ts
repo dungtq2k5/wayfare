@@ -24,6 +24,17 @@ describe('what varies, normalised', () => {
     );
   });
 
+  it('draws a stuck Place from yesterday as one from today, across midnight', () => {
+    expect(normalizeText('since yesterday, 23:59')).toBe('since 14:05 today');
+    expect(normalizeText('since 09:12 today')).toBe('since 14:05 today');
+  });
+
+  it("draws a plan's subscribers on its edit page as the billing spec's own", () => {
+    expect(
+      normalizeText("Growth's 11 subscribers keep their grants until you apply the plan."),
+    ).toBe("Growth's 4 subscribers keep their grants until you apply the plan.");
+  });
+
   it('fixes ids, request IDs and public codes', () => {
     expect(normalizeText('01a16ca0-7653-7460-8e73-4991460902cc')).toBe(
       '01a00000-0000-7000-8000-000000000000',

@@ -41,7 +41,7 @@ export function Sheet({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <DialogPrimitive.Portal>
         {modal ? (
-          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in" />
         ) : null}
         <DialogPrimitive.Content
           aria-describedby={undefined}
@@ -56,7 +56,7 @@ export function Sheet({
           }
           ref={content}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-dvh w-full flex-col gap-4 overflow-y-auto rounded-t-2xl bg-card px-4 pt-2 pb-4 text-card-foreground shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom motion-reduce:animate-none tablet:w-140',
+            'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-dvh w-full flex-col gap-4 overflow-y-auto rounded-t-2xl bg-card px-4 pt-2 pb-4 text-card-foreground shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom tablet:w-140',
             className,
           )}
         >

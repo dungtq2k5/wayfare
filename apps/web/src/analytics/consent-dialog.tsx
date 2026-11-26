@@ -53,7 +53,7 @@ export function ConsentDialog({
   return (
     <DialogPrimitive.Root open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           onOpenAutoFocus={(event) => {
@@ -61,7 +61,7 @@ export function ConsentDialog({
             title.current?.focus();
           }}
           data-testid="consent-dialog"
-          className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-dvh w-full flex-col gap-4 overflow-y-auto rounded-t-2xl bg-card p-6 pt-2 text-card-foreground shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom motion-reduce:animate-none tablet:inset-x-auto tablet:top-1/2 tablet:bottom-auto tablet:left-1/2 tablet:w-120 tablet:-translate-x-1/2 tablet:-translate-y-1/2 tablet:rounded-2xl tablet:pt-6 tablet:data-[state=open]:slide-in-from-bottom-0 tablet:data-[state=open]:zoom-in-95"
+          className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-dvh w-full flex-col gap-4 overflow-y-auto rounded-t-2xl bg-card p-6 pt-2 text-card-foreground shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom tablet:inset-x-auto tablet:top-1/2 tablet:bottom-auto tablet:left-1/2 tablet:w-120 tablet:-translate-x-1/2 tablet:-translate-y-1/2 tablet:rounded-2xl tablet:pt-6 tablet:data-[state=open]:slide-in-from-bottom-0 tablet:data-[state=open]:zoom-in-95"
         >
           <div aria-hidden className="flex justify-center tablet:hidden">
             <span className="h-1 w-9 rounded-full bg-border" />

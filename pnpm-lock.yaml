@@ -6,6 +6,7 @@ settings:
 
 overrides:
   body-parser@>=2 <2.4.0: ^2.4.0
+  effect@<3.22.1: 3.22.4
   follow-redirects@<1.16.3: ^1.16.3
   mysql2@<3.22.0: ^3.22.0
   node-forge@<1.4.1: ^1.4.3
@@ -53,9 +54,15 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^7.1.1
         version: 7.1.1(eslint@9.39.5(jiti@2.7.0))
+      fake-indexeddb:
+        specifier: 6.2.7
+        version: 6.2.7
       globals:
         specifier: ^16.0.0
         version: 16.5.0
+      happy-dom:
+        specifier: 21.0.4
+        version: 21.0.4
       lint-staged:
         specifier: ^17.6.0
         version: 17.6.0
@@ -88,7 +95,7 @@ importers:
         version: 1.6.0(@swc/core@1.16.2(@swc/helpers@0.5.23))(esbuild@0.28.2)(rolldown@1.2.8)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(webpack@5.106.2(@swc/core@1.16.2(@swc/helpers@0.5.23))(esbuild@0.28.2))
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(happy-dom@21.0.4)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
 
   apps/console:
     dependencies:
@@ -346,6 +353,9 @@ importers:
       '@types/react':
         specifier: ~19.2.2
         version: 19.2.18
+      '@wayfare/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       babel-preset-expo:
         specifier: ~57.0.13
         version: 57.0.13(@babel/core@7.29.7)(@babel/runtime@7.29.7)(expo@57.0.26)(react-refresh@0.14.2)
@@ -467,7 +477,7 @@ importers:
         version: link:../config
       orval:
         specifier: ^8.39.0
-        version: 8.39.0(@tanstack/react-query@5.104.0(react@19.2.3))(effect@3.20.0)(prettier@3.9.7)(typescript@6.0.3)(zod@4.6.7)
+        version: 8.39.0(@tanstack/react-query@5.104.0(react@19.2.3))(effect@3.22.4)(prettier@3.9.7)(typescript@6.0.3)(zod@4.6.7)
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -498,7 +508,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(happy-dom@21.0.4)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       zod:
         specifier: ^4.6.6
         version: 4.6.7
@@ -698,6 +708,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@wayfare/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -723,6 +736,9 @@ importers:
         specifier: 3.7.0
         version: 3.7.0
     devDependencies:
+      '@tanstack/react-query':
+        specifier: ^5.104.0
+        version: 5.104.0(react@19.3.1)
       '@types/react':
         specifier: ~19.3.0
         version: 19.3.0
@@ -3834,7 +3850,7 @@ packages:
   '@orval/effect@8.39.0':
     resolution: {integrity: sha512-4X77niRHuQWpdx45vlbkG0Bxg6h0gscVHK4khjNkDCWSsjtwAq6LpJkgvFFXJlQ0WFKUfs/rJ2hyRmVUkcfP9A==}
     peerDependencies:
-      effect: '>=3'
+      effect: 3.22.4
     peerDependenciesMeta:
       effect:
         optional: true
@@ -5723,6 +5739,9 @@ packages:
   '@types/unist@2.0.11':
     resolution: {integrity: sha512-CmBKiL6NNo/OqgmMn95Fk9Whlp2mtvIv+KNpQKN2F4SjvrEesubTRWGYSg+BnWZOnlCaSTU1sMpsBOzgbYhnsA==}
 
+  '@types/whatwg-mimetype@3.0.2':
+    resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
+
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
@@ -6340,6 +6359,10 @@ packages:
 
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
+
+  buffer-image-size@0.6.4:
+    resolution: {integrity: sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ==}
+    engines: {node: '>=4.0'}
 
   buffer@5.7.1:
     resolution: {integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==}
@@ -6991,8 +7014,8 @@ packages:
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
-  effect@3.20.0:
-    resolution: {integrity: sha512-qMLfDJscrNG8p/aw+IkT9W7fgj50Z4wG5bLBy0Txsxz8iUHjDIkOgO3SV0WZfnQbNG2VJYb0b+rDLMrhM4+Krw==}
+  effect@3.22.4:
+    resolution: {integrity: sha512-RNshu7AXVxxDh6aS4lothhJ+QoZ4xSykbWNaaVdvDN72RMyVwhCGdALkyl1TbEydgAmRIdD1eTyJqBUGwSBGDA==}
 
   electron-to-chromium@1.5.430:
     resolution: {integrity: sha512-e1QEj72Y4zd8RlNZVmoTg+iCOSVwpk05IOiiQwdrkwCSVlZfPthevErhE+nckGd2YbsXfp1SkisznhGVIXP2NQ==}
@@ -7044,6 +7067,10 @@ packages:
 
   entities@4.5.0:
     resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
+    engines: {node: '>=0.12'}
+
+  entities@7.0.1:
+    resolution: {integrity: sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA==}
     engines: {node: '>=0.12'}
 
   env-paths@2.2.1:
@@ -7534,6 +7561,10 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
+  fake-indexeddb@6.2.7:
+    resolution: {integrity: sha512-g0ghQ+BmU3CSZaHup5FigEAAtCmtNyxkrmID7OAeK2qONHghw1aQ2l2T1RxmfhP1H1tEXVRWArUTGVCk5832ww==}
+    engines: {node: '>=18'}
+
   fast-check@3.23.2:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
@@ -7915,6 +7946,10 @@ packages:
   gtoken@7.1.0:
     resolution: {integrity: sha512-pCcEwRi+TKpMlxAQObHDQ56KawURgyAf6jtIY046fJ5tIv3zDe/LEIubckAO8fj6JnAxLdmWkUfNyulQ2iKdEw==}
     engines: {node: '>=14.0.0'}
+
+  happy-dom@21.0.4:
+    resolution: {integrity: sha512-tFm+GaLBgo6o0awHnvHaNoraVo27qJ+2tZEtZ+cIa08hXbeitrxAJajLI05hsUy/2/YTKcUjQYzHe5mCcraLBw==}
+    engines: {node: '>=20.0.0'}
 
   has-flag@3.0.0:
     resolution: {integrity: sha512-sKJf1+ceQBr4SMkvQnBDNDtf4TXpVhVGateu0t918bl30FnbE2m4vNLX+VWe/dpjlb+HugGYzW7uQXH98HPEYw==}
@@ -11223,6 +11258,10 @@ packages:
   whatwg-fetch@3.6.20:
     resolution: {integrity: sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==}
 
+  whatwg-mimetype@3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
+
   whatwg-url-minimum@0.1.2:
     resolution: {integrity: sha512-XPEm0XFQWNVG292lII1PrRRJl3sItrs7CettZ4ncYxuDVpLyy+NwlGyut2hXI0JswcJUxeCH+CyOJK0ZzAXD6A==}
 
@@ -14366,11 +14405,11 @@ snapshots:
       jsesc: 3.1.0
       tinyglobby: 0.2.17
 
-  '@orval/effect@8.39.0(effect@3.20.0)':
+  '@orval/effect@8.39.0(effect@3.22.4)':
     dependencies:
       '@orval/core': 8.39.0
     optionalDependencies:
-      effect: 3.20.0
+      effect: 3.22.4
     transitivePeerDependencies:
       - '@faker-js/faker'
 
@@ -14488,7 +14527,7 @@ snapshots:
     dependencies:
       c12: 3.3.4(magicast@0.5.5)
       deepmerge-ts: 7.1.5
-      effect: 3.20.0
+      effect: 3.22.4
       empathic: 2.0.0
     transitivePeerDependencies:
       - magicast
@@ -16417,6 +16456,8 @@ snapshots:
 
   '@types/unist@2.0.11': {}
 
+  '@types/whatwg-mimetype@3.0.2': {}
+
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 24.13.5
@@ -16609,7 +16650,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
+      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(happy-dom@21.0.4)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
 
   '@vitest/expect@4.1.11':
     dependencies:
@@ -17233,6 +17274,10 @@ snapshots:
 
   buffer-from@1.1.2: {}
 
+  buffer-image-size@0.6.4:
+    dependencies:
+      '@types/node': 24.13.5
+
   buffer@5.7.1:
     dependencies:
       base64-js: 1.5.1
@@ -17829,7 +17874,7 @@ snapshots:
 
   ee-first@1.1.1: {}
 
-  effect@3.20.0:
+  effect@3.22.4:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -17892,6 +17937,8 @@ snapshots:
       tapable: 2.3.3
 
   entities@4.5.0: {}
+
+  entities@7.0.1: {}
 
   env-paths@2.2.1: {}
 
@@ -18514,6 +18561,8 @@ snapshots:
 
   extend@3.0.2: {}
 
+  fake-indexeddb@6.2.7: {}
+
   fast-check@3.23.2:
     dependencies:
       pure-rand: 6.1.0
@@ -18965,6 +19014,19 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+
+  happy-dom@21.0.4:
+    dependencies:
+      '@types/node': 24.13.5
+      '@types/whatwg-mimetype': 3.0.2
+      '@types/ws': 8.18.1
+      buffer-image-size: 0.6.4
+      entities: 7.0.1
+      whatwg-mimetype: 3.0.0
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   has-flag@3.0.0: {}
 
@@ -20634,13 +20696,13 @@ snapshots:
       strip-ansi: 6.0.1
       wcwidth: 1.0.1
 
-  orval@8.39.0(@tanstack/react-query@5.104.0(react@19.2.3))(effect@3.20.0)(prettier@3.9.7)(typescript@6.0.3)(zod@4.6.7):
+  orval@8.39.0(@tanstack/react-query@5.104.0(react@19.2.3))(effect@3.22.4)(prettier@3.9.7)(typescript@6.0.3)(zod@4.6.7):
     dependencies:
       '@commander-js/extra-typings': 15.0.0(commander@15.0.0)
       '@orval/angular': 8.39.0
       '@orval/axios': 8.39.0
       '@orval/core': 8.39.0
-      '@orval/effect': 8.39.0(effect@3.20.0)
+      '@orval/effect': 8.39.0(effect@3.22.4)
       '@orval/fetch': 8.39.0
       '@orval/hono': 8.39.0(typescript@6.0.3)(zod@4.6.7)
       '@orval/mcp': 8.39.0(zod@4.6.7)
@@ -22532,7 +22594,7 @@ snapshots:
       terser: 5.51.2
       yaml: 2.9.1
 
-  vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)):
+  vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.5)(@vitest/coverage-v8@4.1.11)(happy-dom@21.0.4)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)):
     dependencies:
       '@vitest/expect': 4.1.11
       '@vitest/mocker': 4.1.11(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
@@ -22558,6 +22620,7 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@types/node': 24.13.5
       '@vitest/coverage-v8': 4.1.11(vitest@4.1.11)
+      happy-dom: 21.0.4
     transitivePeerDependencies:
       - msw
 
@@ -22630,6 +22693,8 @@ snapshots:
       - uglify-js
 
   whatwg-fetch@3.6.20: {}
+
+  whatwg-mimetype@3.0.0: {}
 
   whatwg-url-minimum@0.1.2: {}
 

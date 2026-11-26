@@ -48,13 +48,10 @@ export function DialogContent({
   const focusReturn = useFocusReturn();
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay
-        data-overlay
-        className={cn(overlay, 'duration-(--duration-fast) motion-reduce:animate-none')}
-      />
+      <DialogPrimitive.Overlay data-overlay className={cn(overlay, 'duration-(--duration-fast)')} />
       <DialogPrimitive.Content
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 flex max-h-dvh w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-3 outline-none duration-(--duration-fast) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out motion-reduce:animate-none',
+          'fixed top-1/2 left-1/2 z-50 flex max-h-dvh w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-3 outline-none duration-(--duration-fast) data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out',
           className,
         )}
         {...focusReturn}
@@ -109,11 +106,11 @@ export function DrawerContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
         data-overlay
-        className={cn(overlay, 'duration-(--duration-normal) motion-reduce:animate-none')}
+        className={cn(overlay, 'duration-(--duration-normal)')}
       />
       <DialogPrimitive.Content
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col overflow-y-auto bg-card shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left motion-reduce:animate-none',
+          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col overflow-y-auto bg-card shadow-3 outline-none duration-(--duration-normal) data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left',
           className,
         )}
         {...props}

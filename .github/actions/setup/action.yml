@@ -13,7 +13,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version-file: .nvmrc
 
@@ -26,7 +26,7 @@ runs:
       run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       shell: bash
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
         key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -39,7 +39,7 @@ runs:
     # Turbo's local cache, per job (and per build filter): a package whose inputs didn't change
     # since this job's last run is replayed, not compiled again. Saved under the commit, restored
     # from the job's latest.
-    - uses: actions/cache@v4
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: .turbo/cache
         key: turbo-${{ runner.os }}-${{ github.job }}-${{ inputs.build }}-${{ github.sha }}

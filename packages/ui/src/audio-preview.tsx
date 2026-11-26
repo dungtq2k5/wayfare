@@ -108,7 +108,7 @@ export function AudioPreview({
         className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
       >
         {state === 'loading' ? (
-          <LoaderCircle aria-hidden className="size-5 animate-spin motion-reduce:animate-none" />
+          <LoaderCircle aria-hidden className="size-5 animate-spin" />
         ) : playing ? (
           <Pause aria-hidden className="size-5" />
         ) : (

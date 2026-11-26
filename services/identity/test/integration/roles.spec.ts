@@ -137,6 +137,11 @@ describe('UpdateRole', () => {
     });
     await roles.updateRole({ roleId: role!.id, name: 'Help desk' }, actor.context);
     expect(await auditOf(AuditAction.ROLE_UPDATED)).toHaveLength(1);
+    const { role: described } = await roles.updateRole(
+      { roleId: role!.id, description: 'Phones' },
+      actor.context,
+    );
+    expect(described).toMatchObject({ name: 'Help desk', description: 'Phones' });
   });
 
   it('refuses a system role, a taken name and an unknown id', async () => {
@@ -291,5 +296,18 @@ describe('ListPermissions', () => {
     ]);
     expect(users?.permissions.at(-1)?.isRetired).toBe(true);
     expect(groups.flatMap((group) => group.permissions)).toHaveLength(PERMISSION_CODES.length + 1);
+  });
+
+  it('puts a group this build does not know after every known one', async () => {
+    const actor = await superAdmin();
+    await prisma.permission.create({
+      data: { code: 'zz.test', group: 'ZZ_UNKNOWN', description: 'A group from elsewhere' },
+    });
+    try {
+      const { groups } = await roles.listPermissions(actor.context);
+      expect(groups.map((group) => group.group)).toEqual([...PERMISSION_GROUPS, 'ZZ_UNKNOWN']);
+    } finally {
+      await prisma.permission.delete({ where: { code: 'zz.test' } });
+    }
   });
 });

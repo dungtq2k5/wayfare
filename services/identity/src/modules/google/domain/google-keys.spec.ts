@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { publishedGoogleKeys } from './google-keys';
+import { fakeGoogleKeys, publishedGoogleKeys } from './google-keys';
+import { FAKE_GOOGLE_KEY_ID } from './id-token';
 
 const jwk = {
   ...generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'jwk' }),
@@ -51,5 +52,36 @@ describe('Google’s published keys', () => {
     expect(await keys.key('k1')).toBeDefined();
     now = 700_000;
     expect(await keys.key('k1')).toBe('unavailable');
+  });
+
+  it('call an error answer unavailable, skip a key with no id, and keep an hour without max-age', async () => {
+    let now = 0;
+    let answer = new Response('', { status: 503 });
+    const keys = publishedGoogleKeys(
+      () => Promise.resolve(answer),
+      () => now,
+    );
+    expect(await keys.key('k1')).toBe('unavailable');
+
+    const { kid: _kid, ...nameless } = jwk;
+    answer = new Response(JSON.stringify({ keys: [nameless, jwk] }));
+    expect(await keys.key('k1')).toBeDefined();
+    now = 3_599_000;
+    answer = new Response('', { status: 503 });
+    expect(await keys.key('k1')).toBeDefined();
+    now = 3_600_000;
+    expect(await keys.key('k1')).toBe('unavailable');
+
+    answer = new Response(JSON.stringify({}));
+    expect(await keys.key('k1')).toBeUndefined();
+  });
+});
+
+describe('the fake issuer’s keys (development only)', () => {
+  it('publish its one key and no other', async () => {
+    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const keys = fakeGoogleKeys(privateKey);
+    expect(await keys.key(FAKE_GOOGLE_KEY_ID)).toBeDefined();
+    expect(await keys.key('k1')).toBeUndefined();
   });
 });

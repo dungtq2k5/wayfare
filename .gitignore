@@ -6,6 +6,8 @@ coverage/
 .next/
 # The screen baselines' own development server (apps/console/e2e/README.md).
 .next-screens/
+# What the screens' stack held before any spec (apps/console/e2e/screens/seed.ts).
+apps/console/e2e/screens/.seed.json
 # Written by `next dev` / `next build`, pointing into .next/.
 apps/console/next-env.d.ts
 apps/web/next-env.d.ts
@@ -36,3 +38,4 @@ graphify-out/
 apps/web/public/sw.js
 apps/web/public/sw.js.map
 apps/web/public/swe-worker-*.js
+.vitest-reports/

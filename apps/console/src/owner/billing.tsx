@@ -234,10 +234,7 @@ export function OwnerBilling() {
           {state === 'confirming' ? (
             <>
               <p className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                <LoaderCircle
-                  aria-hidden
-                  className="size-5 animate-spin motion-reduce:animate-none"
-                />
+                <LoaderCircle aria-hidden className="size-5 animate-spin" />
                 {t('ob.confirming')}
               </p>
               <p className="text-sm text-muted-foreground">{t('ob.confirmingBody')}</p>

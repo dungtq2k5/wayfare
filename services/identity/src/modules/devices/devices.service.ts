@@ -151,8 +151,12 @@ export class DevicesService {
   }
 
   /**
-   * Exchanges a device secret for a device token. The last-seen stamp is written at most once per
-   * `DEVICE_LAST_SEEN_THROTTLE_MS`, by a conditional update, so concurrent exchanges write once.
+   * Exchanges a device secret for a device token. An install this service doesn't know — no device
+   * holds the secret, it belongs to another id, or the row was pruned after 400 days unseen —
+   * answers as a revoked one does (`DEVICE_REVOKED`): to the client both mean "register anew", and
+   * the answer reveals nothing, since anyone may register. The last-seen stamp is written at most
+   * once per `DEVICE_LAST_SEEN_THROTTLE_MS`, by a conditional update, so concurrent exchanges write
+   * once.
    */
   async exchangeDeviceToken(
     request: identityGrpc.ExchangeDeviceTokenRequest,
@@ -162,8 +166,9 @@ export class DevicesService {
       where: { secretHash: hashToken(fields.deviceSecret) },
       select: { id: true, revokedAt: true },
     });
-    if (device === null || device.id !== fields.deviceId) throw rpcError('UNAUTHENTICATED');
-    if (device.revokedAt !== null) throw rpcError('DEVICE_REVOKED');
+    if (device?.id !== fields.deviceId || device.revokedAt !== null) {
+      throw rpcError('DEVICE_REVOKED');
+    }
     const now = new Date();
     await this.prisma.device.updateMany({
       where: {
@@ -240,16 +245,16 @@ export class DevicesService {
   }
 
   /**
-   * Loads the caller's device and refuses a forgotten one (`DEVICE_REVOKED`). A device token
-   * outlives `ForgetDevice` by up to 15 minutes; every use case acting on the device calls this.
+   * Loads the caller's device and refuses a forgotten or gone one (`DEVICE_REVOKED`: a pruned row
+   * means the same to the client as a revoked one). A device token outlives `ForgetDevice` by up
+   * to 15 minutes; every use case acting on the device calls this.
    */
   async requireLiveDevice(tx: Prisma.TransactionClient, deviceId: string): Promise<DeviceRow> {
     const device = await tx.device.findUnique({
       where: { id: deviceId },
       select: { ...DEVICE_VIEW_SELECT, revokedAt: true },
     });
-    if (device === null) throw rpcError('UNAUTHENTICATED');
-    if (device.revokedAt !== null) throw rpcError('DEVICE_REVOKED');
+    if (device === null || device.revokedAt !== null) throw rpcError('DEVICE_REVOKED');
     return device;
   }
 

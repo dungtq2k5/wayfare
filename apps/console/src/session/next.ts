@@ -6,7 +6,7 @@ export function safeNext(value: string | null | undefined): string | null {
   if (value === null || value === undefined || !value.startsWith('/')) return null;
   if (value.startsWith('//') || value.includes('\\')) return null;
   try {
-    const base = 'http://console.invalid';
+    const base = 'http://console.invalid'; // NOSONAR: S5332, a base for new URL() that only parses a path; nothing is requested
     const url = new URL(value, base);
     if (url.origin !== base) return null;
     return `${url.pathname}${url.search}${url.hash}`;

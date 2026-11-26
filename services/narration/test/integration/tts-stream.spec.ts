@@ -122,6 +122,57 @@ describe('two tourists tapping at once', () => {
   });
 });
 
+describe('a tourist behind a synthesis already running', () => {
+  /** Holds the winner's chain until `release`, so a second call meets the lock. */
+  function holdWinner(outcome: 'works' | 'fails') {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const real = services.synthesis.synthesize.bind(services.synthesis);
+    const held = vi
+      .spyOn(services.synthesis, 'synthesize')
+      .mockImplementation(async (...args: Parameters<typeof real>) => {
+        await gate;
+        if (outcome === 'fails') throw new Error('provider down');
+        return real(...args);
+      });
+    // The second call has met the lock once its own `SET NX` is refused.
+    const locks = vi.spyOn(services.redis, 'set');
+    const waiting = () => vi.waitFor(() => expect(locks).toHaveBeenCalledTimes(2));
+    return { held, release, waiting };
+  }
+
+  it('waits for the winner’s file and serves it', async () => {
+    const target = place();
+    const { held, release, waiting } = holdWinner('works');
+    const winner = stream(target.id);
+    await vi.waitFor(() => expect(held).toHaveBeenCalledTimes(1));
+    const waiter = stream(target.id);
+    await waiting();
+    release();
+    const [won, waited] = await Promise.all([winner, waiter]);
+    expect(Buffer.from(waited.audio).equals(Buffer.from(won.audio))).toBe(true);
+    expect(held).toHaveBeenCalledTimes(1);
+    held.mockRestore();
+  });
+
+  it('fails with the winner once its lock is gone and no file came', async () => {
+    const target = place();
+    const { held, release, waiting } = holdWinner('fails');
+    const winner = stream(target.id);
+    winner.catch(() => undefined);
+    await vi.waitFor(() => expect(held).toHaveBeenCalledTimes(1));
+    const waiter = errorOf(stream(target.id));
+    await waiting();
+    release();
+    expect((await waiter).code).toBe('UPSTREAM_UNAVAILABLE');
+    await expect(winner).rejects.toThrow('provider down');
+    expect(held).toHaveBeenCalledTimes(1);
+    held.mockRestore();
+  });
+});
+
 describe('a slow provider chain', () => {
   it('answers 503 within its budget, keeps the lock, and still publishes the file', async () => {
     const target = place();
