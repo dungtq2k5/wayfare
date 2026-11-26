@@ -173,8 +173,64 @@ export async function look(
     );
     expect(bare, `${name}: text fields without a placeholder`).toEqual([]);
   }
+  if (options.only === undefined) await noControlCutOff(page, name);
   await page.emulateMedia({ colorScheme: 'light' });
   if (initial !== null) await page.setViewportSize(initial);
+}
+
+/**
+ * The laptop widths between the frames' — 1280 and 1024, where the sidebar leaves the least room —
+ * checked for one thing only: no control cut off by a box it can't be scrolled into (a list's last
+ * column, its *Publish*). Clipping doesn't depend on the scheme, so in light alone; no capture.
+ * Not for a state that exists only at some widths.
+ */
+export async function noControlCutOff(page: Page, name: string): Promise<void> {
+  await page.emulateMedia({ colorScheme: 'light' });
+  for (const width of [1280, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForFunction(() =>
+      document.getAnimations().every((animation) => animation.playState !== 'running'),
+    );
+    expect(await page.evaluate(cutOff), `${name} at ${width}: controls cut off`).toEqual([]);
+  }
+}
+
+/**
+ * The visible controls whose box extends past an ancestor that clips (`overflow: hidden` or
+ * `clip`) with no scroll container between them. Not counted: a control smaller than 1 × 1 or
+ * inside a box that is (visually hidden), text cut with an ellipsis, and a deliberate case marked
+ * `data-clip-ok` (its reason beside it).
+ */
+function cutOff(): string[] {
+  const clips = (value: string) => value === 'hidden' || value === 'clip';
+  const scrolls = (value: string) => value === 'auto' || value === 'scroll';
+  const found: string[] = [];
+  const controls = document.querySelectorAll<HTMLElement>(
+    'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"]',
+  );
+  for (const control of controls) {
+    if (control.closest('[data-clip-ok]') !== null) continue;
+    const box = control.getBoundingClientRect();
+    if (box.width <= 1 || box.height <= 1 || getComputedStyle(control).visibility === 'hidden') {
+      continue;
+    }
+    for (let parent = control.parentElement; parent !== null; parent = parent.parentElement) {
+      const style = getComputedStyle(parent);
+      if (scrolls(style.overflowX) || scrolls(style.overflowY)) break;
+      const outer = parent.getBoundingClientRect();
+      if (outer.width <= 1 || outer.height <= 1 || style.textOverflow === 'ellipsis') break;
+      const sideways =
+        clips(style.overflowX) && (box.left < outer.left - 1 || box.right > outer.right + 1);
+      const down =
+        clips(style.overflowY) && (box.top < outer.top - 1 || box.bottom > outer.bottom + 1);
+      if (sideways || down) {
+        const label = (control.getAttribute('aria-label') ?? control.textContent ?? '').trim();
+        found.push(`${control.tagName.toLowerCase()} "${label.slice(0, 40)}"`);
+        break;
+      }
+    }
+  }
+  return found;
 }
 
 /** The page at one scheme and width, its fonts loaded and its animations ended. */

@@ -91,7 +91,7 @@ export class AdminUsersController {
     summary: 'Create a staff account with its roles. It holds nothing its creator does not.',
   })
   @ApiEnvelope(AdminUserResultResponseDto)
-  @ApiErrors('EMAIL_TAKEN', 'SUPER_ADMIN_NOT_ASSIGNABLE', 'RESOURCE_NOT_FOUND')
+  @ApiErrors('EMAIL_TAKEN', 'SUPER_ADMIN_NOT_ASSIGNABLE', 'NOT_A_STAFF_ROLE', 'RESOURCE_NOT_FOUND')
   @ZodSerializerDto(AdminUserResultResponseDto)
   create(
     @Ctx() context: AccountContext,
@@ -124,6 +124,7 @@ export class AdminUsersController {
   @ApiEnvelope(AdminUserResultResponseDto)
   @ApiErrors(
     'SUPER_ADMIN_NOT_ASSIGNABLE',
+    'NOT_A_STAFF_ROLE',
     'LAST_SUPER_ADMIN',
     'RESOURCE_NOT_FOUND',
     'INVALID_STATE',

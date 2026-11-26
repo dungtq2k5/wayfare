@@ -123,10 +123,13 @@ export class MapPacksService {
     if (claimedBytes > MAX_MAP_PACK_BYTES) {
       throw rpcError('MAP_PACK_TOO_LARGE', { bytes: claimedBytes, maxBytes: MAX_MAP_PACK_BYTES });
     }
+    // A rebuild is byte for byte the same: refused before every object is read again.
+    await this.refuseRegistered(this.prisma, input.areaId, input.pmtiles.sha256);
     await this.rehash(claimed.map(([, item]) => item));
 
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`catalog:map-packs:${input.areaId}`}))`;
+      await this.refuseRegistered(tx, input.areaId, input.pmtiles.sha256);
       const latest = await tx.mapPack.aggregate({
         where: { areaId: input.areaId },
         _max: { version: true },
@@ -254,5 +257,23 @@ export class MapPacksService {
         now: new Date(),
       }),
     );
+  }
+
+  /**
+   * One pack per archive in an area, whatever registers it — the build, the console or a hand-made
+   * call: the same archive already registered and not retired is `MAP_PACK_ALREADY_REGISTERED`.
+   */
+  private async refuseRegistered(
+    db: Pick<CatalogTx, 'mapPack'>,
+    areaId: string,
+    pmtilesSha256: string,
+  ): Promise<void> {
+    const existing = await db.mapPack.findFirst({
+      where: { areaId, pmtilesSha256, status: { not: MapPackStatus.RETIRED } },
+      select: { id: true },
+    });
+    if (existing !== null) {
+      throw rpcError('MAP_PACK_ALREADY_REGISTERED', { mapPackId: existing.id });
+    }
   }
 }

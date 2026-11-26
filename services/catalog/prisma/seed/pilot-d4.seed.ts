@@ -3,6 +3,7 @@
 // editor with the corpus's editorial values — plus one pending creation and one pending edit left
 // in the review queue. Run it through turbo only, after identity's and billing's seeds: it waits
 // for each owner's grants to reach catalog. Never in production; idempotent; never deletes.
+import './warnings';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';

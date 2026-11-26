@@ -3,6 +3,7 @@
 // (`pnpm seed:dev`, optionally `--filter=@wayfare/catalog`): identity's seed must create the seed
 // editor first, or every audit event from this one is refused and dead-lettered. Calling this
 // package script directly is unsupported. Never in production; idempotent; never deletes.
+import './warnings';
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { newId } from '@wayfare/contracts';
