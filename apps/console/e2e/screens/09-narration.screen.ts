@@ -5,7 +5,8 @@ import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { reply } from './answers';
-import { actor, findPlace, untilNarrationIdle } from './content';
+import { actor, editorialPlace, untilNarrationIdle } from './content';
+import { seeded } from './seed';
 import { look } from './look';
 import { as } from './people';
 import { PEOPLE } from './setup';
@@ -14,15 +15,24 @@ test.beforeEach(() => resetRateLimits());
 
 const minutes = (n: number) => new Date(Date.now() + n * 60_000).toISOString();
 
-/** The newest job of the Editorial Place the Places screens draw. */
+/** This spec's own Editorial Place, whose jobs the frames draw: no other spec touches it. */
+const HUYEN_SY = {
+  name: 'Nhà thờ Huyện Sỹ',
+  description:
+    'Nhà thờ gạch đỏ xây năm 1902 trên đường Tôn Thất Tùng, tháp chuông cao 57 mét và vườn tượng đá cẩm thạch.',
+  category: 'CHURCH',
+  location: { lat: 10.7792, lng: 106.6988 },
+};
+
+/** The newest job of this spec's Place. */
 async function aJob(): Promise<{ id: string; placeId: string }> {
   const lan = await actor(PEOPLE.lan);
-  const place = (await findPlace(lan, 'Nhà thờ Tân Định'))!;
+  const placeId = await editorialPlace(lan, HUYEN_SY);
   const { data } = await lan.call<{ data: { id: string }[] }>(
     'GET',
-    `/admin/narration/jobs?targetType=PLACE&targetId=${place.id}&pageSize=1`,
+    `/admin/narration/jobs?targetType=PLACE&targetId=${placeId}&pageSize=1`,
   );
-  return { id: data[0]!.id, placeId: place.id };
+  return { id: data[0]!.id, placeId };
 }
 
 const task = (lang: string, over: Record<string, unknown>) => ({
@@ -112,7 +122,10 @@ const STATUSES: ((job: Counts) => Record<string, unknown>)[] = [
 const waitingLine = (page: Page) => page.getByText(/^Waiting for a speech provider/);
 
 test('J1 the monitor', async ({ page }) => {
+  const own = await aJob();
   await untilNarrationIdle(await actor(PEOPLE.lan));
+  // The seed's jobs and this spec's own only: another spec's would change the page (§12.8).
+  const seedJob = seeded('jobs');
   await as(page, PEOPLE.lan);
   // Newest first is creation time, which differs on every fresh stack: the real first page, in an
   // order every run draws the same — by target, then trigger, then progress.
@@ -121,13 +134,25 @@ test('J1 the monitor', async ({ page }) => {
   await page.route('**/api/v1/admin/narration/jobs?*', async (route) => {
     // Every job, sorted, then the page asked for: which jobs are newest also differs by run.
     const asked = new URL(route.request().url());
-    const all = new URL(asked);
-    all.searchParams.set('page', '1');
-    all.searchParams.set('pageSize', '100');
-    const answer = (await (await route.fetch({ url: all.toString() })).json()) as {
-      data: { targetType: string; targetId: string | null; trigger: string; totalTasks: number }[];
-      meta: Record<string, unknown>;
+    type Job = {
+      targetType: string;
+      targetId: string | null;
+      trigger: string;
+      totalTasks: number;
+      id: string;
     };
+    const answer: { data: Job[]; meta: Record<string, unknown> } = { data: [], meta: {} };
+    // Every page: other specs' newer jobs would push the seed's off the first.
+    for (let index = 1; ; index++) {
+      const all = new URL(asked);
+      all.searchParams.set('page', String(index));
+      all.searchParams.set('pageSize', '100');
+      const read = (await (await route.fetch({ url: all.toString() })).json()) as typeof answer;
+      answer.data.push(...read.data);
+      answer.meta = read.meta;
+      if (read.data.length < 100) break;
+    }
+    answer.data = answer.data.filter((job) => seedJob(job) || job.targetId === own.placeId);
     // Every target's name, a menu dish's too: dishes that tie on the rest would come in any order.
     for (const job of answer.data) {
       if (job.targetId !== null && !names.has(job.targetId)) {
@@ -151,7 +176,7 @@ test('J1 the monitor', async ({ page }) => {
     });
     const body = {
       data: shown,
-      meta: { ...answer.meta, page, pageSize: size },
+      meta: { ...answer.meta, page, pageSize: size, total: answer.data.length },
     };
     return route.fulfill({
       status: 200,

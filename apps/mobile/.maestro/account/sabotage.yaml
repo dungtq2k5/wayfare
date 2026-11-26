@@ -7,7 +7,7 @@
 # databases (edges 3, 7, 9, 10, 12, DoD 4), resetting the `AUTH` budget before each: run alone,
 # this flow makes more sign-in calls than one budget of 10 allows, and the later parts meet
 # *Too many tries*. Same set-up as `account.yaml`; it makes its own accounts.
-#   maestro test apps/mobile/.maestro/account/sabotage.yaml
+#   bash apps/mobile/.maestro/account/system.sh   (never alone: it resets the AUTH budget between parts)
 appId: app.wayfare
 ---
 - launchApp:

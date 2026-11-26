@@ -55,6 +55,12 @@ test.beforeAll(async () => {
   await untilStuck(lan, theatre);
 });
 
+// The stuck Place would stay on every admin's Home that other specs draw after this one: deleted
+// once the frames are drawn (conventions §12.8).
+test.afterAll(async () => {
+  if (theatre !== '') await (await actor(PEOPLE.lan)).call('DELETE', `/admin/places/${theatre}`);
+});
+
 test('X1 Home’s Needs a look', async ({ page }) => {
   await as(page, PEOPLE.lan);
   await page.goto('/');

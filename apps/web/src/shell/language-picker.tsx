@@ -89,8 +89,11 @@ function LanguageList({ onChosen }: { onChosen: () => void }) {
     </>
   );
   return (
+    // Focusable by script (-1), as the listbox pattern expects; Tab reaches the options' own roving
+    // focus stop, never the list itself.
     <div
       role="listbox"
+      tabIndex={-1}
       aria-label={t('lang.title')}
       onKeyDown={moveFocus}
       className="flex flex-col gap-1"

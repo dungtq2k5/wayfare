@@ -24,6 +24,14 @@ export interface MapView {
   readonly radiusM: number;
 }
 
+/**
+ * The styles (an area's pack; `null` for an area without one) whose map has drawn in this tab
+ * (WM5). By what was drawn, not by one map: a narrower window lays the page out anew and mounts a
+ * new map of the same area, which offline never loads, and its pins stay; another area's map waits
+ * for its own first draw.
+ */
+const drawnStyles = new Set<string | null>();
+
 /** The radius from the centre to the farthest corner the map shows. */
 function visibleRadius(map: maplibregl.Map): number {
   const bounds = map.getBounds();
@@ -84,6 +92,11 @@ export function AreaMap({
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef(new Map<string, { marker: maplibregl.Marker; element: HTMLElement }>());
   const [elements, setElements] = useState<ReadonlyMap<string, HTMLElement>>(new Map());
+  // The pins wait for this area's first draw in the tab (WM5): without streets under them they place
+  // nothing, and while it draws the message there sends the reader to the list. Only the first: the
+  // same area's map mounted anew (another layout) may never load offline, and its pins stay.
+  const [, drewNow] = useState(0);
+  const drawn = style !== undefined && drawnStyles.has(style);
   const userMarker = useRef<maplibregl.Marker | null>(null);
   const moved = useRef(onMoved);
   const loaded = useRef(onLoaded);
@@ -116,6 +129,8 @@ export function AreaMap({
     instance.on('moveend', report);
     void instance.once('load', () => {
       report();
+      drawnStyles.add(style);
+      drewNow((n) => n + 1);
       loaded.current?.();
     });
     map.current = instance;
@@ -188,7 +203,7 @@ export function AreaMap({
       <div ref={container} role="application" aria-label={label} className="size-full" />
       {[...elements].map(([id, element]) => {
         const place = byId.get(id);
-        if (place === undefined) return null;
+        if (place === undefined || !drawn) return null;
         const selected = id === selectedId;
         const sponsored = place.sponsored === true;
         // MapLibre stacks marker elements, not their contents: the selected one first, a sponsored

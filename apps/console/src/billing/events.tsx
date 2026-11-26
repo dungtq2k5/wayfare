@@ -331,7 +331,7 @@ function PayloadView({ payload }: { payload: unknown }) {
       </p>
       <pre
         data-payload
-        tabIndex={0}
+        tabIndex={0} // NOSONAR: S6845, a labelled region that scrolls on its own must be reachable by keyboard (axe scrollable-region-focusable)
         role="region"
         aria-label={t('events.payload')}
         className="max-h-dvh overflow-y-auto rounded-md bg-muted p-4 font-mono text-xs break-all whitespace-pre-wrap text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"

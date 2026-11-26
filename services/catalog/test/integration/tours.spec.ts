@@ -300,6 +300,118 @@ describe('the admin list and lifecycle (K4)', () => {
     ).toContain('<svg');
   });
 
+  it('finds tours by title or code, status and area, in the asked order, deleted ones only when asked', async () => {
+    const [a, b] = [await place(), await place({ location: east(100) })];
+    const { tour: alpha } = await create([a.id, b.id], { titleVi: 'Alpha dạo phố' });
+    const { tour: beta } = await create([a.id, b.id], { titleVi: 'Beta chợ đêm' });
+    const other = await insertArea(prisma, { code: 'quiet-area' });
+    const list = async (extra: Partial<catalogGrpc.TourAdminServiceListToursRequest> = {}) =>
+      (
+        await tours.listTours(
+          { page: { page: 1, pageSize: 20, sort: 'titleVi' }, includeDeleted: false, ...extra },
+          staff(),
+        )
+      ).tours.map((row) => row.titleVi);
+    expect(await list()).toEqual(['Alpha dạo phố', 'Beta chợ đêm']);
+    expect(await list({ page: { page: 1, pageSize: 20, sort: '-titleVi' } })).toEqual([
+      'Beta chợ đêm',
+      'Alpha dạo phố',
+    ]);
+    expect(await list({ page: { page: 1, pageSize: 20, sort: 'titleVi', q: 'chợ' } })).toEqual([
+      'Beta chợ đêm',
+    ]);
+    expect(
+      await list({ page: { page: 1, pageSize: 20, sort: 'titleVi', q: alpha!.publicCode } }),
+    ).toEqual(['Alpha dạo phố']);
+    expect(await list({ status: STATUS.TOUR_STATUS_DRAFT })).toHaveLength(2);
+    expect(await list({ status: STATUS.TOUR_STATUS_ACTIVE })).toEqual([]);
+    expect(await list({ areaId: other.id })).toEqual([]);
+    expect(await list({ areaId: tax.area.id })).toHaveLength(2);
+    await tours.deleteTour({ tourId: beta!.id }, staff());
+    expect(await list()).toEqual(['Alpha dạo phố']);
+    expect(await list({ includeDeleted: true })).toEqual(['Alpha dạo phố', 'Beta chợ đêm']);
+  });
+
+  it('refuses a status the admin list doesn’t know', async () => {
+    expect(
+      (
+        await errorOf(
+          tours.listTours(
+            {
+              page: { page: 1, pageSize: 20, sort: 'titleVi' },
+              includeDeleted: false,
+              status: 999 as catalogGrpc.TourStatus,
+            },
+            staff(),
+          ),
+        )
+      ).code,
+    ).toBe('VALIDATION_FAILED');
+  });
+
+  it('writes nothing for an edit that changes nothing, and sets then removes a cover', async () => {
+    const [a, b] = [await place(), await place({ location: east(100) })];
+    const context = staff();
+    const { tour } = await create([a.id, b.id]);
+    const unchanged = await tours.updateTour(
+      { tourId: tour!.id, titleVi: tour!.titleVi, removeCover: false },
+      context,
+    );
+    expect(unchanged.tour!.syncVersion).toBe(tour!.syncVersion);
+
+    const upload = await confirmedUpload(prisma, context.userId, {
+      purpose: UploadPurpose.TOUR_COVER,
+    });
+    const { tour: covered } = await tours.updateTour(
+      { tourId: tour!.id, coverUploadId: upload.id, removeCover: false },
+      context,
+    );
+    expect(covered!.cover?.card?.sha256).toBe(upload.variants.card.sha256);
+    const { tour: bare } = await tours.updateTour({ tourId: tour!.id, removeCover: true }, context);
+    expect(bare!.cover).toBeUndefined();
+    // The replaced cover's files go to the orphan sweep, never deleted inline.
+    expect(await prisma.orphanedObject.count()).toBe(3);
+  });
+
+  it('keeps the same stops in the same order as no change, and answers an unknown tour or area', async () => {
+    const [a, b] = [await place(), await place({ location: east(100) })];
+    const { tour } = await create([a.id, b.id]);
+    const { tour: same } = await tours.replaceTourStops(
+      { tourId: tour!.id, placeIds: [a.id, b.id] },
+      staff(),
+    );
+    expect(same!.syncVersion).toBe(tour!.syncVersion);
+    const unknown = newId();
+    expect((await errorOf(tours.getTourAdmin({ tourId: unknown }, staff()))).code).toBe(
+      'RESOURCE_NOT_FOUND',
+    );
+    expect(
+      (
+        await errorOf(
+          tours.getTourQr({ tourId: unknown, qrBaseUrl: 'https://go.example' }, staff()),
+        )
+      ).code,
+    ).toBe('RESOURCE_NOT_FOUND');
+    expect(
+      (await errorOf(tours.updateTour({ tourId: unknown, removeCover: true }, staff()))).code,
+    ).toBe('RESOURCE_NOT_FOUND');
+    expect((await errorOf(create([a.id], { areaId: newId() }))).details).toEqual({
+      resource: 'AREA',
+    });
+  });
+
+  it('restores only a deleted tour, and never takes one live in an inactive area', async () => {
+    const [a, b] = [await place(), await place({ location: east(100) })];
+    const { tour } = await create([a.id, b.id]);
+    expect(await errorOf(tours.restoreTour({ tourId: tour!.id }, staff()))).toMatchObject({
+      code: 'INVALID_STATE',
+    });
+    await prisma.area.update({ where: { id: tax.area.id }, data: { isActive: false } });
+    expect((await errorOf(create([a.id, b.id], { requestActivation: true }))).code).toBe(
+      'AREA_INACTIVE',
+    );
+  });
+
   it('refuses to delete a Place a live tour lists (api-endpoints-plan §3.5)', async () => {
     const [a, b] = [await place(), await place({ location: east(100) })];
     const { tour } = await create([a.id, b.id], { requestActivation: true });
@@ -360,6 +472,30 @@ describe("the tourist's reads (K6)", () => {
         )
       ).tours,
     ).toEqual([]);
+  });
+});
+
+describe("the tourist's tour list (K6)", () => {
+  it('lists an area’s live tours a page at a time, and refuses a cursor it never gave', async () => {
+    const [a, b] = [await place(), await place({ location: east(100) })];
+    const live: string[] = [];
+    for (const title of ['Một', 'Hai', 'Ba']) {
+      const { tour } = await create([a.id, b.id], { titleVi: title, requestActivation: true });
+      await englishArrives(tour!.id, tour!.contentHash);
+      live.push(tour!.id);
+    }
+    const list = (page: catalogGrpc.ListToursRequest['page']) =>
+      tourQueries.listTours({ areaId: tax.area.id, lang: 'en', page }, device());
+    const one = await list({ limit: 2 });
+    expect(one.tours.map((tour) => tour.id)).toEqual(live.slice(0, 2));
+    const two = await list({ limit: 2, cursor: one.page!.nextCursor! });
+    expect(two.tours.map((tour) => tour.id)).toEqual(live.slice(2));
+    expect(two.page!.nextCursor).toBeUndefined();
+    expect((await list(undefined)).tours).toHaveLength(3);
+    expect(await errorOf(list({ limit: 2, cursor: 'not-a-cursor' }))).toEqual({
+      code: 'VALIDATION_FAILED',
+      details: { issues: [{ path: '/cursor', code: 'invalid' }] },
+    });
   });
 });
 

@@ -91,7 +91,12 @@ test('WM5 loading, slow', async ({ page }) => {
   await expect(page.getByText('Slow connection — the list is ready below')).toBeVisible({
     timeout: 10_000,
   });
-  await look(page, 'wm5-loading-slow');
+  // No pin until the map has drawn: without streets under them they place nothing (the list holds
+  // the same Places).
+  await expect(page.locator('.maplibregl-marker button')).toHaveCount(0);
+  // The phone's frames only: a wider window moves the map, whose new view then narrows the list,
+  // so the light and dark frames would draw two lists.
+  await look(page, 'wm5-loading-slow', { only: ['360'] });
 });
 
 test('WM5b offline, no map yet', async ({ page, context }) => {

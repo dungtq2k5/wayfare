@@ -70,7 +70,7 @@ function ipv6Groups(address: string): number[] {
     part === ''
       ? []
       : part.split(':').flatMap((group) => {
-          if (!group.includes('.')) return [parseInt(group, 16)];
+          if (!group.includes('.')) return [Number.parseInt(group, 16)];
           const [a, b, c, d] = group.split('.').map(Number) as [number, number, number, number];
           return [(a << 8) | b, (c << 8) | d];
         });

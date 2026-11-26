@@ -44,7 +44,7 @@ export function NotificationRow({
       type="button"
       onClick={onOpen}
       className={cn(
-        'flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-foreground outline-none transition-shadow duration-(--duration-slow) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset motion-reduce:transition-none motion-safe:animate-in motion-safe:slide-in-from-top-2',
+        'flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-foreground outline-none transition-shadow duration-(--duration-slow) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset motion-safe:animate-in motion-safe:slide-in-from-top-2',
         row.readAt === null && 'bg-accent',
         outlined && 'ring-2 ring-ring ring-inset',
       )}

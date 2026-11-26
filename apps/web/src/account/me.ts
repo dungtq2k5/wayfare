@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, usersMe } from '@wayfare/api-client';
-import { clearPageCookie, readPageCookie } from '../client/cookies';
+import { clearPageCookie, readPageCookie } from '@wayfare/ui/cookies';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
 
 export const ME_KEY = ['me'] as const;

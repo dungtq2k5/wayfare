@@ -5,16 +5,17 @@
 import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
-import { actor, findPlace, ocOanh, untilStatus } from './content';
+import { actor, untilStatus } from './content';
 import { from, look, tabsThrough } from './look';
 import {
-  changeWaiting,
+  closedByOwner,
   freeOwner,
   liveVenue,
-  MINH_VENUES,
+  minhOf,
+  minhsVenues,
   NGOC_VENUES,
-  OWNERS,
-  sentVenue,
+  ngocOf,
+  subscribe,
 } from './owners';
 import { as, notificationsSettled } from './people';
 import { PEOPLE } from './setup';
@@ -23,47 +24,24 @@ test.beforeEach(() => resetRateLimits());
 
 const ids: Record<string, string> = {};
 
-/** Closes a live venue for now (the owner's own route), once. */
-async function closed(email: string, placeId: string): Promise<void> {
-  const owner = await actor(email);
-  const lan = await actor(PEOPLE.lan);
-  const { data } = await lan.call<{ data: { status: string } }>('GET', `/admin/places/${placeId}`);
-  if (data.status === 'ACTIVE') await owner.call('POST', `/owner/places/${placeId}/deactivate`);
-  await untilStatus(lan, placeId, 'INACTIVE');
-}
+/** This spec's own Minh Tran, on Growth, and Trần Bảo Ngọc, on Free (conventions §12.8). */
+const MINH = minhOf('venues');
+const NGOC = ngocOf('venues');
 
 test.beforeAll(async () => {
   test.setTimeout(900_000);
-  const minh = await actor(PEOPLE.minh);
-  const lan = await actor(PEOPLE.lan);
-  ids.ocOanh = await ocOanh();
-  ids.banhXeo = await liveVenue(minh, MINH_VENUES.banhXeo);
-  ids.ocVu = await liveVenue(minh, MINH_VENUES.ocVu);
-  ids.lauDe = await liveVenue(minh, MINH_VENUES.lauDe);
-  await changeWaiting(minh, ids.banhXeo, {
-    ...MINH_VENUES.banhXeo,
-    descriptionVi:
-      'Bánh xèo miền Tây giòn rụm, đổ bằng chảo gang trên bếp than. Mới có bánh xèo chay, ăn với rau rừng.',
-    websiteUrl: 'https://banhxeomuoixiem.vn',
-  });
-  await closed(PEOPLE.minh, ids.ocVu);
-  const lauDe = await lan.call<{ data: { status: string } }>('GET', `/admin/places/${ids.lauDe}`);
-  if (lauDe.data.status === 'ACTIVE')
-    await lan.call('POST', `/admin/places/${ids.lauDe}/deactivate`, {
-      reason: 'A tourist reported that the venue moved to another street.',
-    });
-  await untilStatus(lan, ids.lauDe, 'INACTIVE');
-  if ((await findPlace(lan, MINH_VENUES.soDiep.nameVi)) === null)
-    await sentVenue(minh, MINH_VENUES.soDiep);
+  const minh = await freeOwner(MINH, 'Minh Tran');
+  await subscribe(await actor(PEOPLE.mai), MINH, 'MinhVenues');
+  Object.assign(ids, await minhsVenues(minh));
 
   // Ngọc (N8 approved her onto Free): her venue, closed; a second one live in its place.
-  const ngoc = await freeOwner(OWNERS.ngoc, 'Trần Bảo Ngọc');
+  const ngoc = await freeOwner(NGOC, 'Trần Bảo Ngọc');
   ids.ocNgoc = await liveVenue(ngoc, NGOC_VENUES.ocNgoc);
-  await closed(OWNERS.ngoc, ids.ocNgoc);
+  await closedByOwner(ngoc, ids.ocNgoc);
   ids.che = await liveVenue(ngoc, NGOC_VENUES.che);
   // Chè Ngọc going live notifies Ngọc by event, after its status: read only once every notification
   // the setup caused has arrived, or one lands after and Z1b's Home lists it under *Needs you*.
-  await notificationsSettled(OWNERS.ngoc, 3);
+  await notificationsSettled(NGOC, 3);
   await ngoc.call('POST', '/notifications/read-all');
 });
 
@@ -74,7 +52,7 @@ async function open(page: Page, email: string, path: string): Promise<void> {
 }
 
 test('Z1b Home, all clear', async ({ page }) => {
-  await open(page, OWNERS.ngoc, '/');
+  await open(page, NGOC, '/');
   await expect(page.getByText('Nothing needs you right now.')).toBeVisible();
   // The plan card's places line comes from its own read, after the page.
   await expect(page.getByText(/ of \d+ places? used/)).toBeVisible();
@@ -82,7 +60,7 @@ test('Z1b Home, all clear', async ({ page }) => {
 });
 
 test('M1 my venues', async ({ page }) => {
-  await open(page, PEOPLE.minh, '/owner/venues');
+  await open(page, MINH, '/owner/venues');
   const table = page.getByRole('table');
   await expect(table.getByText('Closed by you').first()).toBeVisible();
   await expect(table.getByText('Taken down by Wayfare')).toBeVisible();
@@ -96,14 +74,14 @@ test('M1 my venues', async ({ page }) => {
 });
 
 test('M1b at the limit', async ({ page }) => {
-  await open(page, OWNERS.ngoc, '/owner/venues');
+  await open(page, NGOC, '/owner/venues');
   await expect(page.getByRole('button', { name: 'Add a venue' })).toBeDisabled();
   await expect(page.getByText("You're using every place on your plan")).toBeVisible();
   await look(page, 'm1b-at-the-limit');
 });
 
 test('M2 a venue', async ({ page }) => {
-  await open(page, PEOPLE.minh, `/owner/venues/${ids.banhXeo}`);
+  await open(page, MINH, `/owner/venues/${ids.banhXeo}`);
   const waiting = page.getByRole('region', { name: 'Waiting for review' });
   await expect(waiting.getByText('What tourists see').first()).toBeVisible();
   await expect(page.getByText('Set by Wayfare')).toBeVisible();
@@ -121,7 +99,7 @@ test('M2 a venue', async ({ page }) => {
 });
 
 test('M3 close for now, M3b closed with Undo', async ({ page }) => {
-  await open(page, PEOPLE.minh, `/owner/venues/${ids.ocOanh}`);
+  await open(page, MINH, `/owner/venues/${ids.ocOanh}`);
   // The map comes once its area's pack is read, after the page.
   await expect(
     page.getByRole('application', { name: 'Location' }).locator('.maplibregl-canvas'),
@@ -134,18 +112,16 @@ test('M3 close for now, M3b closed with Undo', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: 'Close for now' }).click();
   const toast = page.locator('[data-sonner-toast]');
   await expect(toast.getByText('Ốc Oanh is closed for now')).toBeVisible();
-  // The toast stays while the pointer is on it, through every capture.
-  await toast.hover();
   await expect(page.getByRole('button', { name: 'Reopen', exact: true })).toBeVisible();
   await look(page, 'm3b-closed-with-undo', { viewportOnly: true });
   // Back as it was for the other frames: reopened, its audio already made.
   const lan = await actor(PEOPLE.lan);
-  await (await actor(PEOPLE.minh)).call('POST', `/owner/places/${ids.ocOanh}/reactivate`);
+  await (await actor(MINH)).call('POST', `/owner/places/${ids.ocOanh}/reactivate`);
   await untilStatus(lan, ids.ocOanh!, 'ACTIVE');
 });
 
 test('M4 reopen refused at the limit', async ({ page }) => {
-  await open(page, OWNERS.ngoc, `/owner/venues/${ids.ocNgoc}`);
+  await open(page, NGOC, `/owner/venues/${ids.ocNgoc}`);
   await page.getByRole('button', { name: 'Reopen', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Reopen', exact: true }).click();
   await expect(page.getByRole('dialog').getByText(/can't reopen/)).toBeVisible();
@@ -153,7 +129,7 @@ test('M4 reopen refused at the limit', async ({ page }) => {
 });
 
 test('M4b taken down by Wayfare', async ({ page }) => {
-  await open(page, PEOPLE.minh, `/owner/venues/${ids.lauDe}`);
+  await open(page, MINH, `/owner/venues/${ids.lauDe}`);
   await expect(page.getByText('Wayfare took this venue off the map')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reopen', exact: true })).toHaveCount(0);
   // The map comes once its area's pack is read, after the page.

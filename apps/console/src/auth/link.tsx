@@ -8,7 +8,8 @@ import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { readPageCookie, SIGNED_IN_MARKER } from '../client/cookies';
+import { readPageCookie } from '@wayfare/ui/cookies';
+import { SIGNED_IN_MARKER } from '../client/cookies';
 import { useConsole } from '../i18n/provider';
 
 /** What an emailed link carries in its fragment, which never reaches a server (K8). */

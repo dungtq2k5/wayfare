@@ -7,9 +7,9 @@ import { devicesUpdate, usersUpdate } from '@wayfare/api-client';
 import type { Language } from '@wayfare/contracts';
 import { useRouter } from 'next/navigation';
 import { useCallback, useTransition } from 'react';
-import { setPageCookie } from '../client/cookies';
+import { setPageCookie } from '@wayfare/ui/cookies';
 import { ME_KEY } from '../account/me';
-import { readPageCookie } from '../client/cookies';
+import { readPageCookie } from '@wayfare/ui/cookies';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
 import { LANGUAGE_COOKIE } from './language';
 

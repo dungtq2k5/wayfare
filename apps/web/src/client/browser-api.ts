@@ -13,7 +13,7 @@ import { API_BASE_URL, APP_VERSION } from '../env';
 import { LANGUAGE_COOKIE } from '../i18n/language';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
 import { createWebSession } from '../session/web-session';
-import { clearPageCookie, readPageCookie } from './cookies';
+import { clearPageCookie, readPageCookie } from '@wayfare/ui/cookies';
 import { database } from './db';
 
 /** A refresh another tab won (api-endpoints-plan §1.2): the winner's cookie is already set. */

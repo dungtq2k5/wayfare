@@ -36,6 +36,7 @@ describe('boundaryKey', () => {
     expect(press({ points: square, selected: 3 }, 'Tab').handled).toBe(false);
     expect(press({ points: square, selected: 0 }, 'Tab', true).handled).toBe(false);
     expect(press({ points: [], selected: null }, 'Tab').handled).toBe(false);
+    expect(press({ points: square, selected: null }, 'Tab', true).state.selected).toBe(3);
   });
 
   it('moves the selected point with the arrows, ten steps with Shift', () => {
@@ -53,8 +54,14 @@ describe('boundaryKey', () => {
     expect(press({ points: square, selected: null }, 'Delete').handled).toBe(false);
   });
 
+  it('selects nothing once the last point is removed', () => {
+    const { state } = press({ points: [[0, 0]], selected: 0 }, 'Backspace');
+    expect(state).toEqual({ points: [], selected: null });
+  });
+
   it('lets the selection go with Escape', () => {
     expect(press({ points: square, selected: 2 }, 'Escape').state.selected).toBeNull();
+    expect(press({ points: square, selected: null }, 'Escape').handled).toBe(false);
   });
 });
 
@@ -63,6 +70,13 @@ describe('rings', () => {
     expect(closedRing(square)).toHaveLength(5);
     expect(openRing(closedRing(square))).toEqual(square);
     expect(boundaryMiddle(square)).toEqual([0.5, 0.5]);
+  });
+
+  it('keeps an empty, single or unclosed ring as it is, and has no middle for no points', () => {
+    expect(closedRing([])).toEqual([]);
+    expect(openRing([[1, 2]])).toEqual([[1, 2]]);
+    expect(openRing(square)).toEqual(square);
+    expect(boundaryMiddle([])).toBeNull();
   });
 
   it('finds crossing edges in a figure eight, none in a square', () => {
@@ -74,5 +88,16 @@ describe('rings', () => {
     ];
     expect(edgesCross(eight)).toBe(true);
     expect(edgesCross(square)).toBe(false);
+  });
+
+  it('counts a point resting on another edge as a crossing, and never a triangle', () => {
+    const resting: Vertex[] = [
+      [0, 0],
+      [2, 0],
+      [1, 0],
+      [1, 1],
+    ];
+    expect(edgesCross(resting)).toBe(true);
+    expect(edgesCross(square.slice(0, 3))).toBe(false);
   });
 });

@@ -9,7 +9,8 @@ import {
 } from '@wayfare/api-client';
 import { ShieldCheck, Undo2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { clearPageCookie, SIGNED_IN_MARKER } from '../client/cookies';
+import { clearPageCookie } from '@wayfare/ui/cookies';
+import { SIGNED_IN_MARKER } from '../client/cookies';
 import { useConsole } from '../i18n/provider';
 import {
   ActionLink,

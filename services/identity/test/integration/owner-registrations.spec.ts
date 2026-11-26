@@ -408,6 +408,68 @@ describe('approval', () => {
     ).toBe(OwnerRegistrationStatus.PENDING);
   });
 
+  it('answers not found for an unknown application, and refuses an erased applicant', async () => {
+    const unknown = '0190a0b0-0000-7000-8000-000000000000';
+    for (const call of [
+      () => approve(unknown),
+      () => services.ownerReview.getRegistration({ registrationId: unknown }, moderator),
+      () =>
+        services.ownerReview.revealNationalId(
+          { registrationId: unknown, reason: 'Matching the card sent by mail.' },
+          moderator,
+        ),
+    ]) {
+      expect(await errorOf(call())).toEqual({
+        code: 'RESOURCE_NOT_FOUND',
+        details: { resource: 'OWNER_REGISTRATION' },
+      });
+    }
+    const gone = await person();
+    const id = await apply(gone);
+    const now = new Date();
+    await prisma.user.update({
+      where: { id: gone.userId },
+      data: { deletedAt: now, erasedAt: now },
+    });
+    expect(await errorOf(approve(id))).toEqual({
+      code: 'INVALID_STATE',
+      details: { status: 'ERASED' },
+    });
+  });
+
+  it('verifies an owner already verified once: no second event, no second role', async () => {
+    const id = await apply();
+    // Verified meanwhile, as the dev seed or a restored account leaves it.
+    await prisma.user.update({
+      where: { id: applicant.userId },
+      data: { ownerVerifiedAt: new Date() },
+    });
+    const role = await prisma.role.findUniqueOrThrow({ where: { code: SystemRole.VENUE_OWNER } });
+    await prisma.userRole.create({ data: { userId: applicant.userId, roleId: role.id } });
+    await approve(id);
+    expect(await events(IDENTITY_OWNER_VERIFIED.subject)).toEqual([]);
+    expect(await prisma.userRole.count({ where: { userId: applicant.userId } })).toBe(1);
+  });
+
+  it('answers INTERNAL, naming no value, when a stored number cannot be decrypted', async () => {
+    const id = await apply();
+    await prisma.ownerRegistration.update({
+      where: { id },
+      data: { nationalIdCiphertext: 'not-a-ciphertext' },
+    });
+    const admin = (await staffAccount(prisma, [SystemRole.ADMIN])).context;
+    expect(
+      (
+        await errorOf(
+          services.ownerReview.revealNationalId(
+            { registrationId: id, reason: 'Matching the card sent by mail.' },
+            admin,
+          ),
+        )
+      ).code,
+    ).toBe('INTERNAL');
+  });
+
   it('lets one of two concurrent reviews win', async () => {
     const id = await apply();
     const results = await Promise.allSettled([approve(id), reject(id, 'Duplicate.')]);
@@ -602,6 +664,33 @@ describe('listVerifiedOwnerIds', () => {
     });
     expect(second.ownerUserIds).toEqual(sorted.slice(2));
     expect(second.page).toEqual({});
+    expect(
+      await errorOf(
+        services.registrations.listVerifiedOwnerIds({ page: { limit: 2, cursor: 'not-a-cursor' } }),
+      ),
+    ).toEqual({
+      code: 'VALIDATION_FAILED',
+      details: { issues: [{ path: '/page/cursor', code: 'invalid_format' }] },
+    });
+  });
+});
+
+describe('getOwnerVerification', () => {
+  it('says verified and live apart: deactivated or erased is not live, unknown is neither', async () => {
+    const now = new Date();
+    const ask = (userId: string) => services.registrations.getOwnerVerification({ userId });
+    const live = await person({ ownerVerifiedAt: now });
+    expect(await ask(live.userId)).toEqual({ verified: true, live: true });
+    const tourist = await person();
+    expect(await ask(tourist.userId)).toEqual({ verified: false, live: true });
+    const closed = await person({ ownerVerifiedAt: now, deletedAt: now });
+    expect(await ask(closed.userId)).toEqual({ verified: true, live: false });
+    const erased = await person({ ownerVerifiedAt: now, deletedAt: now, erasedAt: now });
+    expect(await ask(erased.userId)).toEqual({ verified: true, live: false });
+    expect(await ask('0190a0b0-0000-7000-8000-000000000000')).toEqual({
+      verified: false,
+      live: false,
+    });
   });
 });
 
@@ -622,5 +711,9 @@ describe('getOwnerContact', () => {
         userId: '0190a0b0-0000-7000-8000-000000000000',
       }),
     ).toEqual({});
+    const nameless = await person({ ownerVerifiedAt: new Date() });
+    expect(
+      await services.registrations.getOwnerContact({ userId: nameless.userId }),
+    ).not.toHaveProperty('fullName');
   });
 });

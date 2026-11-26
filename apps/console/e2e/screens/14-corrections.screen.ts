@@ -12,9 +12,14 @@ import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
 
-/** The Place whose English correction the Vietnamese then changed under: superseded. */
+/**
+ * This spec's own Places (conventions §12.8): the seed has a Đức Bà and a Dinh Độc Lập of its own,
+ * which other specs draw, so these are named apart.
+ *
+ * The Place whose English correction the Vietnamese then changed under: superseded.
+ */
 const DUC_BA = {
-  name: 'Nhà thờ Chính tòa Đức Bà Sài Gòn',
+  name: 'Nhà thờ Đức Bà',
   description:
     'Nhà thờ Chính tòa Đức Bà Sài Gòn là một trong những công trình kiến trúc Pháp nổi bật nhất của thành phố, xây bằng gạch đỏ mang từ Marseille về từ năm 1877 đến năm 1880.',
   category: 'CHURCH',
@@ -22,7 +27,7 @@ const DUC_BA = {
 };
 /** A Place with an English correction in use. */
 const DINH = {
-  name: 'Dinh Độc Lập',
+  name: 'Dinh Thống Nhất',
   description:
     'Dinh Độc Lập là công trình kiến trúc lịch sử, nơi ghi dấu ngày thống nhất đất nước năm 1975.',
   category: 'LANDMARK',
@@ -89,7 +94,7 @@ test('T1 the corrections page', async ({ page }) => {
   await expect(rows.nth(1)).toContainText('Superseded — review');
   await look(page, 't1-corrections');
   await from(page);
-  await tabsThrough(page, [/^Find a Place by name or code$/, /^Shows/, /Nhà thờ Chính tòa/]);
+  await tabsThrough(page, [/^Find a Place by name or code$/, /^Shows/, /Nhà thờ Đức Bà/]);
 });
 
 test('T1b from a Place’s narration', async ({ page }) => {

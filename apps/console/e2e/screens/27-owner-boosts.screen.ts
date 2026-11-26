@@ -6,15 +6,32 @@ import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
 import { accountOf, seconds, subscription } from '../support/stripe';
-import { actor, findPlace, ocOanh, untilStatus } from './content';
+import { only } from './answers';
+import { actor, untilStatus } from './content';
 import { look, tabsThrough } from './look';
-import { MINH_VENUES, OWNERS, sendOnce } from './owners';
+import {
+  freeOwner,
+  liveVenue,
+  minhOf,
+  minhsVenues,
+  NGOC_VENUES,
+  ngocOf,
+  sendOnce,
+  subscribe,
+} from './owners';
 import { as, notificationsSettled } from './people';
+import { seedPlace } from './seed';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
 
 const MONTH = 30 * 86_400;
+/**
+ * This spec's own owners (conventions §12.8): Minh Tran on Growth with three live venues, and
+ * Trần Bảo Ngọc on Free (BO3).
+ */
+const MINH = minhOf('boosts');
+const NGOC = ngocOf('boosts');
 /** Minh's records, filled by the setup. */
 const ids = { ocOanh: '', ocVu: '', banhXeo: '', account: '' };
 
@@ -30,8 +47,8 @@ async function minhOn(
     type,
     created: seconds(),
     object: subscription({
-      id: 'sub_screensMinh',
-      customer: 'cus_screensMinh',
+      id: 'sub_screensMinhBoosts',
+      customer: 'cus_screensMinhBoosts',
       status,
       price,
       periodEnd: status === 'active' ? seconds(MONTH) : seconds(-60),
@@ -41,7 +58,7 @@ async function minhOn(
 
 /** Minh's complete set of boosts. */
 async function boosts(placeIds: string[]): Promise<void> {
-  await (await actor(PEOPLE.minh)).call('PUT', '/owner/boosts', { placeIds });
+  await (await actor(MINH)).call('PUT', '/owner/boosts', { placeIds });
 }
 
 async function open(page: Page, email: string, path: string): Promise<void> {
@@ -53,25 +70,23 @@ async function open(page: Page, email: string, path: string): Promise<void> {
 test.beforeAll(async () => {
   test.setTimeout(900_000);
   const lan = await actor(PEOPLE.lan);
-  const minh = await actor(PEOPLE.minh);
-  ids.ocOanh = await ocOanh();
-  ids.ocVu = (await findPlace(lan, MINH_VENUES.ocVu.nameVi))!.id;
-  ids.banhXeo = (await findPlace(lan, MINH_VENUES.banhXeo.nameVi))!.id;
-  ids.account = (await accountOf(await actor(PEOPLE.mai), PEOPLE.minh)).id;
-  // Round 36 left Minh's card failing: his next payment goes through, and Growth is whole again.
-  await sendOnce(await actor(PEOPLE.mai), {
-    id: 'evt_screensMinhBoostsPaid',
-    type: 'invoice.paid',
-    created: seconds(-3),
-    object: {
-      id: 'in_screensMinhBoosts',
-      object: 'invoice',
-      customer: 'cus_screensMinh',
-      subscription: 'sub_screensMinh',
-    },
-  });
+  const mai = await actor(PEOPLE.mai);
+  const minh = await freeOwner(MINH, 'Minh Tran');
+  await subscribe(mai, MINH, 'MinhBoosts');
+  const ngoc = await freeOwner(NGOC, 'Trần Bảo Ngọc');
+  // At her plan's limit, as BO3 draws it: her one venue live.
+  await liveVenue(ngoc, NGOC_VENUES.che);
+  // Her approval's notification arrives by event: read, so the bell draws no count.
+  await notificationsSettled(NGOC, 3);
+  await ngoc.call('POST', '/notifications/read-all');
+  // Round 36's venues (Lẩu dê taken down, so the chooser draws it disabled), Ốc Vũ reopened below.
+  const venues = await minhsVenues(minh);
+  ids.ocOanh = venues.ocOanh!;
+  ids.ocVu = venues.ocVu!;
+  ids.banhXeo = venues.banhXeo!;
+  ids.account = (await accountOf(mai, MINH)).id;
+  // A retry after BO5b or BO5c: Growth again, and Ốc Vũ live, so the chooser lists two venues.
   await minhOn('Active', 'price_dev_growth_month', 'active');
-  // Ốc Vũ, closed in round 36, is live again: the chooser lists two live venues.
   const ocVu = await lan.call<{ data: { status: string } }>('GET', `/admin/places/${ids.ocVu}`);
   if (ocVu.data.status === 'INACTIVE') {
     await minh.call('POST', `/owner/places/${ids.ocVu}/reactivate`);
@@ -80,12 +95,12 @@ test.beforeAll(async () => {
   await boosts([ids.ocOanh]);
   // Ốc Vũ going live again notifies Minh by event, after the status above: read only once every
   // notification the setup caused has arrived, or one lands after and the bell counts it.
-  await notificationsSettled(PEOPLE.minh, 3);
+  await notificationsSettled(MINH, 3);
   await minh.call('POST', '/notifications/read-all');
 });
 
 test('BO1 boosts on Plan and billing', async ({ page }) => {
-  await open(page, PEOPLE.minh, '/owner/billing');
+  await open(page, MINH, '/owner/billing');
   await expect(page.getByRole('heading', { name: /^Discovery boosts/ })).toBeVisible();
   await expect(page.getByText('1 of 1 used', { exact: true })).toBeVisible();
   await look(page, 'bo1-boosts', { extra: ['720', '360'] });
@@ -94,7 +109,7 @@ test('BO1 boosts on Plan and billing', async ({ page }) => {
 });
 
 test('BO2 choosing venues, BO2b over the slots', async ({ page }) => {
-  await open(page, PEOPLE.minh, '/owner/billing');
+  await open(page, MINH, '/owner/billing');
   await page.getByRole('button', { name: 'Choose venues' }).click();
   const dialog = page.getByRole('dialog', { name: 'Choose venues to boost' });
   await expect(dialog).toBeVisible();
@@ -107,7 +122,7 @@ test('BO2 choosing venues, BO2b over the slots', async ({ page }) => {
 });
 
 test('BO4 a boosted venue, BO4b a venue not boosted', async ({ page }) => {
-  await open(page, PEOPLE.minh, `/owner/venues/${ids.ocOanh}`);
+  await open(page, MINH, `/owner/venues/${ids.ocOanh}`);
   await expect(page.getByRole('heading', { name: 'Discovery boost' })).toBeVisible();
   await expect(page.getByText(/^Boosted since /)).toBeVisible();
   await look(page, 'bo4-boosted-venue');
@@ -130,20 +145,23 @@ test('BA2 a boosted Place, BA2b in the list', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Discovery boost' })).toBeVisible();
   await expect(page.getByText(/^Boosted by its owner since /)).toBeVisible();
   await look(page, 'ba2-boosted-place');
+  // The seed's Places and this spec's own: another spec's Ốc Oanh would be listed too (§12.8).
+  const own = new Set(Object.values(ids));
+  await only<{ id: string }>(page, '/admin/places*', (row) => seedPlace(row) || own.has(row.id));
   await page.goto('/places?q=%E1%BB%90c');
   await expect(page.getByRole('link', { name: 'Ốc Oanh' })).toBeVisible();
   await look(page, 'ba2b-boosted-place-in-list');
 });
 
 test('BO3 on Free', async ({ page }) => {
-  await open(page, OWNERS.ngoc, '/owner/billing');
+  await open(page, NGOC, '/owner/billing');
   await expect(page.getByText(/^Free has no boost slots\./)).toBeVisible();
   await look(page, 'bo3-on-free');
 });
 
 test('BO5b a boost ended — the venue closed, BO5 the notification', async ({ page }) => {
   const lan = await actor(PEOPLE.lan);
-  const minh = await actor(PEOPLE.minh);
+  const minh = await actor(MINH);
   // The boost moves to Ốc Vũ (Ốc Oanh's ends: "ended when you chose another"), then Ốc Vũ closes.
   await boosts([ids.ocVu]);
   const { data } = await lan.call<{ data: { status: string } }>('GET', `/admin/places/${ids.ocVu}`);
@@ -156,7 +174,7 @@ test('BO5b a boost ended — the venue closed, BO5 the notification', async ({ p
       { timeout: 60_000, intervals: [1_000] },
     )
     .toBe(0);
-  await open(page, PEOPLE.minh, '/owner/billing');
+  await open(page, MINH, '/owner/billing');
   await expect(page.getByText("Ốc Vũ's boost ended")).toBeVisible();
   await look(page, 'bo5b-venue-closed');
   await page.goto('/owner/notifications');
@@ -167,14 +185,14 @@ test('BO5b a boost ended — the venue closed, BO5 the notification', async ({ p
 test('BO1b boosts on Pro', async ({ page }) => {
   await minhOn('Pro', 'price_dev_pro_month', 'active');
   await boosts([ids.ocOanh, ids.banhXeo]);
-  await open(page, PEOPLE.minh, '/owner/billing');
+  await open(page, MINH, '/owner/billing');
   await expect(page.getByText('2 of 5 used', { exact: true })).toBeVisible();
   await look(page, 'bo1b-boosts-on-pro');
 });
 
 test('BO5c a boost ended — the plan changed', async ({ page }) => {
   await minhOn('Free', 'price_dev_pro_month', 'canceled', 'customer.subscription.deleted');
-  const minh = await actor(PEOPLE.minh);
+  const minh = await actor(MINH);
   await expect
     .poll(
       async () =>
@@ -182,7 +200,7 @@ test('BO5c a boost ended — the plan changed', async ({ page }) => {
       { timeout: 60_000, intervals: [1_000] },
     )
     .toBe(0);
-  await open(page, PEOPLE.minh, '/owner/billing');
+  await open(page, MINH, '/owner/billing');
   await expect(page.getByText(/^Your plan changed to Free on /)).toBeVisible();
   await look(page, 'bo5c-plan-changed');
 });

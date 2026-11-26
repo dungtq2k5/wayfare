@@ -16,6 +16,6 @@ export function checkTypedCode(value: string): TypedCheck {
   if (/[^A-Z0-9]/.test(bare)) return { ok: false, error: 'symbol' };
   if (bare.includes('U')) return { ok: false, error: 'letter-u' };
   if (bare.length !== PUBLIC_CODE_LENGTH) return { ok: false, error: 'short', count: bare.length };
-  const code = canonicalPublicCode(bare);
-  return code === null ? { ok: false, error: 'symbol' } : { ok: true, code };
+  // Eight of A–Z and 0–9 without a U always fold to a code (typed.spec.ts holds it).
+  return { ok: true, code: canonicalPublicCode(bare)! };
 }

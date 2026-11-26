@@ -7,7 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { clearPageCookie, readPageCookie } from '../client/cookies';
+import { clearPageCookie, readPageCookie } from '@wayfare/ui/cookies';
 import { useWeb } from '../i18n/provider';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
 

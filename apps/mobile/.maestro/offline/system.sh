@@ -41,7 +41,9 @@ grant() {
 # one address) is reset first, so the run can be repeated.
 # Location services off: Explore lists every Place by area, wherever the test phone is.
 adb shell settings put secure location_mode 0
-docker exec wayfare-redis redis-cli DEL 'rl:DEVICE_REGISTRATION:ip:::ffff:127.0.0.1' > /dev/null
+# The registration budget, by pattern: its key follows the gateway's IPv6 /64 grouping.
+keys=$(docker exec wayfare-redis redis-cli --scan --pattern 'rl:DEVICE_REGISTRATION:*')
+if [[ -n "$keys" ]]; then docker exec wayfare-redis redis-cli DEL $keys > /dev/null; fi
 adb shell pm clear app.wayfare > /dev/null
 grant
 maestro test ../common/language-fresh.yaml

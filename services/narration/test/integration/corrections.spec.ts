@@ -13,7 +13,12 @@ import {
   TranslationSource,
 } from '@wayfare/contracts';
 import type { LocalizationOverview } from '@wayfare/contracts';
-import { localizationGrpc, overrideStatusProto } from '@wayfare/contracts/grpc';
+import {
+  localizationGrpc,
+  localizationTargetTypeProto,
+  overrideStatusProto,
+} from '@wayfare/contracts/grpc';
+import { encodeCursor } from '@wayfare/nest-common';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { outboxPayloads, testPrisma, truncateAll } from '../setup/database';
 import { jobsOf, staff } from '../setup/fixtures';
@@ -319,6 +324,74 @@ describe('the corrections list', () => {
     // The overview marks the superseded language the same way.
     const screen = await overview(temple.id);
     expect(screen.languages.find((row) => row.lang === 'en')!.needsReview).toBe(true);
+  });
+});
+
+describe('the corrections list, its edges', () => {
+  const list = (cursor?: string, limit = 0) =>
+    services.corrections.listCorrections({ page: { limit, cursor }, reviewFirst: false }, staff());
+
+  it('refuses a cursor it didn’t make, or one whose position it can’t read', async () => {
+    expect((await errorOf(list('not a cursor'))).code).toBe('VALIDATION_FAILED');
+    const id = '01990000-0000-7000-8000-000000000999';
+    for (const key of [undefined, '7|2026-11-20T00:00:00.000Z', '1|not a date']) {
+      expect((await errorOf(list(encodeCursor({ id, key })))).details).toEqual({
+        issues: [{ path: '/cursor', code: 'invalid_value' }],
+      });
+    }
+  });
+
+  it('lists a correction whose target catalog no longer answers, with no name', async () => {
+    const market = place();
+    await put(market.id, market.hash);
+    services.catalog.sources.delete(market.id);
+    const { items } = await list();
+    expect(items).toHaveLength(1);
+    expect(items[0]!.targetNameVi).toBe('');
+    expect(items[0]!.needsReview).toBe(false);
+  });
+
+  it('names a corrected menu line from catalog', async () => {
+    const item = services.catalog.menuItem({ name: 'Phở bò' });
+    await services.corrections.putCorrection(
+      {
+        targetType: localizationTargetTypeProto.toProto(LocalizationTargetType.MENU_ITEM),
+        targetId: item.id,
+        lang: 'en',
+        sourceContentHash: item.hash,
+        name: 'Beef pho',
+      },
+      staff(),
+    );
+    expect((await list()).items.map((row) => row.targetNameVi)).toEqual(['Phở bò']);
+  });
+});
+
+describe('what a correction refuses, and how it is audited', () => {
+  it('never corrects a voucher offer', async () => {
+    const target = place();
+    const offer = localizationTargetTypeProto.toProto(LocalizationTargetType.VOUCHER_OFFER);
+    expect((await errorOf(put(target.id, target.hash, { targetType: offer }))).details).toEqual({
+      issues: [{ path: '/targetType', code: 'not_correctable' }],
+    });
+  });
+
+  it('audits with no address or user agent when the request carried none', async () => {
+    const target = place();
+    await services.corrections.putCorrection(
+      {
+        targetType: PLACE,
+        targetId: target.id,
+        lang: 'en',
+        sourceContentHash: target.hash,
+        name: 'Ben Thanh Market',
+      },
+      staff({ origin: { ip: null, userAgent: null } }),
+    );
+    const [audit] = await outboxPayloads(prisma, AUDIT_RECORD.subject);
+    expect(audit).toMatchObject({ action: AuditAction.LOCALIZATION_EDITED });
+    expect(audit).not.toHaveProperty('ip');
+    expect(audit).not.toHaveProperty('userAgent');
   });
 });
 

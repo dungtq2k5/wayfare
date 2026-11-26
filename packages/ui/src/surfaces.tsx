@@ -30,12 +30,7 @@ export function CardTitle({ children }: { children: ReactNode }) {
 
 /** Stands in for text or a shape while a first load runs; still under reduced motion. */
 export function Skeleton({ className }: { className?: string }) {
-  return (
-    <div
-      aria-hidden
-      className={cn('animate-pulse rounded-sm bg-muted motion-reduce:animate-none', className)}
-    />
-  );
+  return <div aria-hidden className={cn('animate-pulse rounded-sm bg-muted', className)} />;
 }
 
 /** The statuses round 33 draws, each with its tone and icon. */

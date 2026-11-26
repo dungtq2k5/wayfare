@@ -38,6 +38,8 @@ strictDepBuilds: true
 # release within the same major (the CI audit, `pnpm audit --prod --audit-level=high`).
 overrides:
   body-parser@>=2 <2.4.0: ^2.4.0
+  # GHSA-7589-6fvf-x4pw (Prisma's config loader): the patched line, pinned to a settled release.
+  effect@<3.22.1: 3.22.4
   follow-redirects@<1.16.3: ^1.16.3
   mysql2@<3.22.0: ^3.22.0
   node-forge@<1.4.1: ^1.4.3
@@ -62,3 +64,6 @@ auditConfig:
     # phone that opens it, nothing else.
     - GHSA-vcc3-ghjq-m6fr
     - GHSA-qr28-fpjm-wq7f
+    # 2026-11-18 — picomatch, no patched release; only Expo's dev CLI matching its own file globs
+    # (@expo/cli, @expo/metro-file-map's jest-util). Goes when a fixed picomatch reaches @expo/cli.
+    - GHSA-fc5q-39xc-vjpf

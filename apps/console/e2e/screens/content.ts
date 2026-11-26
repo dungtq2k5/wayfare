@@ -2,7 +2,7 @@
 // so a spec can run on its own after the others, and a fresh stack gets each record once.
 import { expect } from '@playwright/test';
 import { photoFile } from '../support/content';
-import { PASSWORD } from '../support/people';
+import { owner, PASSWORD } from '../support/people';
 import { Actor } from '../support/stack';
 import { PEOPLE } from './setup';
 
@@ -125,9 +125,23 @@ export async function untilNarrationIdle(admin: Actor): Promise<void> {
 /** Minh Tran's Venue, Ốc Oanh: his creation, approved; its id. */
 export async function ocOanh(): Promise<string> {
   const admin = await actor(PEOPLE.lan);
-  const found = await findPlace(admin, OC_OANH.nameVi);
-  if (found !== null) return found.id;
-  const minh = await actor(PEOPLE.minh);
+  // The Places specs' own Minh Tran: the setup's keeps the notifications and venues 02 draws.
+  const exists = await admin.call<{ data: unknown[] }>(
+    'GET',
+    `/admin/users?q=${encodeURIComponent(OC_OANH_OWNER)}`,
+  );
+  if (exists.data.length === 0) {
+    const made = await owner(admin, OC_OANH_OWNER);
+    await made.call('PATCH', '/users/me', { fullName: 'Minh Tran' });
+  }
+  const minh = await actor(OC_OANH_OWNER);
+  // His own: other specs' Minhs have an Ốc Oanh of their own (owners.ts).
+  const { data: his } = await minh.call<{ data: { id: string; nameVi: string }[] }>(
+    'GET',
+    '/owner/places',
+  );
+  const found = his.find((row) => row.nameVi === OC_OANH.nameVi);
+  if (found !== undefined) return found.id;
   // A send that timed out on a loaded machine may still have arrived: his plan holds one Venue, so
   // a second send is refused. The one waiting is approved instead.
   const sent = async () =>
@@ -169,6 +183,9 @@ export async function ocOanh(): Promise<string> {
   await untilStatus(admin, data.submission.placeId, 'ACTIVE');
   return data.submission.placeId;
 }
+
+/** Ốc Oanh's owner for the Places specs (05, 06): a Minh Tran of their own. */
+const OC_OANH_OWNER = 'minh.tran.places@example.com';
 
 /** Ốc Oanh as Minh submits it: a complete owner payload. */
 export const OC_OANH = {

@@ -6,7 +6,7 @@ import { Rate } from 'k6/metrics';
 
 /* global __ENV -- k6's environment, set by run.sh. */
 
-export const BASE = `${__ENV.BASE_URL || 'http://gateway:3000'}`;
+export const BASE = `${__ENV.BASE_URL || 'http://gateway:3000'}`; // NOSONAR: S5332, the k6 run's default address inside the Compose network
 export const API = `${BASE}/api/v1`;
 export const SMOKE = __ENV.SMOKE === '1';
 export const POLICY = __ENV.PRIVACY_POLICY_VERSION;

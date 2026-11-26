@@ -130,6 +130,8 @@ export class CatalogStub {
   readonly favorites = new StubCaller();
   readonly places = new StubCaller();
   readonly insights = new StubCaller();
+  readonly tourAdmin = new StubCaller();
+  readonly tourQueries = new StubCaller();
 
   onModuleInit(): void {}
 
@@ -147,6 +149,8 @@ export class CatalogStub {
       this.favorites,
       this.places,
       this.insights,
+      this.tourAdmin,
+      this.tourQueries,
     ]) {
       caller.calls.length = 0;
       caller.handlers = {};

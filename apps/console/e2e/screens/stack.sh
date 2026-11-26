@@ -60,6 +60,17 @@ up() {
 
 down() { "${compose[@]}" --profile apps down -v --remove-orphans; }
 
+# A failed step leaves its record before anything resets the stack: each container's last lines
+# (a database that closed a connection, a service that exited), to stderr.
+on_exit() {
+  local status=$?
+  if [[ "$status" -ne 0 ]]; then
+    echo "stack.sh failed ($status): each container's last lines" >&2
+    "${compose[@]}" --profile apps logs --no-color --timestamps --tail=40 >&2 || true
+  fi
+}
+trap on_exit EXIT
+
 case "${1:-}" in
   up) up ;;
   down) down ;;

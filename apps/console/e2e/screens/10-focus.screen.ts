@@ -6,12 +6,21 @@
 import { expect, test } from '../support/test';
 import { resetRateLimits } from '../support/stack';
 import { refuse, reply } from './answers';
-import { actor, findPlace } from './content';
+import { actor, editorialPlace } from './content';
 import { from, tabsThrough } from './look';
-import { as } from './people';
+import { as, notificationsSettled } from './people';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
+
+/** This spec's own live Editorial Place, for a Place's page and its editorial controls. */
+const CHA_TAM = {
+  name: 'Nhà thờ Cha Tam',
+  description:
+    'Nhà thờ nhỏ của người Hoa ở Chợ Lớn, xây năm 1902, mái ngói xanh và cổng tam quan như một ngôi chùa.',
+  category: 'CHURCH',
+  location: { lat: 10.7787, lng: 106.6994 },
+};
 
 test('sign in (C1)', async ({ page }) => {
   await page.goto('/sign-in');
@@ -78,11 +87,15 @@ test('the shell, below 1024 px (C6 at 720)', async ({ page }) => {
 });
 
 test('notifications (C10)', async ({ page }) => {
+  // The setup's Minh has his two notifications (a rejection, then the approval) and no other spec
+  // adds to them: the panel's list is waited for, then each item is a stop.
+  await notificationsSettled(PEOPLE.minh);
   await as(page, PEOPLE.minh);
   await page.getByRole('button', { name: /^Notifications/ }).click();
   const panel = page.getByRole('dialog', { name: 'Notifications' });
   await expect(panel.getByRole('heading', { name: 'Notifications' })).toBeFocused();
-  const items = await panel.getByRole('listitem').count();
+  const items = 2;
+  await expect(panel.getByRole('listitem')).toHaveCount(items);
   await tabsThrough(page, [
     /^Mark all read$/,
     ...Array.from({ length: items }, () => /.+/),
@@ -139,7 +152,7 @@ test('the Places list (L1)', async ({ page }) => {
 });
 
 test('a Place’s page (L2)', async ({ page }) => {
-  const place = (await findPlace(await actor(PEOPLE.lan), 'Nhà thờ Tân Định'))!;
+  const place = { id: await editorialPlace(await actor(PEOPLE.lan), CHA_TAM) };
   await as(page, PEOPLE.lan);
   await page.goto(`/places/${place.id}`);
   await page.waitForLoadState('networkidle');
@@ -148,7 +161,7 @@ test('a Place’s page (L2)', async ({ page }) => {
 });
 
 test('the editorial controls (L6)', async ({ page }) => {
-  const place = (await findPlace(await actor(PEOPLE.lan), 'Nhà thờ Tân Định'))!;
+  const place = { id: await editorialPlace(await actor(PEOPLE.lan), CHA_TAM) };
   await as(page, PEOPLE.lan);
   await page.goto(`/places/${place.id}`);
   const editorial = page.getByRole('region', { name: 'Editorial' });

@@ -8,6 +8,7 @@ import {
   MAX_PREVIEW_CHARS,
   ReplacementType,
   SynthesisTrigger,
+  MAX_DICTIONARY_FANOUT_TARGETS,
 } from '@wayfare/contracts';
 import { localizationTargetTypeProto, replacementTypeProto } from '@wayfare/contracts/grpc';
 import type { narrationGrpc } from '@wayfare/contracts/grpc';
@@ -97,6 +98,90 @@ describe('the dictionary', () => {
   });
 });
 
+describe('reading the dictionary', () => {
+  it('pages by term with a cursor, filters by term and language, and refuses a forged cursor', async () => {
+    await create({ term: 'An Đông', targetLang: 'en' });
+    await create({ term: 'Bến Thành', targetLang: 'en' });
+    await create({ term: 'Chợ Lớn', targetLang: 'ja' });
+    const first = await services.pronunciations.listEntries({ page: { limit: 2 } }, staff());
+    expect(first.entries.map((entry) => entry.term)).toEqual(['An Đông', 'Bến Thành']);
+    const rest = await services.pronunciations.listEntries(
+      { page: { limit: 2, cursor: first.page!.nextCursor! } },
+      staff(),
+    );
+    expect(rest.entries.map((entry) => entry.term)).toEqual(['Chợ Lớn']);
+    expect(rest.page!.nextCursor).toBeUndefined();
+    const found = await services.pronunciations.listEntries(
+      { page: undefined, q: 'thành', targetLang: 'en' },
+      staff(),
+    );
+    expect(found.entries.map((entry) => entry.term)).toEqual(['Bến Thành']);
+    expect(
+      (
+        await errorOf(
+          services.pronunciations.listEntries({ page: { limit: 2, cursor: 'forged' } }, staff()),
+        )
+      ).code,
+    ).toBe('VALIDATION_FAILED');
+  });
+
+  it('reads one entry for its page, and says when there is none', async () => {
+    const { entry } = await create({
+      replacementType: T.toProto(ReplacementType.PHONEME),
+      alphabet: 'ipa',
+      isActive: false,
+    });
+    expect(
+      (await services.pronunciations.getEntry({ entryId: entry!.id }, staff())).entry,
+    ).toMatchObject({
+      alphabet: 'ipa',
+      isActive: false,
+    });
+    const missing = await errorOf(
+      services.pronunciations.getEntry(
+        { entryId: '01a0b998-0000-7000-8000-000000000000' },
+        staff(),
+      ),
+    );
+    expect(missing).toEqual({ code: 'RESOURCE_NOT_FOUND', details: { resource: 'PRONUNCIATION' } });
+  });
+
+  it('turns an entry into a phoneme with its alphabet, or back, and clears its note', async () => {
+    const { entry } = await create();
+    const { entry: phoneme } = await services.pronunciations.updateEntry(
+      {
+        entryId: entry!.id,
+        replacementType: T.toProto(ReplacementType.PHONEME),
+        alphabet: 'ipa',
+        note: undefined,
+      },
+      staff(),
+    );
+    expect(phoneme).toMatchObject({ alphabet: 'ipa' });
+    const { entry: sub } = await services.pronunciations.updateEntry(
+      {
+        entryId: entry!.id,
+        replacementType: T.toProto(ReplacementType.SUB),
+        alphabet: null as never,
+        note: null as never,
+      },
+      staff(),
+    );
+    expect(sub!.alphabet).toBeUndefined();
+    expect(sub!.note).toBeUndefined();
+  });
+
+  it('audits a write with no address or user agent when the request carried none', async () => {
+    await services.pronunciations.createEntry(
+      { entry: draft() },
+      staff({ origin: { ip: null, userAgent: null } }),
+    );
+    const [audit] = await audits(AuditAction.PRONUNCIATION_CREATED);
+    expect(audit).not.toHaveProperty('ip');
+    expect(audit).not.toHaveProperty('userAgent');
+  });
+});
+
 describe('preview', () => {
   const preview = (over: Partial<narrationGrpc.PreviewAudioRequest> = {}) =>
     services.pronunciations.previewAudio(
@@ -124,9 +209,49 @@ describe('preview', () => {
     synthesize.mockRestore();
 
     expect((await errorOf(preview({ lang: 'vi' }))).code).toBe('INVALID_STATE');
+    expect((await errorOf(preview({ lang: 'bogus' }))).code).toBe('VALIDATION_FAILED');
+    // A language narration takes, but no configured provider has a voice for.
+    expect(await errorOf(preview({ lang: 'fr' }))).toEqual({
+      code: 'INVALID_STATE',
+      details: { status: 'NO_VOICE' },
+    });
+    expect(
+      (await errorOf(services.pronunciations.createEntry({ entry: undefined }, staff()))).code,
+    ).toBe('VALIDATION_FAILED');
     expect((await errorOf(preview({ text: 'x'.repeat(MAX_PREVIEW_CHARS + 1) }))).code).toBe(
       'VALIDATION_FAILED',
     );
+  });
+});
+
+describe('preview, from other voices', () => {
+  const provider = () => services.chains.speech.providers[0]!;
+  const preview = (over: Partial<narrationGrpc.PreviewAudioRequest> = {}) =>
+    services.pronunciations.previewAudio(
+      { text: 'Chợ Bến Thành mở cửa.', lang: 'en', entries: [], ...over },
+      staff(),
+    );
+
+  it('reads a draft phoneme as one, and names a voice that is not MP3 only as audio', async () => {
+    Object.defineProperty(provider(), 'format', { value: 'linear16_24khz', configurable: true });
+    const synthesize = vi.spyOn(FakeSpeechProvider.prototype, 'synthesize');
+    const { contentType } = await preview({
+      entries: [
+        draft({
+          replacementType: T.toProto(ReplacementType.PHONEME),
+          alphabet: 'ipa',
+          replacement: 'bən tʰaːn',
+        }),
+      ],
+    });
+    expect(contentType).toBe('audio/*');
+    expect(synthesize.mock.calls[0]![0].ssml).toContain('<phoneme');
+    synthesize.mockRestore();
+  });
+
+  it('refuses a sentence the voice can’t take in one piece', async () => {
+    Object.defineProperty(provider(), 'maxInputBytes', { value: 8, configurable: true });
+    await expect(preview()).rejects.toThrow('SENTENCE_TOO_LONG');
   });
 });
 
@@ -214,6 +339,38 @@ describe('the fan-out', () => {
     expect(await prisma.audioAsset.count()).toBe(assets);
     expect(synthesize).not.toHaveBeenCalled();
     synthesize.mockRestore();
+  });
+
+  it('re-voices only Places and menu lines, each language once', async () => {
+    const place = services.catalog.place();
+    const tour = services.catalog.tour();
+    services.catalog.matches.set('Bến Thành', [
+      match(place.id, 'en', place.hash),
+      match(place.id, 'en', place.hash),
+      {
+        ...match(tour.id, 'en', tour.hash),
+        targetType: localizationTargetTypeProto.toProto(LocalizationTargetType.TOUR),
+      },
+    ]);
+    await create();
+    await services.fanoutQueue.drain();
+    const [job] = await jobsOf(prisma, place.id);
+    expect(job!.tasks.map((task) => task.lang)).toEqual(['en']);
+    expect(await jobsOf(prisma, tour.id)).toEqual([]);
+  });
+
+  it('stops at the target cap, and gives up after its last attempt', async () => {
+    const place = services.catalog.place();
+    services.catalog.matches.set('Bến Thành', [match(place.id, 'en', place.hash)]);
+    await create();
+    const [queued] = services.fanoutQueue.items.map(({ item }) => item);
+    services.fanoutQueue.items.length = 0;
+    await services.fanout.run({ ...queued!, done: MAX_DICTIONARY_FANOUT_TARGETS });
+    expect(await jobsOf(prisma, place.id)).toEqual([]);
+    services.catalog.searchFailures = 1;
+    // The service tries a page four times: this is its last.
+    await services.fanout.run({ ...queued!, attempt: 4 });
+    expect(services.fanoutQueue.items).toEqual([]);
   });
 
   it('retries a failed page from its cursor, without repeating the work', async () => {

@@ -1,7 +1,13 @@
 import type { PlaceDetailResponseDto } from '@wayfare/api-client';
 import type { PlaceSyncRecordStored } from '@wayfare/contracts';
 import { describe, expect, it } from 'vitest';
-import { formatDuration, formatPrice, viewFromDetail, viewFromRecord } from './place-view';
+import {
+  formatDuration,
+  formatPrice,
+  playerPlaceOf,
+  viewFromDetail,
+  viewFromRecord,
+} from './place-view';
 
 const record = {
   id: 'p1',
@@ -119,5 +125,59 @@ describe('formatting', () => {
   it('writes a price in the menu’s own currency', () => {
     expect(formatPrice(50_000, 'VND')).toBe('50.000 ₫');
     expect(formatPrice(1250, 'USD')).toBe('$12.50');
+  });
+});
+
+describe('a detail with no menu and an audio, online', () => {
+  it('shows no menu, and the audio’s length and photos', () => {
+    const view = viewFromDetail({
+      id: 'p3',
+      kind: 'EDITORIAL',
+      categoryCode: 'CHURCH',
+      address: 'x',
+      location: { lat: 1, lng: 2 },
+      openingHours: [],
+      priceBand: null,
+      photos: [
+        {
+          id: 'ph1',
+          altText: 'Front',
+          card: { url: 'card.webp', sha256: 'abc' },
+          full: { url: 'full.webp' },
+        },
+      ],
+      menu: null,
+      phone: null,
+      websiteUrl: null,
+      areaId: 'a1',
+      localization: {
+        lang: 'en',
+        name: 'Cathedral',
+        description: 'Built in 1880.',
+        contentTier: 'REQUESTED',
+        stale: false,
+        audio: { url: 'a.mp3', durationMs: 90_000 },
+      },
+    } as unknown as PlaceDetailResponseDto);
+    expect(view).toMatchObject({ menu: null, audioDurationMs: 90_000 });
+    expect(playerPlaceOf(view)).toMatchObject({
+      id: 'p3',
+      text: 'Built in 1880.',
+      ownLanguage: true,
+      cardPhotoUrl: 'card.webp',
+      cardPhotoSha256: 'abc',
+      audio: { url: 'a.mp3', durationMs: 90_000 },
+    });
+  });
+});
+
+describe('what the player takes of a Place with no photo, in another language', () => {
+  it('has no card photo, and says the story isn’t in the reader’s language', () => {
+    const view = viewFromRecord({ ...record, cardPhoto: null });
+    expect(playerPlaceOf(view)).toMatchObject({
+      ownLanguage: false,
+      cardPhotoUrl: null,
+      cardPhotoSha256: null,
+    });
   });
 });

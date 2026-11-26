@@ -60,8 +60,8 @@ function PhoneMenu({ signedIn }: { signedIn: boolean }) {
         <Menu aria-hidden className="size-6" />
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
-        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-72 max-w-full flex-col gap-1 bg-card p-4 shadow-3 outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right duration-(--duration-normal) motion-reduce:animate-none">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay/50 data-[state=open]:animate-in data-[state=open]:fade-in" />
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-72 max-w-full flex-col gap-1 bg-card p-4 shadow-3 outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right duration-(--duration-normal)">
           <div className="flex items-center justify-between pb-2">
             <DialogPrimitive.Title className="text-lg font-semibold text-foreground">
               {t('shell.menu')}

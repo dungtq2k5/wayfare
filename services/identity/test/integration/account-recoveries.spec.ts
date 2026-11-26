@@ -5,6 +5,7 @@ import {
   AccountRecoveryStatus,
   ActionTokenPurpose,
   AuditAction,
+  newId,
   NotificationType,
   RECOVERY_EXPIRY_DAYS,
   RECOVERY_HOLD_HOURS,
@@ -218,6 +219,41 @@ describe('approval and the hold', () => {
     expect(await auditActions()).toContain(AuditAction.ACCOUNT_RECOVERY_REJECTED);
     const { mail } = await lastMail(owner.email);
     expect(mail.text).toContain('rejected');
+  });
+});
+
+describe('the queue and a decided case', () => {
+  it('lists newest first, filters by status, and refuses to decide a case twice or one unknown', async () => {
+    const { recovery: first } = await open();
+    const other = await verifiedOwner();
+    const { recovery: second } = await open({ userId: other.id });
+    await services.adminRecoveries.rejectRecovery(
+      { recoveryId: first!.id, decisionNote: 'No match' },
+      approver,
+    );
+    const list = (status: identityGrpc.AccountRecoveryStatus) =>
+      services.adminRecoveries.listRecoveries({ status, page: undefined }, approver);
+
+    const all = await list(Status.ACCOUNT_RECOVERY_STATUS_UNSPECIFIED);
+    expect(all.recoveries.map((row) => row.id)).toEqual([second!.id, first!.id]);
+    expect(all.page).toMatchObject({ page: 1, total: 2 });
+    const rejected = await list(Status.ACCOUNT_RECOVERY_STATUS_REJECTED);
+    expect(rejected.recoveries.map((row) => row.id)).toEqual([first!.id]);
+
+    for (const decide of [
+      () => services.adminRecoveries.approveRecovery({ recoveryId: first!.id }, approver),
+      () =>
+        services.adminRecoveries.rejectRecovery(
+          { recoveryId: first!.id, decisionNote: 'Again' },
+          approver,
+        ),
+    ]) {
+      expect(await errorOf(decide())).toMatchObject({ code: 'INVALID_STATE' });
+    }
+    expect(
+      (await errorOf(services.adminRecoveries.approveRecovery({ recoveryId: newId() }, approver)))
+        .code,
+    ).toBe('RESOURCE_NOT_FOUND');
   });
 });
 

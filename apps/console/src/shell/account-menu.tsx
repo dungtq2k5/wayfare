@@ -17,7 +17,8 @@ import {
 } from '@wayfare/ui/menu';
 import { ChevronDown, Languages, LogOut, SunMoon, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { clearPageCookie, setPageCookie, SIGNED_IN_MARKER } from '../client/cookies';
+import { clearPageCookie, setPageCookie } from '@wayfare/ui/cookies';
+import { SIGNED_IN_MARKER } from '../client/cookies';
 import { useTheme } from '../app/providers';
 import { LANGUAGE_COOKIE } from '../i18n/language';
 import { CONSOLE_LOCALES } from '../i18n/messages';

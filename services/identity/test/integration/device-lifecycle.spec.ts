@@ -41,14 +41,16 @@ describe('device lifecycle', () => {
     ).toEqual(bumped);
   });
 
-  it('refuses a wrong secret, or a secret presented for another device id', async () => {
+  it('answers DEVICE_REVOKED to a wrong secret, or a secret presented for another device id', async () => {
+    // An install this service doesn't know is over for the client, as a revoked one is: it
+    // registers anew (a bare 401 would leave it stuck).
     const device = await registerDevice(services);
     const other = await registerDevice(services);
     expect(
       await errorCodeOf(
         devices.exchangeDeviceToken({ deviceId: device.deviceId, deviceSecret: 'nope' }),
       ),
-    ).toBe('UNAUTHENTICATED');
+    ).toBe('DEVICE_REVOKED');
     expect(
       await errorCodeOf(
         devices.exchangeDeviceToken({
@@ -56,7 +58,26 @@ describe('device lifecycle', () => {
           deviceSecret: device.deviceSecret,
         }),
       ),
-    ).toBe('UNAUTHENTICATED');
+    ).toBe('DEVICE_REVOKED');
+  });
+
+  it('answers DEVICE_REVOKED to a pruned install: its exchange, and a device route with its last token', async () => {
+    // devices-prune hard-deletes an unclaimed device unseen for 400 days; a tourist back later
+    // still holds its secret and, within 15 minutes, a token.
+    const device = await registerDevice(services);
+    await prisma.legalAcceptance.deleteMany({ where: { deviceId: device.deviceId } });
+    await prisma.device.delete({ where: { id: device.deviceId } });
+    expect(
+      await errorCodeOf(
+        devices.exchangeDeviceToken({
+          deviceId: device.deviceId,
+          deviceSecret: device.deviceSecret,
+        }),
+      ),
+    ).toBe('DEVICE_REVOKED');
+    expect(await errorCodeOf(devices.updateDevice({ appVersion: '1.1.0' }, device.context))).toBe(
+      'DEVICE_REVOKED',
+    );
   });
 
   it('moves a push token to the device that registers it', async () => {
@@ -75,6 +96,18 @@ describe('device lifecycle', () => {
     expect(device).not.toHaveProperty('pushToken');
     const rows = await prisma.device.findMany({ orderBy: { createdAt: 'asc' } });
     expect(rows.map((row) => row.pushToken)).toEqual([null, 'ExponentPushToken[abc]']);
+  });
+
+  it('changes only the fields an update names', async () => {
+    const device = await registerDevice(services);
+    await devices.updateDevice({ pushToken: 'ExponentPushToken[keep]' }, device.context);
+    const { device: updated } = await devices.updateDevice(
+      { osVersion: '15', contentLocale: 'vi' },
+      device.context,
+    );
+    expect(updated).toMatchObject({ osVersion: '15', contentLocale: 'vi' });
+    const row = await prisma.device.findUniqueOrThrow({ where: { id: device.deviceId } });
+    expect(row.pushToken).toBe('ExponentPushToken[keep]');
   });
 
   it('forgets a device: revokes its sessions, publishes, and refuses it afterwards', async () => {

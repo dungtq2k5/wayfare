@@ -15,3 +15,7 @@ export const queryClient = new QueryClient({
   mutationCache: new MutationCache({ onError: route }),
   defaultOptions: { queries: { retry } },
 });
+
+/** Favourites follow the bearer: every list refetches when it changes (a sign-in, a sign-out). */
+export const refreshFavourites = (): Promise<void> =>
+  queryClient.invalidateQueries({ queryKey: ['/api/v1/me/favorites'], refetchType: 'all' });

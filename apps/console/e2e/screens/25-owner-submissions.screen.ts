@@ -3,9 +3,18 @@
 import { expect, test } from '../support/test';
 import type { Page } from '@playwright/test';
 import { resetRateLimits } from '../support/stack';
-import { actor, findPlace, OC_OANH } from './content';
+import { actor, OC_OANH } from './content';
 import { from, look, tabsThrough } from './look';
-import { changeRejected, changeWaiting, MINH_VENUES, venue } from './owners';
+import {
+  changeRejected,
+  changeWaiting,
+  freeOwner,
+  MINH_VENUES,
+  minhOf,
+  minhsVenues,
+  subscribe,
+  venue,
+} from './owners';
 import { as } from './people';
 import { PEOPLE } from './setup';
 
@@ -13,16 +22,22 @@ test.beforeEach(() => resetRateLimits());
 
 const ids: Record<string, string> = {};
 
+/**
+ * This spec's own Minh Tran on Growth (conventions §12.8), with what his submissions draw: his
+ * venues sent and approved, Sò điệp waiting, then Bánh xèo's change waiting and Ốc Oanh's not
+ * approved.
+ */
+const MINH = minhOf('submissions');
+
 test.beforeAll(async () => {
-  test.setTimeout(300_000);
-  const minh = await actor(PEOPLE.minh);
-  const lan = await actor(PEOPLE.lan);
-  ids.banhXeo = (await findPlace(lan, MINH_VENUES.banhXeo.nameVi))!.id;
-  ids.ocOanh = (await findPlace(lan, OC_OANH.nameVi))!.id;
-  ids.waiting = await changeWaiting(minh, ids.banhXeo, MINH_VENUES.banhXeo);
+  test.setTimeout(900_000);
+  const minh = await freeOwner(MINH, 'Minh Tran');
+  await subscribe(await actor(PEOPLE.mai), MINH, 'MinhSubmissions');
+  Object.assign(ids, await minhsVenues(minh));
+  ids.waiting = await changeWaiting(minh, ids.banhXeo!, MINH_VENUES.banhXeo);
   ids.rejected = await changeRejected(
     minh,
-    ids.ocOanh,
+    ids.ocOanh!,
     {
       ...venue(OC_OANH.nameVi, OC_OANH.location.lat, OC_OANH.location.lng),
       descriptionVi: 'Quán ốc ngon nhất Sài Gòn, giảm giá 20% cho khách mang theo ứng dụng.',
@@ -32,7 +47,7 @@ test.beforeAll(async () => {
 });
 
 async function open(page: Page, path: string): Promise<void> {
-  await as(page, PEOPLE.minh);
+  await as(page, MINH);
   await page.goto(path);
   await page.waitForLoadState('networkidle');
 }

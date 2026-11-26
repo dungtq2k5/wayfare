@@ -39,14 +39,15 @@ async function show(areaId: string, lang: string, content: Notifications.Notific
 export function notifyPack(
   areaId: string,
   lang: string,
-  state: PackState | 'progress' | null,
-  progress?: Progress,
+  // `progress` brings its numbers: the type holds them to it.
+  ...[state, progress]:
+    [state: 'progress', progress: Progress] | [state: PackState | null, progress?: Progress]
 ): void {
   const { t } = tourist();
   const key = identifier(areaId, lang);
   const run = async () => {
     const area = areaName(areaId);
-    if (state === 'progress' && progress !== undefined) {
+    if (state === 'progress') {
       const now = Date.now();
       if (now - (lastShown.get(key) ?? 0) < EVERY_MS) return;
       lastShown.set(key, now);
