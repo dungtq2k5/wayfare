@@ -308,6 +308,62 @@ describe('admin accounts and seller obligations', () => {
     });
   });
 
+  it('filters accounts by status, pin and dunning, oldest first when asked', async () => {
+    const first = await owner(services, prisma);
+    const second = await owner(services, prisma);
+    await prisma.billingAccount.update({
+      where: { id: second.accountId },
+      data: { dunningStartedAt: new Date() },
+    });
+    const admin = buildAccountContext();
+    const ids = async (filter: Partial<billingGrpc.ListAccountsRequest>) =>
+      (
+        await services.accounts.listAccounts(
+          { page: { page: 1, pageSize: 20, sort: 'createdAt' }, status: 0, ...filter },
+          admin,
+        )
+      ).accounts.map((row) => row.id);
+    expect(await ids({ dunning: true })).toEqual([second.accountId]);
+    expect(await ids({ dunning: false, pinned: false })).toEqual([first.accountId]);
+    expect(await ids({ status: billingGrpc.SubscriptionStatus.SUBSCRIPTION_STATUS_NONE })).toEqual([
+      first.accountId,
+      second.accountId,
+    ]);
+    expect(
+      await ids({ status: billingGrpc.SubscriptionStatus.SUBSCRIPTION_STATUS_ACTIVE }),
+    ).toEqual([]);
+  });
+
+  it('filters billing events by status, type and account', async () => {
+    const account = await owner(services, prisma);
+    const { events, page } = await services.events.listBillingEvents(
+      {
+        page: { page: 1, pageSize: 20, sort: 'receivedAt' },
+        status: billingGrpc.BillingEventStatus.BILLING_EVENT_STATUS_FAILED,
+        eventType: 'invoice.paid',
+        billingAccountId: account.accountId,
+      },
+      buildAccountContext(),
+    );
+    expect(events).toEqual([]);
+    expect(page?.total).toBe(0);
+  });
+
+  it('refuses to preview, unpin or override an account that doesn’t exist', async () => {
+    const admin = buildAccountContext();
+    const billingAccountId = newId();
+    expect((await errorOf(services.accounts.previewUnpin({ billingAccountId }, admin))).code).toBe(
+      'RESOURCE_NOT_FOUND',
+    );
+    expect(
+      (await errorOf(services.accounts.unpinEntitlements({ billingAccountId, reason: 'x' }, admin)))
+        .code,
+    ).toBe('RESOURCE_NOT_FOUND');
+    expect((await errorOf(services.accounts.getAccount({ billingAccountId }, admin))).code).toBe(
+      'RESOURCE_NOT_FOUND',
+    );
+  });
+
   it('answers zero obligations until vouchers exist', async () => {
     expect(await services.seller.getLiveObligations({ ownerUserId: newId() })).toEqual({
       issuedVoucherCount: 0,

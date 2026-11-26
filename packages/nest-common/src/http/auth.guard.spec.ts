@@ -2,7 +2,7 @@ import { Controller, Get, Post } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RequestContext } from '../context/request-context';
 import {
   buildAccountContext,
@@ -14,7 +14,8 @@ import { AppHttpException } from './app-http.exception';
 import { AppVersionGuard, compareSemver } from './app-version.guard';
 import { AppVersionFromBody, Auth, RateLimit, RequirePermission } from './auth.decorators';
 import { AuthGuard } from './auth.guard';
-import { RateLimitGuard } from './rate-limit.guard';
+import { RATE_LIMIT_RESERVED, RateLimitGuard, rateLimitValues } from './rate-limit.guard';
+import type { ReservedRequest } from './rate-limit.guard';
 import { RateLimiter } from './rate-limiter';
 import { setAuthState } from './request-context';
 import type { AuthError } from './request-context';
@@ -32,6 +33,7 @@ class Routes {
   @Get() @RequirePermission('place.read', 'place.update') permissionRoute() {}
   @Get() unmarked() {}
   @Post() @Auth('PUBLIC') @RateLimit('AUTH') login() {}
+  @Post() @Auth('PUBLIC') @RateLimit('AUTH_LOGIN') signIn() {}
   @Post() @Auth('PUBLIC') @RateLimit(null) probe() {}
   @Post() @Auth('PUBLIC') @AppVersionFromBody('appVersion') registerDevice() {}
 }
@@ -119,6 +121,29 @@ describe('AuthGuard', () => {
     );
   });
 
+  it('lets an active staff member through a staff route, and refuses a caller with no account', async () => {
+    const staff = { isActiveStaff: vi.fn(() => Promise.resolve(true)) };
+    const guard = new AuthGuard(reflector, new RateLimiter(new FakeRedis()), staff);
+    expect(await outcome(guard.canActivate(execution('staffRoute', account)))).toBe('allow');
+    staff.isActiveStaff.mockResolvedValueOnce(false);
+    expect(await outcome(guard.canActivate(execution('staffRoute', account)))).toBe(
+      'RESOURCE_NOT_FOUND',
+    );
+    expect(await outcome(guard.canActivate(execution('staffRoute', device)))).toBe(
+      'UNAUTHENTICATED',
+    );
+  });
+
+  it('guards only HTTP and socket requests, and counts nothing for a request with no IP', async () => {
+    const rpc = { getType: () => 'rpc' } as unknown as ExecutionContext;
+    expect(await authGuard().canActivate(rpc)).toBe(true);
+    const redis = new FakeRedis();
+    const noIp = execution('userRoute', anonymous, 'invalid');
+    noIp.switchToHttp().getRequest<{ ip?: string }>().ip = undefined;
+    expect(await outcome(authGuard(redis).canActivate(noIp))).toBe('UNAUTHENTICATED');
+    expect(redis.values.size).toBe(0);
+  });
+
   it('names the codes a permission route requires, and owner.access for an owner route', async () => {
     const denied = await authGuard()
       .canActivate(execution('permissionRoute', account))
@@ -167,6 +192,46 @@ describe('RateLimitGuard', () => {
     await guard.canActivate(execution('userRoute', account));
     await guard.canActivate(execution('probe', anonymous));
     expect([...redis.values.keys()]).toEqual([`rl:AUTHENTICATED:userId:${account.userId}`]);
+  });
+
+  it('leaves what a failures-only class counted on the request, for the refund', async () => {
+    const guard = new RateLimitGuard(reflector, new RateLimiter(new FakeRedis()));
+    const run = execution('signIn', anonymous, null, { body: { email: 'a@b.co' } });
+    expect(await guard.canActivate(run)).toBe(true);
+    const request = run.switchToHttp().getRequest<ReservedRequest>();
+    expect(request[RATE_LIMIT_RESERVED]?.failures).toEqual([
+      'INVALID_CREDENTIALS',
+      'INVALID_GOOGLE_TOKEN',
+    ]);
+    expect(request[RATE_LIMIT_RESERVED]?.keys.length).toBeGreaterThan(0);
+  });
+
+  it('limits only HTTP requests, and fails open whatever the store throws', async () => {
+    const redis = new FakeRedis();
+    const guard = new RateLimitGuard(reflector, new RateLimiter(redis));
+    expect(await guard.canActivate({ getType: () => 'rpc' } as unknown as ExecutionContext)).toBe(
+      true,
+    );
+    vi.spyOn(redis, 'eval').mockRejectedValue('down');
+    expect(await outcome(guard.canActivate(execution('userRoute', account)))).toBe('allow');
+  });
+
+  it('reads the keys a request carries: its IP, email, analytics id, device and account', () => {
+    const phoneCaller = buildAccountContext({ deviceId: device.deviceId });
+    expect(
+      rateLimitValues(
+        { body: { email: ' A@B.co ', analyticsDeviceId: 'a1' } } as unknown as Request,
+        phoneCaller,
+      ),
+    ).toEqual({
+      email: 'a@b.co',
+      analyticsDeviceId: 'a1',
+      deviceId: device.deviceId,
+      userId: phoneCaller.userId,
+    });
+    expect(rateLimitValues({ ip: '203.0.113.9' } as unknown as Request, anonymous)).toEqual({
+      ip: '203.0.113.9',
+    });
   });
 
   it('fails open when the store is down', async () => {

@@ -777,6 +777,44 @@ describe('ListPlaces and GetPlaceAdmin', () => {
     );
   });
 
+  it('filters by kind, area, category and owner, and refuses a kind or status it doesn’t know', async () => {
+    const owner = newId();
+    const editorial = await insertPlace(prisma, { areaId: tax.area.id, categoryId: tax.any.id });
+    const venue = await insertPlace(prisma, {
+      areaId: tax.area.id,
+      categoryId: tax.venueOnly.id,
+      kind: PlaceKind.VENUE,
+      ownerUserId: owner,
+    });
+    const ids = async (overrides: Partial<catalogGrpc.ListPlacesRequest>) =>
+      (
+        await places.listPlaces(
+          {
+            page: { page: 1, pageSize: 20, sort: '-updatedAt' },
+            includeDeleted: false,
+            processingBefore: undefined,
+            ...overrides,
+          },
+          staff(),
+        )
+      ).places.map((row) => row.id);
+    expect(await ids({ kind: catalogGrpc.PlaceKind.PLACE_KIND_VENUE })).toEqual([venue.id]);
+    expect(await ids({ kind: catalogGrpc.PlaceKind.PLACE_KIND_EDITORIAL })).toEqual([editorial.id]);
+    expect(await ids({ categoryCode: 'RESTAURANT' })).toEqual([venue.id]);
+    expect(await ids({ ownerUserId: owner })).toEqual([venue.id]);
+    expect(await ids({ areaId: newId() })).toEqual([]);
+    expect(await ids({ areaId: tax.area.id })).toHaveLength(2);
+    expect((await errorOf(ids({ kind: 999 as catalogGrpc.PlaceKind }))).code).toBe(
+      'VALIDATION_FAILED',
+    );
+    expect((await errorOf(ids({ kind: catalogGrpc.PlaceKind.PLACE_KIND_UNSPECIFIED }))).code).toBe(
+      'VALIDATION_FAILED',
+    );
+    expect((await errorOf(ids({ status: 999 as catalogGrpc.PlaceStatus }))).code).toBe(
+      'VALIDATION_FAILED',
+    );
+  });
+
   it('shows localization readiness and staleness per language', async () => {
     const place = await processingPlace();
     await insertLocalization(prisma, place.id, 'en', place.contentHash);

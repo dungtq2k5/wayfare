@@ -43,7 +43,7 @@ sequenceDiagram
   I-->>A: a fresh device token (or 401 DEVICE_REVOKED)
 ```
 
-- **The secret is returned exactly once** and stored hashed; a token is exchanged for it every 15 minutes. A revoked device sends the phone back to its first run, and the web silently registers a new install.
+- **The secret is returned exactly once** and stored hashed; a token is exchanged for it every 15 minutes. A revoked device — or one identity no longer knows, pruned after 400 days unseen — answers `DEVICE_REVOKED`, which sends the phone back to its first run, and the web silently registers a new install. Only that code does: a bare `401` never throws an install away.
 - **A new privacy policy** answers `409 LEGAL_VERSION_OUTDATED` with the current version, and the app shows its notice again.
 - **Forgetting a device** (`DELETE /devices/me`) revokes it and every account session on it, and announces `identity.device.forgotten` (catalog drops its favourites). **Device tokens aren't revocation-checked**: a forgotten device's token still works on other services' `DEVICE` routes until it expires, at most 15 minutes — identity's own device routes answer `DEVICE_REVOKED` at once (`requireLiveDevice`).
 
@@ -123,11 +123,11 @@ flowchart LR
 | `400 CLIENT_HEADER_REQUIRED` | the client's `configureApiClient({ client })`; CORS's allowed headers |
 | The phone stuck on *Update required* | `MIN_SUPPORTED_APP_VERSION`; the version header the app sends |
 | The privacy notice keeps coming back | `LEGAL_DOCUMENT_VERSIONS` against the app's version |
-| Back to first run unexpectedly | `DEVICE_REVOKED` from `/devices/token` |
+| Back to first run unexpectedly | `DEVICE_REVOKED` from `/devices/token`: the device revoked, or gone (`devices-prune`, 400 days unseen) |
 | Account routes `503`, public fine | the gateway's Redis; identity's reachability; `GetTokenCutoff`'s 500 ms |
 | Signed out right after an admin action | a real sign-out is a family revocation (`revokeAllForUser`): a lock, a deactivation, a forced sign-out, an erasure. **A cutoff raise alone signs nobody out** — a role or permission change: the next refresh succeeds with the new permissions |
 | A revocation slow to take effect | identity's outbox; `RevocationConsumer`; the Redis keys |
-| The phone says *You were signed out* | it says so for any `401` on refresh except the 30-day end, which says *Signed out after 30 days* (`expired`) — a replay, a sign-out everywhere, a password change, an admin action, a lock, an erasure; `sessions.revoked_reason` (`SessionRevokedReason`) tells them apart; for a replay, the audit's `REFRESH_TOKEN_REPLAY_DETECTED` and the app's single-flight refresh |
+| The phone says *You were signed out* | **a forced sign-out does what *Sign out* does:** the favourites saved on other phones leave this one, the phone reads its own again, and the card shows once in Settings and once at the top of Favourites. It says so for any `401` on refresh except the 30-day end, which says *Signed out after 30 days* (`expired`) — a replay, a sign-out everywhere, a password change, an admin action, a lock, an erasure; `sessions.revoked_reason` (`SessionRevokedReason`) tells them apart; for a replay, the audit's `REFRESH_TOKEN_REPLAY_DETECTED` and the app's single-flight refresh |
 | `429` on sign-in | `AUTH_LOGIN` counts failures only — 10 per email per 15 minutes, plus the device and IP buckets (identity has no other lockout); and every `401` `AuthGuard` itself returns (a missing, invalid or revoked token — not a wrong password) counts against `PUBLIC_READ` by IP, so a client looping on a bad token gets `429`s |
 | Google sign-in refused | `503 GOOGLE_UNAVAILABLE` (Google's keys unreachable), `403 GOOGLE_SIGN_IN_NOT_ALLOWED` (a staff account), `409 GOOGLE_LINK_NEEDS_PASSWORD` (sign in with the password, then link), `401 INVALID_GOOGLE_TOKEN` with its `reason` |
 | A console tab's refresh answers `409` | `INVALID_STATE` (`ROTATED`): another tab won the race — harmless, nothing revoked |

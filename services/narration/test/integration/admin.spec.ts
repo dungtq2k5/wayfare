@@ -1,11 +1,20 @@
 // The monitor's actions (api-endpoints-plan §4.3) and how they treat coalesced tasks (rdm-spec N-2).
 import {
+  AUDIT_RECORD,
+  AuditAction,
+  LocalizationTargetType,
   NARRATION_LOCALIZATION_READY,
   SynthesisJobStatus,
   SynthesisTaskStatus,
+  SynthesisTrigger,
 } from '@wayfare/contracts';
-import { localizationGrpc, synthesisJobStatusProto } from '@wayfare/contracts/grpc';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  localizationGrpc,
+  localizationTargetTypeProto,
+  synthesisJobStatusProto,
+  synthesisTriggerProto,
+} from '@wayfare/contracts/grpc';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configuredChains } from '../../src/providers/configured-providers';
 import { outboxPayloads, testPrisma, truncateAll } from '../setup/database';
 import {
@@ -280,6 +289,119 @@ describe('the monitor reads', () => {
   });
 });
 
+describe('the monitor, its other answers', () => {
+  const MISSING = '01990000-0000-7000-8000-000000000999';
+
+  it('filters jobs by target and trigger, and lists them oldest first when asked', async () => {
+    const first = await fiveLanguageJob();
+    await fiveLanguageJob();
+    const page = { page: 1, pageSize: 10, sort: 'createdAt' };
+    const PLACE = localizationTargetTypeProto.toProto(LocalizationTargetType.PLACE);
+    const MANUAL = synthesisTriggerProto.toProto(SynthesisTrigger.MANUAL);
+    const all = await services.jobs.listJobs({ page, targetType: PLACE, trigger: MANUAL }, staff());
+    expect(all.jobs.map((job) => job.id)[0]).toBe(first.jobId);
+    expect(all.page?.total).toBe(2);
+    const one = await services.jobs.listJobs({ page, targetId: first.placeId }, staff());
+    expect(one.jobs.map((job) => job.id)).toEqual([first.jobId]);
+  });
+
+  it('refuses a manual job for a tour, and audio for a menu line', async () => {
+    const target = services.catalog.place().id;
+    const tour = {
+      ...manualRequest(target, ['en'], false),
+      targetType: localizationTargetTypeProto.toProto(LocalizationTargetType.TOUR),
+    };
+    expect(await errorCode(services.jobs.createManualJob(tour, staff()))).toBe(
+      'LOCALIZATION_TARGET_UNAVAILABLE',
+    );
+    const menuAudio = {
+      ...manualRequest(target, ['en'], true),
+      targetType: localizationTargetTypeProto.toProto(LocalizationTargetType.MENU_ITEM),
+    };
+    expect(await errorCode(services.jobs.createManualJob(menuAudio, staff()))).toBe(
+      'VALIDATION_FAILED',
+    );
+  });
+
+  it('refuses to act on a job it can’t find, and to retry a job with nothing failed', async () => {
+    expect(await errorCode(services.jobs.pauseJob({ jobId: MISSING }, staff()))).toBe(
+      'RESOURCE_NOT_FOUND',
+    );
+    const { jobId } = await fiveLanguageJob();
+    expect(await errorCode(services.jobs.retryFailedTasks({ jobId }, staff()))).toBe(
+      'SYNTHESIS_JOB_NOT_ACTIVE',
+    );
+    await services.jobs.cancelJob({ jobId }, staff());
+    expect(await errorCode(services.jobs.cancelJob({ jobId }, staff()))).toBe(
+      'SYNTHESIS_JOB_NOT_ACTIVE',
+    );
+  });
+
+  it('makes a manual job for a menu line, text only, and refuses a target catalog has never had', async () => {
+    const item = services.catalog.menuItem({ name: 'Phở bò' });
+    const MENU_ITEM = localizationTargetTypeProto.toProto(LocalizationTargetType.MENU_ITEM);
+    const { job } = await services.jobs.createManualJob(
+      { ...manualRequest(item.id, ['en'], false), targetType: MENU_ITEM },
+      staff(),
+    );
+    expect((await jobOf(prisma, job!.id)).sourceContentHash).toBe(item.hash);
+    expect(
+      await errorCode(services.jobs.createManualJob(manualRequest(MISSING, ['en']), staff())),
+    ).toBe('LOCALIZATION_TARGET_UNAVAILABLE');
+  });
+
+  it('never makes a job with no supported language, or audio for anything but a Place', async () => {
+    const make = (
+      langs: string[],
+      targetType: LocalizationTargetType.PLACE | LocalizationTargetType.MENU_ITEM,
+      includeAudio: boolean,
+    ) =>
+      services.tasks.transact((tx, fx) =>
+        services.jobs.createJob(tx, fx, {
+          targetType,
+          targetId: services.catalog.place().id,
+          sourceContentHash: 'a'.repeat(64),
+          langs,
+          includeAudio,
+          trigger: SynthesisTrigger.MANUAL,
+        }),
+      );
+    await expect(make([], LocalizationTargetType.PLACE, true)).rejects.toThrow(
+      'supported languages',
+    );
+    await expect(make(['tlh'], LocalizationTargetType.PLACE, true)).rejects.toThrow(
+      'supported languages',
+    );
+    await expect(make(['en'], LocalizationTargetType.MENU_ITEM, true)).rejects.toThrow(
+      'only a Place has audio',
+    );
+  });
+
+  it('lists each provider’s breaker, and each pinned voice beside its catalogue', async () => {
+    const providers = services.jobs.listProviders(staff()).providers;
+    expect(providers.every((provider) => provider.coolingUntil === undefined)).toBe(true);
+    expect(providers.every((provider) => provider.downSince === undefined)).toBe(true);
+    vi.spyOn(services.chains.speech.providers[0]!, 'listVoices').mockImplementation((code) =>
+      Promise.resolve([{ id: `fake-${code}`, languageCode: code, gender: 'FEMALE' }]),
+    );
+    const { voices } = await services.jobs.listVoices(staff());
+    const en = voices.find((catalogue) => catalogue.lang === 'en')!;
+    expect(en.pinnedVoiceId).toBeDefined();
+    expect(en.available[0]).toMatchObject({ gender: 'FEMALE' });
+  });
+
+  it('audits an action with no address or user agent when the request carried none', async () => {
+    const { jobId } = await fiveLanguageJob();
+    await services.jobs.pauseJob({ jobId }, staff({ origin: { ip: null, userAgent: null } }));
+    const audits = (await outboxPayloads(prisma, AUDIT_RECORD.subject)).filter(
+      (row) => row.action === AuditAction.SYNTHESIS_JOB_PAUSED,
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).not.toHaveProperty('ip');
+    expect(audits[0]).not.toHaveProperty('userAgent');
+  });
+});
+
 describe('GetTargetJobStates', () => {
   const PLACE = localizationGrpc.LocalizationTargetType.LOCALIZATION_TARGET_TYPE_PLACE;
   const states = async (targetIds: string[]) =>
@@ -310,5 +432,18 @@ describe('GetTargetJobStates', () => {
     });
     expect(byTarget.get(cancelled.placeId)?.lastJob?.cancelledById).toBeDefined();
     expect(byTarget.has(nothing.id)).toBe(false);
+  });
+
+  it('is active when an older job still moves behind a finished newer one, and empty for no targets', async () => {
+    expect(await states([])).toEqual(new Map());
+    const place = services.catalog.place();
+    const older = await services.jobs.createManualJob(manualRequest(place.id, ['en']), staff());
+    await services.jobs.pauseJob({ jobId: older.job!.id }, staff());
+    const newer = await services.jobs.createManualJob(manualRequest(place.id, ['ja']), staff());
+    await services.jobs.cancelJob({ jobId: newer.job!.id }, staff());
+    expect((await states([place.id])).get(place.id)).toMatchObject({
+      active: true,
+      lastJob: { id: newer.job!.id },
+    });
   });
 });

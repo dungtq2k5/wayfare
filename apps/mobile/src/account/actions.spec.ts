@@ -41,8 +41,8 @@ const session = vi.hoisted(() => ({
   isSignedIn: vi.fn(() => Promise.resolve(true)),
 }));
 vi.mock('../session', () => ({ accountSession: session }));
-const queries = vi.hoisted(() => ({ invalidateQueries: vi.fn(() => Promise.resolve()) }));
-vi.mock('../state/query-client', () => ({ queryClient: queries }));
+const lists = vi.hoisted(() => ({ refreshFavourites: vi.fn(() => Promise.resolve()) }));
+vi.mock('../state/query-client', () => lists);
 const google = vi.hoisted(() => ({ forgetGoogleChoice: vi.fn(() => Promise.resolve()) }));
 vi.mock('../../modules/google-sign-in/src', () => google);
 const env = vi.hoisted(() => ({ GOOGLE_SERVER_CLIENT_ID: 'client' }));
@@ -121,10 +121,7 @@ describe('signing in (K1, K3, K6, K16)', () => {
       notice: null,
       offerDismissed: true,
     });
-    expect(queries.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['/api/v1/me/favorites'],
-      refetchType: 'all',
-    });
+    expect(lists.refreshFavourites).toHaveBeenCalled();
   });
 
   it('says the phone moved when another account had signed in here before', async () => {

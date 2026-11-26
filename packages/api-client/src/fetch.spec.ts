@@ -122,6 +122,37 @@ describe('apiFetch', () => {
     await expect(apiFetch('/x')).rejects.toMatchObject({ status: 0, code: NETWORK_ERROR_CODE });
   });
 
+  it('names no cause it can’t read in a transport failure, and lets a caller’s abort through as is', async () => {
+    configureApiClient({
+      baseUrl: '',
+      client: 'web',
+      fetch: vi.fn<typeof fetch>().mockRejectedValue('offline'),
+    });
+    await expect(apiFetch('/x')).rejects.toMatchObject({ status: 0, message: 'No answer' });
+    const abort = new AbortController();
+    abort.abort();
+    const aborted = new DOMException('aborted', 'AbortError');
+    configureApiClient({ baseUrl: '', client: 'web', fetch: () => Promise.reject(aborted) });
+    await expect(apiFetch('/x', { signal: abort.signal })).rejects.toBe(aborted);
+  });
+
+  it('reads an answer with no content type as JSON', async () => {
+    const bare = {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: () => Promise.resolve({ data: 1 }),
+    } as unknown as Response;
+    setup([() => bare]);
+    await expect(apiFetch('/x')).resolves.toEqual({ data: 1 });
+  });
+
+  it('refuses a call made before the client is configured', async () => {
+    vi.resetModules();
+    const fresh = await import('./fetch.js');
+    await expect(fresh.apiFetch('/x')).rejects.toThrow('configureApiClient() has not been called');
+  });
+
   it('returns undefined for a 204', async () => {
     setup([() => new Response(null, { status: 204 })]);
     await expect(apiFetch('/x', { method: 'DELETE' })).resolves.toBeUndefined();

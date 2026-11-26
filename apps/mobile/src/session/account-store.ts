@@ -1,6 +1,7 @@
 import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { refreshFavourites } from '../state/query-client';
 import type { AccountEnd } from './account-session';
 
 /** The signed-in account as the screens show it; not secret (K1). */
@@ -50,7 +51,11 @@ export const useAccountStore = create<AccountState>()(
   }),
 );
 
-/** The session ended by itself: A8 when it was ended elsewhere, A8b when it simply ran out (K2). */
+/**
+ * The session ended by itself: A8 when it was ended elsewhere, A8b when it simply ran out (K2).
+ * As a *Sign out* does (A5), the phone then keeps only its own favourites: the lists read again
+ * with the device's bearer, so the account's leave.
+ */
 export function accountEnded(reason: AccountEnd): void {
   useAccountStore.setState({
     user: null,
@@ -58,6 +63,21 @@ export function accountEnded(reason: AccountEnd): void {
     notice: reason === 'elsewhere' ? 'signed-out-elsewhere' : 'session-ended',
     favouritesNotice: reason === 'elsewhere',
   });
+  void refreshFavourites();
+}
+
+/**
+ * Favourites opened: A8's card tops it the first time it opens after (K2), and is spent when the
+ * screen is left — only if it was there as the screen opened. A sign-out landing while Favourites
+ * is already open keeps the card for its next opening. Returns what leaving does.
+ */
+export function openFavourites(): () => void {
+  const shownOnOpen = useAccountStore.getState().favouritesNotice;
+  return () => {
+    if (shownOnOpen && useAccountStore.getState().favouritesNotice) {
+      useAccountStore.setState({ favouritesNotice: false });
+    }
+  };
 }
 
 /** *Forget this install*: a new device knows no account. */
