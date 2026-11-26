@@ -65,6 +65,10 @@ describe('the gate', () => {
     expect(mayPrefetch(openGate, 5_000, false)).toBe(false);
   });
 
+  it('backs off the first step for a streak of none, never less', () => {
+    expect([0, -1].map(backoffMs)).toEqual([30_000, 30_000]);
+  });
+
   it('backs off 30 s, 60 s, 120 s and doubles up to the cap on 429', () => {
     expect([1, 2, 3, 4, 5, 6, 9].map(backoffMs)).toEqual([
       30_000, 60_000, 120_000, 240_000, 480_000, 600_000, 600_000,

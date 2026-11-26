@@ -74,7 +74,13 @@ test('P3c the session ended mid-form', async ({ page, context }) => {
 test('P4a confirmation, P4b destructive, P4c with a reason', async ({ page }) => {
   await patterns(page);
   await page.getByRole('button', { name: 'Unpublish', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: /^Unpublish / })).toBeVisible();
+  const confirmation = page.getByRole('dialog', { name: /^Unpublish / });
+  await expect(confirmation).toBeVisible();
+  // The screens ask for reduced motion: the dialog opens without its zoom (globals.css ends every
+  // animation at once, whatever a component's classes say).
+  expect(
+    await confirmation.evaluate((element) => getComputedStyle(element).animationDuration),
+  ).toBe('1e-05s');
   await look(page, 'p4a-confirmation', { viewportOnly: true });
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Delete…' }).click();
@@ -94,9 +100,9 @@ test('P5 toasts', async ({ page }) => {
     .getByRole('button', { name: 'Unpublish' })
     .click();
   await expect(page.getByText('Place unpublished')).toBeVisible();
-  // The pointer rests on the toasts from here on: it holds them (the success toast's 6 s would end
-  // before the dark capture) and spreads them out, both drawn whole. The error toast is raised from
-  // the keyboard, so the pointer never leaves.
+  // The pointer rests on the toasts from here on: it spreads them out, drawn whole (look() stops the
+  // clock, so the success toast's 6 s never run out between captures). The error toast is raised
+  // from the keyboard, so the pointer never leaves.
   await page.locator('[data-sonner-toast]').first().hover();
   await page.getByRole('button', { name: "Couldn't save" }).focus();
   await page.keyboard.press('Enter');

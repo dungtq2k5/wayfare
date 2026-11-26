@@ -516,7 +516,7 @@ function ApplyDialog({
               ) : null}
             </div>
           ) : (
-            <ul className="flex flex-col gap-2 duration-(--duration-normal) animate-in fade-in motion-reduce:animate-none">
+            <ul className="flex flex-col gap-2 duration-(--duration-normal) animate-in fade-in">
               {line(result.affected, t('plans.applyAffected', { plan: plan.name }))}
               {/* Every line, a zero in its own words: "none" is the answer a reader looks for. */}
               {counted(result.skippedPinned, t('plans.applyPinned'), t('plans.applyPinnedNone'))}

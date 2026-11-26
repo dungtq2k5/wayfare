@@ -87,7 +87,7 @@ export function MiniPlayer() {
           className={cn(round, 'size-12 bg-now-playing-foreground text-now-playing')}
         >
           {preparing ? (
-            <LoaderCircle aria-hidden className="size-6 animate-spin motion-reduce:animate-none" />
+            <LoaderCircle aria-hidden className="size-6 animate-spin" />
           ) : playing ? (
             <Pause aria-hidden className="size-6" />
           ) : (
@@ -209,7 +209,7 @@ export function NowPlaying() {
     >
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-40 hidden bg-overlay/50 tablet:block" />
-        <DialogPrimitive.Content className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-now-playing text-now-playing-foreground outline-none tablet:left-auto tablet:w-120 tablet:shadow-3 data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom tablet:data-[state=open]:slide-in-from-right duration-(--duration-normal) motion-reduce:animate-none">
+        <DialogPrimitive.Content className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-now-playing text-now-playing-foreground outline-none tablet:left-auto tablet:w-120 tablet:shadow-3 data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom tablet:data-[state=open]:slide-in-from-right duration-(--duration-normal)">
           <div className="flex flex-col items-center px-2 pt-1">
             <span
               aria-hidden
@@ -307,10 +307,7 @@ export function NowPlaying() {
                 className={cn(round, 'size-18 bg-now-playing-foreground text-now-playing')}
               >
                 {preparing ? (
-                  <LoaderCircle
-                    aria-hidden
-                    className="size-8 animate-spin motion-reduce:animate-none"
-                  />
+                  <LoaderCircle aria-hidden className="size-8 animate-spin" />
                 ) : playing ? (
                   <Pause aria-hidden className="size-8" />
                 ) : (

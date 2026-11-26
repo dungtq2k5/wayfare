@@ -16,6 +16,7 @@ import {
 import { Actor, clearMail, identitySql, resetRateLimits, untilSettled } from '../support/stack';
 import { startBrowserServer, stopBrowserServer } from './browser';
 import { publishMapPacks } from './map-pack';
+import { snapshotSeed } from './seed';
 
 /** The screens' people, by the names the frames use. Every one signs in with `PASSWORD`. */
 export const PEOPLE = {
@@ -81,6 +82,8 @@ export async function screensSetup(): Promise<() => void> {
       'The screens need a fresh stack: run apps/console/e2e/screens/stack.sh reset (README.md)',
     );
   }
+  // What the seed holds, before anything here is made: the frames' lists keep it (seed.ts).
+  await snapshotSeed(superAdmin, reuse);
   /** Makes a person once: on a reused stack, only the ones an earlier run did not finish. */
   const once = async (email: string, make: () => Promise<void>) => {
     if (!(await exists(email))) await make();

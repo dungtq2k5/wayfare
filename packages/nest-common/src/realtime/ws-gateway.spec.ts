@@ -22,6 +22,17 @@ describe('wsErrorCode', () => {
     expect(wsErrorCode(grpcError(status.UNAVAILABLE)).code).toBe('UPSTREAM_UNAVAILABLE');
     expect(wsErrorCode(new Error('boom'))).toEqual({ code: 'INTERNAL', expected: false });
   });
+
+  it('maps a peer’s deadline to a timeout, and a peer error naming no known code to INTERNAL', () => {
+    expect(wsErrorCode(grpcError(status.DEADLINE_EXCEEDED))).toEqual({
+      code: 'UPSTREAM_TIMEOUT',
+      expected: true,
+    });
+    expect(wsErrorCode(grpcError(status.NOT_FOUND, { 'wf-error-code': 'NOT_A_CODE' }))).toEqual({
+      code: 'INTERNAL',
+      expected: false,
+    });
+  });
 });
 
 describe('WsErrorFilter', () => {
@@ -34,6 +45,21 @@ describe('WsErrorFilter', () => {
     } as unknown as ArgumentsHost;
     new WsErrorFilter().catch(new WsError('VALIDATION_FAILED'), host);
     expect(emitted).toEqual([['error', { code: 'VALIDATION_FAILED' }]]);
+  });
+
+  it('emits INTERNAL for anything unexpected, whatever was thrown, keeping the socket', () => {
+    const emitted: unknown[] = [];
+    const host = {
+      switchToWs: () => ({
+        getClient: () => ({ emit: (...args: unknown[]) => emitted.push(args) }),
+      }),
+    } as unknown as ArgumentsHost;
+    new WsErrorFilter().catch(new Error('boom'), host);
+    new WsErrorFilter().catch('boom', host);
+    expect(emitted).toEqual([
+      ['error', { code: 'INTERNAL' }],
+      ['error', { code: 'INTERNAL' }],
+    ]);
   });
 });
 

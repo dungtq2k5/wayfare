@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react';
 import '../client/browser-api';
 import { noteOutcome } from '../client/connection';
-import { setPageCookie } from '../client/cookies';
+import { setPageCookie } from '@wayfare/ui/cookies';
 import { I18nProvider } from '../i18n/provider';
 import type { ConsoleLocale } from '../i18n/messages';
 import { signInHref } from '../session/next';

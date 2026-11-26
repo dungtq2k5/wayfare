@@ -1,7 +1,7 @@
 'use client';
 
 import { ApiError, authRegister } from '@wayfare/api-client';
-import { LEGAL_DOCUMENT_VERSIONS, LegalDocument } from '@wayfare/contracts';
+import { LEGAL_DOCUMENT_VERSIONS, LegalDocument, zEmail } from '@wayfare/contracts';
 import { Button } from '@wayfare/ui/button';
 import { Field, FieldError, FormAlert, Input, PasswordInput } from '@wayfare/ui/field';
 import Link from 'next/link';
@@ -15,7 +15,6 @@ import { useGoogleContinue } from './use-google';
 
 /** The shortest password identity accepts (rdm-spec I-4). */
 export const PASSWORD_MIN = 10;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Errors = { email?: string; password?: string; terms?: string };
 
@@ -43,7 +42,8 @@ export function SignUpForm({ next }: { next: string | null }) {
 
   const submit = async () => {
     const found: Errors = {};
-    if (!EMAIL.test(email.trim())) found.email = t('error.emailInvalid');
+    // The gateway's own check (contracts' zEmail), so the form and the API agree on an address.
+    if (!zEmail.safeParse(email).success) found.email = t('error.emailInvalid');
     if (password.length < PASSWORD_MIN) found.password = t('error.passwordShort');
     if (!agreed) found.terms = t('auth.agreeRequired');
     setErrors(found);

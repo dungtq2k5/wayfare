@@ -533,6 +533,85 @@ describe('unlinking', () => {
   });
 });
 
+describe('linking and unlinking refusals', () => {
+  /** A console ticket to link `sub` to the account at `email`, and that account's console session. */
+  async function consoleTicket(email: string, userId: string, sub: string) {
+    const { nonce } = await google.nonce({ binding: 'b' }, anonymous);
+    const { idToken } = google.mintFake({ email, sub, emailVerified: true, nonce });
+    const refused = await errorOf(
+      google.signIn(
+        { idToken, preferredLocale: 'en', client: CLIENT.console, binding: 'b' },
+        anonymous,
+      ),
+    );
+    const signedIn = await auth.login(
+      { email, password: PASSWORD, client: CLIENT.console },
+      anonymous,
+    );
+    return {
+      ticket: (refused.details as { linkTicket: string }).linkTicket,
+      context: buildAccountContext({
+        userId,
+        sessionId: claimsOf(signedIn.session!.accessToken).sid as string,
+      }),
+    };
+  }
+
+  it('refuses a ticket for another address, a second Google account, and a closed account', async () => {
+    const email = freshEmail();
+    const { session } = await registerAccount(services, { email });
+    const userId = session.user!.id;
+    const first = await consoleTicket(email, userId, 'g-one');
+    const second = await consoleTicket(email, userId, 'g-two');
+    const moved = await consoleTicket(email, userId, 'g-three');
+    await google.link({ linkTicket: first.ticket }, first.context);
+    expect((await errorOf(google.link({ linkTicket: second.ticket }, second.context))).code).toBe(
+      'GOOGLE_ACCOUNT_ALREADY_LINKED',
+    );
+    await prisma.user.update({ where: { id: userId }, data: { email: freshEmail() } });
+    expect((await errorOf(google.link({ linkTicket: moved.ticket }, moved.context))).code).toBe(
+      'GOOGLE_ACCOUNT_MISMATCH',
+    );
+    await prisma.user.update({ where: { id: userId }, data: { deletedAt: new Date() } });
+    expect((await errorOf(google.link({ linkTicket: moved.ticket }, moved.context))).code).toBe(
+      'UNAUTHENTICATED',
+    );
+    expect(
+      (await errorOf(google.unlink({ currentPassword: PASSWORD, confirmation: '' }, moved.context)))
+        .code,
+    ).toBe('UNAUTHENTICATED');
+  });
+
+  it('answers not found for an account with no Google link to remove', async () => {
+    const email = freshEmail();
+    const session = await verified(email);
+    const context = buildAccountContext({
+      userId: session.user!.id,
+      sessionId: claimsOf(session.accessToken).sid as string,
+    });
+    expect(
+      await errorOf(google.unlink({ currentPassword: PASSWORD, confirmation: '' }, context)),
+    ).toEqual({ code: 'RESOURCE_NOT_FOUND', details: { resource: 'USER_IDENTITY' } });
+  });
+
+  it('clears a lapsed lock on signing in, and stores a blank Google name as none', async () => {
+    const email = freshEmail();
+    const session = await verified(email);
+    await prisma.user.update({
+      where: { id: session.user!.id },
+      data: { isLocked: true, lockedUntil: new Date(Date.now() - 60_000), lockReason: 'x' },
+    });
+    await continueWith({ email, hd: 'example.com' });
+    expect(await prisma.user.findUniqueOrThrow({ where: { id: session.user!.id } })).toMatchObject({
+      isLocked: false,
+      lockedUntil: null,
+    });
+
+    const { userId } = await continueWith({ email: freshEmail(), name: '   ' });
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).fullName).toBeNull();
+  });
+});
+
 describe('the fake issuer', () => {
   it('mints nothing unless configured', () => {
     // Production's refusal of the fake issuer is the env schema's spec (src/config).

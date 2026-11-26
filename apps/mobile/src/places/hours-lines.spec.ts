@@ -39,3 +39,19 @@ describe('hoursLines', () => {
     ]);
   });
 });
+
+describe('hoursLines, with rows out of order or half filled', () => {
+  it('lists special dates in date order, and a range missing a time with that side blank', () => {
+    const { specials } = hoursLines(
+      [
+        { specificDate: '2026-10-20', opensAt: '09:00' },
+        { specificDate: '2026-10-08', closesAt: '18:00' },
+      ],
+      NOW,
+    );
+    expect(specials.map((line) => [line.date, line.ranges])).toEqual([
+      ['2026-10-08', ['–18:00']],
+      ['2026-10-20', ['09:00–']],
+    ]);
+  });
+});

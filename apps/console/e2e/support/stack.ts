@@ -32,6 +32,22 @@ export function envValue(service: string, key: string): string {
   return value;
 }
 
+/**
+ * `fetch`, its failure naming the request: "fetch failed" alone can't say which server closed the
+ * socket (the gateway, Mailpit, NATS's monitor), and a closed socket is traced, never retried away.
+ */
+async function send(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+    throw new Error(
+      `${init?.method ?? 'GET'} ${url} → no answer: ${cause?.code ?? ''} ${cause?.message ?? String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
 /** One actor's session: the console's cookies, kept between calls. */
 export class Actor {
   private readonly cookies = new Map<string, string>();
@@ -43,7 +59,7 @@ export class Actor {
     expected = [200, 201, 202, 204],
     attempt = 0,
   ): Promise<T> {
-    const response = await fetch(`${API}${path}`, {
+    const response = await send(`${API}${path}`, {
       method,
       headers: {
         'x-wayfare-client': 'console',
@@ -91,14 +107,14 @@ export async function mailTo(
   subject: RegExp,
 ): Promise<{ text: string; token: string; link: string }> {
   for (let attempt = 0; attempt < 50; attempt++) {
-    const { messages } = (await (await fetch(`${MAILPIT}/api/v1/messages?limit=200`)).json()) as {
+    const { messages } = (await (await send(`${MAILPIT}/api/v1/messages?limit=200`)).json()) as {
       messages: MailSummary[];
     };
     const found = messages.find(
       (mail) => mail.To.some((to) => to.Address === address) && subject.test(mail.Subject),
     );
     if (found !== undefined) {
-      const { Text } = (await (await fetch(`${MAILPIT}/api/v1/message/${found.ID}`)).json()) as {
+      const { Text } = (await (await send(`${MAILPIT}/api/v1/message/${found.ID}`)).json()) as {
         Text: string;
       };
       const link = /https?:\/\/\S+#[^\s)>\]]+/u.exec(Text)?.[0] ?? '';
@@ -130,7 +146,7 @@ export function resetRateLimits(): void {
 
 /** Mailpit emptied. */
 export async function clearMail(): Promise<void> {
-  await fetch(`${MAILPIT}/api/v1/messages`, { method: 'DELETE' });
+  await send(`${MAILPIT}/api/v1/messages`, { method: 'DELETE' });
 }
 
 /** SQL against the local identity database, for the one row only identity reads (a bounce). */
@@ -173,7 +189,7 @@ export async function untilSettled(admin: Actor, timeoutMs = 15 * 60_000): Promi
       )
     ).meta.total;
   const waiting = async () => {
-    const response = await fetch(`${NATS_MONITOR}/jsz?consumers=true`);
+    const response = await send(`${NATS_MONITOR}/jsz?consumers=true`);
     const { account_details: accounts = [] } = (await response.json()) as {
       account_details?: {
         stream_detail?: { consumer_detail?: { num_pending: number }[] }[];

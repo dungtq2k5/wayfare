@@ -74,4 +74,9 @@ describe('checkTypedCode', () => {
     expect(checkTypedCode('QK4V#TCX')).toEqual({ ok: false, error: 'symbol' });
     expect(checkTypedCode('QK4VÊTCX')).toEqual({ ok: false, error: 'symbol' });
   });
+
+  it('opens every eight of A–Z and 0–9 without a U: each folds to a code', () => {
+    for (const char of 'ABCDEFGHIJKLMNOPQRSTVWXYZ0123456789')
+      expect(checkTypedCode(char.repeat(8)).ok, char).toBe(true);
+  });
 });

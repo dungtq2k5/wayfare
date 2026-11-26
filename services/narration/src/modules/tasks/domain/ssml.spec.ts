@@ -58,6 +58,27 @@ describe('the dictionary', () => {
     expect(rulesFor(rules, 'vi')).toEqual([]);
   });
 
+  it('keeps the language-specific entry whichever order the rules arrive in', () => {
+    const rules = [sub('Chợ', 'Cho', 'ja'), sub('Chợ', 'Chuh')];
+    expect(rulesFor(rules, 'ja').map((rule) => rule.replacement)).toEqual(['Cho']);
+  });
+
+  it('writes a phoneme with no alphabet as IPA, and orders same-length terms stably', () => {
+    const phoneme: PronunciationRule = {
+      term: 'Phở',
+      targetLang: null,
+      replacementType: 'PHONEME',
+      replacement: 'fɜː',
+      alphabet: null,
+    };
+    expect(applyDictionary('Phở bò', [phoneme, sub('bò', 'baw')])).toBe(
+      '<phoneme alphabet="ipa" ph="fɜː">Phở</phoneme> <sub alias="baw">bò</sub>',
+    );
+    expect(applyDictionary('Cà Bò', [sub('Bò', 'B'), sub('Cà', 'C')])).toBe(
+      '<sub alias="C">Cà</sub> <sub alias="B">Bò</sub>',
+    );
+  });
+
   it('builds a Place body: name, pause, description, escaped then pronounced', () => {
     expect(
       placeSsmlBody({

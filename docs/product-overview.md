@@ -625,7 +625,7 @@ Hotel/flight booking · table reservations · food delivery · ride hailing · u
 | **Revenue** | Paying owners | ≥ 3 |
 | | Free → paid conversion | ≥ 10% |
 | **Engineering** | p95 nearby query | < 150 ms |
-| | CI pipeline duration | < 10 min |
+| | CI pipeline duration | < 10 min — the gate's (`pr.yml`, its slowest job); the Playwright lane's time and runner-minutes reported beside it |
 | | Battery cost per 4 h walking session | < 15% |
 
 ---

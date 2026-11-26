@@ -48,7 +48,7 @@ const GIS_SCRIPT = 'https://accounts.google.com/gsi/client';
  */
 const loadFake =
   process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEV_TOOLS === '1'
-    ? () => import('./fake-google')
+    ? () => import('@wayfare/ui/fake-google')
     : null;
 
 function loadGis(): Promise<GoogleIdentity> {

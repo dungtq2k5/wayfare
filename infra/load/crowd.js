@@ -131,7 +131,7 @@ export const options = {
   noCookiesReset: true,
 };
 
-const HEADERS = { 'X-Wayfare-Client': 'mobile', 'X-Forwarded-For': '10.254.0.1' };
+const HEADERS = { 'X-Wayfare-Client': 'mobile', 'X-Forwarded-For': '10.254.0.1' }; // NOSONAR: S1313, a reserved address sent as X-Forwarded-For, so the crowd shares one rate-limit key on purpose
 
 /** Every page of a sync, from `since`; its places, the final version and the bytes read. */
 function syncAll(get, path, areaId, since) {

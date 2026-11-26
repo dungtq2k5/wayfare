@@ -1,12 +1,13 @@
-// Every spec's `test` and `expect`: Playwright's, with one automatic fixture that fails a test on
+// Every spec's `test` and `expect`: Playwright's, with two automatic fixtures. One fails a test on
 // any Content Security Policy violation the page reports (architecture §10) — a page must run under
 // its policy, so a new origin goes into the app's env and policy function, never into an exception
-// here. Violations inside workers don't reach the page; the manual checks cover those.
+// here. Violations inside workers don't reach the page; the manual checks cover those. The other
+// gives every screens page Playwright's clock, so `look()` can stop time while it draws a state.
 import { expect, test as base } from '@playwright/test';
 
 export { expect };
 
-export const test = base.extend<{ contentSecurityPolicy: void }>({
+export const test = base.extend<{ contentSecurityPolicy: void; screensClock: void }>({
   contentSecurityPolicy: [
     async ({ page }, use) => {
       const violations: string[] = [];
@@ -26,6 +27,15 @@ export const test = base.extend<{ contentSecurityPolicy: void }>({
       });
       await use();
       expect(violations, 'Content Security Policy violations').toEqual([]);
+    },
+    { auto: true },
+  ],
+  // Installed before the page loads; time runs as normal until `look()` pauses it. A spec that
+  // drives time itself (26) uses this one, never installs a second.
+  screensClock: [
+    async ({ page }, use, testInfo) => {
+      if (testInfo.project.name === 'screens') await page.clock.install();
+      await use();
     },
     { auto: true },
   ],

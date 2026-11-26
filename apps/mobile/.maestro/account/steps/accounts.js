@@ -7,7 +7,8 @@ output.B = 'alexa' + ts + 'a@example.com';
 output.C = 'tourist-' + ts + '@example.com';
 output.B2 = 'moved-' + ts + '@example.com';
 output.NOBODY = 'nobody-' + ts + '@example.com';
-output.PASSWORD = 'lantern-river-82';
+// Made for this run (letters, digits and hyphens: a space sends the keyboard astray).
+output.PASSWORD = 'run-' + ts + '-pass';
 output.NEWPASS = 'harbour-lamp-47';
 const headers = {
   'content-type': 'application/json',

@@ -197,7 +197,7 @@ export function RegisterPriceDialog({
           </fieldset>
           <div role="status">
             {answer === null ? null : (
-              <div className="flex flex-col gap-4 duration-(--duration-fast) animate-in fade-in motion-reduce:animate-none">
+              <div className="flex flex-col gap-4 duration-(--duration-fast) animate-in fade-in">
                 <div className="flex items-start gap-2 rounded-md bg-muted px-4 py-3 text-sm">
                   <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
                   <div className="flex flex-col gap-1">

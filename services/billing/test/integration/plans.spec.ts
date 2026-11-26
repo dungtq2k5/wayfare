@@ -4,6 +4,7 @@ import {
   AUDIT_RECORD,
   AuditAction,
   BILLING_ENTITLEMENTS_CHANGED,
+  newId,
   SubscriptionStatus,
 } from '@wayfare/contracts';
 import { billingGrpc } from '@wayfare/contracts/grpc';
@@ -145,6 +146,74 @@ describe('plans', () => {
         )
       ).code,
     ).toBe('UPSTREAM_UNAVAILABLE');
+  });
+
+  it('looks a price up before registering: each check named by its field, and the price it replaces', async () => {
+    const growth = await paidPlan(prisma, 'GROWTH');
+    const { productId } = await prisma.plan
+      .findUniqueOrThrow({ where: { id: growth.planId }, select: { stripeProductId: true } })
+      .then((plan) => ({ productId: plan.stripeProductId! }));
+    const month = billingGrpc.BillingInterval.BILLING_INTERVAL_MONTH;
+    const good = {
+      id: 'price_new',
+      active: true,
+      currency: 'usd',
+      unitAmount: 1200,
+      recurringInterval: 'month',
+      productId,
+    };
+    services.payments.prices.set('price_new', good);
+    const look = (stripePriceId: string) =>
+      services.plans.lookupPrice(
+        { planId: growth.planId, stripePriceId, billingInterval: month },
+        admin,
+      );
+    const answer = await look('price_new');
+    expect(answer).toMatchObject({ amountMinor: 1200, currency: 'USD', productId });
+    expect(answer.replaces?.stripePriceId).toBe(growth.stripePriceId);
+
+    const refusals: [Partial<typeof good>, string][] = [
+      [{ active: false }, 'inactive'],
+      [{ currency: 'eur' }, 'currency'],
+      [{ unitAmount: null as unknown as number }, 'amount'],
+      [{ unitAmount: 0 }, 'amount'],
+      [{ productId: 'prod_other' }, 'product_mismatch'],
+    ];
+    for (const [change, code] of refusals) {
+      services.payments.prices.set('price_bad', { ...good, ...change });
+      expect((await errorOf(look('price_bad'))).details).toEqual({
+        issues: [{ path: '/stripePriceId', code }],
+      });
+    }
+    expect((await errorOf(look('price_missing'))).details).toEqual({
+      issues: [{ path: '/stripePriceId', code: 'not_found' }],
+    });
+    services.payments.prices.set(growth.stripePriceId, { ...good, id: growth.stripePriceId });
+    expect((await errorOf(look(growth.stripePriceId))).details).toEqual({
+      issues: [{ path: '/stripePriceId', code: 'taken' }],
+    });
+  });
+
+  it('updates only the fields sent, and refuses a plan that doesn’t exist', async () => {
+    const growth = await paidPlan(prisma, 'GROWTH');
+    const { plan } = await services.plans.updatePlan(
+      { planId: growth.planId, name: 'Growth+', sortOrder: 11, isActive: false, grants: undefined },
+      admin,
+    );
+    expect(plan).toMatchObject({ name: 'Growth+', sortOrder: 11, isActive: false, code: 'GROWTH' });
+    expect(plan?.grants?.maxPlaces).toBe(GROWTH_GRANTS.maxPlaces);
+    const { plan: renamed } = await services.plans.updatePlan(
+      { planId: growth.planId, name: 'Growth', grants: undefined },
+      admin,
+    );
+    expect(renamed).toMatchObject({ name: 'Growth', sortOrder: 11, isActive: false });
+    expect(
+      (
+        await errorOf(
+          services.plans.updatePlan({ planId: newId(), name: 'x', grants: undefined }, admin),
+        )
+      ).code,
+    ).toBe('RESOURCE_NOT_FOUND');
   });
 
   it('applies a plan with a dry run first: the same projection, no writes, pinned skipped', async () => {

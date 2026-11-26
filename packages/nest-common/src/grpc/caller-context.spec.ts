@@ -5,8 +5,15 @@ import type { RequestContext } from '../context/request-context';
 import {
   InvalidCallerContextError,
   packCallerContext,
+  requireAccountContext,
+  requireDeviceContext,
   unpackCallerContext,
 } from './caller-context';
+import {
+  buildAccountContext,
+  buildAnonymousContext,
+  buildDeviceContext,
+} from '../testing/contexts';
 
 const origin = { ip: '203.0.113.9', userAgent: 'Wayfare/1.0 (iPhone; ünïcode)' };
 
@@ -49,5 +56,23 @@ describe('caller context over gRPC metadata', () => {
     metadata.set('wf-caller-kind', 'device');
     metadata.set('wf-caller-device-id', '0d5f2c1e-8b2a-4f3e-9c1d-2a3b4c5d6e7f');
     expect(() => unpackCallerContext(metadata)).toThrow(InvalidCallerContextError);
+  });
+});
+
+describe('the caller an RPC requires', () => {
+  it('takes an account for an account RPC, and refuses anything else', () => {
+    const account = buildAccountContext();
+    expect(requireAccountContext(account)).toBe(account);
+    expect(() => requireAccountContext(buildDeviceContext())).toThrow('UNAUTHENTICATED');
+  });
+
+  it('takes a device, or an account carrying one, for a device RPC', () => {
+    const device = buildDeviceContext();
+    expect(requireDeviceContext(device)).toBe(device.deviceId);
+    expect(requireDeviceContext(buildAccountContext({ deviceId: device.deviceId }))).toBe(
+      device.deviceId,
+    );
+    expect(() => requireDeviceContext(buildAccountContext())).toThrow('UNAUTHENTICATED');
+    expect(() => requireDeviceContext(buildAnonymousContext())).toThrow('UNAUTHENTICATED');
   });
 });

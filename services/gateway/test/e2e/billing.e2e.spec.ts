@@ -414,6 +414,70 @@ describe('/admin/plans and /admin/billing', () => {
   });
 });
 
+describe('the admin billing lists', () => {
+  const summary = (): billingGrpc.BillingAccountSummary => ({
+    id: newId(),
+    ownerUserId: ownerId,
+    planCode: 'GROWTH',
+    subscriptionStatus: billingGrpc.SubscriptionStatus.SUBSCRIPTION_STATUS_PAST_DUE,
+    pinned: false,
+    dunningSince: toProtoTimestamp(new Date('2026-09-20T00:00:00Z')),
+    currentPeriodEnd: undefined,
+    entitlementsVersion: '2',
+    createdAt: toProtoTimestamp(new Date('2026-09-18T00:00:00Z')),
+  });
+
+  beforeEach(() => {
+    gateway.identity.adminUsers.handlers.getUserNames = () =>
+      Promise.resolve({ users: [{ id: ownerId, name: 'Minh Tran', email: 'minh@example.com' }] });
+  });
+
+  it('lists accounts with only the filters given, each owner named', async () => {
+    gateway.billing.accounts.handlers.listAccounts = () =>
+      Promise.resolve({ accounts: [summary()], page: { page: 1, pageSize: 20, total: 1 } });
+    const reader = staff(['billing.account.read']);
+    const bare = await console_('get', '/admin/billing/accounts', reader);
+    expect(bare.status).toBe(200);
+    expect(bare.body.data[0]).toMatchObject({
+      subscriptionStatus: 'PAST_DUE',
+      dunningSince: '2026-09-20T00:00:00.000Z',
+      owner: { name: 'Minh Tran' },
+    });
+    expect(bare.body.meta).toMatchObject({ page: 1, pageSize: 20, total: 1 });
+    const filtered = await console_(
+      'get',
+      '/admin/billing/accounts?planCode=GROWTH&status=PAST_DUE&pinned=false&dunning=true',
+      reader,
+    );
+    expect(filtered.status).toBe(200);
+    const [first, second] = gateway.billing.accounts.calls.map((call) => call.request);
+    expect(first).not.toHaveProperty('planCode');
+    expect(first).not.toHaveProperty('pinned');
+    expect(second).toMatchObject({
+      planCode: 'GROWTH',
+      status: billingGrpc.SubscriptionStatus.SUBSCRIPTION_STATUS_PAST_DUE,
+      pinned: false,
+      dunning: true,
+    });
+  });
+
+  it('lists events by type and account when asked', async () => {
+    gateway.billing.events.handlers.listBillingEvents = () =>
+      Promise.resolve({ events: [], page: { page: 1, pageSize: 20, total: 0 } });
+    const accountId = newId();
+    const response = await console_(
+      'get',
+      `/admin/billing/events?eventType=invoice.paid&billingAccountId=${accountId}`,
+      staff(['billing.event.read']),
+    );
+    expect(response.status).toBe(200);
+    expect(gateway.billing.events.calls[0]!.request).toMatchObject({
+      eventType: 'invoice.paid',
+      billingAccountId: accountId,
+    });
+  });
+});
+
 describe('the round-35a reads (api-endpoints-plan §6.1, §6.2)', () => {
   const manage = () => staff(['billing.plan.manage']);
   const plan = (over: Partial<billingGrpc.AdminPlan> = {}): billingGrpc.AdminPlan => ({

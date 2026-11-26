@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ApiError,
   authLogout,
   authRefresh,
   emailChangeConfirmChange,
@@ -11,10 +10,11 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Undo2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { clearPageCookie } from '../client/cookies';
+import { clearPageCookie } from '@wayfare/ui/cookies';
 import { useWeb } from '../i18n/provider';
 import { ME_KEY } from './me';
 import { ACCOUNT_HINT_COOKIE } from '../session/account-hint';
+import { WebErrorState } from '../ui/error-state';
 import {
   ExpiredLink,
   LinkResult,
@@ -24,6 +24,7 @@ import {
   signedInEmail,
   useLinkToken,
 } from './link';
+import { linkFailure } from './link-failure';
 
 /** The links that act on opening (WE1, WE1c, WE1d). */
 export type LinkKind = 'verify' | 'confirm' | 'revert';
@@ -47,6 +48,7 @@ async function act(kind: LinkKind, token: string): Promise<Answer> {
 type Outcome =
   | { state: 'working' }
   | { state: 'expired' }
+  | { state: 'failed'; error: unknown }
   | { state: 'done'; answer: Answer }
   | { state: 'otherAccount'; other: string; email: string };
 
@@ -59,11 +61,13 @@ export function LinkAction({ kind }: { kind: LinkKind }) {
   const queries = useQueryClient();
   const token = useLinkToken();
   const [outcome, setOutcome] = useState<Outcome>({ state: 'working' });
-  const started = useRef(false);
+  // Each try, the first and every *Try again*, acts once.
+  const [attempt, setAttempt] = useState(0);
+  const started = useRef(-1);
 
   useEffect(() => {
-    if (token === undefined || started.current) return;
-    started.current = true;
+    if (token === undefined || started.current === attempt) return;
+    started.current = attempt;
     if (token === null) {
       setOutcome({ state: 'expired' });
       return;
@@ -89,16 +93,28 @@ export function LinkAction({ kind }: { kind: LinkKind }) {
             : { state: 'otherAccount', other: answer.emailMasked, email },
         );
       } catch (error) {
-        setOutcome(error instanceof ApiError ? { state: 'expired' } : { state: 'expired' });
+        setOutcome(
+          linkFailure(error) === 'expired' ? { state: 'expired' } : { state: 'failed', error },
+        );
       }
     })();
-  }, [token, kind, queries]);
+  }, [token, kind, queries, attempt]);
 
   switch (outcome.state) {
     case 'working':
       return <LinkWorking />;
     case 'expired':
       return <ExpiredLink />;
+    case 'failed':
+      return (
+        <WebErrorState
+          error={outcome.error}
+          onRetry={() => {
+            setOutcome({ state: 'working' });
+            setAttempt((n) => n + 1);
+          }}
+        />
+      );
     case 'otherAccount':
       return <OtherAccount email={outcome.email} other={outcome.other} />;
     case 'done': {

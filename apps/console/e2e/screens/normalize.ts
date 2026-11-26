@@ -5,6 +5,11 @@
 export type Rule = readonly [source: string, flags: string, replacement: string];
 
 export const RULES: readonly Rule[] = [
+  // A stuck Place's moment from yesterday (a run that crossed midnight): as today's.
+  ['\\bsince (?:yesterday|Yesterday), \\d{1,2}:\\d{2}\\b', 'g', 'since 14:05 today'],
+  // A plan's subscribers on its edit page, read on the server alone: every spec's owners are
+  // counted there, so the count is the seed's and the billing spec's own (as its plan page draws).
+  ["(['’]s) \\d+ subscribers keep their grants", 'g', '$1 4 subscribers keep their grants'],
   // Relative times ("Just now", "34 days ago", "Yesterday"): not <time> elements.
   ['\\b(Just now|just now|Yesterday|yesterday|\\d+ (minute|hour|day)s? ago)\\b', 'g', '3 days ago'],
   // A record's id, and a request ID.

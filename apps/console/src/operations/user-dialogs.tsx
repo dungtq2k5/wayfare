@@ -16,6 +16,7 @@ import {
   MAX_ADMIN_REASON_LENGTH,
   MAX_LOCK_DURATION_MS,
   MAX_LOCK_REASON_LENGTH,
+  zEmail,
 } from '@wayfare/contracts';
 import { Button } from '@wayfare/ui/button';
 import { ConfirmDialog, ReasonDialog } from '@wayfare/ui/dialogs';
@@ -119,7 +120,8 @@ export function StaffAccountDialog({ onOpenChange }: { onOpenChange: (open: bool
   const create = () => {
     const found: Record<string, string> = {};
     if (fullName.trim() === '') found.fullName = t('required.fullName');
-    if (!/^\S+@\S+\.\S+$/.test(email.trim()))
+    // The gateway's own check (contracts' zEmail), so the form and the API agree on an address.
+    if (!zEmail.safeParse(email).success)
       found.email = email.trim() === '' ? t('required.email') : t('issue.email');
     if (chosen.size === 0) found.roles = t('staff.chooseRole');
     setErrors(found);

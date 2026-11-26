@@ -9,9 +9,9 @@ cd "$repo"
 K6_IMAGE=grafana/k6:2.3.0
 
 smoke=0
-for arg in "$@"; do [ "$arg" = --smoke ] && smoke=1; done
+for arg in "$@"; do [[ "$arg" = --smoke ]] && smoke=1; done
 
-if [ "${LOAD_STACK:-}" = screens ]; then
+if [[ "${LOAD_STACK:-}" = screens ]]; then
   normal=(docker compose -p wayfare-screens -f compose.yaml -f infra/docker/compose.screens.yaml)
   network=wayfare-screens_default
 else

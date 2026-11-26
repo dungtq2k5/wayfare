@@ -5,9 +5,12 @@ import type { Page } from '@playwright/test';
 import { apply } from '../support/people';
 import { identitySql, resetRateLimits } from '../support/stack';
 import type { Actor } from '../support/stack';
+import { only } from './answers';
 import { actor } from './content';
 import { look } from './look';
+import { applicationOf, person } from './owners';
 import { as } from './people';
+import { seeded } from './seed';
 import { PEOPLE } from './setup';
 
 test.beforeEach(() => resetRateLimits());
@@ -33,6 +36,14 @@ async function open(page: Page, id: string, email: string = PEOPLE.lan): Promise
 }
 
 test('R1 the queue', async ({ page }) => {
+  // The seed's applications and the setup's Ốc Vũ only: another spec's applicant would change
+  // the queue (conventions §12.8).
+  const seedRow = seeded('registrations');
+  await only<{ id: string; businessName: string }>(
+    page,
+    '/admin/owner-registrations*',
+    (row) => seedRow(row) || row.businessName === 'Ốc Vũ',
+  );
   await as(page, PEOPLE.lan);
   await page.goto('/registrations');
   await expect(page.getByRole('link', { name: 'Ốc Vũ' })).toBeVisible();
@@ -60,10 +71,18 @@ test('R2 an application, R3 reveal, R3b revealed, R4 approve', async ({ page }) 
 });
 
 test('R3c redacted', async ({ page }) => {
-  // C10c's applicant, rejected there: redacted as the 180-day job would.
-  const id = (await application(await actor(PEOPLE.lan), 'Bún Vy'))!;
+  // This spec's own applicant, rejected, then redacted as the 180-day job would.
+  const applicant = await person('hung.le@example.com', 'Lê Văn Hùng');
+  const { id, status } = await applicationOf(applicant, 'Cơm tấm Hùng');
+  if (status === 'PENDING') {
+    await (
+      await actor(PEOPLE.lan)
+    ).call('POST', `/admin/owner-registrations/${id}/reject`, {
+      decisionNote: 'Please add the stall’s address.',
+    });
+  }
   identitySql(
-    `UPDATE owner_registrations SET national_id_ciphertext = NULL, national_id_last4 = NULL, pii_redacted_at = now() WHERE id = '${id}'`,
+    `UPDATE owner_registrations SET national_id_ciphertext = NULL, national_id_last4 = NULL, pii_redacted_at = coalesce(pii_redacted_at, now()) WHERE id = '${id}'`,
   );
   await open(page, id);
   await expect(page.getByText(/^Redacted on .*, 180 days after the decision\.$/)).toBeVisible();

@@ -178,3 +178,49 @@ describe('openCode', () => {
     expect(shown.at(-1)).toEqual({ kind: 'offline', code: 'T4QX8MRK', tour: true });
   });
 });
+
+describe('openCode after Cancel', () => {
+  /** Opens a code, cancels while `step` waits, then lets `step` answer. */
+  async function cancelDuring(
+    step: 'findLocal' | 'findLocalTour' | 'resolve' | 'fetchByCode',
+    fail = false,
+  ) {
+    let answer: (value: unknown) => void = () => undefined;
+    let refuse: (error: unknown) => void = () => undefined;
+    const waiting = () =>
+      new Promise((resolve, reject) => {
+        answer = resolve;
+        refuse = reject;
+      });
+    const { opener, log, shown } = harness({ [step]: waiting });
+    const opening = opener.open('QK4V1TCX', { printed: false });
+    await vi.waitFor(() => expect(answer).not.toBe(undefined));
+    for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+    opener.cancel();
+    if (fail) refuse(new ApiError(404, 'RESOURCE_NOT_FOUND', 'x'));
+    else
+      answer(
+        step === 'resolve'
+          ? { type: 'TOUR', id: 't1' }
+          : step === 'findLocalTour'
+            ? 't1'
+            : place('late'),
+      );
+    await opening;
+    return { log, shown };
+  }
+
+  it.each(['findLocal', 'findLocalTour', 'resolve', 'fetchByCode'] as const)(
+    'drops what %s answers once cancelled',
+    async (step) => {
+      const { log, shown } = await cancelDuring(step);
+      expect(log).toEqual([]);
+      expect(shown.at(-1)).toBeNull();
+    },
+  );
+
+  it('says nothing of a lookup that failed after Cancel', async () => {
+    const { shown } = await cancelDuring('fetchByCode', true);
+    expect(shown.at(-1)).toBeNull();
+  });
+});

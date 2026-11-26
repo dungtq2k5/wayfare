@@ -4,7 +4,7 @@ import { EmailTemplate, newId, SystemRole } from '@wayfare/contracts';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmailWebhooksService } from '../../src/modules/email-webhooks/email-webhooks.service';
 import { testConfig, testPrisma, truncateAll } from '../setup/database';
-import { errorOf, staffAccount } from '../setup/fixtures';
+import { errorOf, freshEmail, staffAccount } from '../setup/fixtures';
 import { identityServices } from '../setup/services';
 
 const prisma = testPrisma();
@@ -136,6 +136,31 @@ describe('EmailWebhooksService', () => {
     await expect(
       webhooks.receiveResendEvent(signed(event('email.delivered', newId()))),
     ).resolves.toEqual({});
+  });
+
+  it('ignores an event it cannot read, or one naming no delivery, writing nothing', async () => {
+    const { deliveryId } = await sentDelivery();
+    for (const unreadable of [
+      { type: 7 },
+      { type: 'email.delivered', data: { email_id: 42 } },
+      { type: 'email.delivered', data: {} },
+      { type: 'email.delivered', data: { tags: { delivery_id: 'not-a-uuid' } } },
+    ]) {
+      await expect(webhooks.receiveResendEvent(signed(unreadable))).resolves.toEqual({});
+    }
+    expect(await statusOf(deliveryId)).toBe('SENT');
+  });
+
+  it('never stamps an account whose address changed since the bounced mail', async () => {
+    const { deliveryId, userId } = await sentDelivery();
+    await prisma.user.update({ where: { id: userId }, data: { email: freshEmail() } });
+    await webhooks.receiveResendEvent(
+      signed(event('email.bounced', deliveryId, { bounce: { type: 'Permanent' } })),
+    );
+    expect(await statusOf(deliveryId)).toBe('BOUNCED');
+    expect(
+      (await prisma.user.findUniqueOrThrow({ where: { id: userId } })).emailBouncedAt,
+    ).toBeNull();
   });
 
   it('a replayed event changes nothing further', async () => {

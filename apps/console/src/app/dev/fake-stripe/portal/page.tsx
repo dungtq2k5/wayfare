@@ -8,7 +8,7 @@ import { useConsole } from '../../../../i18n/provider';
 function Portal() {
   const { t } = useConsole();
   // Only the path is kept: a link on this page never leaves the console.
-  const target = new URL(useSearchParams().get('return') ?? '/owner/billing', 'http://console');
+  const target = new URL(useSearchParams().get('return') ?? '/owner/billing', 'http://console'); // NOSONAR: S5332, a base for new URL() that only parses a path; the origin check is the point
   const back = `${target.pathname}${target.search}`;
   return (
     <Card className="flex flex-col gap-4">
