@@ -60,6 +60,14 @@ describe('subscriptionFacts', () => {
     expect(subscriptionFacts(legacy).currentPeriodEnd).toEqual(new Date(3_000_000));
   });
 
+  it('has no period when neither the item nor the subscription gives one', () => {
+    const bare = { ...subscription, items: { data: [{ price: { id: 'price_1' } }] } };
+    expect(subscriptionFacts(bare)).toMatchObject({
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+  });
+
   it('refuses an unknown status', () => {
     expect(() => subscriptionFacts({ ...subscription, status: 'weird' })).toThrow();
   });
@@ -93,6 +101,38 @@ describe('checkout and invoice facts', () => {
       attemptCount: 2,
       nextAttemptAt: new Date(5_000_000),
     });
+  });
+
+  it('reads a one-off Checkout, and an invoice with nothing set, as naming nothing', () => {
+    expect(checkoutFacts({ mode: 'payment' })).toEqual({
+      subscriptionMode: false,
+      clientReferenceId: null,
+      customerId: null,
+      subscriptionId: null,
+    });
+    expect(invoiceFacts({ attempt_count: 0 })).toEqual({
+      customerId: null,
+      subscriptionId: null,
+      attemptCount: 1,
+      nextAttemptAt: null,
+    });
+    expect(
+      invoiceFacts({ subscription: 'sub_2', parent: { subscription_details: null } }),
+    ).toMatchObject({
+      subscriptionId: 'sub_2',
+    });
+  });
+
+  it('names a subscription by its id only on a subscription object, else by its link', () => {
+    expect(accountKeys({ object: 'subscription' }).subscriptionId).toBeNull();
+    expect(
+      accountKeys({ object: 'invoice', subscription: 'sub_3', client_reference_id: 'acc' }),
+    ).toEqual({
+      customerId: null,
+      subscriptionId: 'sub_3',
+      clientReferenceId: 'acc',
+    });
+    expect(accountKeys({ object: 'invoice' }).subscriptionId).toBeNull();
   });
 
   it('finds an account key in any object, or none', () => {

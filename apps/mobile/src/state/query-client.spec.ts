@@ -4,7 +4,7 @@ import { memoryKv } from '../testing/shell-fakes';
 
 vi.mock('expo-sqlite/kv-store', () => ({ default: memoryKv() }));
 
-const { queryClient } = await import('./query-client');
+const { queryClient, refreshFavourites } = await import('./query-client');
 const { useAppStore } = await import('./app-store');
 
 type Retry = (failures: number, error: Error) => boolean;
@@ -37,5 +37,17 @@ describe('the one query client (ADR 0029)', () => {
       .execute(undefined)
       .catch(() => undefined);
     expect(useAppStore.getState().policyVersion).toBe('2027-01-01');
+  });
+});
+
+describe('favourites follow the bearer', () => {
+  it('reads every favourites list again, open or not, when the bearer changes', async () => {
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+    await refreshFavourites();
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ['/api/v1/me/favorites'],
+      refetchType: 'all',
+    });
+    invalidate.mockRestore();
   });
 });

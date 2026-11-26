@@ -25,7 +25,7 @@ import { accountSession } from '../session';
 import { useAccountStore } from '../session/account-store';
 import type { AccountUser } from '../session/account-store';
 import { useAppStore } from '../state/app-store';
-import { queryClient } from '../state/query-client';
+import { refreshFavourites } from '../state/query-client';
 import { API_DELETE_WORD, outdatedDocuments, phoneMoved } from './rules';
 import { forgetGoogleChoice } from '../../modules/google-sign-in/src';
 import { GOOGLE_SERVER_CLIENT_ID } from '../env';
@@ -47,10 +47,6 @@ const userOf = (user: {
   fullName: user.fullName ?? null,
   isEmailVerified: user.isEmailVerified,
 });
-
-/** Favourites follow the bearer: every list refetches when it changes. */
-const refreshFavourites = () =>
-  queryClient.invalidateQueries({ queryKey: ['/api/v1/me/favorites'], refetchType: 'all' });
 
 /** How many favourites this phone holds, before it joins an account (K6); 0 when it cannot tell. */
 export async function favouritesOnPhone(): Promise<number> {

@@ -177,6 +177,31 @@ describe('/admin/narration/pronunciations', () => {
     });
   });
 
+  it('reads one entry, and lists by language with no search, ending where narration sends no cursor', async () => {
+    gateway.narration.pronunciations.handlers.getEntry = () => Promise.resolve({ entry: entry() });
+    const one = await console_('get', `/admin/narration/pronunciations/${entryId}`);
+    expect(one.status).toBe(200);
+    expect(one.body.data.entry).toMatchObject({ id: entryId, term: 'Bến Thành' });
+    gateway.narration.pronunciations.handlers.listEntries = () => Promise.resolve({ entries: [] });
+    const list = await console_('get', '/admin/narration/pronunciations?targetLang=en');
+    expect(list.status).toBe(200);
+    expect(list.body.meta).toMatchObject({ nextCursor: null });
+    const request = gateway.narration.pronunciations.calls.at(-1)!.request;
+    expect(request).toMatchObject({ targetLang: 'en' });
+    expect(request).not.toHaveProperty('q');
+  });
+
+  it('previews with no entries when the body names none', async () => {
+    gateway.narration.pronunciations.handlers.previewAudio = () =>
+      Promise.resolve({ audio: Buffer.from('ID3'), contentType: 'audio/mpeg' });
+    const res = await console_('post', '/admin/narration/pronunciations/preview').send({
+      text: 'Chợ Bến Thành.',
+      lang: 'en',
+    });
+    expect(res.status).toBe(200);
+    expect(gateway.narration.pronunciations.calls[0]!.request).toMatchObject({ entries: [] });
+  });
+
   it('refuses a console session without the permission', async () => {
     const res = await console_('get', '/admin/narration/pronunciations', ['narration.job.read']);
     expect(res.status).toBe(403);
@@ -202,6 +227,27 @@ describe('/admin/narration/localizations', () => {
       },
     ],
   };
+
+  it('lists the corrections, review first by default, each editor named by the rule', async () => {
+    gateway.narration.corrections.handlers.listCorrections = () =>
+      Promise.resolve({
+        items: [{ correction: correction(), targetNameVi: 'Chợ Bến Thành', needsReview: true }],
+        page: { nextCursor: 'n1' },
+      });
+    const first = await console_('get', '/admin/narration/corrections');
+    expect(first.status).toBe(200);
+    expect(first.body.data[0]).toMatchObject({
+      targetNameVi: 'Chợ Bến Thành',
+      needsReview: true,
+      editedBy: { name: null },
+    });
+    expect(first.body.meta).toMatchObject({ nextCursor: 'n1' });
+    expect(gateway.narration.corrections.calls[0]!.request).toMatchObject({ reviewFirst: true });
+    gateway.narration.corrections.handlers.listCorrections = () => Promise.resolve({ items: [] });
+    const recent = await console_('get', '/admin/narration/corrections?show=RECENT');
+    expect(recent.body.meta).toMatchObject({ nextCursor: null });
+    expect(gateway.narration.corrections.calls[1]!.request).toMatchObject({ reviewFirst: false });
+  });
 
   it('shows every language beside the correction held for it', async () => {
     gateway.narration.corrections.handlers.getLocalizationOverview = () =>

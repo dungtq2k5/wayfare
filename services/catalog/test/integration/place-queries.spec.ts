@@ -307,6 +307,40 @@ describe('GetPlace, GetPlaceByCode, ResolvePublicCode', () => {
   });
 });
 
+describe('a Place’s optional fields', () => {
+  it('names an address, price band, phone and website only when the Place has them', async () => {
+    const full = await live({ kind: PlaceKind.VENUE, location: east(50) });
+    const bare = await live({ location: east(80) });
+    await prisma.place.update({
+      where: { id: full.id },
+      data: {
+        addressVi: '12 Lê Lợi',
+        priceBand: 2,
+        phone: '+84901234567',
+        websiteUrl: 'https://quan.example',
+      },
+    });
+    const detail = async (placeId: string) =>
+      (await queries.getPlace({ placeId, lang: 'vi' }, device())).place!;
+    expect(await detail(full.id)).toMatchObject({
+      address: '12 Lê Lợi',
+      priceBand: 2,
+      phone: '+84901234567',
+      websiteUrl: 'https://quan.example',
+    });
+    const none = await detail(bare.id);
+    for (const field of ['address', 'priceBand', 'phone', 'websiteUrl'])
+      expect(none).not.toHaveProperty(field);
+
+    const { places: listed } = await queries.nearbyPlaces(
+      { ...FIXTURE_INSIDE, radiusM: 500, lang: 'vi', limit: 20 },
+      device(),
+    );
+    expect(listed.find((row) => row.id === full.id)).toMatchObject({ priceBand: 2 });
+    expect(listed.find((row) => row.id === bare.id)).not.toHaveProperty('priceBand');
+  });
+});
+
 describe('ListCategories and ListAreas', () => {
   it('lists active categories in order', async () => {
     await insertCategory(prisma, { code: 'TEST_HIDDEN', isActive: false });

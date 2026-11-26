@@ -9,9 +9,13 @@ vi.mock('expo-sqlite/kv-store', async () => ({
   default: (await import('../testing/account-fakes')).memoryKv,
 }));
 
+const lists = vi.hoisted(() => ({ refreshFavourites: vi.fn(() => Promise.resolve()) }));
+vi.mock('../state/query-client', () => lists);
+
 const { secureCredentialStore } = await import('./credentials-store');
 const { secureAccountStore } = await import('./account-keystore');
-const { accountEnded, resetAccountState, useAccountStore } = await import('./account-store');
+const { accountEnded, openFavourites, resetAccountState, useAccountStore } =
+  await import('./account-store');
 
 describe('the install’s pair in the keystore', () => {
   beforeEach(() => memorySecureStore.clear());
@@ -64,6 +68,31 @@ describe('the signed-in account as the screens show it (K2)', () => {
       notice: 'signed-out-elsewhere',
       favouritesNotice: true,
     });
+  });
+
+  it('keeps only the phone’s own favourites once ended: the lists read again, without the account', () => {
+    lists.refreshFavourites.mockClear();
+    accountEnded('elsewhere');
+    accountEnded('expired');
+    expect(lists.refreshFavourites).toHaveBeenCalledTimes(2);
+  });
+
+  it('spends the Favourites card once it was open with it, and only then', () => {
+    accountEnded('elsewhere');
+    const leave = openFavourites();
+    leave();
+    expect(useAccountStore.getState().favouritesNotice).toBe(false);
+  });
+
+  it('keeps the Favourites card for its next opening when the sign-out lands while it is open', () => {
+    // The phone came back to Favourites; its first account call there ended the session.
+    const leaveFirst = openFavourites();
+    accountEnded('elsewhere');
+    leaveFirst();
+    expect(useAccountStore.getState().favouritesNotice).toBe(true);
+    const leaveNext = openFavourites();
+    leaveNext();
+    expect(useAccountStore.getState().favouritesNotice).toBe(false);
   });
 
   it('says the session ended, on Settings alone, when it ran out', () => {

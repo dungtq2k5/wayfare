@@ -1,6 +1,8 @@
+import { Readable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 import { NARRATION_VOICES, voiceFor } from '../../config/voices';
-import { withVoice } from './edge.speech-provider';
+import { EdgeSpeechProvider, withVoice } from './edge.speech-provider';
+import type { EdgeClient } from './edge.speech-provider';
 import { isUnreachable } from '../provider-chain';
 import { FAKE_SPEECH_FAILS_MARKER } from '../fake-failure';
 import { FakeSpeechProvider, silentMp3 } from './fake.speech-provider';
@@ -89,6 +91,92 @@ describe('GoogleSpeechProvider', () => {
       { id: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN', gender: 'FEMALE' },
     ]);
     expect([google.format, google.maxInputBytes]).toEqual(['mp3_24khz_32kbps_mono', 5_000]);
+  });
+});
+
+describe('GoogleSpeechProvider, the answers it tidies', () => {
+  it('lists a nameless voice as none, falls back to the asked language, and keeps a gender only when told', async () => {
+    const google = new GoogleSpeechProvider('p', {
+      synthesizeSpeech: vi.fn(),
+      listVoices: () =>
+        Promise.resolve([
+          {
+            voices: [
+              { name: 'en-US-A' },
+              { name: '' },
+              { name: 'en-US-B', languageCodes: [], ssmlGender: null },
+            ],
+          },
+        ] as const),
+    } as unknown as GoogleSpeechClient);
+    await expect(google.listVoices('en-US')).resolves.toEqual([
+      { id: 'en-US-A', languageCode: 'en-US' },
+      { id: 'en-US-B', languageCode: 'en-US' },
+    ]);
+    const none = new GoogleSpeechProvider('p', {
+      synthesizeSpeech: vi.fn(),
+      listVoices: () => Promise.resolve([{}] as const),
+    });
+    await expect(none.listVoices('en-US')).resolves.toEqual([]);
+  });
+
+  it('reads audio sent as base64, and no audio as an empty file', async () => {
+    const answer = (audioContent: unknown) =>
+      new GoogleSpeechProvider('p', {
+        synthesizeSpeech: () => Promise.resolve([{ audioContent }]),
+        listVoices: vi.fn(),
+      } as unknown as GoogleSpeechClient);
+    const voice = { id: 'en-US-A', languageCode: 'en-US' };
+    expect([...(await answer('AQID').synthesize({ ssml: '<speak/>', voice }))]).toEqual([1, 2, 3]);
+    expect((await answer(null).synthesize({ ssml: '<speak/>', voice })).length).toBe(0);
+  });
+});
+
+describe('EdgeSpeechProvider', () => {
+  /** A stand-in Edge client: its voices, the audio chunks it streams, what it was asked. */
+  function edge(chunks: Uint8Array[] = [], fails = false) {
+    const calls = { metadata: [] as unknown[], ssml: [] as string[], closed: 0 };
+    const client: EdgeClient = {
+      setMetadata: (voice, format) => {
+        calls.metadata.push([voice, format]);
+        return fails ? Promise.reject(new Error('socket closed')) : Promise.resolve();
+      },
+      rawToStream: (ssml) => {
+        calls.ssml.push(ssml);
+        return { audioStream: Readable.from(chunks) };
+      },
+      getVoices: () =>
+        Promise.resolve([
+          { ShortName: 'vi-VN-HoaiMyNeural', Locale: 'vi-VN', Gender: 'Female' },
+          { ShortName: 'en-US-AriaNeural', Locale: 'en-US', Gender: 'Female' },
+        ]),
+      close: () => {
+        calls.closed += 1;
+      },
+    };
+    return { provider: new EdgeSpeechProvider(() => client), calls };
+  }
+
+  it('lists the voices of the asked locale, whatever its case, and closes the connection', async () => {
+    const { provider, calls } = edge();
+    await expect(provider.listVoices('VI-vn')).resolves.toEqual([
+      { id: 'vi-VN-HoaiMyNeural', languageCode: 'vi-VN', gender: 'Female' },
+    ]);
+    expect(calls.closed).toBe(1);
+  });
+
+  it('streams MP3 at 24 kHz for the voice, joins the chunks, and closes even when it fails', async () => {
+    const { provider, calls } = edge([new Uint8Array([1, 2]), new Uint8Array([3])]);
+    const voice = { id: 'vi-VN-HoaiMyNeural', languageCode: 'vi-VN' };
+    const audio = await provider.synthesize({ ssml: '<speak>Chợ</speak>', voice });
+    expect([...audio]).toEqual([1, 2, 3]);
+    expect(calls.metadata[0]).toEqual(['vi-VN-HoaiMyNeural', expect.any(String)]);
+    expect(calls.ssml[0]).toContain('<voice name="vi-VN-HoaiMyNeural">Chợ</voice>');
+    const broken = edge([], true);
+    await expect(broken.provider.synthesize({ ssml: '<speak/>', voice })).rejects.toThrow(
+      'socket closed',
+    );
+    expect([calls.closed, broken.calls.closed]).toEqual([1, 1]);
   });
 });
 

@@ -2,7 +2,13 @@
 // under its build's prefix and re-hashed from the bucket, the version the server's, and one
 // published pack per area. The server never parses PMTiles, so the objects are arbitrary bytes.
 import { createHash, randomBytes } from 'node:crypto';
-import { AUDIT_RECORD, AuditAction, MAX_MAP_PACK_BYTES, MapPackStatus } from '@wayfare/contracts';
+import {
+  AUDIT_RECORD,
+  AuditAction,
+  MAX_MAP_PACK_BYTES,
+  MapPackStatus,
+  newId,
+} from '@wayfare/contracts';
 import { mapPackStatusProto } from '@wayfare/contracts/grpc';
 import type { catalogGrpc } from '@wayfare/contracts/grpc';
 import { buildAccountContext } from '@wayfare/nest-common/testing';
@@ -154,6 +160,24 @@ describe('registering a map pack', () => {
     });
     expect((await errorOf(register({ ...fresh, maxZoom: 9 }))).code).toBe('VALIDATION_FAILED');
     expect(await prisma.mapPack.count()).toBe(0);
+  });
+});
+
+describe('the map pack list', () => {
+  it('lists every area’s packs, or one area’s, and refuses a build for an unknown area', async () => {
+    const { request } = await uploadBuild();
+    const { mapPack } = await register(request);
+    const list = (areaId?: string) =>
+      services.mapPacks
+        .listMapPacks({ ...(areaId === undefined ? {} : { areaId }) }, admin())
+        .then((answer) => answer.mapPacks.map((pack) => pack.id));
+    expect(await list()).toEqual([mapPack!.id]);
+    expect(await list(tax.area.id)).toEqual([mapPack!.id]);
+    expect(await list(newId())).toEqual([]);
+    expect(await errorOf(register({ ...request, areaId: newId() }))).toEqual({
+      code: 'RESOURCE_NOT_FOUND',
+      details: { resource: 'AREA' },
+    });
   });
 });
 
