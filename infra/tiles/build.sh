@@ -30,6 +30,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -n $area ]] || { echo '✗ --area <code> is required' >&2; exit 2; }
+# An area code names a directory below: letters, digits and hyphens only (register.mjs agrees).
+[[ $area =~ ^[A-Za-z0-9-]+$ ]] || { echo "✗ --area $area: letters, digits and hyphens only" >&2; exit 2; }
 
 cache=$here/.cache
 out=$cache/build/$area
@@ -137,4 +139,4 @@ if [[ -n $email && -z $password && -t 0 ]]; then
   echo >&2
 fi
 printf '%s' "$password" |
-  node "$here/register.mjs" --out "$out" --email "$email" --gateway "$(setting TILES_GATEWAY_URL)"
+  node "$here/register.mjs" --area "$area" --email "$email" --gateway "$(setting TILES_GATEWAY_URL)"
