@@ -42,7 +42,7 @@ if (!existsSync(join(out, 'register.json'))) {
   console.error(`✗ no build of ${args.area} to register: run pnpm tiles:build --area ${args.area}`);
   process.exit(2);
 }
-const body = JSON.parse(readFileSync(join(out, 'register.json'), 'utf8'));
+const body = JSON.parse(readFileSync(join(out, 'register.json'), 'utf8')); // NOSONAR: S8707, --area is checked to [a-z0-9-]+ and its directory to a direct child of .cache/build/ above; the taint analysis counts neither check
 const email = args.email;
 const password = process.stdin.isTTY ? '' : readFileSync(0, 'utf8');
 const gateway = (args.gateway || 'http://localhost:13000').replace(/\/$/, '');
