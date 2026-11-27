@@ -1394,6 +1394,7 @@
   "staff.createdBody": "A link to choose a password is on its way to {email}.",
   "staff.emailTaken": "That address is already used by an account, or kept for an email change being undone.",
   "staff.notAssignable": "Super admin can't be given from the console.",
+  "staff.notStaffRole": "A tourist's or a venue owner's role can't be given from the console: sign-up and an owner review give those.",
   "staff.chooseRole": "Choose at least one role.",
   "rolesDialog.title": "Roles of {name}",
   "rolesDialog.lead": "A change applies at their next refresh, within minutes; nobody is signed out.",

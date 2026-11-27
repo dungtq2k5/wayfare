@@ -52,6 +52,7 @@ describe('TokenRevocationReason', () => {
 describe('staff administration error details', () => {
   it.each([
     ['ROLE_IN_USE', { holders: 2 }, { holders: 0 }],
+    ['NOT_A_STAFF_ROLE', { roleIds: ['01960000-0000-7000-8000-000000000001'] }, { roleIds: [] }],
     ['ROLE_TOO_WIDE_TO_EDIT', { holders: 501, limit: 500 }, { holders: 501 }],
     ['PERMISSION_RETIRED', { codes: ['user.read'] }, { codes: [] }],
     [
