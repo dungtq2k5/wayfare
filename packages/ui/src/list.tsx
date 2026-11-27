@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Search,
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import { Button } from './button';
 import { cn } from './cn';
@@ -31,8 +32,10 @@ export interface Sort {
 }
 
 /**
- * The list page's table, and its cards below 768 px (round 33's rule: a table never scrolls
- * sideways). `rows` undefined is a first load: the header at once, skeleton rows under it.
+ * The list page's table, and its cards below 768 px (round 33's rule: the cards never scroll
+ * sideways). `rows` undefined is a first load: the header at once, skeleton rows under it. A table
+ * wider than its box — cells that don't wrap, on a laptop with the sidebar — scrolls sideways
+ * rather than clip its last column, where the row's actions live (conventions §12.8).
  */
 export function DataList<T>({
   caption,
@@ -68,39 +71,61 @@ export function DataList<T>({
     rowEnd === undefined
       ? columns
       : [...columns, { key: ROW_END, label: rowEnd.label, hiddenLabel: true, className: 'w-px' }];
+  const scroller = useOverflowing();
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <table className="hidden w-full text-left text-sm md:table">
-        <caption className="sr-only">{caption}</caption>
-        <thead className="bg-muted">
-          <tr>
-            {shown.map((column) => (
-              <HeaderCell key={column.key} column={column} sort={sort} onSort={onSort} />
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows === undefined
-            ? Array.from({ length: skeletonRows }, (_, index) => (
-                <tr key={index} className="border-t border-border">
-                  {shown.map((column) => (
-                    <td key={column.key} className="px-4 py-4">
-                      <Skeleton className="h-4 w-3/4" />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            : rows.map((row) => (
-                <tr key={rowKey(row)} className={cn('border-t border-border', rowClassName?.(row))}>
-                  {shown.map((column) => (
-                    <td key={column.key} className={cn('px-4 py-3 align-middle', column.className)}>
-                      {column.key === ROW_END ? rowEnd?.render(row) : cell(row, column.key)}
-                    </td>
-                  ))}
-                </tr>
+      <div
+        ref={scroller.ref}
+        className="hidden overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset md:block"
+        // Only while it scrolls: a labelled box a keyboard can reach and scroll; a table that fits
+        // costs no tab stop. A group, not a region: a page's section often carries the list's
+        // name already, and two landmarks of one name are one too many (axe landmark-unique).
+        {...(scroller.overflowing
+          ? {
+              role: 'group',
+              'aria-label': caption,
+              tabIndex: 0, // NOSONAR: S6845, a labelled box that scrolls on its own must be reachable by keyboard (axe scrollable-region-focusable)
+            }
+          : {})}
+      >
+        <table className="w-full text-left text-sm">
+          <caption className="sr-only">{caption}</caption>
+          <thead className="bg-muted">
+            <tr>
+              {shown.map((column) => (
+                <HeaderCell key={column.key} column={column} sort={sort} onSort={onSort} />
               ))}
-        </tbody>
-      </table>
+            </tr>
+          </thead>
+          <tbody>
+            {rows === undefined
+              ? Array.from({ length: skeletonRows }, (_, index) => (
+                  <tr key={index} className="border-t border-border">
+                    {shown.map((column) => (
+                      <td key={column.key} className="px-4 py-4">
+                        <Skeleton className="h-4 w-3/4" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              : rows.map((row) => (
+                  <tr
+                    key={rowKey(row)}
+                    className={cn('border-t border-border', rowClassName?.(row))}
+                  >
+                    {shown.map((column) => (
+                      <td
+                        key={column.key}
+                        className={cn('px-4 py-3 align-middle', column.className)}
+                      >
+                        {column.key === ROW_END ? rowEnd?.render(row) : cell(row, column.key)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+          </tbody>
+        </table>
+      </div>
       <ul className="flex flex-col divide-y divide-border md:hidden" aria-label={caption}>
         {rows === undefined
           ? Array.from({ length: 3 }, (_, index) => (
@@ -124,6 +149,23 @@ export function DataList<T>({
 }
 
 const ROW_END = '__rowEnd';
+
+/** Whether a box's content is wider than the box, kept current as either changes size. */
+function useOverflowing() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    const box = ref.current;
+    if (box === null) return;
+    const measure = () => setOverflowing(box.scrollWidth > box.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    for (const child of box.children) observer.observe(child);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, overflowing };
+}
 
 /** The end of a row that opens a page: the row's name is the link, this only shows it goes on. */
 export function RowChevron() {

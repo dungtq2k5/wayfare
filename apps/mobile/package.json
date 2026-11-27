@@ -5,8 +5,8 @@
   "description": "The Android tourist app (ADR 0059).",
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "expo start --dev-client",
-    "start": "expo start --dev-client",
+    "dev": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --dev-client",
+    "start": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --dev-client",
     "android": "expo run:android",
     "prebuild": "expo prebuild --platform android",
     "bundle:check": "expo export --platform android --output-dir dist",

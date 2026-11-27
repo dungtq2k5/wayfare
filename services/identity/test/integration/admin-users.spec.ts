@@ -393,6 +393,64 @@ describe('SetUserRoles', () => {
     expect(await prisma.outboxEvent.count()).toBe(0);
   });
 
+  it('creates staff with staff roles only: USER and VENUE_OWNER are refused', async () => {
+    const actor = await superAdmin();
+    for (const code of [SystemRole.USER, SystemRole.VENUE_OWNER]) {
+      const role = await roleId(code);
+      expect(
+        await errorOf(
+          adminUsers.createStaffUser(
+            {
+              email: `${code.toLowerCase()}@example.com`,
+              fullName: 'X',
+              roleIds: [await roleId(SystemRole.ADMIN), role],
+            },
+            actor.context,
+          ),
+        ),
+      ).toMatchObject({ code: 'NOT_A_STAFF_ROLE', details: { roleIds: [role] } });
+    }
+    expect(
+      await prisma.user.count({
+        where: { email: { in: ['user@example.com', 'venue_owner@example.com'] } },
+      }),
+    ).toBe(0);
+    const staff = await adminUsers.createStaffUser(
+      { email: 'staff@example.com', fullName: 'X', roleIds: [await roleId(SystemRole.ADMIN)] },
+      actor.context,
+    );
+    expect(await rolesOf(staff.user!.id)).toEqual([SystemRole.ADMIN]);
+  });
+
+  it('never adds USER or VENUE_OWNER, but keeps them where held', async () => {
+    const actor = await superAdmin();
+    const adminRole = await roleId(SystemRole.ADMIN);
+    const staff = await admin();
+    for (const code of [SystemRole.USER, SystemRole.VENUE_OWNER]) {
+      expect(
+        await errorOf(
+          adminUsers.setUserRoles(
+            { userId: staff.id, roleIds: [adminRole, await roleId(code)] },
+            actor.context,
+          ),
+        ),
+      ).toMatchObject({ code: 'NOT_A_STAFF_ROLE' });
+    }
+    // An owner who also moderates, and a tourist turned staff, keep what sign-up and review gave.
+    const owner = await staffAccount(prisma, [SystemRole.VENUE_OWNER]);
+    const tourist = await staffAccount(prisma, [SystemRole.USER]);
+    for (const [account, code] of [
+      [owner, SystemRole.VENUE_OWNER],
+      [tourist, SystemRole.USER],
+    ] as const) {
+      await adminUsers.setUserRoles(
+        { userId: account.id, roleIds: [await roleId(code), adminRole] },
+        actor.context,
+      );
+      expect(await rolesOf(account.id)).toEqual([SystemRole.ADMIN, code].toSorted(compareStrings));
+    }
+  });
+
   it('never adds SUPER_ADMIN, but keeps one already held', async () => {
     const actor = await superAdmin();
     const target = await admin();

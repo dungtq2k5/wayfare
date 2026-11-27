@@ -5,6 +5,7 @@ import { nanos } from '@nats-io/transport-node';
 import { propagation, ROOT_CONTEXT, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { dlqSubject, durableName, isUuidV7, JETSTREAM_STREAMS } from '@wayfare/contracts';
 import type { EventDefinition, EventPayload } from '@wayfare/contracts';
+import { NotYet } from '../errors/not-yet';
 import { PoisonMessage, toErrorMessage } from '../errors/poison-message';
 import { headerGetter, wayfareTracer } from '../observability/trace';
 import type { HeaderBag } from '../observability/trace';
@@ -21,6 +22,9 @@ export const ACK_WAIT_MS = 30_000;
 export const BACKOFF_MS = [30_000, 60_000, 120_000, 300_000, 600_000] as const;
 /** Runner-side: how soon a message the handler explicitly failed comes back, via `nak(delay)`. */
 export const NAK_DELAYS_MS = [1_000, 5_000, 30_000, 120_000, 300_000] as const;
+
+/** How many deliveries a `NotYet` waits at `info` before its wait is logged at `warn`. */
+export const QUIET_WAITS = 3;
 
 /** Header names added to a dead letter. */
 export const DLQ_HEADERS = {
@@ -145,7 +149,7 @@ export async function handleMessage(
   consumer: JetStreamConsumer,
   message: RunnerMessage,
   dlq: DeadLetterPublisher,
-  logger: Pick<Logger, 'warn' | 'error'> = new Logger(ConsumerRunner.name),
+  logger: Pick<Logger, 'log' | 'warn' | 'error'> = new Logger(ConsumerRunner.name),
 ): Promise<MessageOutcome> {
   const deliveryCount = message.info.deliveryCount;
   const messageId = message.headers?.get('Nats-Msg-Id') ?? '';
@@ -172,17 +176,28 @@ export async function handleMessage(
         message.ack();
         return 'acked';
       } catch (error) {
-        span.setStatus({ code: SpanStatusCode.ERROR, message: toErrorMessage(error) });
+        // An expected wait is not an error: its trace stays unmarked until it gives up.
+        const waiting = error instanceof NotYet;
         const poison = error instanceof PoisonMessage;
         if (poison || deliveryCount >= MAX_DELIVER) {
-          return deadLetter(consumer, message, dlq, error, logger, messageId);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: toErrorMessage(error) });
+          const reason = waiting
+            ? new Error(`still waiting after ${deliveryCount} deliveries: ${error.message}`)
+            : error;
+          return deadLetter(consumer, message, dlq, reason, logger, messageId);
         }
         const delay =
           NAK_DELAYS_MS[Math.min(deliveryCount - 1, NAK_DELAYS_MS.length - 1)] ?? NAK_DELAYS_MS[0];
-        logger.warn(
-          { durable: consumer.durable, messageId, deliveryCount, err: toErrorMessage(error) },
-          'consumer failed; retrying',
-        );
+        const facts = { durable: consumer.durable, messageId, deliveryCount };
+        if (!waiting) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message: toErrorMessage(error) });
+          logger.warn({ ...facts, err: toErrorMessage(error) }, 'consumer failed; retrying');
+        } else if (deliveryCount <= QUIET_WAITS) {
+          logger.log({ ...facts, reason: error.message }, 'waiting; redelivering');
+        } else {
+          // By now the order should long have settled.
+          logger.warn({ ...facts, reason: error.message }, 'still waiting; redelivering');
+        }
         message.nak(delay);
         return 'nacked';
       } finally {

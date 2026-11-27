@@ -16,7 +16,7 @@ import type {
   NARRATION_LOCALIZATION_FAILED,
   NARRATION_LOCALIZATION_READY,
 } from '@wayfare/contracts';
-import { OutboxService, SYSTEM_ORIGIN } from '@wayfare/nest-common';
+import { NotYet, OutboxService, SYSTEM_ORIGIN } from '@wayfare/nest-common';
 import { placeAuditRecord } from '../places/domain/place-audit';
 import { netVisibilityChange } from '../places/domain/place-lifecycle';
 import { PlacesService } from '../places/places.service';
@@ -100,7 +100,7 @@ export class LocalizationsService {
 
   /**
    * `narration.localization.failed` — a final failure marks the current row's audio `FAILED`. One
-   * that arrives before the row exists throws, so the runner redelivers it.
+   * that arrives before the row exists is `NotYet`, so the runner redelivers it as a wait.
    */
   async applyFailed(payload: Failed): Promise<void> {
     if (payload.targetType !== LocalizationTargetType.PLACE || !payload.final) return;
@@ -151,7 +151,7 @@ export class LocalizationsService {
                EXISTS (SELECT 1 FROM place_localizations
                        WHERE place_id = ${payload.targetId}::uuid AND lang = ${payload.lang}) AS row`;
       if (state?.place === true && !state.row) {
-        throw new Error('the failure arrived before its localization; redelivering');
+        throw new NotYet('the failure arrived before its localization');
       }
     });
   }
