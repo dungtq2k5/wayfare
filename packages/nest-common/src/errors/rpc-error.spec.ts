@@ -43,6 +43,8 @@ const VALID_DETAILS: Partial<Record<ErrorCode, unknown>> = {
   MAP_PACK_HASH_MISMATCH: { path: 'maps/hcmc-d1-core/0123456789abcdef/map.pmtiles' },
   MAP_PACK_OBJECT_MISSING: { path: 'maps/hcmc-d1-core/0123456789abcdef/style.json' },
   MAP_PACK_TOO_LARGE: { bytes: 61_000_000, maxBytes: 60_000_000 },
+  MAP_PACK_ALREADY_REGISTERED: { mapPackId: '01960000-0000-7000-8000-000000000001' },
+  NOT_A_STAFF_ROLE: { roleIds: ['01960000-0000-7000-8000-000000000002'] },
   PRONUNCIATION_TERM_EXISTS: { term: 'Bến Thành', targetLang: 'en' },
 };
 

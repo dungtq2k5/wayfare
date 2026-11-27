@@ -17,6 +17,11 @@ test('C1 → C6: the admin signs in to every staff section, in order', async ({ 
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
   await expect(page.getByText('Staff sign in with their email and password')).toBeVisible();
   await expectAccessible(page);
+  // The tab shows the Wayfare mark, served as it is.
+  const icon = await page.locator('link[rel="icon"]').first().getAttribute('href');
+  expect(icon).toMatch(/^\/icon\.png/);
+  const served = await page.request.get(icon!);
+  expect(served.headers()['content-type']).toBe('image/png');
   const { admin } = accounts();
   await signIn(page, admin.email, admin.password);
   await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();

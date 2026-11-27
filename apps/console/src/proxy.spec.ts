@@ -42,7 +42,7 @@ describe('every page’s headers (architecture §10)', () => {
   it('runs on pages only, never Next.js’s own files or the brand’s', () => {
     const pages = new RegExp(`^${config.matcher[0]}$`);
     expect(pages.test('/places/p1')).toBe(true);
-    for (const path of ['/_next/static/x.js', '/brand/logo.svg', '/favicon.ico'])
+    for (const path of ['/_next/static/x.js', '/brand/logo.svg', '/favicon.ico', '/icon.png'])
       expect(pages.test(path)).toBe(false);
   });
 });

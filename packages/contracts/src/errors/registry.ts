@@ -10,8 +10,10 @@ import {
   invalidStateDetails,
   legalVersionOutdatedDetails,
   limitDetails,
+  mapPackAlreadyRegisteredDetails,
   mapPackObjectDetails,
   mapPackTooLargeDetails,
+  notAStaffRoleDetails,
   ownerHasActiveObligationsDetails,
   ownerHasLiveVouchersDetails,
   permissionDeniedDetails,
@@ -86,6 +88,8 @@ export const ERRORS = {
   MALFORMED_REQUEST: badRequest,
   CLIENT_HEADER_REQUIRED: badRequest,
   IDEMPOTENCY_KEY_REQUIRED: badRequest,
+  // `USER` comes only from sign-up, `VENUE_OWNER` only from an owner review.
+  NOT_A_STAFF_ROLE: { ...badRequest, details: notAStaffRoleDetails },
 
   // 401
   UNAUTHENTICATED: unauthenticated,
@@ -128,6 +132,7 @@ export const ERRORS = {
   SUBSCRIPTION_EXISTS: exists,
   REGISTRATION_ALREADY_PENDING: exists,
   ROLE_NAME_TAKEN: exists,
+  MAP_PACK_ALREADY_REGISTERED: { ...exists, details: mapPackAlreadyRegisteredDetails },
   INVALID_STATE: { ...conflict, details: invalidStateDetails },
   EMAIL_CHANGE_REVERT_PENDING: conflict,
   IDEMPOTENCY_KEY_IN_FLIGHT: conflict,

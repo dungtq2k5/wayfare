@@ -13,6 +13,7 @@ import {
 } from '@wayfare/contracts';
 import type { EventPayload } from '@wayfare/contracts';
 import { localizationReadyFixture } from '@wayfare/contracts/testing';
+import { NotYet } from '@wayfare/nest-common';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { menuItemContentHash } from '../../src/modules/places/places.service';
 import { testPrisma, truncateAll } from '../setup/database';
@@ -292,7 +293,8 @@ describe('narration.localization.failed', () => {
 
   it('redelivers a final failure that arrives before its text', async () => {
     const { id, contentHash } = await processing();
-    await expect(failed(id, 'ja', true)).rejects.toThrow(/before its localization/);
+    // A wait, not a failure: the runner logs it as one and redelivers it.
+    await expect(failed(id, 'ja', true)).rejects.toBeInstanceOf(NotYet);
     await apply(
       ready({ placeId: id, lang: 'ja', sourceContentHash: contentHash, audioContentHash: null }),
     );

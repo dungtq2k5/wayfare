@@ -141,6 +141,7 @@ export function StaffAccountDialog({ onOpenChange }: { onOpenChange: (open: bool
         setBusy(false);
         if (codeOf(error) === 'EMAIL_TAKEN') setErrors({ email: t('staff.emailTaken') });
         else if (codeOf(error) === 'SUPER_ADMIN_NOT_ASSIGNABLE') setAlert(t('staff.notAssignable'));
+        else if (codeOf(error) === 'NOT_A_STAFF_ROLE') setAlert(t('staff.notStaffRole'));
         else setAlert(errorText(error, translator));
       },
     );
@@ -264,6 +265,10 @@ export function RolesDialog({
       },
       (error: unknown) => {
         setBusy(false);
+        if (codeOf(error) === 'NOT_A_STAFF_ROLE') {
+          setAlert(t('staff.notStaffRole'));
+          return;
+        }
         if (codeOf(error) === 'PERMISSION_DENIED') {
           const required = (details(error)?.required as string[] | undefined) ?? [];
           const role = (roles.data ?? []).find(

@@ -1394,6 +1394,7 @@
   "staff.createdBody": "Liên kết đặt mật khẩu đang được gửi tới {email}.",
   "staff.emailTaken": "Địa chỉ này đã có tài khoản dùng, hoặc đang được giữ cho một lần đổi email đang hoàn tác.",
   "staff.notAssignable": "Không thể cấp Quản trị cấp cao từ bảng điều khiển.",
+  "staff.notStaffRole": "Không thể cấp vai trò du khách hoặc chủ địa điểm từ bảng điều khiển: các vai trò này đến từ việc đăng ký và việc duyệt chủ địa điểm.",
   "staff.chooseRole": "Chọn ít nhất một vai trò.",
   "rolesDialog.title": "Vai trò của {name}",
   "rolesDialog.lead": "Thay đổi có hiệu lực ở lần làm mới tiếp theo của họ, trong vài phút; không ai bị đăng xuất.",

@@ -7,7 +7,9 @@ import {
 } from '@wayfare/contracts';
 import type { AuditRecordPayload } from '@wayfare/contracts';
 import { describe, expect, it, vi } from 'vitest';
+import { NotYet } from '../errors/not-yet';
 import { PoisonMessage } from '../errors/poison-message';
+import { wayfareTracer } from '../observability/trace';
 import type { NatsClient } from './nats.client';
 import {
   ConsumerRunner,
@@ -16,6 +18,7 @@ import {
   JetStreamConsumer,
   MAX_DELIVER,
   NAK_DELAYS_MS,
+  QUIET_WAITS,
 } from './consumer.runner';
 import type { DeadLetterPublisher, RunnerMessage } from './consumer.runner';
 
@@ -89,7 +92,7 @@ class FakeDlq implements DeadLetterPublisher {
   }
 }
 
-const silent = { warn: () => undefined, error: () => undefined };
+const silent = { log: () => undefined, warn: () => undefined, error: () => undefined };
 const deviceId = newId();
 const valid = {
   eventId: newId(),
@@ -153,6 +156,71 @@ describe('handleMessage — the three outcomes', () => {
     const msg = message(valid);
     expect(await handleMessage(consumer, msg, new FakeDlq(true), silent)).toBe('nacked');
     expect(msg.outcome).toEqual([`nak:${NAK_DELAYS_MS[0]}`]);
+  });
+});
+
+describe('handleMessage — a handler that says “not yet”', () => {
+  const waiting = () =>
+    new RecordingConsumer(() => {
+      throw new NotYet('the failure arrived before its localization');
+    });
+  const logs = () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() });
+
+  it('redelivers with the usual backoff, at info for the first deliveries, then at warn', async () => {
+    const early = logs();
+    const first = message(valid, { deliveryCount: 1 });
+    expect(await handleMessage(waiting(), first, new FakeDlq(), early)).toBe('nacked');
+    await handleMessage(
+      waiting(),
+      message(valid, { deliveryCount: QUIET_WAITS }),
+      new FakeDlq(),
+      early,
+    );
+    expect(first.outcome).toEqual([`nak:${NAK_DELAYS_MS[0]}`]);
+    expect(early.log).toHaveBeenCalledTimes(2);
+    expect(early.log).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'the failure arrived before its localization' }),
+      'waiting; redelivering',
+    );
+    expect(early.warn).not.toHaveBeenCalled();
+
+    const late = logs();
+    const fourth = message(valid, { deliveryCount: QUIET_WAITS + 1 });
+    expect(await handleMessage(waiting(), fourth, new FakeDlq(), late)).toBe('nacked');
+    expect(late.log).not.toHaveBeenCalled();
+    expect(late.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ deliveryCount: QUIET_WAITS + 1 }),
+      'still waiting; redelivering',
+    );
+  });
+
+  it('leaves its trace unmarked while it waits, and marks it when it gives up', async () => {
+    const statuses: unknown[] = [];
+    const span = { setStatus: (status: unknown) => statuses.push(status), end: () => undefined };
+    const started = vi
+      .spyOn(wayfareTracer, 'startActiveSpan')
+      .mockImplementation((...args: unknown[]) =>
+        (args.at(-1) as (s: typeof span) => unknown)(span),
+      );
+    await handleMessage(waiting(), message(valid, { deliveryCount: 2 }), new FakeDlq(), logs());
+    expect(statuses).toEqual([]);
+    await handleMessage(
+      waiting(),
+      message(valid, { deliveryCount: MAX_DELIVER }),
+      new FakeDlq(),
+      logs(),
+    );
+    expect(statuses).toHaveLength(1);
+    started.mockRestore();
+  });
+
+  it('dead-letters at the last delivery, saying it never settled', async () => {
+    const dlq = new FakeDlq();
+    const msg = message(valid, { deliveryCount: MAX_DELIVER });
+    expect(await handleMessage(waiting(), msg, dlq, logs())).toBe('dead-lettered');
+    expect(dlq.letters[0]?.headers[DLQ_HEADERS.error]).toBe(
+      `still waiting after ${MAX_DELIVER} deliveries: the failure arrived before its localization`,
+    );
   });
 });
 

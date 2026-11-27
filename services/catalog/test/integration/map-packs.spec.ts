@@ -121,6 +121,22 @@ describe('registering a map pack', () => {
     });
   });
 
+  it('registers an archive once per area until it is retired, whoever sends it again', async () => {
+    const { request } = await uploadBuild();
+    const { mapPack: first } = await register(request);
+    expect(await errorOf(register(request))).toEqual({
+      code: 'MAP_PACK_ALREADY_REGISTERED',
+      details: { mapPackId: first!.id },
+    });
+    await publish(first!.id);
+    expect((await errorOf(register(request)))?.code).toBe('MAP_PACK_ALREADY_REGISTERED');
+
+    // Retired by a newer pack, the same archive may come back as a new version.
+    const { mapPack: newer } = await register((await uploadBuild()).request);
+    await publish(newer!.id);
+    expect((await register(request)).mapPack!.version).toBe(3);
+  });
+
   it('refuses a changed or missing object, a path outside the build, and an oversize pack', async () => {
     const { request, prefix } = await uploadBuild();
     await services.storage.upload(request.pmtiles!.path, randomBytes(40_000), {
