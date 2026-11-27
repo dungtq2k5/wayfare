@@ -94,7 +94,7 @@ jobs:
           # The runner is thrown away; removing the builder only adds minutes.
           cleanup: false
       # The cache's token and URLs, for the stack's `docker compose` build.
-      - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
 
       # The flows run in this machine's Chromium; the screens in the pinned image's (screens/browser.ts).
       - name: Cache Playwright's Chromium
@@ -184,7 +184,7 @@ jobs:
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           cleanup: false
-      - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
       - name: Sample the runner's load
         run: (vmstat -t 5 > "$RUNNER_TEMP/vmstat.log" &)
       - run: apps/console/e2e/screens/order-check.sh
