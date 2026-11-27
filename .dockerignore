@@ -36,3 +36,6 @@ apps/*/e2e
 apps/mobile/.maestro
 **/playwright-report
 infra/tiles/.cache/
+# The mobile app's native builds (Gradle's output, gigabytes): no service image reads them.
+apps/mobile/android
+apps/mobile/ios

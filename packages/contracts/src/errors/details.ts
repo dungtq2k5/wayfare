@@ -120,6 +120,12 @@ export const areaHasLivePlacesDetails = z.object({ count: z.number().int().min(1
 /** `MAP_PACK_HASH_MISMATCH`, `MAP_PACK_OBJECT_MISSING`: the object at fault. */
 export const mapPackObjectDetails = z.object({ path: z.string().min(1) }).strict();
 
+/** `MAP_PACK_ALREADY_REGISTERED`: the pack that already holds this archive for the area. */
+export const mapPackAlreadyRegisteredDetails = z.object({ mapPackId: zUuidV7 }).strict();
+
+/** `NOT_A_STAFF_ROLE`: the roles named that only sign-up or an owner review may give. */
+export const notAStaffRoleDetails = z.object({ roleIds: z.array(zUuidV7).min(1) }).strict();
+
 /** `MAP_PACK_TOO_LARGE`: the pack's weight and the budget. */
 export const mapPackTooLargeDetails = z
   .object({ bytes: z.number().int().min(1), maxBytes: z.number().int().min(1) })

@@ -8153,7 +8153,7 @@
             }
           },
           "400": {
-            "description": "CLIENT_HEADER_REQUIRED | VALIDATION_FAILED",
+            "description": "CLIENT_HEADER_REQUIRED | NOT_A_STAFF_ROLE | VALIDATION_FAILED",
             "content": {
               "application/json": {
                 "schema": {
@@ -8174,6 +8174,7 @@
                           "type": "string",
                           "enum": [
                             "CLIENT_HEADER_REQUIRED",
+                            "NOT_A_STAFF_ROLE",
                             "VALIDATION_FAILED"
                           ]
                         },
@@ -10015,7 +10016,7 @@
             }
           },
           "400": {
-            "description": "CLIENT_HEADER_REQUIRED | VALIDATION_FAILED",
+            "description": "CLIENT_HEADER_REQUIRED | NOT_A_STAFF_ROLE | VALIDATION_FAILED",
             "content": {
               "application/json": {
                 "schema": {
@@ -10036,6 +10037,7 @@
                           "type": "string",
                           "enum": [
                             "CLIENT_HEADER_REQUIRED",
+                            "NOT_A_STAFF_ROLE",
                             "VALIDATION_FAILED"
                           ]
                         },
@@ -56308,6 +56310,47 @@
                           "type": "string",
                           "enum": [
                             "RESOURCE_NOT_FOUND"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "MAP_PACK_ALREADY_REGISTERED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "MAP_PACK_ALREADY_REGISTERED"
                           ]
                         },
                         "message": {

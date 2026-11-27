@@ -45,6 +45,7 @@ export class AdminMapPacksController {
   @ApiEnvelope(MapPackResultResponseDto)
   @ApiErrors(
     'RESOURCE_NOT_FOUND',
+    'MAP_PACK_ALREADY_REGISTERED',
     'MAP_PACK_HASH_MISMATCH',
     'MAP_PACK_OBJECT_MISSING',
     'MAP_PACK_TOO_LARGE',

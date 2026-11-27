@@ -1,6 +1,6 @@
 # infra/tiles — map packs
 
-`pnpm tiles:build --area <code>` builds an area's self-hosted map pack ([architecture §6](../../docs/architecture-and-tech-stack.md), [ADR 0023](../../docs/decisions/0023-self-hosted-pmtiles-no-tile-vendor.md)) and uploads it to the media bucket under `maps/<areaCode>/<buildId>/`, where `buildId` is the first 16 hex characters of the archive's SHA-256. It prints the `POST /admin/map-packs` body, also written to `.cache/build/<code>/register.json`. An admin then registers the pack, which re-hashes every object, and publishes it.
+`pnpm tiles:build --area <code>` builds an area's self-hosted map pack ([architecture §6](../../docs/architecture-and-tech-stack.md), [ADR 0023](../../docs/decisions/0023-self-hosted-pmtiles-no-tile-vendor.md)) and uploads it to the media bucket under `maps/<areaCode>/<buildId>/`, where `buildId` is the first 16 hex characters of the archive's SHA-256. It writes the `POST /admin/map-packs` body to `.cache/build/<code>/register.json`, then **registers the pack** (`register.mjs`): it signs in as a staff account holding `map_pack.manage` (`TILES_ADMIN_EMAIL` and `TILES_GATEWAY_URL` from the shell or the gitignored `infra/tiles/.env`; the password asked for in an interactive shell, else `TILES_ADMIN_PASSWORD`), as the `console` client — a `mobile` caller must send an app version, which a minimum version would refuse — sends the body, and signs out. Catalog re-hashes every object; an archive already registered for the area answers `409 MAP_PACK_ALREADY_REGISTERED`, which the build reports as "already registered". **The gateway and catalog must be running**, seeing the bucket the build uploaded to. **Publishing stays in the console.**
 
 ## What it does
 
@@ -13,7 +13,7 @@
    - The mobile client replaces the `GCS_PUBLIC_BASE_URL` prefix with the pack's local directory at activation.
 6. **The budget and the upload.** Over `MAX_MAP_PACK_BYTES` (60 MB, the archive and its assets together) the build stops before uploading. The objects are immutable: `Cache-Control: public, max-age=31536000, immutable`. Storage settings are catalog's own, read from `services/catalog/.env`: `GCS_BUCKET_MEDIA`, `GCS_API_ENDPOINT` (locally, fake-gcs) and `GOOGLE_APPLICATION_CREDENTIALS`.
 
-`--no-upload` stops after step 4, leaving the files in `.cache/build/<code>/`.
+`--no-upload` stops after step 4, leaving the files in `.cache/build/<code>/`, and registers nothing; so does a build without the credentials, which says what's missing.
 
 Locally, run `pnpm --filter @wayfare/catalog storage:setup` once so the media bucket exists with its CORS rules; the second rule lets a browser make range reads.
 

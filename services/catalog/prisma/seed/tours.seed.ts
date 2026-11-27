@@ -4,6 +4,7 @@
 // of the Vĩnh Khánh Venues. Their English comes from narration's translator; each goes live by
 // itself once it arrives. Each keeps a fixed code. Run after both pilots; idempotent; never in
 // production.
+import './warnings';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';

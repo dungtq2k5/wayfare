@@ -24,6 +24,8 @@ docs/archive/
 cspell.json
 # The tile pipeline's downloads and builds (`pnpm tiles:build`).
 infra/tiles/.cache/
+# The tile build's staff email and gateway URL (never a password).
+infra/tiles/.env
 # The load test's summaries (infra/load/README.md).
 infra/load/results/
 graphify-out/

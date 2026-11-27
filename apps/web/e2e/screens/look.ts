@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { accessible } from '../../../console/e2e/screens/look';
+import { accessible, noControlCutOff } from '../../../console/e2e/screens/look';
 import { keepNormalized, RULES, stopNormalizing } from '../../../console/e2e/screens/normalize';
 import type { Rule } from '../../../console/e2e/screens/normalize';
 
@@ -125,6 +125,7 @@ export async function look(
     }
   }
   await page.evaluate(stopNormalizing);
+  if (options.only === undefined) await noControlCutOff(page, name);
   await page.emulateMedia({ colorScheme: 'light' });
   if (initial !== null) await page.setViewportSize(initial);
 }
