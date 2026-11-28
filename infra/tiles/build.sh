@@ -5,10 +5,13 @@
 # archive with `pmtiles extract` (only the byte ranges it needs are fetched — seconds, little
 # memory), the glyph ranges Vietnamese needs and the sprites from the pinned assets commit, then
 # `upload.mjs` writes the style, checks the budget, uploads everything under
-# `maps/<areaCode>/<buildId>/` and prints the registration body.
+# `maps/<areaCode>/<buildId>/` and writes the registration body; then `register.mjs` registers the
+# pack through the gateway as a staff account (design 35), skipping one already registered.
+# Publishing stays in the console.
 #
 # A seeded area is read from the seed corpus (services/catalog/prisma/seed/pilot-*/area.json); an
-# area an admin created takes --bbox and --area-id. No service needs to run.
+# area an admin created takes --bbox and --area-id. Registering needs the gateway and catalog
+# running, reading the bucket the build uploaded to; --no-upload builds only, and registers nothing.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -27,6 +30,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -n $area ]] || { echo '✗ --area <code> is required' >&2; exit 2; }
+# An area code names a directory below: letters, digits and hyphens only (register.mjs agrees).
+[[ $area =~ ^[A-Za-z0-9-]+$ ]] || { echo "✗ --area $area: letters, digits and hyphens only" >&2; exit 2; }
 
 cache=$here/.cache
 out=$cache/build/$area
@@ -122,3 +127,16 @@ echo '✓ sprites (light and dark)'
 
 [[ $upload == 1 ]] || { echo "✓ built in $out (not uploaded)"; exit 0; }
 node "$here/upload.mjs" --out "$out" --area "$area" --area-id "$area_id" --basemaps "$basemaps"
+
+# The pack is registered as a staff account: the email and the gateway from the shell or the
+# gitignored .env; the password asked for, never kept in a file (TILES_ADMIN_PASSWORD only when
+# set), and handed over on stdin.
+setting() { local value=${!1:-}; [[ -n $value ]] || value=$(sed -n "s/^$1=//p" "$here/.env" 2>/dev/null || true); printf '%s' "$value"; }
+email=$(setting TILES_ADMIN_EMAIL)
+password=${TILES_ADMIN_PASSWORD:-}
+if [[ -n $email && -z $password && -t 0 ]]; then
+  read -rsp "Password for $email (to register the pack): " password
+  echo >&2
+fi
+printf '%s' "$password" |
+  node "$here/register.mjs" --area "$area" --email "$email" --gateway "$(setting TILES_GATEWAY_URL)"

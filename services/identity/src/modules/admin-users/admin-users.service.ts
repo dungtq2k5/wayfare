@@ -62,6 +62,7 @@ import {
   toErasedUser,
 } from './admin-user.mapper';
 import type { AdminUserRow } from './admin-user.mapper';
+import { isStaffRole } from './domain/account-kind';
 import { addedCodesActorLacks, targetCodesActorLacks } from './domain/escalation';
 import { nameOf } from '../users/domain/name-of';
 
@@ -759,7 +760,9 @@ export class AdminUsersService {
 
   /**
    * The roles a request names, with their grants. An unknown id is `RESOURCE_NOT_FOUND`;
-   * `SUPER_ADMIN` is never assignable here, unless the account already holds it.
+   * `SUPER_ADMIN` is never assignable here, unless the account already holds it, and neither is a
+   * role that isn't a staff role (`USER`, `VENUE_OWNER`): an account keeps one it holds — the
+   * console's dialog sends the held roles back — but staff administration never adds one.
    */
   private async requestedRoles(
     tx: Prisma.TransactionClient,
@@ -776,6 +779,10 @@ export class AdminUsersService {
     const held = new Set(options.alreadyHeld ?? []);
     if (roles.some((role) => role.code === SUPER_ADMIN_CODE && !held.has(role.id))) {
       throw rpcError('SUPER_ADMIN_NOT_ASSIGNABLE');
+    }
+    const notStaff = roles.filter((role) => !isStaffRole(role.code) && !held.has(role.id));
+    if (notStaff.length > 0) {
+      throw rpcError('NOT_A_STAFF_ROLE', { roleIds: notStaff.map((role) => role.id) });
     }
     return roles;
   }

@@ -186,6 +186,10 @@ export function wayfareConfig({ tsconfigRootDir }) {
         // The screen baselines' own development server's build (apps/console/e2e/README.md).
         '**/.next-screens/**',
         '**/playwright-report/**',
+        // The tile build's downloads: the pinned style generator and CLI (infra/tiles/README.md).
+        'infra/tiles/.cache/**',
+        // Other sessions' git worktrees: each lints itself.
+        '.claude/worktrees/**',
         // The web app's service worker, built by Serwist from src/sw.ts.
         'apps/web/public/sw.js',
         'apps/web/public/swe-worker-*.js',

@@ -10,6 +10,7 @@ export * from './crypto/content-hash';
 export * from './crypto/pii';
 export * from './crypto/tokens';
 export * from './errors/grpc-service-error';
+export * from './errors/not-yet';
 export * from './errors/poison-message';
 export * from './errors/rpc-error';
 export * from './grpc/base-grpc.client';

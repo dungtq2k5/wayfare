@@ -115,7 +115,7 @@ jobs:
       - run: pnpm vitest run --project unit:guards
       # The unit suites, with their coverage kept for the merge in `sonar`.
       - run: pnpm test:coverage
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vitest-blob-unit
           path: .vitest-reports/unit.json
@@ -150,7 +150,7 @@ jobs:
 
       # The integration suites, with their coverage kept for the merge in `sonar`.
       - run: pnpm test:integration:coverage
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vitest-blob-integration
           path: .vitest-reports/integration.json
@@ -172,7 +172,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/setup
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           # The runner is thrown away; removing the builder took 100 s.
           cleanup: false
